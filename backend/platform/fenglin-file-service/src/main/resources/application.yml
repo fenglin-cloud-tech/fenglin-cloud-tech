@@ -1,0 +1,20 @@
+server:
+  port: 8086
+
+spring:
+  application:
+    name: fenglin-file-service
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+info:
+  app:
+    name: ${spring.application.name}
