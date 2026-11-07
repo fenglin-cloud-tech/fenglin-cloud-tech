@@ -1,0 +1,8 @@
+{
+  "name": "@fenglin/charts",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "node -e \"console.log('@fenglin/charts placeholder build')\""
+  }
+}

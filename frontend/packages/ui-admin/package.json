@@ -1,0 +1,8 @@
+{
+  "name": "@fenglin/ui-admin",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "node -e \"console.log('@fenglin/ui-admin placeholder build')\""
+  }
+}

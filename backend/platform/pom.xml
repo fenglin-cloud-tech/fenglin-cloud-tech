@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.fenglin</groupId>
+        <artifactId>fenglin-cloud</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>fenglin-platform</artifactId>
+    <packaging>pom</packaging>
+    <name>fenglin-platform</name>
+
+    <modules>
+        <module>fenglin-hub-migrations</module>
+        <module>fenglin-gateway</module>
+        <module>fenglin-auth-service</module>
+        <module>fenglin-iam-service</module>
+        <module>fenglin-tenant-service</module>
+        <module>fenglin-workflow-service</module>
+        <module>fenglin-message-service</module>
+        <module>fenglin-file-service</module>
+        <module>fenglin-audit-service</module>
+        <module>fenglin-search-service</module>
+        <module>fenglin-openapi-service</module>
+        <module>fenglin-report-service</module>
+        <module>fenglin-lowcode-service</module>
+        <module>fenglin-ai-service</module>
+    </modules>
+</project>

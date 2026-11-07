@@ -1,0 +1,8 @@
+{
+  "name": "@fenglin/api-client",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "node -e \"console.log('@fenglin/api-client placeholder build')\""
+  }
+}
