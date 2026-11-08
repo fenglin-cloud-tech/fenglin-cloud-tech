@@ -294,6 +294,74 @@ class AiIntegrationTest {
         assertThat(metering.get("records").get(0).get("stat_date").asText()).isEqualTo("2026-09-30");
     }
 
+    @Test
+    void managesModelPromptAndGrantLifecycle() throws Exception {
+        configureModel();
+        putGrants(List.of(grant("crm", "RAG", true, 5000000L)));
+
+        JsonNode models = read(get("/api/hub/v1/admin/ai/models", MODEL_PERM).getBody()).get("data");
+        assertThat(models.get("total").asLong()).isEqualTo(1);
+        assertThat(models.get("records").get(0).get("enabled").asBoolean()).isTrue();
+        long modelId = models.get("records").get(0).get("id").asLong();
+
+        Map<String, Object> modelPatch = new HashMap<>();
+        modelPatch.put("routing_weight", 200);
+        modelPatch.put("enabled", false);
+        JsonNode updatedModel = read(put("/api/hub/v1/admin/ai/models/" + modelId, MODEL_PERM,
+                modelPatch).getBody()).get("data");
+        assertThat(updatedModel.get("routing_weight").asInt()).isEqualTo(200);
+        assertThat(updatedModel.get("enabled").asBoolean()).isFalse();
+        try (Connection connection = DriverManager.getConnection(JDBC_URL, "postgres", "");
+             Statement statement = connection.createStatement();
+             var rs = statement.executeQuery("SELECT api_key_enc FROM fenglin_hub.hub_ai_model"
+                     + " WHERE id = " + modelId)) {
+            assertThat(rs.next()).isTrue();
+            assertThat(rs.getString(1)).isNotBlank();
+        }
+        assertThat(read(get("/api/hub/v1/admin/ai/models?modelType=EMBEDDING", MODEL_PERM)
+                .getBody()).get("data").get("total").asLong()).isZero();
+        assertThat(AUDIT_EVENTS).anyMatch(event -> "AI_MODEL_UPDATED".equals(event.eventType()));
+
+        assertThat(delete("/api/hub/v1/admin/ai/models/" + modelId, MODEL_PERM)
+                .getStatusCode().value()).isEqualTo(200);
+        assertThat(read(get("/api/hub/v1/admin/ai/models", MODEL_PERM).getBody())
+                .get("data").get("total").asLong()).isZero();
+        assertThat(AUDIT_EVENTS).anyMatch(event -> "AI_MODEL_DELETED".equals(event.eventType()));
+
+        JsonNode prompts = read(get("/api/hub/v1/admin/ai/prompts?scene=RAG", PROMPT_PERM)
+                .getBody()).get("data");
+        assertThat(prompts.get("total").asLong()).isEqualTo(1);
+        assertThat(prompts.get("records").get(0).get("prompt_version").asInt()).isEqualTo(1);
+
+        JsonNode promptV2 = read(put("/api/hub/v1/admin/ai/prompts/rag_default", PROMPT_PERM,
+                promptBody("你是企业知识助手", "只根据资料回答：{{context}}")).getBody()).get("data");
+        assertThat(promptV2.get("prompt_version").asInt()).isEqualTo(2);
+        assertThat(read(get("/api/hub/v1/admin/ai/prompts", PROMPT_PERM).getBody())
+                .get("data").get("records")).hasSize(1);
+        assertThat(put("/api/hub/v1/admin/ai/prompts/not_exists", PROMPT_PERM,
+                promptBody("a", "b")).getStatusCode().value()).isEqualTo(404);
+
+        assertThat(delete("/api/hub/v1/admin/ai/prompts/rag_default", PROMPT_PERM)
+                .getStatusCode().value()).isEqualTo(200);
+        assertThat(read(get("/api/hub/v1/admin/ai/prompts", PROMPT_PERM).getBody())
+                .get("data").get("total").asLong()).isZero();
+
+        JsonNode grants = read(get("/api/hub/v1/admin/ai/capability-grants?hostProduct=crm",
+                GRANT_PERM).getBody()).get("data");
+        assertThat(grants.get("items")).hasSize(1);
+        assertThat(grants.get("items").get(0).get("capability").asText()).isEqualTo("RAG");
+        assertThat(get("/api/hub/v1/admin/ai/capability-grants?hostProduct=none", GRANT_PERM)
+                .getBody()).contains("\"items\":[]");
+
+        assertThat(delete("/api/hub/v1/admin/ai/capability-grants/crm/RAG", GRANT_PERM)
+                .getStatusCode().value()).isEqualTo(200);
+        assertThat(get("/api/hub/v1/admin/ai/capability-grants", GRANT_PERM).getBody())
+                .contains("\"items\":[]");
+        assertThat(AUDIT_EVENTS).anyMatch(event -> "AI_GRANT_DELETED".equals(event.eventType()));
+
+        assertThat(get("/api/hub/v1/admin/ai/models", null).getStatusCode().value()).isEqualTo(403);
+    }
+
     // ---------- helpers ----------
 
     private void configureModel() {
@@ -348,6 +416,21 @@ class AiIntegrationTest {
     private ResponseEntity<String> get(String path) {
         return restTemplate.exchange(url(path), HttpMethod.GET,
                 new HttpEntity<>(headers(null)), String.class);
+    }
+
+    private ResponseEntity<String> get(String path, String permission) {
+        return restTemplate.exchange(url(path), HttpMethod.GET,
+                new HttpEntity<>(headers(permission)), String.class);
+    }
+
+    private ResponseEntity<String> put(String path, String permission, Object body) {
+        return restTemplate.exchange(url(path), HttpMethod.PUT,
+                new HttpEntity<>(body, headers(permission)), String.class);
+    }
+
+    private ResponseEntity<String> delete(String path, String permission) {
+        return restTemplate.exchange(url(path), HttpMethod.DELETE,
+                new HttpEntity<>(headers(permission)), String.class);
     }
 
     private HttpHeaders headers(String permission) {

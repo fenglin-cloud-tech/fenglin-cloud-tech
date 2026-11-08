@@ -89,6 +89,33 @@ public class AiGovernanceService {
         return new GrantResult(views);
     }
 
+    /** 扩展：授权列表（总纲 1306 仅定义写入，列表按管理端展示最小语义实现）。 */
+    @Transactional(readOnly = true)
+    public GrantResult listGrants(String hostProduct) {
+        long tenantId = TenantContext.requireTenantId();
+        String filter = hostProduct == null || hostProduct.isBlank() ? null : hostProduct.trim();
+        List<GrantView> views = new ArrayList<>();
+        for (Map<String, Object> row : grantMapper.listAll(tenantId)) {
+            if (filter == null || filter.equals(row.get("host_product"))) {
+                views.add(toView(row));
+            }
+        }
+        return new GrantResult(views);
+    }
+
+    /** 扩展：授权撤销（软删除），不影响其他能力。 */
+    @Transactional
+    public void deleteGrant(String hostProduct, String capability, Long operatorId) {
+        long tenantId = TenantContext.requireTenantId();
+        String product = require(hostProduct, "hostProduct");
+        String caps = require(capability, "capability").toUpperCase();
+        int affected = grantMapper.softDelete(tenantId, product, caps, operatorId);
+        if (affected == 0) {
+            throw new BizException(CommonErrorCode.NOT_FOUND, "授权不存在");
+        }
+        audit(tenantId, operatorId, "AI_GRANT_DELETED", product + ":" + caps);
+    }
+
     @Transactional(readOnly = true)
     public boolean isAuthorized(long tenantId, String hostProduct, String capability) {
         Map<String, Object> grant = grantMapper.find(tenantId, hostProduct, capability);

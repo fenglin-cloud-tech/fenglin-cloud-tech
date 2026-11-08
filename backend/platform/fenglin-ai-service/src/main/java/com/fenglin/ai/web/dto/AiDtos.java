@@ -15,7 +15,13 @@ public final class AiDtos {
     }
 
     public record ModelView(long id, String code, String providerType, String modelType,
-                            String endpoint, String apiKeyFingerprint, int routingWeight) {
+                            String endpoint, String apiKeyFingerprint, int routingWeight,
+                            boolean enabled) {
+    }
+
+    /** 扩展：模型更新（apiKey 为空表示保留原密钥）。 */
+    public record ModelUpdateRequest(String providerType, String modelType, String endpoint,
+                                     String apiKey, Integer routingWeight, Boolean enabled) {
     }
 
     // HUB-API-1302

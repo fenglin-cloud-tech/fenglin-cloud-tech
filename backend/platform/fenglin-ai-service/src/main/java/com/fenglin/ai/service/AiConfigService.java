@@ -6,6 +6,7 @@ import com.fenglin.ai.AiErrorCode;
 import com.fenglin.ai.mapper.AiModelMapper;
 import com.fenglin.ai.mapper.AiPromptMapper;
 import com.fenglin.ai.web.dto.AiDtos.ModelCreateRequest;
+import com.fenglin.ai.web.dto.AiDtos.ModelUpdateRequest;
 import com.fenglin.ai.web.dto.AiDtos.ModelView;
 import com.fenglin.ai.web.dto.AiDtos.PromptCreateRequest;
 import com.fenglin.ai.web.dto.AiDtos.PromptView;
@@ -13,6 +14,7 @@ import com.fenglin.common.audit.AuditEvent;
 import com.fenglin.common.audit.AuditSink;
 import com.fenglin.common.core.BizException;
 import com.fenglin.common.core.CommonErrorCode;
+import com.fenglin.common.core.PageResult;
 import com.fenglin.common.crypto.AesGcmCipher;
 import com.fenglin.common.tenant.TenantContext;
 import org.springframework.stereotype.Service;
@@ -90,7 +92,7 @@ public class AiConfigService {
                 cipher.encrypt(apiKey, aad(tenantId)), routingWeight, fingerprint(apiKey), operatorId);
         audit(tenantId, operatorId, "AI_MODEL_CONFIGURED", code);
         return new ModelView(id, code, providerType, modelType, endpoint, fingerprint(apiKey),
-                routingWeight);
+                routingWeight, true);
     }
 
     @Transactional
@@ -149,6 +151,124 @@ public class AiConfigService {
         return latest == null ? null : toPromptView(latest);
     }
 
+    /** 扩展：模型列表（总纲未定义，按管理端展示最小语义实现）。 */
+    @Transactional(readOnly = true)
+    public PageResult<ModelView> listModels(String modelType, String providerType,
+                                            long page, long size) {
+        long tenantId = TenantContext.requireTenantId();
+        long safePage = Math.max(page, 1);
+        long safeSize = Math.min(Math.max(size, 1), 200);
+        String type = blankToNull(modelType);
+        String provider = blankToNull(providerType);
+        List<ModelView> records = modelMapper.list(tenantId, type, provider,
+                        (safePage - 1) * safeSize, safeSize).stream()
+                .map(this::toModelView)
+                .toList();
+        return PageResult.of(records, modelMapper.count(tenantId, type, provider), safePage, safeSize);
+    }
+
+    /** 扩展：模型更新，apiKey 为空时保留原密钥。 */
+    @Transactional
+    public ModelView updateModel(long id, ModelUpdateRequest request, Long operatorId) {
+        long tenantId = TenantContext.requireTenantId();
+        if (request == null) {
+            throw new BizException(CommonErrorCode.BAD_REQUEST, "请求体不能为空");
+        }
+        Map<String, Object> existing = modelMapper.findById(tenantId, id);
+        if (existing == null) {
+            throw new BizException(CommonErrorCode.NOT_FOUND, "模型不存在");
+        }
+        String providerType = request.providerType() == null
+                ? (String) existing.get("provider_type") : normalize(request.providerType());
+        if (!PROVIDER_TYPES.contains(providerType)) {
+            throw new BizException(CommonErrorCode.BAD_REQUEST,
+                    "provider_type 仅支持 PUBLIC_CLOUD/PRIVATE_CLOUD/LOCAL");
+        }
+        String modelType = request.modelType() == null
+                ? (String) existing.get("model_type") : normalize(request.modelType());
+        if (!MODEL_TYPES.contains(modelType)) {
+            throw new BizException(CommonErrorCode.BAD_REQUEST,
+                    "model_type 仅支持 LLM/EMBEDDING/RERANK/OCR");
+        }
+        String endpoint = request.endpoint() == null
+                ? (String) existing.get("base_url") : require(request.endpoint(), "endpoint");
+        if (!endpoint.startsWith("http://") && !endpoint.startsWith("https://")) {
+            throw new BizException(CommonErrorCode.BAD_REQUEST, "endpoint 必须以 http(s):// 开头");
+        }
+        int routingWeight = request.routingWeight() == null
+                ? intValue(existing.get("routing_weight")) : request.routingWeight();
+        if (routingWeight < 1 || routingWeight > 1000) {
+            throw new BizException(CommonErrorCode.BAD_REQUEST, "routing_weight 需在 1..1000");
+        }
+        int enabled = request.enabled() == null
+                ? intValue(existing.get("enabled")) : (request.enabled() ? 1 : 0);
+        String apiKeyEnc = null;
+        String apiKeyFingerprint = null;
+        if (request.apiKey() != null && !request.apiKey().isBlank()) {
+            String apiKey = request.apiKey().trim();
+            apiKeyEnc = cipher.encrypt(apiKey, aad(tenantId));
+            apiKeyFingerprint = fingerprint(apiKey);
+        }
+        modelMapper.update(tenantId, id, providerType, modelType, endpoint, apiKeyEnc,
+                apiKeyFingerprint, routingWeight, enabled, operatorId);
+        audit(tenantId, operatorId, "AI_MODEL_UPDATED", (String) existing.get("code"));
+        return toModelView(modelMapper.findById(tenantId, id));
+    }
+
+    /** 扩展：模型软删除。 */
+    @Transactional
+    public void deleteModel(long id, Long operatorId) {
+        long tenantId = TenantContext.requireTenantId();
+        Map<String, Object> existing = modelMapper.findById(tenantId, id);
+        if (existing == null) {
+            throw new BizException(CommonErrorCode.NOT_FOUND, "模型不存在");
+        }
+        modelMapper.softDelete(tenantId, id, operatorId);
+        audit(tenantId, operatorId, "AI_MODEL_DELETED", (String) existing.get("code"));
+    }
+
+    /** 扩展：提示词列表（每个 code 仅返回最新版本）。 */
+    @Transactional(readOnly = true)
+    public PageResult<PromptView> listPrompts(String scene, long page, long size) {
+        long tenantId = TenantContext.requireTenantId();
+        long safePage = Math.max(page, 1);
+        long safeSize = Math.min(Math.max(size, 1), 200);
+        String sceneFilter = blankToNull(scene);
+        List<PromptView> records = promptMapper.listLatest(tenantId, sceneFilter,
+                        (safePage - 1) * safeSize, safeSize).stream()
+                .map(this::toPromptView)
+                .toList();
+        return PageResult.of(records, promptMapper.countLatest(tenantId, sceneFilter),
+                safePage, safeSize);
+    }
+
+    /** 扩展：提示词更新，内容变化时按 1302 既有语义追加新版本。 */
+    @Transactional
+    public PromptView updatePrompt(String code, PromptCreateRequest request, Long operatorId) {
+        long tenantId = TenantContext.requireTenantId();
+        if (request == null) {
+            throw new BizException(CommonErrorCode.BAD_REQUEST, "请求体不能为空");
+        }
+        String normalizedCode = requireCode(code);
+        if (promptMapper.findLatest(tenantId, normalizedCode) == null) {
+            throw new BizException(CommonErrorCode.NOT_FOUND, "提示词不存在");
+        }
+        return createPrompt(new PromptCreateRequest(normalizedCode, request.name(), request.scene(),
+                request.systemPrompt(), request.userPrompt(), request.variables()), operatorId);
+    }
+
+    /** 扩展：提示词软删除（该 code 全部版本）。 */
+    @Transactional
+    public void deletePrompt(String code, Long operatorId) {
+        long tenantId = TenantContext.requireTenantId();
+        String normalizedCode = requireCode(code);
+        int affected = promptMapper.softDeleteByCode(tenantId, normalizedCode, operatorId);
+        if (affected == 0) {
+            throw new BizException(CommonErrorCode.NOT_FOUND, "提示词不存在");
+        }
+        audit(tenantId, operatorId, "AI_PROMPT_DELETED", normalizedCode);
+    }
+
     private boolean sameContent(Map<String, Object> latest, String name, String scene,
                                 String systemPrompt, String userPrompt, String variablesJson) {
         return name.equals(latest.get("name"))
@@ -162,7 +282,7 @@ public class AiConfigService {
         return new ModelView(longValue(row.get("id")), (String) row.get("code"),
                 (String) row.get("provider_type"), (String) row.get("model_type"),
                 (String) row.get("base_url"), (String) row.get("api_key_fingerprint"),
-                intValue(row.get("routing_weight")));
+                intValue(row.get("routing_weight")), intValue(row.get("enabled")) == 1);
     }
 
     private PromptView toPromptView(Map<String, Object> row) {
@@ -225,6 +345,10 @@ public class AiConfigService {
 
     private String normalize(String value) {
         return value == null ? "" : value.trim().toUpperCase();
+    }
+
+    private String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 
     private int intValue(Object value) {

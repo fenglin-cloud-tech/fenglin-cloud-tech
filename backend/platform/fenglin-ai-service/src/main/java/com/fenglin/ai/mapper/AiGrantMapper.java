@@ -4,6 +4,7 @@ import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
 
 import java.util.List;
 import java.util.Map;
@@ -55,4 +56,16 @@ public interface AiGrantMapper {
              ORDER BY host_product, capability
             """)
     List<Map<String, Object>> listAll(@Param("tenantId") long tenantId);
+
+    @Update("""
+            UPDATE hub_ai_capability_grant
+               SET deleted = 1, updated_by = #{operatorId,jdbcType=BIGINT}, updated_at = now(),
+                   version = version + 1
+             WHERE tenant_id = #{tenantId} AND host_product = #{hostProduct}
+               AND capability = #{capability} AND deleted = 0
+            """)
+    int softDelete(@Param("tenantId") long tenantId,
+                   @Param("hostProduct") String hostProduct,
+                   @Param("capability") String capability,
+                   @Param("operatorId") Long operatorId);
 }
