@@ -52,7 +52,7 @@ class HubMigrationTest {
     @Test
     void appliesAllMigrationsOnEmptyDatabase() {
         assertThat(migrateResult.success).isTrue();
-        assertThat(migrateResult.migrationsExecuted).isEqualTo(21);
+        assertThat(migrateResult.migrationsExecuted).isEqualTo(22);
     }
 
     @Test
@@ -115,7 +115,7 @@ class HubMigrationTest {
                      "SELECT count(*) FROM fenglin_hub.flyway_schema_history "
                              + "WHERE success = true AND type = 'SQL'")) {
             assertThat(resultSet.next()).isTrue();
-            assertThat(resultSet.getInt(1)).isEqualTo(21);
+            assertThat(resultSet.getInt(1)).isEqualTo(22);
         }
     }
 

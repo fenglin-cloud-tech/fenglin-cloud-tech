@@ -23,6 +23,7 @@
         <postgresql.version>42.7.4</postgresql.version>
         <springdoc.version>2.3.0</springdoc.version>
         <nimbus-jose-jwt.version>9.37.3</nimbus-jose-jwt.version>
+        <minio.version>8.5.14</minio.version>
 
         <embedded-postgres.version>2.1.0</embedded-postgres.version>
         <embedded-postgres-binaries.version>15.8.0</embedded-postgres-binaries.version>
@@ -82,6 +83,11 @@
                 <groupId>com.nimbusds</groupId>
                 <artifactId>nimbus-jose-jwt</artifactId>
                 <version>${nimbus-jose-jwt.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.minio</groupId>
+                <artifactId>minio</artifactId>
+                <version>${minio.version}</version>
             </dependency>
 
             <!-- P0 测试使用真实 PostgreSQL 15；Docker 不可用时仍能验证迁移与 RLS -->

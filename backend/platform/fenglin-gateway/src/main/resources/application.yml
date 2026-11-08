@@ -36,7 +36,7 @@ spring:
         - id: fenglin-file-service
           uri: ${FENGLIN_FILE_URI:http://localhost:18086}
           predicates:
-            - Path=/api/hub/v1/files/**,/internal/v1/file/**
+            - Path=/api/hub/v1/files,/api/hub/v1/files/**,/api/hub/v1/files:fast-check,/api/hub/v1/admin/file/**,/internal/v1/file/**
         - id: fenglin-audit-service
           uri: ${FENGLIN_AUDIT_URI:http://localhost:18087}
           predicates:

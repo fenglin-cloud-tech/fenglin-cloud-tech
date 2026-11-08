@@ -4,6 +4,37 @@ server:
 spring:
   application:
     name: fenglin-file-service
+  jackson:
+    property-naming-strategy: SNAKE_CASE
+    default-property-inclusion: non_null
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 20MB
+  datasource:
+    url: ${FENGLIN_DB_URL:jdbc:postgresql://localhost:5432/fenglin_hub?currentSchema=fenglin_hub}
+    username: ${FENGLIN_DB_USER:fenglin}
+    password: ${FENGLIN_DB_PASSWORD:fenglin_dev}
+    hikari:
+      maximum-pool-size: 10
+      connection-init-sql: SET ROLE fl_app
+  flyway:
+    enabled: false
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+
+fenglin:
+  audit:
+    endpoint: ${FENGLIN_AUDIT_ENDPOINT:http://localhost:18087/internal/v1/audit/logs}
+  file:
+    endpoint: ${FENGLIN_MINIO_ENDPOINT:http://localhost:9000}
+    access-key: ${FENGLIN_MINIO_ACCESS_KEY:minioadmin}
+    secret-key: ${FENGLIN_MINIO_SECRET_KEY:minioadmin123}
+    bucket: ${FENGLIN_MINIO_BUCKET:fenglin-files}
+    presign-minutes: 15
+    max-size-mb: 5120
 
 management:
   endpoints:
