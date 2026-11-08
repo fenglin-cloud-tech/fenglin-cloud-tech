@@ -9,12 +9,14 @@ import com.fenglin.audit.web.dto.RecordAuditRequest;
 import com.fenglin.common.core.BizException;
 import com.fenglin.common.core.CommonErrorCode;
 import com.fenglin.common.tenant.TenantContext;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
@@ -25,11 +27,17 @@ public class AuditService {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final DateTimeFormatter LOG_NO_TIME = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
+    private static final DateTimeFormatter PARTITION_KEY = DateTimeFormatter.ofPattern("yyyyMM").withZone(ZoneOffset.UTC);
 
     private final AuditLogMapper auditLogMapper;
+    private final AuditChainService auditChainService;
+    private final boolean chainEnabled;
 
-    public AuditService(AuditLogMapper auditLogMapper) {
+    public AuditService(AuditLogMapper auditLogMapper, AuditChainService auditChainService,
+                        @Value("${fenglin.audit.chain.enabled:true}") boolean chainEnabled) {
         this.auditLogMapper = auditLogMapper;
+        this.auditChainService = auditChainService;
+        this.chainEnabled = chainEnabled;
     }
 
     @Transactional
@@ -39,13 +47,25 @@ public class AuditService {
         long id = IdWorker.getId();
         String logNo = "AUD" + LOG_NO_TIME.format(java.time.LocalDateTime.now())
                 + String.format("%06d", ThreadLocalRandom.current().nextInt(1_000_000));
-        Instant occurredAt = request.occurredAt() == null ? Instant.now() : request.occurredAt();
+        Instant occurredAt = AuditChainHasher.normalizeInstant(
+                request.occurredAt() == null ? Instant.now() : request.occurredAt());
+        String result = normalize(request.result(), "SUCCESS");
+        String riskLevel = normalize(request.riskLevel(), "LOW");
+        String detailText = request.detail() == null ? null : request.detail().toString();
 
         auditLogMapper.insert(id, tenantId, logNo, request.eventType(), request.module(), request.action(),
                 request.operatorId(), request.operatorName(), request.targetType(), request.targetId(),
                 request.requestId(), request.traceId(), request.clientType(), null,
-                normalize(request.result(), "SUCCESS"), normalize(request.riskLevel(), "LOW"),
-                request.detail() == null ? null : request.detail().toString(), occurredAt);
+                result, riskLevel, detailText, occurredAt);
+
+        if (chainEnabled) {
+            String content = AuditChainHasher.content(id, tenantId, logNo, request.eventType(), request.module(),
+                    request.action(), request.operatorId(), request.operatorName(), request.targetType(),
+                    request.targetId(), request.requestId(), request.traceId(), request.clientType(),
+                    result, riskLevel, AuditChainHasher.canonicalDetail(request.detail()), occurredAt);
+            // 链写入失败直接抛异常，与日志插入同事务回滚（B1 裁决：不落半截审计）
+            auditChainService.append(id, tenantId, PARTITION_KEY.format(occurredAt), content);
+        }
         return Map.of("log_id", id, "log_no", logNo);
     }
 
