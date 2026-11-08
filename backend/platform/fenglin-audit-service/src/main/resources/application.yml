@@ -21,6 +21,12 @@ mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true
 
+fenglin:
+  audit:
+    # 启动补建当月/下月审计分区，每月滚动补建下月；由 DBA 统一管理分区时可关闭
+    partition-maintenance-enabled: ${FENGLIN_AUDIT_PARTITION_ENABLED:true}
+    partition-maintenance-cron: "0 5 1 1 * *"
+
 management:
   endpoints:
     web:

@@ -31,7 +31,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * 审计落库与查询集成测试：内嵌真实 PostgreSQL + 完整迁移，应用以 fl_app 执行（RLS 生效）。
  */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+        properties = "fenglin.audit.partition-maintenance-enabled=false")
 class AuditFlowIntegrationTest {
 
     private static final String READ_PERMISSION = "hub:audit:read";
