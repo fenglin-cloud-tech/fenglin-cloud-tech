@@ -52,7 +52,7 @@ spring:
         - id: fenglin-report-service
           uri: ${FENGLIN_REPORT_URI:http://localhost:18092}
           predicates:
-            - Path=/api/hub/v1/reports/**,/api/hub/v1/report/**,/api/hub/v1/report:export,/api/hub/v1/admin/metrics/**
+            - Path=/api/hub/v1/reports/**,/api/hub/v1/report/**,/api/hub/v1/report:export,/api/hub/v1/admin/metrics/**,/api/hub/v1/admin/report/**
         - id: fenglin-lowcode-service
           uri: ${FENGLIN_LOWCODE_URI:http://localhost:18093}
           predicates:
