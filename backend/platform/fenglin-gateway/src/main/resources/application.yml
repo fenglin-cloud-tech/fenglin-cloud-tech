@@ -32,7 +32,7 @@ spring:
         - id: fenglin-message-service
           uri: ${FENGLIN_MESSAGE_URI:http://localhost:18085}
           predicates:
-            - Path=/api/hub/v1/messages/**,/api/hub/v1/admin/messages/**,/internal/v1/message/**
+            - Path=/api/hub/v1/messages/**,/api/hub/v1/admin/message/**,/internal/v1/message/**
         - id: fenglin-file-service
           uri: ${FENGLIN_FILE_URI:http://localhost:18086}
           predicates:
