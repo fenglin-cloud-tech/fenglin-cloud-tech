@@ -4,11 +4,13 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fenglin.common.core.BizException;
 import com.fenglin.common.core.CommonErrorCode;
+import com.fenglin.common.core.PageResult;
 import com.fenglin.common.tenant.TenantContext;
 import com.fenglin.report.mapper.ReportDefMapper;
 import com.fenglin.report.web.dto.ReportDtos.ChartData;
 import com.fenglin.report.web.dto.ReportDtos.DashboardData;
 import com.fenglin.report.web.dto.ReportDtos.DashboardQueryRequest;
+import com.fenglin.report.web.dto.ReportDtos.DashboardView;
 import com.fenglin.report.web.dto.ReportDtos.DatasetQueryRequest;
 import com.fenglin.report.web.dto.ReportDtos.DatasetQueryResult;
 import com.fenglin.report.web.dto.ReportDtos.Filter;
@@ -43,6 +45,30 @@ public class DashboardService {
         this.reportDefMapper = reportDefMapper;
         this.datasetQueryService = datasetQueryService;
         this.objectMapper = objectMapper;
+    }
+
+    /** 扩展：报表/看板定义列表（总纲未定义）。 */
+    @Transactional(readOnly = true)
+    public PageResult<DashboardView> listDashboards(String reportType, String status,
+                                                    long page, long size) {
+        long tenantId = TenantContext.requireTenantId();
+        long safePage = Math.max(page, 1);
+        long safeSize = Math.min(Math.max(size, 1), 200);
+        String typeFilter = reportType == null || reportType.isBlank()
+                ? null : reportType.trim().toUpperCase();
+        String statusFilter = status == null || status.isBlank() ? null : status.trim();
+        List<DashboardView> records = reportDefMapper.list(tenantId, typeFilter, statusFilter,
+                        (safePage - 1) * safeSize, safeSize).stream()
+                .map(row -> new DashboardView(
+                        ((Number) row.get("id")).longValue(),
+                        (String) row.get("code"),
+                        (String) row.get("name"),
+                        (String) row.get("report_type"),
+                        row.get("dataset_id") == null ? null : ((Number) row.get("dataset_id")).longValue(),
+                        (String) row.get("status")))
+                .toList();
+        return PageResult.of(records, reportDefMapper.count(tenantId, typeFilter, statusFilter),
+                safePage, safeSize);
     }
 
     @Transactional(readOnly = true)

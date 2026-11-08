@@ -2,10 +2,12 @@ package com.fenglin.report.service;
 
 import com.fenglin.common.core.BizException;
 import com.fenglin.common.core.CommonErrorCode;
+import com.fenglin.common.core.PageResult;
 import com.fenglin.common.tenant.TenantContext;
 import com.fenglin.report.mapper.DatasetMapper;
 import com.fenglin.report.web.dto.ReportDtos.DatasetQueryRequest;
 import com.fenglin.report.web.dto.ReportDtos.DatasetQueryResult;
+import com.fenglin.report.web.dto.ReportDtos.DatasetView;
 import com.fenglin.report.web.dto.ReportDtos.Filter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -45,6 +47,26 @@ public class DatasetQueryService {
         this.datasetMapper = datasetMapper;
         this.jdbcTemplate = jdbcTemplate;
         this.maxRows = maxRows;
+    }
+
+    /** 扩展：数据集列表（总纲未定义，按管理端展示最小语义实现）。 */
+    @Transactional(readOnly = true)
+    public PageResult<DatasetView> listDatasets(String status, long page, long size) {
+        long tenantId = TenantContext.requireTenantId();
+        long safePage = Math.max(page, 1);
+        long safeSize = Math.min(Math.max(size, 1), 200);
+        String filter = status == null || status.isBlank() ? null : status.trim();
+        List<DatasetView> records = datasetMapper.list(tenantId, filter,
+                        (safePage - 1) * safeSize, safeSize).stream()
+                .map(row -> new DatasetView(
+                        ((Number) row.get("id")).longValue(),
+                        (String) row.get("code"),
+                        (String) row.get("name"),
+                        (String) row.get("description"),
+                        ((Number) row.get("field_count")).longValue(),
+                        (String) row.get("status")))
+                .toList();
+        return PageResult.of(records, datasetMapper.count(tenantId, filter), safePage, safeSize);
     }
 
     /**

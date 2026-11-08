@@ -201,6 +201,30 @@ class ReportIntegrationTest {
     }
 
     @Test
+    void listsDatasetsAndReportDefinitions() {
+        JsonNode datasets = read(get("/api/hub/v1/admin/report/datasets", TENANT_A,
+                METRIC_PERMISSION).getBody()).get("data");
+        assertThat(datasets.get("total").asLong()).isEqualTo(1);
+        assertThat(datasets.get("records").get(0).get("code").asText()).isEqualTo("DS_SALES");
+        assertThat(datasets.get("records").get(0).get("field_count").asLong()).isEqualTo(4);
+        assertThat(datasets.get("records").get(0).get("status").asText()).isEqualTo("ENABLED");
+
+        JsonNode dashboards = read(get("/api/hub/v1/admin/report/dashboards?reportType=DASHBOARD",
+                TENANT_A, METRIC_PERMISSION).getBody()).get("data");
+        assertThat(dashboards.get("total").asLong()).isEqualTo(1);
+        assertThat(dashboards.get("records").get(0).get("name").asText()).isEqualTo("销售看板");
+
+        JsonNode all = read(get("/api/hub/v1/admin/report/dashboards", TENANT_A,
+                METRIC_PERMISSION).getBody()).get("data");
+        assertThat(all.get("total").asLong()).isEqualTo(2);
+
+        assertThat(read(get("/api/hub/v1/admin/report/datasets", TENANT_B, METRIC_PERMISSION)
+                .getBody()).get("data").get("total").asLong()).isZero();
+        assertThat(get("/api/hub/v1/admin/report/datasets", TENANT_A, null)
+                .getStatusCode().value()).isEqualTo(403);
+    }
+
+    @Test
     void queriesDatasetWithWhitelistAndTenantIsolation() {
         Map<String, Object> body = Map.of(
                 "dimensions", List.of("region"),

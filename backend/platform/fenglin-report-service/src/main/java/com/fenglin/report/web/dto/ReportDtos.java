@@ -28,6 +28,16 @@ public final class ReportDtos {
     public record DatasetQueryResult(List<String> columns, List<List<Object>> rows) {
     }
 
+    /** 扩展：数据集列表（总纲 C-10 补表后未定义管理接口）。 */
+    public record DatasetView(long id, String code, String name, String description,
+                              long fieldCount, String status) {
+    }
+
+    /** 扩展：报表/看板定义列表（总纲未定义）。 */
+    public record DashboardView(long id, String code, String name, String reportType,
+                                Long datasetId, String status) {
+    }
+
     public record DashboardQueryRequest(List<Long> chartIds, Map<String, Object> params) {
     }
 

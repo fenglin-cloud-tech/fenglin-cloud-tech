@@ -25,4 +25,32 @@ public interface DatasetMapper {
             """)
     List<Map<String, Object>> findFields(@Param("tenantId") long tenantId,
                                          @Param("datasetId") long datasetId);
+
+    @Select("""
+            <script>
+            SELECT ds.id, ds.code, ds.name, ds.description, ds.status,
+                   (SELECT count(1) FROM hub_report_dataset_field f
+                     WHERE f.tenant_id = ds.tenant_id AND f.dataset_id = ds.id AND f.deleted = 0)
+                     AS field_count
+              FROM hub_report_dataset ds
+             WHERE ds.tenant_id = #{tenantId} AND ds.deleted = 0
+             <if test="status != null"> AND ds.status = #{status} </if>
+             ORDER BY ds.created_at DESC, ds.id DESC
+             LIMIT #{size} OFFSET #{offset}
+            </script>
+            """)
+    List<Map<String, Object>> list(@Param("tenantId") long tenantId,
+                                   @Param("status") String status,
+                                   @Param("offset") long offset,
+                                   @Param("size") long size);
+
+    @Select("""
+            <script>
+            SELECT count(1)
+              FROM hub_report_dataset ds
+             WHERE ds.tenant_id = #{tenantId} AND ds.deleted = 0
+             <if test="status != null"> AND ds.status = #{status} </if>
+            </script>
+            """)
+    long count(@Param("tenantId") long tenantId, @Param("status") String status);
 }
