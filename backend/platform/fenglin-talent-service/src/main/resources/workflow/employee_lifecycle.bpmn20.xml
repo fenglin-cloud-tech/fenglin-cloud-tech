@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  云才员工全生命周期流程（首次提交自动部署用）。
+  节点序列对齐 03_丰麟云才_04 第 1.6.2 节：现部门审批 → 目标部门审批 → HR 会签 → 结束。
+  入转调离的业务落库与事件由业务服务在流程节点完成后执行，BPMN 仅承载审批节点。
+-->
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:flowable="http://flowable.org/bpmn"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             targetNamespace="http://fenglincloud.com/talent">
+    <process id="employeeLifecycle" name="员工全生命周期" isExecutable="true">
+        <startEvent id="start" name="发起异动"/>
+        <sequenceFlow id="flow1" sourceRef="start" targetRef="currentDeptApprove"/>
+        <userTask id="currentDeptApprove" name="现部门审批" flowable:candidateGroups="DEPT_LEADER">
+            <extensionElements>
+                <flowable:formProperty id="transferType" name="异动类型" type="string" writable="false"/>
+                <flowable:formProperty id="effectiveDate" name="生效日期" type="string" writable="false"/>
+            </extensionElements>
+        </userTask>
+        <sequenceFlow id="flow2" sourceRef="currentDeptApprove" targetRef="targetDeptApprove"/>
+        <userTask id="targetDeptApprove" name="目标部门审批" flowable:candidateGroups="DEPT_LEADER"/>
+        <sequenceFlow id="flow3" sourceRef="targetDeptApprove" targetRef="hrCounterSign"/>
+        <userTask id="hrCounterSign" name="HR 会签" flowable:candidateGroups="HR"/>
+        <sequenceFlow id="flow4" sourceRef="hrCounterSign" targetRef="end"/>
+        <endEvent id="end" name="结束"/>
+    </process>
+</definitions>

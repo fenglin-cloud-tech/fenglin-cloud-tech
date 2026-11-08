@@ -1,0 +1,54 @@
+server:
+  port: ${FENGLIN_TALENT_PORT:18097}
+
+spring:
+  application:
+    name: fenglin-talent-service
+  jackson:
+    property-naming-strategy: SNAKE_CASE
+    default-property-inclusion: non_null
+  datasource:
+    # 业务域独立库：生产为独立 database fenglin_talent，本地/CI 至少独立 schema
+    url: ${FENGLIN_TALENT_DB_URL:jdbc:postgresql://localhost:5432/fenglin_talent?currentSchema=fenglin_talent}
+    username: ${FENGLIN_TALENT_DB_USER:fenglin}
+    password: ${FENGLIN_TALENT_DB_PASSWORD:fenglin_dev}
+    hikari:
+      maximum-pool-size: 10
+      # 以非属主角色执行，确保 RLS 对应用连接生效
+      connection-init-sql: SET ROLE fl_talent_app
+  flyway:
+    # fenglin_talent 迁移唯一所有者是 fenglin-talent-migrations，由发布流程执行
+    enabled: false
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+
+fenglin:
+  talent:
+    workflow-service-url: ${FENGLIN_WORKFLOW_SERVICE_URL:http://localhost:18084}
+    approval-process-key:
+      recruit: ${FENGLIN_TALENT_RECRUIT_PROCESS_KEY:recruitRequisitionApproval}
+      lifecycle: ${FENGLIN_TALENT_LIFECYCLE_PROCESS_KEY:employeeLifecycle}
+    workflow-timeout-ms: 3000
+    # 试用期默认 3 个月，延长上限 3 个月（BR-C1-008）
+    probation-months: 3
+    probation-extend-max-months: 3
+    pii-salt-secret: ${FENGLIN_TALENT_PII_SALT_SECRET:fenglin-talent-pii-salt-dev}
+  crypto:
+    # 本地/测试密钥，生产由 KMS 注入
+    data-key-base64: ${FENGLIN_CRYPTO_DATA_KEY:MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+info:
+  app:
+    name: ${spring.application.name}

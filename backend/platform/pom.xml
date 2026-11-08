@@ -35,5 +35,8 @@
         <module>fenglin-collab-migrations</module>
         <module>fenglin-collab-bootstrap</module>
         <module>fenglin-collab-service</module>
+        <module>fenglin-talent-migrations</module>
+        <module>fenglin-talent-bootstrap</module>
+        <module>fenglin-talent-service</module>
     </modules>
 </project>

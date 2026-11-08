@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  云才招聘需求审批流程（首次提交自动部署用）。
+  节点序列对齐 03_丰麟云才_04 第 1.6.1 节：
+  部门负责人审批 → 是否超编制网关（是则 HRD 特批）→ HR 复核 → 结束。
+  事件 talent.recruit.approved 由业务服务在工作流回调后发布，BPMN 仅承载审批节点。
+-->
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:flowable="http://flowable.org/bpmn"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             targetNamespace="http://fenglincloud.com/talent">
+    <process id="recruitRequisitionApproval" name="招聘需求审批" isExecutable="true">
+        <startEvent id="start" name="提交招聘需求"/>
+        <sequenceFlow id="flow1" sourceRef="start" targetRef="deptLeaderApprove"/>
+        <userTask id="deptLeaderApprove" name="部门负责人审批"
+                  flowable:candidateGroups="DEPT_LEADER">
+            <extensionElements>
+                <flowable:formProperty id="reqNo" name="需求编号" type="string" writable="false"/>
+                <flowable:formProperty id="headcount" name="招聘人数" type="long" writable="false"/>
+            </extensionElements>
+        </userTask>
+        <sequenceFlow id="flow2" sourceRef="deptLeaderApprove" targetRef="headcountGateway"/>
+        <exclusiveGateway id="headcountGateway" name="是否超编制"/>
+        <sequenceFlow id="flow3" sourceRef="headcountGateway" targetRef="hrdApprove">
+            <conditionExpression xsi:type="tFormalExpression"><![CDATA[${overHeadcount == true}]]></conditionExpression>
+        </sequenceFlow>
+        <sequenceFlow id="flow4" sourceRef="headcountGateway" targetRef="hrReview"/>
+        <userTask id="hrdApprove" name="HRD 特批" flowable:candidateGroups="HRD"/>
+        <sequenceFlow id="flow5" sourceRef="hrdApprove" targetRef="hrReview"/>
+        <userTask id="hrReview" name="HR 复核" flowable:candidateGroups="HR"/>
+        <sequenceFlow id="flow6" sourceRef="hrReview" targetRef="end"/>
+        <endEvent id="end" name="结束"/>
+    </process>
+</definitions>
