@@ -16,6 +16,10 @@ public class AuthProperties {
     private int maxFailCount = 5;
     private Duration lockDuration = Duration.ofMinutes(15);
     private int passwordMaxAgeDays = 90;
+    /** 过期 refresh token 保留期，超过该时长即物理删除 */
+    private Duration expiredTokenRetention = Duration.ofDays(7);
+    /** 清理任务单批删除条数 */
+    private int tokenJanitorBatchSize = 5000;
 
     public String getIssuer() {
         return issuer;
@@ -71,5 +75,21 @@ public class AuthProperties {
 
     public void setPasswordMaxAgeDays(int passwordMaxAgeDays) {
         this.passwordMaxAgeDays = passwordMaxAgeDays;
+    }
+
+    public Duration getExpiredTokenRetention() {
+        return expiredTokenRetention;
+    }
+
+    public void setExpiredTokenRetention(Duration expiredTokenRetention) {
+        this.expiredTokenRetention = expiredTokenRetention;
+    }
+
+    public int getTokenJanitorBatchSize() {
+        return tokenJanitorBatchSize;
+    }
+
+    public void setTokenJanitorBatchSize(int tokenJanitorBatchSize) {
+        this.tokenJanitorBatchSize = tokenJanitorBatchSize;
     }
 }

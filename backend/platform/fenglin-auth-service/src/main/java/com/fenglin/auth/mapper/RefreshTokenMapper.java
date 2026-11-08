@@ -2,9 +2,12 @@ package com.fenglin.auth.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.fenglin.auth.entity.RefreshTokenEntity;
+import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Update;
+
+import java.time.Instant;
 
 @Mapper
 public interface RefreshTokenMapper extends BaseMapper<RefreshTokenEntity> {
@@ -29,4 +32,16 @@ public interface RefreshTokenMapper extends BaseMapper<RefreshTokenEntity> {
              WHERE tenant_id = #{tenantId} AND user_id = #{userId} AND revoked = 0
             """)
     int revokeAllByUser(@Param("tenantId") Long tenantId, @Param("userId") Long userId);
+
+    @Delete("""
+            DELETE FROM hub_auth_token
+             WHERE id IN (
+                   SELECT id FROM hub_auth_token
+                    WHERE tenant_id = #{tenantId} AND expires_at < #{cutoff}
+                    ORDER BY expires_at
+                    LIMIT #{batchSize})
+            """)
+    int deleteExpired(@Param("tenantId") Long tenantId,
+                      @Param("cutoff") Instant cutoff,
+                      @Param("batchSize") int batchSize);
 }

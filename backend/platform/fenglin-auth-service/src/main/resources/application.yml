@@ -32,6 +32,10 @@ fenglin:
     max-fail-count: 5
     lock-duration: PT15M
     password-max-age-days: 90
+    # 活跃 refresh token 过期后保留 7 天再物理删除
+    expired-token-retention: P7D
+    token-janitor-batch-size: 5000
+    token-janitor-cron: "0 30 3 * * *"
   audit:
     endpoint: ${FENGLIN_AUDIT_ENDPOINT:http://localhost:18087/internal/v1/audit/logs}
 

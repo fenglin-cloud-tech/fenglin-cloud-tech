@@ -52,7 +52,7 @@ class HubMigrationTest {
     @Test
     void appliesAllMigrationsOnEmptyDatabase() {
         assertThat(migrateResult.success).isTrue();
-        assertThat(migrateResult.migrationsExecuted).isEqualTo(17);
+        assertThat(migrateResult.migrationsExecuted).isEqualTo(18);
     }
 
     @Test
@@ -73,6 +73,18 @@ class HubMigrationTest {
     @Test
     void tenantSaltColumnsArePresent() throws Exception {
         assertThat(columnsOf("hub_tenant")).contains("hash_salt_enc", "hash_version");
+    }
+
+    @Test
+    void authTokenExpiryIndexIsPresent() throws Exception {
+        try (Connection connection = connect();
+             Statement statement = connection.createStatement();
+             ResultSet resultSet = statement.executeQuery(
+                     "SELECT indexdef FROM pg_indexes "
+                             + "WHERE schemaname = 'fenglin_hub' AND indexname = 'idx_hub_auth_token_expire'")) {
+            assertThat(resultSet.next()).isTrue();
+            assertThat(resultSet.getString(1)).contains("(tenant_id, expires_at)");
+        }
     }
 
     @Test
@@ -103,7 +115,7 @@ class HubMigrationTest {
                      "SELECT count(*) FROM fenglin_hub.flyway_schema_history "
                              + "WHERE success = true AND type = 'SQL'")) {
             assertThat(resultSet.next()).isTrue();
-            assertThat(resultSet.getInt(1)).isEqualTo(17);
+            assertThat(resultSet.getInt(1)).isEqualTo(18);
         }
     }
 
