@@ -1,7 +1,10 @@
 package com.fenglin.audit.web;
 
+import com.fenglin.audit.service.AuditAlertRuleService;
 import com.fenglin.audit.service.AuditExportService;
 import com.fenglin.audit.service.AuditService;
+import com.fenglin.audit.web.dto.AlertRuleUpdateRequest;
+import com.fenglin.audit.web.dto.AlertRuleView;
 import com.fenglin.audit.web.dto.AuditExportTaskView;
 import com.fenglin.audit.web.dto.AuditLogView;
 import com.fenglin.audit.web.dto.ChainVerifyResult;
@@ -20,6 +23,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -38,13 +42,17 @@ public class AuditController {
 
     private static final String READ_PERMISSION = "hub:audit:read";
     private static final String EXPORT_PERMISSION = "platform:audit:export";
+    private static final String ALERT_PERMISSION = "platform:audit:alert:manage";
 
     private final AuditService auditService;
     private final AuditExportService auditExportService;
+    private final AuditAlertRuleService auditAlertRuleService;
 
-    public AuditController(AuditService auditService, AuditExportService auditExportService) {
+    public AuditController(AuditService auditService, AuditExportService auditExportService,
+                           AuditAlertRuleService auditAlertRuleService) {
         this.auditService = auditService;
         this.auditExportService = auditExportService;
+        this.auditAlertRuleService = auditAlertRuleService;
     }
 
     @PostMapping("/internal/v1/audit/logs")
@@ -137,5 +145,29 @@ public class AuditController {
                 .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
                         .filename(file.fileName(), StandardCharsets.UTF_8).build().toString())
                 .body(file.content());
+    }
+
+    /**
+     * HUB-API-804 审计告警配置：items 全量替换，强制幂等。
+     */
+    @PutMapping("/api/hub/v1/admin/audit/alert-rules")
+    public ApiResponse<List<AlertRuleView>> updateAlertRules(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestHeader(value = "X-User-Id", required = false) Long userId,
+            @Valid @RequestBody AlertRuleUpdateRequest request) {
+        PermissionGuard.require(permissions, ALERT_PERMISSION);
+        Long operatorId = userId != null ? userId
+                : (TenantContext.get() == null ? null : TenantContext.get().userId());
+        return ApiResponse.success(auditAlertRuleService.replace(request, operatorId));
+    }
+
+    /**
+     * 告警规则查询（契约缺口：804 仅定义 PUT，补充 GET 便于回显）。
+     */
+    @GetMapping("/api/hub/v1/admin/audit/alert-rules")
+    public ApiResponse<List<AlertRuleView>> listAlertRules(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions) {
+        PermissionGuard.require(permissions, ALERT_PERMISSION);
+        return ApiResponse.success(auditAlertRuleService.list());
     }
 }
