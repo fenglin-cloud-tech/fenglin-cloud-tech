@@ -100,6 +100,15 @@ public interface AuditLogMapper {
                    target_type, target_id, request_id, trace_id, client_type, result, risk_level,
                    detail::text AS detail, occurred_at
               FROM hub_audit_log
+             WHERE id = #{id}
+            """)
+    Map<String, Object> findContentById(@Param("id") long id);
+
+    @Select("""
+            SELECT id, tenant_id, log_no, event_type, module, action, operator_id, operator_name,
+                   target_type, target_id, request_id, trace_id, client_type, result, risk_level,
+                   detail::text AS detail, occurred_at
+              FROM hub_audit_log
              WHERE id = #{id} AND deleted = 0
              ORDER BY occurred_at DESC
              LIMIT 1

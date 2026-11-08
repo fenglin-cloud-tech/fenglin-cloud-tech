@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fenglin.audit.mapper.AuditLogMapper;
 import com.fenglin.audit.web.dto.AuditLogView;
+import com.fenglin.audit.web.dto.ChainVerifyResult;
 import com.fenglin.audit.web.dto.RecordAuditRequest;
 import com.fenglin.common.core.BizException;
 import com.fenglin.common.core.CommonErrorCode;
@@ -95,6 +96,11 @@ public class AuditService {
             throw new BizException(CommonErrorCode.NOT_FOUND, "审计记录不存在: " + id);
         }
         return toView(row);
+    }
+
+    @Transactional(readOnly = true)
+    public ChainVerifyResult verifyChain(long tenantId, Instant from, Instant to) {
+        return auditChainService.verify(tenantId, from, to);
     }
 
     private AuditLogView toView(Map<String, Object> row) {

@@ -39,6 +39,21 @@ public interface AuditChainMapper {
                                        @Param("partitionKey") String partitionKey,
                                        @Param("fromSeq") long fromSeq);
 
+    /**
+     * 指定月份区间内该租户实际存在的链分区，用于链校验时避免逐月空查询。
+     */
+    @Select("""
+            SELECT DISTINCT partition_key
+              FROM hub_audit_chain
+             WHERE tenant_id = #{tenantId}
+               AND partition_key >= #{fromKey}
+               AND partition_key <= #{toKey}
+             ORDER BY partition_key
+            """)
+    List<String> findPartitionKeys(@Param("tenantId") long tenantId,
+                                   @Param("fromKey") String fromKey,
+                                   @Param("toKey") String toKey);
+
     @Insert("""
             INSERT INTO hub_audit_chain (id, tenant_id, log_id, partition_key, seq_no,
                                          content_hash, prev_hash, chain_hash,

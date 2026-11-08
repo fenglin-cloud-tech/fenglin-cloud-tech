@@ -2,10 +2,12 @@ package com.fenglin.audit.web;
 
 import com.fenglin.audit.service.AuditService;
 import com.fenglin.audit.web.dto.AuditLogView;
+import com.fenglin.audit.web.dto.ChainVerifyResult;
 import com.fenglin.audit.web.dto.RecordAuditRequest;
 import com.fenglin.common.core.ApiResponse;
 import com.fenglin.common.core.PageResult;
 import com.fenglin.common.security.PermissionGuard;
+import com.fenglin.common.tenant.TenantContext;
 import jakarta.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -66,5 +68,20 @@ public class AuditController {
             @PathVariable long id) {
         PermissionGuard.require(permissions, READ_PERMISSION);
         return ApiResponse.success(auditService.get(id));
+    }
+
+    /**
+     * 哈希链校验：租户缺省取上下文租户，跨租户查询由 RLS 拦截（结果为 checked=0）。
+     */
+    @GetMapping("/api/hub/v1/admin/audits/chain/verify")
+    public ApiResponse<ChainVerifyResult> verifyChain(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(required = false) Long tenantId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to) {
+        PermissionGuard.require(permissions, READ_PERMISSION);
+        Long contextTenantId = TenantContext.getTenantId();
+        long resolvedTenantId = tenantId != null ? tenantId : (contextTenantId == null ? 0L : contextTenantId);
+        return ApiResponse.success(auditService.verifyChain(resolvedTenantId, from, to));
     }
 }
