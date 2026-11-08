@@ -66,6 +66,11 @@ fenglin:
   gateway:
     issuer: ${FENGLIN_AUTH_ISSUER:https://hub.fenglincloud.com}
     jwks-uri: ${FENGLIN_AUTH_JWKS_URI:http://localhost:18081/.well-known/jwks.json}
+    revocation:
+      enabled: ${FENGLIN_GATEWAY_REVOCATION_ENABLED:true}
+      cache-ttl: 30s
+      auth-internal-uri: ${FENGLIN_AUTH_INTERNAL_URI:http://localhost:18081}
+      timeout: 500ms
     rate-limit:
       login-qps: 50
       read-qps: 500

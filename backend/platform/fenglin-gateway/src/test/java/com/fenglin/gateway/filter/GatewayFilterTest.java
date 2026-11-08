@@ -3,6 +3,7 @@ package com.fenglin.gateway.filter;
 import com.fenglin.gateway.config.GatewayProperties;
 import com.fenglin.gateway.security.GatewayPrincipal;
 import com.fenglin.gateway.security.JwtVerifier;
+import com.fenglin.gateway.security.RevocationChecker;
 import com.nimbusds.jwt.JWTClaimsSet;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,6 +22,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -33,7 +36,9 @@ class GatewayFilterTest {
     @BeforeEach
     void setUp() {
         verifier = mock(JwtVerifier.class);
-        authFilter = new AuthGlobalFilter(verifier);
+        RevocationChecker revocationChecker = mock(RevocationChecker.class);
+        when(revocationChecker.isRevoked(any(), anyLong())).thenReturn(Mono.just(false));
+        authFilter = new AuthGlobalFilter(verifier, revocationChecker);
     }
 
     @Test

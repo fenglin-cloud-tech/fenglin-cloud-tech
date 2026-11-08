@@ -2,6 +2,7 @@ package com.fenglin.gateway.filter;
 
 import com.fenglin.gateway.security.GatewayPrincipal;
 import com.fenglin.gateway.security.JwtVerifier;
+import com.fenglin.gateway.security.RevocationChecker;
 import com.fenglin.gateway.web.GatewayResponses;
 import com.nimbusds.jwt.JWTClaimsSet;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
@@ -39,9 +40,11 @@ public class AuthGlobalFilter implements GlobalFilter, Ordered {
             "/.well-known/");
 
     private final JwtVerifier jwtVerifier;
+    private final RevocationChecker revocationChecker;
 
-    public AuthGlobalFilter(JwtVerifier jwtVerifier) {
+    public AuthGlobalFilter(JwtVerifier jwtVerifier, RevocationChecker revocationChecker) {
         this.jwtVerifier = jwtVerifier;
+        this.revocationChecker = revocationChecker;
     }
 
     @Override
@@ -93,18 +96,24 @@ public class AuthGlobalFilter implements GlobalFilter, Ordered {
             return GatewayResponses.error(exchange, HttpStatus.FORBIDDEN, "FL-COMMON-0403", "端别不允许访问管理端接口");
         }
 
-        ServerHttpRequest mutated = exchange.getRequest().mutate().headers(headers -> {
-            headers.set(HEADER_TENANT_ID, String.valueOf(principal.tenantId()));
-            headers.set(HEADER_USER_ID, String.valueOf(principal.userId()));
-            headers.set(HEADER_CLIENT_TYPE, principal.clientType());
-            headers.set(HEADER_PERMISSIONS, String.join(",", principal.permissions()));
-            if (!headers.containsKey("X-Request-Id")) {
-                headers.set("X-Request-Id", UUID.randomUUID().toString());
+        String jti = claims.getJWTID();
+        return revocationChecker.isRevoked(jti, principal.tenantId()).flatMap(revoked -> {
+            if (Boolean.TRUE.equals(revoked)) {
+                return GatewayResponses.error(exchange, HttpStatus.UNAUTHORIZED, "FL-COMMON-0401", "令牌已撤销");
             }
-        }).build();
+            ServerHttpRequest mutated = exchange.getRequest().mutate().headers(headers -> {
+                headers.set(HEADER_TENANT_ID, String.valueOf(principal.tenantId()));
+                headers.set(HEADER_USER_ID, String.valueOf(principal.userId()));
+                headers.set(HEADER_CLIENT_TYPE, principal.clientType());
+                headers.set(HEADER_PERMISSIONS, String.join(",", principal.permissions()));
+                if (!headers.containsKey("X-Request-Id")) {
+                    headers.set("X-Request-Id", UUID.randomUUID().toString());
+                }
+            }).build();
 
-        exchange.getAttributes().put(PRINCIPAL_ATTRIBUTE, principal);
-        return chain.filter(exchange.mutate().request(mutated).build());
+            exchange.getAttributes().put(PRINCIPAL_ATTRIBUTE, principal);
+            return chain.filter(exchange.mutate().request(mutated).build());
+        });
     }
 
     private boolean isPublic(String path) {

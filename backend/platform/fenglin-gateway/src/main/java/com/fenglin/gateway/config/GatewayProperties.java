@@ -2,6 +2,7 @@ package com.fenglin.gateway.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -15,6 +16,7 @@ public class GatewayProperties {
     private String jwksUri = "http://localhost:18081/.well-known/jwks.json";
     private final RateLimit rateLimit = new RateLimit();
     private final Gray gray = new Gray();
+    private final Revocation revocation = new Revocation();
 
     public String getIssuer() {
         return issuer;
@@ -38,6 +40,52 @@ public class GatewayProperties {
 
     public Gray getGray() {
         return gray;
+    }
+
+    public Revocation getRevocation() {
+        return revocation;
+    }
+
+    /**
+     * 令牌撤销检查：验签通过后回源 auth 内部接口，结果本地缓存；回源失败按未撤销放行（fail-open）。
+     */
+    public static class Revocation {
+        private boolean enabled = true;
+        private Duration cacheTtl = Duration.ofSeconds(30);
+        private String authInternalUri = "http://localhost:18081";
+        private Duration timeout = Duration.ofMillis(500);
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        public Duration getCacheTtl() {
+            return cacheTtl;
+        }
+
+        public void setCacheTtl(Duration cacheTtl) {
+            this.cacheTtl = cacheTtl;
+        }
+
+        public String getAuthInternalUri() {
+            return authInternalUri;
+        }
+
+        public void setAuthInternalUri(String authInternalUri) {
+            this.authInternalUri = authInternalUri;
+        }
+
+        public Duration getTimeout() {
+            return timeout;
+        }
+
+        public void setTimeout(Duration timeout) {
+            this.timeout = timeout;
+        }
     }
 
     public static class RateLimit {
