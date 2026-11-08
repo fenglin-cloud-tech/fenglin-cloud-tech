@@ -4,6 +4,79 @@ server:
 spring:
   application:
     name: fenglin-gateway
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: false
+      httpclient:
+        connect-timeout: 3000
+        response-timeout: 30s
+      routes:
+        - id: fenglin-auth-service
+          uri: ${FENGLIN_AUTH_URI:http://localhost:18081}
+          predicates:
+            - Path=/api/hub/v1/sso/**,/.well-known/**
+        - id: fenglin-iam-service
+          uri: ${FENGLIN_IAM_URI:http://localhost:18082}
+          predicates:
+            - Path=/api/hub/v1/admin/users/**,/api/hub/v1/admin/roles/**,/api/hub/v1/admin/permissions/**,/api/hub/v1/admin/menus/**,/internal/v1/iam/**
+        - id: fenglin-tenant-service
+          uri: ${FENGLIN_TENANT_URI:http://localhost:18083}
+          predicates:
+            - Path=/api/hub/v1/admin/tenants/**
+        - id: fenglin-workflow-service
+          uri: ${FENGLIN_WORKFLOW_URI:http://localhost:18084}
+          predicates:
+            - Path=/api/hub/v1/workflow/**,/api/hub/v1/admin/workflows/**,/internal/v1/workflow/**
+        - id: fenglin-message-service
+          uri: ${FENGLIN_MESSAGE_URI:http://localhost:18085}
+          predicates:
+            - Path=/api/hub/v1/messages/**,/api/hub/v1/admin/messages/**,/internal/v1/message/**
+        - id: fenglin-file-service
+          uri: ${FENGLIN_FILE_URI:http://localhost:18086}
+          predicates:
+            - Path=/api/hub/v1/files/**,/internal/v1/file/**
+        - id: fenglin-audit-service
+          uri: ${FENGLIN_AUDIT_URI:http://localhost:18087}
+          predicates:
+            - Path=/api/hub/v1/admin/audits/**,/api/hub/v1/admin/audit/**,/internal/v1/audit/**
+        - id: fenglin-search-service
+          uri: ${FENGLIN_SEARCH_URI:http://localhost:18088}
+          predicates:
+            - Path=/api/hub/v1/search/**,/internal/v1/search/**
+        - id: fenglin-openapi-service
+          uri: ${FENGLIN_OPENAPI_URI:http://localhost:18089}
+          predicates:
+            - Path=/openapi/**
+        - id: fenglin-report-service
+          uri: ${FENGLIN_REPORT_URI:http://localhost:18090}
+          predicates:
+            - Path=/api/hub/v1/reports/**
+        - id: fenglin-lowcode-service
+          uri: ${FENGLIN_LOWCODE_URI:http://localhost:18091}
+          predicates:
+            - Path=/api/hub/v1/lowcode/**
+        - id: fenglin-ai-service
+          uri: ${FENGLIN_AI_URI:http://localhost:18092}
+          predicates:
+            - Path=/api/hub/v1/ai/**
+
+fenglin:
+  gateway:
+    issuer: ${FENGLIN_AUTH_ISSUER:https://hub.fenglincloud.com}
+    jwks-uri: ${FENGLIN_AUTH_JWKS_URI:http://localhost:18081/.well-known/jwks.json}
+    rate-limit:
+      login-qps: 50
+      read-qps: 500
+      write-qps: 100
+    gray:
+      enabled: true
+      rules:
+        - route-id-prefix: fenglin-iam-service
+          match-header: X-Gray-Tag
+          match-value: iam-canary
+          target-tag: iam-canary
 
 management:
   endpoints:
