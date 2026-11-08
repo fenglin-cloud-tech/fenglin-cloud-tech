@@ -4,6 +4,34 @@ server:
 spring:
   application:
     name: fenglin-auth-service
+  jackson:
+    property-naming-strategy: SNAKE_CASE
+    default-property-inclusion: non_null
+  datasource:
+    url: ${FENGLIN_DB_URL:jdbc:postgresql://localhost:5432/fenglin_hub?currentSchema=fenglin_hub}
+    username: ${FENGLIN_DB_USER:fenglin}
+    password: ${FENGLIN_DB_PASSWORD:fenglin_dev}
+    hikari:
+      maximum-pool-size: 10
+      # 以非属主角色执行，确保 RLS 对应用连接生效
+      connection-init-sql: SET ROLE fl_app
+  flyway:
+    # 平台库迁移唯一所有者是 fenglin-hub-migrations
+    enabled: false
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+
+fenglin:
+  auth:
+    issuer: ${FENGLIN_AUTH_ISSUER:https://hub.fenglincloud.com}
+    key-id: ${FENGLIN_AUTH_KEY_ID:hub-dev-1}
+    access-token-ttl: PT2H
+    refresh-token-ttl: P7D
+    max-fail-count: 5
+    lock-duration: PT15M
+    password-max-age-days: 90
 
 management:
   endpoints:
@@ -14,6 +42,9 @@ management:
     health:
       probes:
         enabled: true
+  health:
+    redis:
+      enabled: false
 
 info:
   app:

@@ -23,7 +23,11 @@ class HubMigrationTest {
             "hub_metering", "hub_usage_daily", "hub_bill", "hub_bill_item", "hub_license",
             "hub_message_preference", "hub_wf_callback", "hub_webhook_subscription",
             "hub_webhook_delivery", "hub_ai_model", "hub_ai_prompt",
-            "hub_gw_route", "hub_gw_gray_rule");
+            "hub_gw_route", "hub_gw_gray_rule",
+            "hub_user", "hub_account", "hub_org", "hub_user_org", "hub_position", "hub_user_position",
+            "hub_role", "hub_permission", "hub_role_permission", "hub_user_role",
+            "hub_data_scope", "hub_field_permission", "hub_menu", "hub_dict_type", "hub_dict_item", "hub_param",
+            "hub_login_session", "hub_sso_config", "hub_auth_token", "hub_auth_revocation");
 
     private static EmbeddedPostgresSupport postgres;
     private static MigrateResult migrateResult;
@@ -48,7 +52,7 @@ class HubMigrationTest {
     @Test
     void appliesAllMigrationsOnEmptyDatabase() {
         assertThat(migrateResult.success).isTrue();
-        assertThat(migrateResult.migrationsExecuted).isEqualTo(11);
+        assertThat(migrateResult.migrationsExecuted).isEqualTo(14);
     }
 
     @Test
@@ -78,6 +82,13 @@ class HubMigrationTest {
         assertThat(rowLevelSecurityOf("hub_message_preference")).isTrue();
         assertThat(rowLevelSecurityOf("hub_webhook_delivery")).isTrue();
         assertThat(rowLevelSecurityOf("hub_ai_model")).isTrue();
+        assertThat(rowLevelSecurityOf("hub_user")).isTrue();
+        assertThat(rowLevelSecurityOf("hub_account")).isTrue();
+        assertThat(rowLevelSecurityOf("hub_login_session")).isTrue();
+        assertThat(rowLevelSecurityOf("hub_auth_token")).isTrue();
+        assertThat(rowLevelSecurityOf("hub_permission"))
+                .as("功能权限为平台全局表，不启用 RLS")
+                .isFalse();
         assertThat(rowLevelSecurityOf("hub_tenant"))
                 .as("租户主表是平台跨租户表，按设计不启用 RLS")
                 .isFalse();
@@ -92,7 +103,7 @@ class HubMigrationTest {
                      "SELECT count(*) FROM fenglin_hub.flyway_schema_history "
                              + "WHERE success = true AND type = 'SQL'")) {
             assertThat(resultSet.next()).isTrue();
-            assertThat(resultSet.getInt(1)).isEqualTo(11);
+            assertThat(resultSet.getInt(1)).isEqualTo(14);
         }
     }
 
