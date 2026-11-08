@@ -30,6 +30,7 @@
         <module>fenglin-lowcode-service</module>
         <module>fenglin-ai-service</module>
         <module>fenglin-crm-migrations</module>
+        <module>fenglin-crm-bootstrap</module>
         <module>fenglin-crm-service</module>
     </modules>
 </project>

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  CRM 报价审批默认流程（bootstrap 用）。
+  说明：01_丰麟云销_04 只约定"折扣低于阈值触发审批"，未提供 BPMN；此处为最小可执行流程，
+  首次提交审批且工作流中心未部署该流程时，由 CRM 通过管理 API 自动部署（可关闭）。
+-->
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:flowable="http://flowable.org/bpmn"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             targetNamespace="http://fenglincloud.com/crm">
+    <process id="crm_quotation_approval" name="报价审批" isExecutable="true">
+        <startEvent id="start" name="提交报价"/>
+        <sequenceFlow id="flow1" sourceRef="start" targetRef="salesManagerApprove"/>
+        <userTask id="salesManagerApprove" name="销售经理审批"
+                  flowable:candidateGroups="SALES_MANAGER">
+            <extensionElements>
+                <flowable:formProperty id="discount_rate" name="综合折扣率" type="string" writable="false"/>
+                <flowable:formProperty id="total_amount" name="报价总额" type="string" writable="false"/>
+            </extensionElements>
+        </userTask>
+        <sequenceFlow id="flow2" sourceRef="salesManagerApprove" targetRef="end"/>
+        <endEvent id="end" name="结束"/>
+    </process>
+</definitions>

@@ -146,8 +146,9 @@ public final class CrmDtos {
     public record PaymentPlanRequest(Integer periodNo, LocalDate dueDate, BigDecimal amount) {
     }
 
-    public record PaymentPlanView(int periodNo, LocalDate dueDate, BigDecimal amount, BigDecimal paidAmount,
-                                  String status) {
+    public record PaymentPlanView(long planId, int periodNo, LocalDate dueDate, BigDecimal amount,
+                                  BigDecimal paidAmount, BigDecimal remainingAmount, String status, int overdueDays,
+                                  String collectionFlag, String collectionNote) {
     }
 
     public record ContractView(long contractId, String contractNo, long customerId, String slaLevel,
@@ -165,6 +166,48 @@ public final class CrmDtos {
     public record ActivityView(long activityId, String bizType, long bizId, String activityType, String subject,
                                String content, Integer durationMin, String result, String nextPlan,
                                Instant occurredAt, Long ownerId) {
+    }
+
+    // ---------- 回款 / 核销 / 催收（扩展） ----------
+
+    public record PaymentRegisterRequest(Long planId, BigDecimal amount, LocalDate receivedDate, String method,
+                                         String voucherNo, String remark) {
+    }
+
+    public record PaymentRecordView(long paymentId, long contractId, long planId, BigDecimal amount,
+                                    LocalDate receivedDate, String method, String voucherNo, String remark,
+                                    String status, Instant createdAt) {
+    }
+
+    public record OverduePlanView(long planId, long contractId, String contractNo, long customerId,
+                                  String customerName, int periodNo, LocalDate dueDate, BigDecimal amount,
+                                  BigDecimal paidAmount, BigDecimal remainingAmount, int overdueDays,
+                                  String collectionFlag, String collectionNote) {
+    }
+
+    public record CollectionFlagRequest(String collectionFlag, String note) {
+    }
+
+    // ---------- 合同变更 / 续签 / 报价转合同（扩展） ----------
+
+    public record ContractAmendRequest(BigDecimal amount, String slaLevel, String servicePackage,
+                                       LocalDate endDate, String reason, List<PaymentPlanRequest> paymentPlans) {
+    }
+
+    public record ContractRenewRequest(LocalDate startDate, LocalDate endDate, BigDecimal amount, String slaLevel,
+                                       String servicePackage, String reason, List<PaymentPlanRequest> paymentPlans) {
+    }
+
+    public record ContractChangeView(long changeId, String changeNo, long contractId, String changeType,
+                                     BigDecimal beforeAmount, BigDecimal afterAmount,
+                                     LocalDate beforeStartDate, LocalDate beforeEndDate,
+                                     LocalDate afterStartDate, LocalDate afterEndDate, String reason,
+                                     Long newContractId, String status, Instant createdAt) {
+    }
+
+    public record QuotationConvertRequest(String slaLevel, String servicePackage, LocalDate startDate,
+                                          LocalDate endDate, String reason,
+                                          List<PaymentPlanRequest> paymentPlans) {
     }
 
 }

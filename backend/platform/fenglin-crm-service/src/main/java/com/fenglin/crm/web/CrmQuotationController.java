@@ -2,7 +2,10 @@ package com.fenglin.crm.web;
 
 import com.fenglin.common.core.ApiResponse;
 import com.fenglin.common.security.PermissionGuard;
+import com.fenglin.crm.service.ContractService;
 import com.fenglin.crm.service.QuotationService;
+import com.fenglin.crm.web.dto.CrmDtos.ContractView;
+import com.fenglin.crm.web.dto.CrmDtos.QuotationConvertRequest;
 import com.fenglin.crm.web.dto.CrmDtos.QuotationCreateRequest;
 import com.fenglin.crm.web.dto.CrmDtos.QuotationSubmitRequest;
 import com.fenglin.crm.web.dto.CrmDtos.QuotationSubmitResult;
@@ -21,9 +24,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class CrmQuotationController {
 
     private final QuotationService quotationService;
+    private final ContractService contractService;
 
-    public CrmQuotationController(QuotationService quotationService) {
+    public CrmQuotationController(QuotationService quotationService, ContractService contractService) {
         this.quotationService = quotationService;
+        this.contractService = contractService;
     }
 
     @PostMapping("/api/crm/v1/quotations")
@@ -50,5 +55,15 @@ public class CrmQuotationController {
             @RequestBody(required = false) QuotationSubmitRequest request) {
         PermissionGuard.require(permissions, "crm:quotation:submit");
         return ApiResponse.success(quotationService.submit(id, permissions, requestId));
+    }
+
+    /** 扩展：已审批报价一键转合同（同时生成回款计划）。 */
+    @PostMapping("/api/crm/v1/quotations/{id}/convert-to-contract")
+    public ApiResponse<ContractView> convertToContract(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id,
+            @RequestBody QuotationConvertRequest request) {
+        PermissionGuard.require(permissions, "crm:contract:manage");
+        return ApiResponse.success(contractService.convertQuotation(id, request));
     }
 }

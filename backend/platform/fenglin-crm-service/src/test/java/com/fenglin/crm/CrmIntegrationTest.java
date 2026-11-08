@@ -121,7 +121,8 @@ class CrmIntegrationTest {
             statement.execute("TRUNCATE fenglin_crm.crm_lead, fenglin_crm.crm_customer, fenglin_crm.crm_contact, "
                     + "fenglin_crm.crm_opportunity, fenglin_crm.crm_opportunity_stage_log, "
                     + "fenglin_crm.crm_activity, fenglin_crm.crm_quotation, fenglin_crm.crm_quotation_item, "
-                    + "fenglin_crm.crm_service_contract, fenglin_crm.crm_payment_plan");
+                    + "fenglin_crm.crm_service_contract, fenglin_crm.crm_payment_plan, "
+                    + "fenglin_crm.crm_payment_record, fenglin_crm.crm_contract_change");
         }
     }
 
@@ -375,7 +376,244 @@ class CrmIntegrationTest {
         assertThat(contracts).hasSize(1);
     }
 
+    @Test
+    void registersPaymentDetectsOverdueAndMarksCollection() throws Exception {
+        long customerId = createCustomer(TENANT_A, "回款客户", null);
+        long contractId = createContract(customerId, 30000,
+                plan(1, LocalDate.now().minusDays(10), 10000),
+                plan(2, LocalDate.now().plusMonths(3), 20000));
+
+        JsonNode detail = read(get("/api/crm/v1/contracts/" + contractId, TENANT_A, ALL_PERMISSIONS)
+                .getBody()).get("data");
+        long planId = detail.get("payment_plans").get(0).get("plan_id").asLong();
+
+        JsonNode overdue = read(get("/api/crm/v1/payment-plans/overdue", TENANT_A, ALL_PERMISSIONS)
+                .getBody()).get("data");
+        assertThat(overdue.get("total").asLong()).isEqualTo(1);
+        assertThat(overdue.get("records").get(0).get("plan_id").asLong()).isEqualTo(planId);
+        assertThat(overdue.get("records").get(0).get("overdue_days").asInt()).isEqualTo(10);
+        assertThat(overdue.get("records").get(0).get("collection_flag").asText()).isEqualTo("NONE");
+
+        Map<String, Object> firstPayment = new LinkedHashMap<>();
+        firstPayment.put("plan_id", planId);
+        firstPayment.put("amount", 4000);
+        firstPayment.put("method", "BANK");
+        firstPayment.put("voucher_no", "PAY-0001");
+        JsonNode payment = read(post("/api/crm/v1/contracts/" + contractId + "/payments", TENANT_A,
+                ALL_PERMISSIONS, firstPayment).getBody()).get("data");
+        assertThat(payment.get("status").asText()).isEqualTo("RECORDED");
+        assertAmount(payment.get("amount"), "4000.00");
+
+        // 已过到期日且未结清：读模型按逾期优先展示 OVERDUE，落库状态仍为 PARTIAL
+        JsonNode partial = read(get("/api/crm/v1/contracts/" + contractId, TENANT_A, ALL_PERMISSIONS)
+                .getBody()).get("data").get("payment_plans").get(0);
+        assertThat(partial.get("status").asText()).isEqualTo("OVERDUE");
+        assertThat(queryString("SELECT status FROM fenglin_crm.crm_payment_plan WHERE id = " + planId))
+                .isEqualTo("PARTIAL");
+        assertAmount(partial.get("paid_amount"), "4000.00");
+        assertAmount(partial.get("remaining_amount"), "6000.00");
+
+        JsonNode stillOverdue = read(get("/api/crm/v1/payment-plans/overdue", TENANT_A, ALL_PERMISSIONS)
+                .getBody()).get("data");
+        assertAmount(stillOverdue.get("records").get(0).get("paid_amount"), "4000.00");
+
+        Map<String, Object> overpay = new LinkedHashMap<>();
+        overpay.put("plan_id", planId);
+        overpay.put("amount", 7000);
+        assertThat(post("/api/crm/v1/contracts/" + contractId + "/payments", TENANT_A, ALL_PERMISSIONS, overpay)
+                .getStatusCode().value()).isEqualTo(400);
+
+        assertThat(patch("/api/crm/v1/payment-plans/" + planId + "/collection", TENANT_A, ALL_PERMISSIONS,
+                Map.of("collection_flag", "REMINDED", "note", "已电话提醒财务"))
+                .getStatusCode().value()).isEqualTo(200);
+        JsonNode flagged = read(get("/api/crm/v1/payment-plans/overdue", TENANT_A, ALL_PERMISSIONS)
+                .getBody()).get("data").get("records").get(0);
+        assertThat(flagged.get("collection_flag").asText()).isEqualTo("REMINDED");
+        assertThat(flagged.get("collection_note").asText()).isEqualTo("已电话提醒财务");
+
+        Map<String, Object> settle = new LinkedHashMap<>();
+        settle.put("plan_id", planId);
+        settle.put("amount", 6000);
+        settle.put("received_date", LocalDate.now().toString());
+        assertThat(post("/api/crm/v1/contracts/" + contractId + "/payments", TENANT_A, ALL_PERMISSIONS, settle)
+                .getStatusCode().value()).isEqualTo(200);
+
+        JsonNode paidPlan = read(get("/api/crm/v1/contracts/" + contractId, TENANT_A, ALL_PERMISSIONS)
+                .getBody()).get("data").get("payment_plans").get(0);
+        assertThat(paidPlan.get("status").asText()).isEqualTo("PAID");
+        assertAmount(paidPlan.get("remaining_amount"), "0.00");
+        assertThat(read(get("/api/crm/v1/payment-plans/overdue", TENANT_A, ALL_PERMISSIONS)
+                .getBody()).get("data").get("total").asLong()).isZero();
+        assertThat(read(get("/api/crm/v1/contracts/" + contractId + "/payments", TENANT_A, ALL_PERMISSIONS)
+                .getBody()).get("data")).hasSize(2);
+
+        assertThat(AUDIT_EVENTS).anyMatch(event -> "CRM_PAYMENT_RECORDED".equals(event.eventType()));
+        assertThat(AUDIT_EVENTS).anyMatch(event -> "CRM_COLLECTION_FLAGGED".equals(event.eventType()));
+    }
+
+    @Test
+    void amendsContractReplacingUnpaidPlans() throws Exception {
+        long customerId = createCustomer(TENANT_A, "变更客户", null);
+        long contractId = createContract(customerId, 120000,
+                plan(1, LocalDate.now().plusMonths(1), 60000),
+                plan(2, LocalDate.now().plusMonths(6), 60000));
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("amount", 200000);
+        body.put("end_date", LocalDate.now().plusYears(2).toString());
+        body.put("reason", "范围扩大");
+        body.put("payment_plans", List.of(
+                plan(1, LocalDate.now().plusMonths(2), 100000),
+                plan(2, LocalDate.now().plusMonths(8), 100000)));
+        JsonNode amended = read(post("/api/crm/v1/contracts/" + contractId + "/changes", TENANT_A,
+                ALL_PERMISSIONS, body).getBody()).get("data");
+        assertAmount(amended.get("amount"), "200000.00");
+        assertThat(amended.get("payment_plans")).hasSize(2);
+        BigDecimal planSum = BigDecimal.ZERO;
+        for (JsonNode item : amended.get("payment_plans")) {
+            planSum = planSum.add(new BigDecimal(item.get("amount").asText()));
+        }
+        assertThat(planSum).isEqualByComparingTo("200000.00");
+
+        JsonNode changes = read(get("/api/crm/v1/contracts/" + contractId + "/changes", TENANT_A,
+                ALL_PERMISSIONS).getBody()).get("data");
+        assertThat(changes).hasSize(1);
+        assertThat(changes.get(0).get("change_type").asText()).isEqualTo("AMEND");
+        assertThat(changes.get(0).get("change_no").asText()).matches("CH\\d{12}");
+        assertAmount(changes.get(0).get("before_amount"), "120000.00");
+        assertAmount(changes.get(0).get("after_amount"), "200000.00");
+        assertThat(AUDIT_EVENTS).anyMatch(event -> "CRM_CONTRACT_CHANGED".equals(event.eventType()));
+    }
+
+    @Test
+    void renewsContractAsNewContract() throws Exception {
+        long customerId = createCustomer(TENANT_A, "续签客户", null);
+        long contractId = createContract(customerId, 120000,
+                plan(1, LocalDate.now().plusMonths(1), 120000));
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("start_date", LocalDate.now().plusYears(1).toString());
+        body.put("end_date", LocalDate.now().plusYears(2).toString());
+        body.put("amount", 150000);
+        body.put("reason", "年度续签");
+        body.put("payment_plans", List.of(plan(1, LocalDate.now().plusYears(1).plusMonths(1), 150000)));
+        JsonNode renewed = read(post("/api/crm/v1/contracts/" + contractId + "/renew", TENANT_A,
+                ALL_PERMISSIONS, body).getBody()).get("data");
+        long newContractId = renewed.get("contract_id").asLong();
+        assertThat(newContractId).isNotEqualTo(contractId);
+        assertAmount(renewed.get("amount"), "150000.00");
+        assertThat(renewed.get("payment_plans")).hasSize(1);
+
+        JsonNode changes = read(get("/api/crm/v1/contracts/" + contractId + "/changes", TENANT_A,
+                ALL_PERMISSIONS).getBody()).get("data");
+        assertThat(changes.get(0).get("change_type").asText()).isEqualTo("RENEW");
+        assertThat(changes.get(0).get("new_contract_id").asLong()).isEqualTo(newContractId);
+        assertThat(read(get("/api/crm/v1/contracts/" + contractId, TENANT_A, ALL_PERMISSIONS)
+                .getBody()).get("data").get("status").asText()).isEqualTo("ACTIVE");
+        assertThat(queryString("SELECT parent_contract_id FROM fenglin_crm.crm_service_contract WHERE id = "
+                + newContractId)).isEqualTo(String.valueOf(contractId));
+        assertThat(AUDIT_EVENTS).anyMatch(event -> "CRM_CONTRACT_RENEWED".equals(event.eventType()));
+    }
+
+    @Test
+    void convertsApprovedQuotationToContractWithDefaultPlan() throws Exception {
+        long customerId = createCustomer(TENANT_A, "转合同客户", null);
+        long opportunityId = createOpportunity(TENANT_A, customerId, "转合同商机", 50000);
+        long quotationId = createApprovedQuotation(customerId, opportunityId, 50000, 5);
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("sla_level", "P2");
+        body.put("service_package", "标准服务包");
+        body.put("start_date", LocalDate.now().toString());
+        body.put("end_date", LocalDate.now().plusYears(1).toString());
+        body.put("reason", "中标转合同");
+        JsonNode contract = read(post("/api/crm/v1/quotations/" + quotationId + "/convert-to-contract", TENANT_A,
+                ALL_PERMISSIONS, body).getBody()).get("data");
+        long contractId = contract.get("contract_id").asLong();
+        assertAmount(contract.get("amount"), "47500.00");
+        assertThat(contract.get("payment_plans")).hasSize(1);
+        assertAmount(contract.get("payment_plans").get(0).get("amount"), "47500.00");
+        assertThat(queryString("SELECT quotation_id FROM fenglin_crm.crm_service_contract WHERE id = "
+                + contractId)).isEqualTo(String.valueOf(quotationId));
+        assertThat(read(get("/api/crm/v1/quotations/" + quotationId, TENANT_A, ALL_PERMISSIONS)
+                .getBody()).get("data").get("status").asText()).isEqualTo("CONVERTED");
+
+        ResponseEntity<String> again = post("/api/crm/v1/quotations/" + quotationId + "/convert-to-contract",
+                TENANT_A, ALL_PERMISSIONS, body);
+        assertThat(again.getStatusCode().value()).isEqualTo(400);
+        assertThat(read(again.getBody()).get("code").asText()).isEqualTo("1003002");
+        assertThat(AUDIT_EVENTS).anyMatch(event -> "CRM_QUOTATION_CONVERTED".equals(event.eventType()));
+    }
+
+    @Test
+    void rejectsConvertingPendingQuotation() throws Exception {
+        long customerId = createCustomer(TENANT_A, "待审报价客户", null);
+        long opportunityId = createOpportunity(TENANT_A, customerId, "待审商机", 100000);
+        long quotationId = createQuotation(customerId, opportunityId, 100000, 30);
+        assertThat(post("/api/crm/v1/quotations/" + quotationId + "/submit", TENANT_A, ALL_PERMISSIONS,
+                Map.of()).getStatusCode().value()).isEqualTo(200);
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("sla_level", "P1");
+        body.put("start_date", LocalDate.now().toString());
+        body.put("end_date", LocalDate.now().plusYears(1).toString());
+        ResponseEntity<String> response = post("/api/crm/v1/quotations/" + quotationId + "/convert-to-contract",
+                TENANT_A, ALL_PERMISSIONS, body);
+        assertThat(response.getStatusCode().value()).isEqualTo(400);
+        assertThat(read(response.getBody()).get("code").asText()).isEqualTo("1003002");
+    }
+
     // ---------- helpers ----------
+
+    private void assertAmount(JsonNode node, String expected) {
+        assertThat(new BigDecimal(node.asText())).isEqualByComparingTo(expected);
+    }
+
+    private Map<String, Object> plan(int periodNo, LocalDate dueDate, long amount) {
+        Map<String, Object> plan = new LinkedHashMap<>();
+        plan.put("period_no", periodNo);
+        plan.put("due_date", dueDate.toString());
+        plan.put("amount", amount);
+        return plan;
+    }
+
+    @SafeVarargs
+    private long createContract(long customerId, long amount, Map<String, Object>... plans) throws Exception {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("customer_id", customerId);
+        body.put("sla_level", "P1");
+        body.put("service_package", "标准服务包");
+        body.put("amount", amount);
+        body.put("start_date", LocalDate.now().toString());
+        body.put("end_date", LocalDate.now().plusYears(1).toString());
+        body.put("payment_plans", List.of(plans));
+        return read(post("/api/crm/v1/contracts", TENANT_A, ALL_PERMISSIONS, body)
+                .getBody()).get("data").get("contract_id").asLong();
+    }
+
+    private long createApprovedQuotation(long customerId, long opportunityId, long unitPrice,
+                                         int discountRate) throws Exception {
+        long quotationId = createQuotation(customerId, opportunityId, unitPrice, discountRate);
+        assertThat(post("/api/crm/v1/quotations/" + quotationId + "/submit", TENANT_A, ALL_PERMISSIONS,
+                Map.of()).getStatusCode().value()).isEqualTo(200);
+        return quotationId;
+    }
+
+    private long createQuotation(long customerId, long opportunityId, long unitPrice,
+                                 int discountRate) throws Exception {
+        Map<String, Object> item = new LinkedHashMap<>();
+        item.put("product_code", "SKU-A");
+        item.put("product_name", "标准产品");
+        item.put("quantity", 1);
+        item.put("unit_price", unitPrice);
+        item.put("discount_rate", discountRate);
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("opportunity_id", opportunityId);
+        body.put("customer_id", customerId);
+        body.put("items", List.of(item));
+        return read(post("/api/crm/v1/quotations", TENANT_A, ALL_PERMISSIONS, body)
+                .getBody()).get("data").get("quotation_id").asLong();
+    }
 
     private long createCustomer(long tenantId, String name, String uscc) throws Exception {
         Map<String, Object> body = new LinkedHashMap<>();
