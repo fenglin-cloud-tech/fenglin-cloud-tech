@@ -28,7 +28,8 @@ class HubMigrationTest {
             "hub_role", "hub_permission", "hub_role_permission", "hub_user_role",
             "hub_data_scope", "hub_field_permission", "hub_menu", "hub_dict_type", "hub_dict_item", "hub_param",
             "hub_login_session", "hub_sso_config", "hub_auth_token", "hub_auth_revocation",
-            "hub_audit_export_task", "hub_audit_alert_rule");
+            "hub_audit_export_task", "hub_audit_alert_rule",
+            "hub_search_index_task", "hub_search_query_log");
 
     private static EmbeddedPostgresSupport postgres;
     private static MigrateResult migrateResult;
@@ -53,7 +54,7 @@ class HubMigrationTest {
     @Test
     void appliesAllMigrationsOnEmptyDatabase() {
         assertThat(migrateResult.success).isTrue();
-        assertThat(migrateResult.migrationsExecuted).isEqualTo(26);
+        assertThat(migrateResult.migrationsExecuted).isEqualTo(27);
     }
 
     @Test
@@ -116,7 +117,7 @@ class HubMigrationTest {
                      "SELECT count(*) FROM fenglin_hub.flyway_schema_history "
                              + "WHERE success = true AND type = 'SQL'")) {
             assertThat(resultSet.next()).isTrue();
-            assertThat(resultSet.getInt(1)).isEqualTo(26);
+            assertThat(resultSet.getInt(1)).isEqualTo(27);
         }
     }
 

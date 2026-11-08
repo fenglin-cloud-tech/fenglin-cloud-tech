@@ -20,7 +20,39 @@
         </dependency>
         <dependency>
             <groupId>com.fenglin</groupId>
+            <artifactId>fenglin-starter-mybatis</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fenglin</groupId>
             <artifactId>fenglin-starter-observability</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fenglin</groupId>
+            <artifactId>fenglin-common-security</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fenglin</groupId>
+            <artifactId>fenglin-common-audit</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>co.elastic.clients</groupId>
+            <artifactId>elasticsearch-java</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.elasticsearch.client</groupId>
+            <artifactId>elasticsearch-rest-client</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.fenglin</groupId>
+            <artifactId>fenglin-common-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.fenglin</groupId>
+            <artifactId>fenglin-hub-migrations</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>

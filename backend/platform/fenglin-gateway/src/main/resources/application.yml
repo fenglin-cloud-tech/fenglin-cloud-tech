@@ -44,7 +44,7 @@ spring:
         - id: fenglin-search-service
           uri: ${FENGLIN_SEARCH_URI:http://localhost:18088}
           predicates:
-            - Path=/api/hub/v1/search/**,/internal/v1/search/**
+            - Path=/api/hub/v1/search/**,/api/hub/v1/admin/search/**,/internal/v1/search/**
         - id: fenglin-openapi-service
           uri: ${FENGLIN_OPENAPI_URI:http://localhost:18089}
           predicates:
