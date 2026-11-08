@@ -23,7 +23,7 @@ public class SearchServiceClient {
     private final RestClient restClient;
 
     public SearchServiceClient(
-            @Value("${fenglin.ai.search-service-url:http://localhost:18085}") String baseUrl) {
+            @Value("${fenglin.ai.search-service-url:http://localhost:18088}") String baseUrl) {
         String normalized = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
         this.restClient = RestClient.builder().baseUrl(normalized).build();
     }

@@ -26,7 +26,7 @@ fenglin:
     data-key-base64: ${FENGLIN_CRYPTO_DATA_KEY:MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=}
   ai:
     # 复用统一检索（Elasticsearch）作为 RAG/混合检索的召回底座
-    search-service-url: ${FENGLIN_SEARCH_SERVICE_URL:http://localhost:18085}
+    search-service-url: ${FENGLIN_SEARCH_SERVICE_URL:http://localhost:18088}
     citation-min-score: 0.6
     rag-top-k: 5
     # 模型网关超时（毫秒）
