@@ -13,6 +13,11 @@
     <artifactId>fenglin-report-service</artifactId>
     <name>fenglin-report-service</name>
 
+    <properties>
+        <poi.version>5.2.5</poi.version>
+        <openpdf.version>1.3.30</openpdf.version>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>com.fenglin</groupId>
@@ -20,7 +25,41 @@
         </dependency>
         <dependency>
             <groupId>com.fenglin</groupId>
+            <artifactId>fenglin-starter-mybatis</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fenglin</groupId>
             <artifactId>fenglin-starter-observability</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fenglin</groupId>
+            <artifactId>fenglin-common-security</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fenglin</groupId>
+            <artifactId>fenglin-common-audit</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>${poi.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.github.librepdf</groupId>
+            <artifactId>openpdf</artifactId>
+            <version>${openpdf.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.fenglin</groupId>
+            <artifactId>fenglin-common-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.fenglin</groupId>
+            <artifactId>fenglin-hub-migrations</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
