@@ -31,7 +31,9 @@ class HubMigrationTest {
             "hub_audit_export_task", "hub_audit_alert_rule",
             "hub_search_index_task", "hub_search_query_log",
             "hub_open_app", "hub_app_key", "hub_api_quota", "hub_api_call_log",
-            "hub_metric", "hub_report_dataset", "hub_report_dataset_field", "hub_report_def");
+            "hub_metric", "hub_report_dataset", "hub_report_dataset_field", "hub_report_def",
+            "hub_lowcode_app", "hub_lowcode_form", "hub_lowcode_page", "hub_lowcode_model",
+            "hub_lowcode_version", "hub_lowcode_publish", "hub_lowcode_record");
 
     private static EmbeddedPostgresSupport postgres;
     private static MigrateResult migrateResult;
@@ -56,7 +58,7 @@ class HubMigrationTest {
     @Test
     void appliesAllMigrationsOnEmptyDatabase() {
         assertThat(migrateResult.success).isTrue();
-        assertThat(migrateResult.migrationsExecuted).isEqualTo(29);
+        assertThat(migrateResult.migrationsExecuted).isEqualTo(30);
     }
 
     @Test
@@ -110,6 +112,13 @@ class HubMigrationTest {
         assertThat(rowLevelSecurityOf("hub_report_dataset")).isTrue();
         assertThat(rowLevelSecurityOf("hub_report_dataset_field")).isTrue();
         assertThat(rowLevelSecurityOf("hub_report_def")).isTrue();
+        assertThat(rowLevelSecurityOf("hub_lowcode_app")).isTrue();
+        assertThat(rowLevelSecurityOf("hub_lowcode_form")).isTrue();
+        assertThat(rowLevelSecurityOf("hub_lowcode_page")).isTrue();
+        assertThat(rowLevelSecurityOf("hub_lowcode_model")).isTrue();
+        assertThat(rowLevelSecurityOf("hub_lowcode_version")).isTrue();
+        assertThat(rowLevelSecurityOf("hub_lowcode_publish")).isTrue();
+        assertThat(rowLevelSecurityOf("hub_lowcode_record")).isTrue();
         assertThat(rowLevelSecurityOf("hub_permission"))
                 .as("功能权限为平台全局表，不启用 RLS")
                 .isFalse();
@@ -127,7 +136,7 @@ class HubMigrationTest {
                      "SELECT count(*) FROM fenglin_hub.flyway_schema_history "
                              + "WHERE success = true AND type = 'SQL'")) {
             assertThat(resultSet.next()).isTrue();
-            assertThat(resultSet.getInt(1)).isEqualTo(29);
+            assertThat(resultSet.getInt(1)).isEqualTo(30);
         }
     }
 
