@@ -21,6 +21,10 @@ mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true
 
+fenglin:
+  audit:
+    endpoint: ${FENGLIN_AUDIT_ENDPOINT:http://localhost:18087/internal/v1/audit/logs}
+
 management:
   endpoints:
     web:

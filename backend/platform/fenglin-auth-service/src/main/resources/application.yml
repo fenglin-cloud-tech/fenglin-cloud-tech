@@ -32,6 +32,8 @@ fenglin:
     max-fail-count: 5
     lock-duration: PT15M
     password-max-age-days: 90
+  audit:
+    endpoint: ${FENGLIN_AUDIT_ENDPOINT:http://localhost:18087/internal/v1/audit/logs}
 
 management:
   endpoints:

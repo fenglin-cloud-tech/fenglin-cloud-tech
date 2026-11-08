@@ -1,0 +1,132 @@
+package com.fenglin.audit.service;
+
+import com.baomidou.mybatisplus.core.toolkit.IdWorker;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fenglin.audit.mapper.AuditLogMapper;
+import com.fenglin.audit.web.dto.AuditLogView;
+import com.fenglin.audit.web.dto.RecordAuditRequest;
+import com.fenglin.common.core.BizException;
+import com.fenglin.common.core.CommonErrorCode;
+import com.fenglin.common.tenant.TenantContext;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.sql.Timestamp;
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
+
+@Service
+public class AuditService {
+
+    private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final DateTimeFormatter LOG_NO_TIME = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
+
+    private final AuditLogMapper auditLogMapper;
+
+    public AuditService(AuditLogMapper auditLogMapper) {
+        this.auditLogMapper = auditLogMapper;
+    }
+
+    @Transactional
+    public Map<String, Object> record(RecordAuditRequest request) {
+        Long contextTenantId = TenantContext.getTenantId();
+        long tenantId = contextTenantId == null ? 0L : contextTenantId;
+        long id = IdWorker.getId();
+        String logNo = "AUD" + LOG_NO_TIME.format(java.time.LocalDateTime.now())
+                + String.format("%06d", ThreadLocalRandom.current().nextInt(1_000_000));
+        Instant occurredAt = request.occurredAt() == null ? Instant.now() : request.occurredAt();
+
+        auditLogMapper.insert(id, tenantId, logNo, request.eventType(), request.module(), request.action(),
+                request.operatorId(), request.operatorName(), request.targetType(), request.targetId(),
+                request.requestId(), request.traceId(), request.clientType(), null,
+                normalize(request.result(), "SUCCESS"), normalize(request.riskLevel(), "LOW"),
+                request.detail() == null ? null : request.detail().toString(), occurredAt);
+        return Map.of("log_id", id, "log_no", logNo);
+    }
+
+    @Transactional(readOnly = true)
+    public List<AuditLogView> list(String eventType, Long operatorId, String targetType, String targetId,
+                                   String requestId, String result, Instant from, Instant to,
+                                   int page, int size) {
+        int normalizedPage = Math.max(page, 1);
+        int normalizedSize = Math.min(Math.max(size, 1), 200);
+        return auditLogMapper.findPage(normalize(eventType), operatorId, normalize(targetType),
+                        normalize(targetId), normalize(requestId), normalize(result), from, to,
+                        normalizedSize, (normalizedPage - 1) * normalizedSize)
+                .stream().map(this::toView).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public long count(String eventType, Long operatorId, String targetType, String targetId,
+                      String requestId, String result, Instant from, Instant to) {
+        return auditLogMapper.count(normalize(eventType), operatorId, normalize(targetType),
+                normalize(targetId), normalize(requestId), normalize(result), from, to);
+    }
+
+    @Transactional(readOnly = true)
+    public AuditLogView get(long id) {
+        Map<String, Object> row = auditLogMapper.findById(id);
+        if (row == null) {
+            throw new BizException(CommonErrorCode.NOT_FOUND, "审计记录不存在: " + id);
+        }
+        return toView(row);
+    }
+
+    private AuditLogView toView(Map<String, Object> row) {
+        return new AuditLogView(
+                ((Number) row.get("id")).longValue(),
+                ((Number) row.get("tenant_id")).longValue(),
+                (String) row.get("log_no"),
+                (String) row.get("event_type"),
+                (String) row.get("module"),
+                (String) row.get("action"),
+                row.get("operator_id") == null ? null : ((Number) row.get("operator_id")).longValue(),
+                (String) row.get("operator_name"),
+                (String) row.get("target_type"),
+                (String) row.get("target_id"),
+                (String) row.get("request_id"),
+                (String) row.get("trace_id"),
+                (String) row.get("client_type"),
+                (String) row.get("result"),
+                (String) row.get("risk_level"),
+                parseDetail(row.get("detail")),
+                toInstant(row.get("occurred_at")));
+    }
+
+    private JsonNode parseDetail(Object value) {
+        if (!(value instanceof String text) || text.isBlank()) {
+            return null;
+        }
+        try {
+            return MAPPER.readTree(text);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private Instant toInstant(Object value) {
+        if (value instanceof Instant instant) {
+            return instant;
+        }
+        if (value instanceof OffsetDateTime offsetDateTime) {
+            return offsetDateTime.toInstant();
+        }
+        if (value instanceof Timestamp timestamp) {
+            return timestamp.toInstant();
+        }
+        return null;
+    }
+
+    private String normalize(String value, String fallback) {
+        return value == null || value.isBlank() ? fallback : value.trim().toUpperCase();
+    }
+
+    private String normalize(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
+    }
+}

@@ -4,6 +4,22 @@ server:
 spring:
   application:
     name: fenglin-audit-service
+  jackson:
+    property-naming-strategy: SNAKE_CASE
+    default-property-inclusion: non_null
+  datasource:
+    url: ${FENGLIN_DB_URL:jdbc:postgresql://localhost:5432/fenglin_hub?currentSchema=fenglin_hub}
+    username: ${FENGLIN_DB_USER:fenglin}
+    password: ${FENGLIN_DB_PASSWORD:fenglin_dev}
+    hikari:
+      maximum-pool-size: 10
+      connection-init-sql: SET ROLE fl_app
+  flyway:
+    enabled: false
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
 
 management:
   endpoints:

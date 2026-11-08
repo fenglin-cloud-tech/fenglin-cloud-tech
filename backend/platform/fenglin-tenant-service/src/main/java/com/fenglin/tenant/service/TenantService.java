@@ -75,7 +75,7 @@ public class TenantService {
         withTenantContext(tenantId,
                 () -> bootstrapAdmin(tenantId, request.adminUsername(), passwordHash));
 
-        audit(tenantId, "TENANT_CREATED", code);
+        audit(tenantId, "CREATED", code);
         return new CreateTenantResult(tenantId, code, STATUS_ACTIVE, initialPassword);
     }
 
@@ -155,7 +155,7 @@ public class TenantService {
             throw new BizException(CommonErrorCode.CONFLICT, "仅已暂停租户可恢复");
         }
         tenantMapper.updateStatus(id, target);
-        audit(id, "TENANT_STATUS_CHANGED", target + (reason == null || reason.isBlank() ? "" : ":" + reason));
+        audit(id, "STATUS_CHANGED", target + (reason == null || reason.isBlank() ? "" : ":" + reason));
         return toView(tenantMapper.findById(id));
     }
 
