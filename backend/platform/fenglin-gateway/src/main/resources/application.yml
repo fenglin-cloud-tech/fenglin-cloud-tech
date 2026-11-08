@@ -28,7 +28,7 @@ spring:
         - id: fenglin-workflow-service
           uri: ${FENGLIN_WORKFLOW_URI:http://localhost:18084}
           predicates:
-            - Path=/api/hub/v1/workflow/**,/api/hub/v1/admin/workflows/**,/internal/v1/workflow/**
+            - Path=/api/hub/v1/workflow/**,/api/hub/v1/admin/workflow/**,/internal/v1/workflow/**
         - id: fenglin-message-service
           uri: ${FENGLIN_MESSAGE_URI:http://localhost:18085}
           predicates:

@@ -20,7 +20,41 @@
         </dependency>
         <dependency>
             <groupId>com.fenglin</groupId>
+            <artifactId>fenglin-starter-mybatis</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fenglin</groupId>
             <artifactId>fenglin-starter-observability</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fenglin</groupId>
+            <artifactId>fenglin-common-security</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fenglin</groupId>
+            <artifactId>fenglin-common-audit</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flowable</groupId>
+            <artifactId>flowable-spring-boot-starter-process</artifactId>
+        </dependency>
+        <!-- Flowable 自带的 mybatis 3.5.11 与 MyBatis-Plus 3.5.7 不兼容（Select.affectData 缺失），显式对齐 -->
+        <dependency>
+            <groupId>org.mybatis</groupId>
+            <artifactId>mybatis</artifactId>
+            <version>3.5.16</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.fenglin</groupId>
+            <artifactId>fenglin-common-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.fenglin</groupId>
+            <artifactId>fenglin-hub-migrations</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
