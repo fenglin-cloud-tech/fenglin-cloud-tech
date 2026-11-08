@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:flowable="http://flowable.org/bpmn"
+             targetNamespace="http://fenglin.com/finance">
+    <process id="financeProjectSettlement" name="项目结算审批" isExecutable="true">
+        <startEvent id="start"/>
+        <sequenceFlow id="f1" sourceRef="start" targetRef="approve"/>
+        <userTask id="approve" name="项目结算审批" flowable:candidateGroups="finance_manager"/>
+        <sequenceFlow id="f2" sourceRef="approve" targetRef="end"/>
+        <endEvent id="end"/>
+    </process>
+</definitions>

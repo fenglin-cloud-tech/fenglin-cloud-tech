@@ -1,0 +1,49 @@
+server:
+  port: ${FENGLIN_FINANCE_PORT:18098}
+
+spring:
+  application:
+    name: fenglin-finance-service
+  jackson:
+    property-naming-strategy: SNAKE_CASE
+    default-property-inclusion: non_null
+  datasource:
+    # 业务域独立 schema：生产为独立 database fenglin_finance，本地/CI 至少独立 schema
+    url: ${FENGLIN_FINANCE_DB_URL:jdbc:postgresql://localhost:5432/fenglin_finance?currentSchema=fenglin_finance}
+    username: ${FENGLIN_FINANCE_DB_USER:fenglin}
+    password: ${FENGLIN_FINANCE_DB_PASSWORD:fenglin_dev}
+    hikari:
+      maximum-pool-size: 10
+      # 以非属主角色执行，确保 RLS 对应用连接生效
+      connection-init-sql: SET ROLE fl_finance_app
+  flyway:
+    # fenglin_finance 迁移唯一所有者是 fenglin-finance-migrations，由发布流程执行
+    enabled: false
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+
+fenglin:
+  finance:
+    workflow-service-url: ${FENGLIN_WORKFLOW_SERVICE_URL:http://localhost:18084}
+    workflow-bootstrap-enabled: true
+    # 凭证哈希链 HMAC 密钥，生产由 KMS 注入
+    chain-secret: ${FENGLIN_FINANCE_CHAIN_SECRET:fenglin-finance-chain-dev}
+  crypto:
+    # 本地/测试密钥，生产由 KMS 注入
+    data-key-base64: ${FENGLIN_CRYPTO_DATA_KEY:MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+info:
+  app:
+    name: ${spring.application.name}

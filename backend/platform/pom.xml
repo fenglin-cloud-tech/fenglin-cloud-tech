@@ -38,5 +38,8 @@
         <module>fenglin-talent-migrations</module>
         <module>fenglin-talent-bootstrap</module>
         <module>fenglin-talent-service</module>
+        <module>fenglin-finance-migrations</module>
+        <module>fenglin-finance-bootstrap</module>
+        <module>fenglin-finance-service</module>
     </modules>
 </project>
