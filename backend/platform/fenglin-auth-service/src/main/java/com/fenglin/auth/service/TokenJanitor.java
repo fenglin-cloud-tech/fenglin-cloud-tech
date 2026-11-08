@@ -50,6 +50,8 @@ public class TokenJanitor {
      * 执行一次清理，返回删除条数（供运维手动触发与测试验证）。
      */
     public int runOnce() {
+        // 平台级遍历租户前先清除线程残留上下文，避免 RLS 拦截器要求租户上下文
+        TenantContext.clear();
         Instant cutoff = Instant.now().minus(properties.getExpiredTokenRetention());
         List<TenantEntity> tenants = tenantMapper.selectList(Wrappers.<TenantEntity>lambdaQuery()
                 .select(TenantEntity::getId)
