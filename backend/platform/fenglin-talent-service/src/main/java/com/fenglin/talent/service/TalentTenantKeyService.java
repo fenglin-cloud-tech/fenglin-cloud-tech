@@ -1,0 +1,50 @@
+package com.fenglin.talent.service;
+
+import com.baomidou.mybatisplus.core.toolkit.IdWorker;
+import com.fenglin.common.crypto.AesGcmCipher;
+import com.fenglin.talent.mapper.TalentTenantKeyMapper;
+import com.fenglin.talent.support.Rows;
+import com.fenglin.talent.support.TalentContext;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.security.SecureRandom;
+import java.util.Base64;
+import java.util.Map;
+
+/**
+ * 租户密钥：首次加密/哈希时按 tenant_id 落库，已存在则复用。
+ *
+ * <p>dek_cipher 以平台 AES-GCM 加密存储（AAD 绑定租户与字段），tenant_salt 作为哈希盐。</p>
+ */
+@Service
+public class TalentTenantKeyService {
+
+    private static final SecureRandom RANDOM = new SecureRandom();
+
+    private final TalentTenantKeyMapper tenantKeyMapper;
+    private final AesGcmCipher cipher;
+
+    public TalentTenantKeyService(TalentTenantKeyMapper tenantKeyMapper, AesGcmCipher cipher) {
+        this.tenantKeyMapper = tenantKeyMapper;
+        this.cipher = cipher;
+    }
+
+    @Transactional
+    public String salt(long tenantId) {
+        Map<String, Object> existing = tenantKeyMapper.findActive(tenantId);
+        String salt = existing == null ? null : Rows.str(existing, "tenantSalt");
+        if (salt != null && !salt.isBlank()) {
+            return salt;
+        }
+        byte[] saltBytes = new byte[32];
+        byte[] dekBytes = new byte[32];
+        RANDOM.nextBytes(saltBytes);
+        RANDOM.nextBytes(dekBytes);
+        salt = Base64.getEncoder().encodeToString(saltBytes);
+        String dekCipher = cipher.encrypt(Base64.getEncoder().encodeToString(dekBytes),
+                tenantId + ":talent_tenant_key:dek_cipher");
+        tenantKeyMapper.insertKey(IdWorker.getId(), tenantId, 1, dekCipher, salt, TalentContext.userId());
+        return salt;
+    }
+}

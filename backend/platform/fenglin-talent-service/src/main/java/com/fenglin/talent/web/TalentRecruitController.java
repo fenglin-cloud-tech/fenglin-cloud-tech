@@ -6,6 +6,7 @@ import com.fenglin.common.security.PermissionGuard;
 import com.fenglin.talent.service.RecruitService;
 import com.fenglin.talent.web.dto.TalentDtos.ApplicationCreateRequest;
 import com.fenglin.talent.web.dto.TalentDtos.ApplicationCreateResult;
+import com.fenglin.talent.web.dto.TalentDtos.ApprovalRequest;
 import com.fenglin.talent.web.dto.TalentDtos.CandidateCreateRequest;
 import com.fenglin.talent.web.dto.TalentDtos.CandidateCreateResult;
 import com.fenglin.talent.web.dto.TalentDtos.CandidateListItem;
@@ -16,10 +17,13 @@ import com.fenglin.talent.web.dto.TalentDtos.InterviewEvaluateResult;
 import com.fenglin.talent.web.dto.TalentDtos.MyInterviewItem;
 import com.fenglin.talent.web.dto.TalentDtos.OfferCreateRequest;
 import com.fenglin.talent.web.dto.TalentDtos.OfferStatusResult;
+import com.fenglin.talent.web.dto.TalentDtos.RequisitionApprovalResult;
 import com.fenglin.talent.web.dto.TalentDtos.RequisitionCreateRequest;
 import com.fenglin.talent.web.dto.TalentDtos.RequisitionCreateResult;
 import com.fenglin.talent.web.dto.TalentDtos.RequisitionListItem;
 import com.fenglin.talent.web.dto.TalentDtos.RequisitionSubmitResult;
+import com.fenglin.talent.web.dto.TalentDtos.ResumeParseRequest;
+import com.fenglin.talent.web.dto.TalentDtos.ResumeParseResult;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -43,6 +47,8 @@ public class TalentRecruitController {
     private static final String REQUISITION_SUBMIT = "talent:admin:recruit:submit";
     private static final String CANDIDATE_CREATE = "talent:admin:candidate:create";
     private static final String CANDIDATE_LIST = "talent:admin:candidate:list";
+    private static final String CANDIDATE_PARSE = "talent:admin:candidate:parse";
+    private static final String REQUISITION_APPROVE = "talent:admin:recruit:approve";
     private static final String INTERVIEW_CREATE = "talent:admin:interview:create";
     private static final String INTERVIEW_EVALUATE = "talent:interview:evaluate";
     private static final String INTERVIEW_MY = "biz:talent:interview:my";
@@ -88,6 +94,22 @@ public class TalentRecruitController {
             @RequestBody CandidateCreateRequest request) {
         PermissionGuard.require(permissions, CANDIDATE_CREATE);
         return ApiResponse.success(recruitService.createCandidate(request));
+    }
+
+    @PostMapping("/candidates/{id}/resume/parse")
+    public ApiResponse<ResumeParseResult> parseResume(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id, @RequestBody ResumeParseRequest request) {
+        PermissionGuard.require(permissions, CANDIDATE_PARSE);
+        return ApiResponse.success(recruitService.parseResume(id, request));
+    }
+
+    @PostMapping("/requisitions/{id}/approval")
+    public ApiResponse<RequisitionApprovalResult> approveRequisition(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id, @RequestBody ApprovalRequest request) {
+        PermissionGuard.require(permissions, REQUISITION_APPROVE);
+        return ApiResponse.success(recruitService.approveRequisition(id, request));
     }
 
     @GetMapping("/candidates")

@@ -25,6 +25,7 @@ import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
+import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -61,15 +62,18 @@ class TalentIntegrationTest {
             "talent:admin:org:create", "talent:admin:org:update", "talent:admin:org:move",
             "talent:admin:org:delete",
             "talent:admin:employee:list", "talent:employee:view", "talent:admin:employee:create",
-            "talent:admin:employee:update",
+            "talent:admin:employee:update", "talent:admin:employee:import", "talent:admin:employee:export",
             "talent:admin:position:list", "talent:admin:position:create", "talent:admin:grade:list",
             "talent:admin:headcount:create",
             "talent:admin:recruit:create", "talent:admin:recruit:list", "talent:admin:recruit:submit",
+            "talent:admin:recruit:approve",
             "talent:admin:candidate:create", "talent:admin:candidate:list",
+            "talent:admin:candidate:parse",
             "talent:admin:interview:create", "talent:interview:evaluate", "biz:talent:interview:my",
             "talent:admin:offer:create",
             "talent:admin:onboarding:create", "talent:admin:probation:evaluate",
-            "talent:admin:transfer:create", "talent:admin:resignation:approve",
+            "talent:admin:transfer:create", "talent:admin:transfer:approve",
+            "talent:admin:resignation:approve",
             "biz:talent:resignation:apply",
             "talent:admin:course:create", "talent:course:list", "talent:admin:session:create",
             "biz:talent:course:enroll", "biz:talent:course:cancel", "biz:talent:learning:progress",
@@ -537,6 +541,137 @@ class TalentIntegrationTest {
                 + employeeId)).isEqualTo(lastWorkDate.toString());
         assertThat(AUDIT_EVENTS).anyMatch(
                 event -> "TALENT_EMPLOYEE_RESIGNED".equals(event.eventType()));
+    }
+
+    // ---------- 批量导入 / 花名册导出 / 人员结构 ----------
+
+    @Test
+    void batchImportRosterExportAndHeadcountReport() throws Exception {
+        long root = createOrg("丰麟云创", "FL", null, "COMPANY");
+        long rd = createOrg("研发中心", "FL.RD", root, "DEPT");
+
+        JsonNode imported = read(post("/api/talent/v1/employees/import", USER_HR, ALL_PERMISSIONS,
+                Map.of("rows", List.of(
+                        employeeBody("I1001", "导入一", "13700001111", "110101199001011234", rd),
+                        employeeBody("I1002", "导入二", "13700001111", "110101199002022345", rd)))).getBody())
+                .get("data");
+        assertThat(imported.get("total").asInt()).isEqualTo(2);
+        assertThat(imported.get("success").asInt()).isEqualTo(1);
+        assertThat(imported.get("failed").asInt()).isEqualTo(1);
+        assertThat(imported.get("errors").get(0).get("index").asInt()).isEqualTo(1);
+        assertThat(imported.get("errors").get(0).get("emp_no").asText()).isEqualTo("I1002");
+        assertThat(imported.get("errors").get(0).get("code").asText()).isEqualTo("3001001");
+        assertThat(queryLong("SELECT count(1) FROM fenglin_talent.talent_employee")).isEqualTo(1L);
+
+        ResponseEntity<byte[]> roster = restTemplate.exchange(
+                url("/api/talent/v1/employees/roster/export?orgId=" + root + "&includeSubOrg=true"),
+                HttpMethod.GET, new HttpEntity<>(headers(USER_HR, ALL_PERMISSIONS)), byte[].class);
+        assertThat(roster.getStatusCode().value()).isEqualTo(200);
+        assertThat(roster.getHeaders().getContentType().toString()).contains("text/csv");
+        byte[] bytes = roster.getBody();
+        assertThat(bytes).isNotNull();
+        assertThat(bytes[0] & 0xFF).isEqualTo(0xEF);
+        assertThat(bytes[1] & 0xFF).isEqualTo(0xBB);
+        assertThat(bytes[2] & 0xFF).isEqualTo(0xBF);
+        String csv = new String(bytes, StandardCharsets.UTF_8);
+        assertThat(csv).startsWith("\uFEFF工号,姓名,性别,组织,岗位,职级,直属上级,入职日期,员工状态,工作地,脱敏手机号");
+        assertThat(csv).contains("137****1111").doesNotContain("13700001111");
+
+        JsonNode report = read(get("/api/talent/v1/reports/headcount?orgId=" + root + "&includeSubOrg=true",
+                USER_HR, ALL_PERMISSIONS).getBody()).get("data");
+        assertThat(report.get("total").asLong()).isEqualTo(1L);
+        assertThat(report.get("by_status").get("PENDING").asLong()).isEqualTo(1L);
+        assertThat(report.get("by_org").size()).isEqualTo(1);
+        assertThat(report.get("by_org").get(0).get("org_id").asLong()).isEqualTo(rd);
+        assertThat(report.get("by_employment_type").get("REGULAR").asLong()).isEqualTo(1L);
+
+        assertThat(queryLong("SELECT count(1) FROM fenglin_talent.talent_tenant_key WHERE tenant_id = "
+                + TENANT)).isGreaterThanOrEqualTo(1L);
+        assertThat(queryString("SELECT tenant_salt FROM fenglin_talent.talent_tenant_key WHERE tenant_id = "
+                + TENANT + " LIMIT 1")).isNotBlank();
+        assertThat(AUDIT_EVENTS).anyMatch(event -> "TALENT_EMPLOYEES_IMPORTED".equals(event.eventType()));
+    }
+
+    // ---------- 简历解析 / 招聘与异动审批回调 ----------
+
+    @Test
+    void resumeParseAndApprovalCallbacks() throws Exception {
+        long root = createOrg("丰麟云创", "FL", null, "COMPANY");
+        long rd = createOrg("研发中心", "FL.RD", root, "DEPT");
+        long positionId = createPosition(root);
+        createPlan(root, positionId, 5);
+        seedGrade();
+
+        long candidateId = read(post("/api/talent/v1/recruit/candidates", USER_HR, ALL_PERMISSIONS, Map.of(
+                "name", "简历候选人", "source", "OFFICIAL")).getBody()).get("data").get("id").asLong();
+        JsonNode parsed = read(post("/api/talent/v1/recruit/candidates/" + candidateId + "/resume/parse",
+                USER_HR, ALL_PERMISSIONS, Map.of("resume_text",
+                        "姓名：钱七\n手机：13612345678\n邮箱：qianqi@example.com\n5年经验")).getBody())
+                .get("data");
+        assertThat(parsed.get("candidate_id").asLong()).isEqualTo(candidateId);
+        assertThat(parsed.get("applied").asBoolean()).isTrue();
+        assertThat(parsed.get("parsed").get("name").asText()).isEqualTo("钱七");
+        assertThat(parsed.get("parsed").get("phone").asText()).isEqualTo("13612345678");
+        assertThat(parsed.get("parsed").get("email").asText()).isEqualTo("qianqi@example.com");
+        assertThat(parsed.get("parsed").get("experience_years").asDouble()).isEqualTo(5.0);
+        assertThat(queryString("SELECT phone_enc FROM fenglin_talent.talent_candidate WHERE id = "
+                + candidateId)).doesNotContain("13612345678");
+        assertThat(queryString("SELECT phone_hash FROM fenglin_talent.talent_candidate WHERE id = "
+                + candidateId)).hasSize(64);
+
+        JsonNode unresolvable = read(post("/api/talent/v1/recruit/candidates/" + candidateId + "/resume/parse",
+                USER_HR, ALL_PERMISSIONS, Map.of("resume_text", "无可用信息")).getBody()).get("data");
+        assertThat(unresolvable.get("applied").asBoolean()).isFalse();
+        assertThat(unresolvable.get("parsed").has("phone")).isFalse();
+
+        long requisitionId = read(post("/api/talent/v1/recruit/requisitions", USER_HR, ALL_PERMISSIONS,
+                requisitionBody(root, positionId, 1)).getBody()).get("data").get("id").asLong();
+        read(post("/api/talent/v1/recruit/requisitions/" + requisitionId + "/submit", USER_HR,
+                ALL_PERMISSIONS, Map.of()).getBody());
+        JsonNode approved = read(post("/api/talent/v1/recruit/requisitions/" + requisitionId + "/approval",
+                USER_HR, ALL_PERMISSIONS, Map.of("approved", true, "opinion", "同意")).getBody()).get("data");
+        assertThat(approved.get("req_status").asText()).isEqualTo("RECRUITING");
+        JsonNode again = read(post("/api/talent/v1/recruit/requisitions/" + requisitionId + "/approval",
+                USER_HR, ALL_PERMISSIONS, Map.of("approved", true)).getBody()).get("data");
+        assertThat(again.get("req_status").asText()).isEqualTo("RECRUITING");
+
+        long rejectedId = read(post("/api/talent/v1/recruit/requisitions", USER_HR, ALL_PERMISSIONS,
+                requisitionBody(root, positionId, 1)).getBody()).get("data").get("id").asLong();
+        read(post("/api/talent/v1/recruit/requisitions/" + rejectedId + "/submit", USER_HR,
+                ALL_PERMISSIONS, Map.of()).getBody());
+        JsonNode rejected = read(post("/api/talent/v1/recruit/requisitions/" + rejectedId + "/approval",
+                USER_HR, ALL_PERMISSIONS, Map.of("approved", false, "opinion", "暂缓")).getBody()).get("data");
+        assertThat(rejected.get("req_status").asText()).isEqualTo("DRAFT");
+
+        long employeeId = createEmployee("A1001", "审批员工", root);
+        long transferId = read(post("/api/talent/v1/transfers", USER_HR, ALL_PERMISSIONS, Map.of(
+                "employee_id", employeeId, "transfer_type", "TRANSFER",
+                "after", Map.of("org_id", rd, "position_id", positionId, "grade_id", GRADE_ID),
+                "effective_date", LocalDate.now().toString(), "reason", "审批通过转岗")).getBody())
+                .get("data").get("id").asLong();
+        JsonNode transferred = read(post("/api/talent/v1/transfers/" + transferId + "/approval", USER_HR,
+                ALL_PERMISSIONS, Map.of("approved", true)).getBody()).get("data");
+        assertThat(transferred.get("tf_status").asText()).isEqualTo("EFFECTIVE");
+        assertThat(transferred.get("employee").get("org_id").asLong()).isEqualTo(rd);
+        assertThat(queryLong("SELECT org_id FROM fenglin_talent.talent_employee WHERE id = " + employeeId))
+                .isEqualTo(rd);
+
+        long canceledId = read(post("/api/talent/v1/transfers", USER_HR, ALL_PERMISSIONS, Map.of(
+                "employee_id", employeeId, "transfer_type", "TRANSFER",
+                "after", Map.of("org_id", root, "position_id", positionId),
+                "effective_date", LocalDate.now().toString(), "reason", "审批驳回")).getBody())
+                .get("data").get("id").asLong();
+        JsonNode canceled = read(post("/api/talent/v1/transfers/" + canceledId + "/approval", USER_HR,
+                ALL_PERMISSIONS, Map.of("approved", false)).getBody()).get("data");
+        assertThat(canceled.get("tf_status").asText()).isEqualTo("CANCELED");
+        assertThat(queryLong("SELECT org_id FROM fenglin_talent.talent_employee WHERE id = " + employeeId))
+                .isEqualTo(rd);
+
+        assertThat(AUDIT_EVENTS).anyMatch(
+                event -> "TALENT_REQUISITION_APPROVED".equals(event.eventType()));
+        assertThat(AUDIT_EVENTS).anyMatch(
+                event -> "TALENT_REQUISITION_REJECTED".equals(event.eventType()));
+        assertThat(AUDIT_EVENTS).anyMatch(event -> "TALENT_TRANSFER_CANCELED".equals(event.eventType()));
     }
 
     // ---------- 培训与知识 ----------

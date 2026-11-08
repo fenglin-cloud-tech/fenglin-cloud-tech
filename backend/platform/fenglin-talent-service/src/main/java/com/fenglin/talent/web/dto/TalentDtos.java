@@ -5,6 +5,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 云才 C1 组织与人事主链 DTO 集合。JSON 字段由全局 SNAKE_CASE 策略转换。
@@ -203,5 +204,47 @@ public final class TalentDtos {
     }
 
     public record ResignationStatusResult(Long id, String rsStatus) {
+    }
+
+    // ---------- 收口补充 ----------
+
+    public record EmployeeImportRow(String empNo, String name, String gender, LocalDate birthDate, String phone,
+                                    String idCard, String email, Long orgId, Long positionId, Long gradeId,
+                                    Long managerId, String employmentType, LocalDate hireDate,
+                                    String workLocation) {
+    }
+
+    public record EmployeeImportRequest(List<EmployeeImportRow> rows) {
+    }
+
+    public record EmployeeImportError(int index, String empNo, String code, String message) {
+    }
+
+    public record EmployeeImportResult(int total, int success, int failed, List<EmployeeImportError> errors) {
+    }
+
+    public record ResumeParseRequest(String resumeText) {
+    }
+
+    public record ParsedResume(String name, String phone, String email, BigDecimal experienceYears) {
+    }
+
+    public record ResumeParseResult(Long candidateId, ParsedResume parsed, boolean applied) {
+    }
+
+    public record ApprovalRequest(Boolean approved, String opinion) {
+    }
+
+    public record RequisitionApprovalResult(Long id, String reqStatus) {
+    }
+
+    public record TransferApprovalResult(Long id, String tfStatus, TransferEmployee employee) {
+    }
+
+    public record OrgHeadcount(Long orgId, String orgName, long count) {
+    }
+
+    public record HeadcountReport(long total, Map<String, Long> byStatus, List<OrgHeadcount> byOrg,
+                                  Map<String, Long> byEmploymentType, BigDecimal avgTenureMonths) {
     }
 }

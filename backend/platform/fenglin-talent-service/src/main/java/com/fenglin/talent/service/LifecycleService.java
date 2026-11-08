@@ -12,6 +12,7 @@ import com.fenglin.talent.mapper.LifecycleMapper;
 import com.fenglin.talent.support.Rows;
 import com.fenglin.talent.support.TalentAudit;
 import com.fenglin.talent.support.TalentContext;
+import com.fenglin.talent.web.dto.TalentDtos.ApprovalRequest;
 import com.fenglin.talent.web.dto.TalentDtos.OnboardingCompleteResult;
 import com.fenglin.talent.web.dto.TalentDtos.OnboardingCreateRequest;
 import com.fenglin.talent.web.dto.TalentDtos.OnboardingCreateResult;
@@ -21,6 +22,7 @@ import com.fenglin.talent.web.dto.TalentDtos.ResignationApproveRequest;
 import com.fenglin.talent.web.dto.TalentDtos.ResignationCreateRequest;
 import com.fenglin.talent.web.dto.TalentDtos.ResignationStatusResult;
 import com.fenglin.talent.web.dto.TalentDtos.TransferAfter;
+import com.fenglin.talent.web.dto.TalentDtos.TransferApprovalResult;
 import com.fenglin.talent.web.dto.TalentDtos.TransferCreateRequest;
 import com.fenglin.talent.web.dto.TalentDtos.TransferCreateResult;
 import com.fenglin.talent.web.dto.TalentDtos.TransferEffectiveResult;
@@ -207,6 +209,38 @@ public class LifecycleService {
         return new TransferEffectiveResult(id, "EFFECTIVE", new TransferEmployee(orgId, positionId, gradeId));
     }
 
+    /**
+     * 异动审批回调：通过 -> 生效并回写员工组织/岗位/职级；驳回 -> CANCELED。
+     */
+    @Transactional
+    public TransferApprovalResult approveTransfer(long id, ApprovalRequest request) {
+        long tenantId = TalentContext.tenantId();
+        long userId = TalentContext.userId();
+        Map<String, Object> transfer = lifecycleMapper.findTransfer(tenantId, id);
+        if (transfer == null) {
+            throw new BizException(TalentErrorCode.RESOURCE_NOT_FOUND, "异动记录不存在");
+        }
+        if (request == null || request.approved() == null) {
+            throw new BizException(TalentErrorCode.PARAM_INVALID, "approved 不能为空");
+        }
+        String status = Rows.str(transfer, "tfStatus");
+        long employeeId = Rows.lngVal(transfer, "employeeId");
+        if ((request.approved() && "EFFECTIVE".equals(status))
+                || (!request.approved() && "CANCELED".equals(status))) {
+            return new TransferApprovalResult(id, status, currentEmployee(tenantId, employeeId));
+        }
+        if (!"APPROVING".equals(status)) {
+            throw new BizException(TalentErrorCode.STATE_CONFLICT, "仅审批中的异动可处理");
+        }
+        if (request.approved()) {
+            TransferEffectiveResult effective = createEffectiveTransfer(id);
+            return new TransferApprovalResult(id, effective.tfStatus(), effective.employee());
+        }
+        lifecycleMapper.updateTransferStatus(tenantId, id, "CANCELED", userId);
+        audit.publish("TALENT_TRANSFER_CANCELED", "APPROVE", "talent_transfer", id, "MEDIUM");
+        return new TransferApprovalResult(id, "CANCELED", currentEmployee(tenantId, employeeId));
+    }
+
     // ---------- 离职 ----------
 
     @Transactional
@@ -267,6 +301,12 @@ public class LifecycleService {
             throw new BizException(TalentErrorCode.RESOURCE_NOT_FOUND, "员工不存在");
         }
         return employee;
+    }
+
+    private TransferEmployee currentEmployee(long tenantId, long employeeId) {
+        Map<String, Object> employee = requireEmployee(tenantId, employeeId);
+        return new TransferEmployee(Rows.lng(employee, "orgId"), Rows.lng(employee, "positionId"),
+                Rows.lng(employee, "gradeId"));
     }
 
     private String toJson(Object value) {

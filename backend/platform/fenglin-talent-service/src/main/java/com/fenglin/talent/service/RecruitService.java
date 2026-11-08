@@ -17,6 +17,7 @@ import com.fenglin.talent.support.TalentContext;
 import com.fenglin.talent.support.TalentCrypto;
 import com.fenglin.talent.web.dto.TalentDtos.ApplicationCreateRequest;
 import com.fenglin.talent.web.dto.TalentDtos.ApplicationCreateResult;
+import com.fenglin.talent.web.dto.TalentDtos.ApprovalRequest;
 import com.fenglin.talent.web.dto.TalentDtos.CandidateCreateRequest;
 import com.fenglin.talent.web.dto.TalentDtos.CandidateCreateResult;
 import com.fenglin.talent.web.dto.TalentDtos.CandidateListItem;
@@ -28,10 +29,14 @@ import com.fenglin.talent.web.dto.TalentDtos.MyInterviewItem;
 import com.fenglin.talent.web.dto.TalentDtos.NameRef;
 import com.fenglin.talent.web.dto.TalentDtos.OfferCreateRequest;
 import com.fenglin.talent.web.dto.TalentDtos.OfferStatusResult;
+import com.fenglin.talent.web.dto.TalentDtos.ParsedResume;
+import com.fenglin.talent.web.dto.TalentDtos.RequisitionApprovalResult;
 import com.fenglin.talent.web.dto.TalentDtos.RequisitionCreateRequest;
 import com.fenglin.talent.web.dto.TalentDtos.RequisitionCreateResult;
 import com.fenglin.talent.web.dto.TalentDtos.RequisitionListItem;
 import com.fenglin.talent.web.dto.TalentDtos.RequisitionSubmitResult;
+import com.fenglin.talent.web.dto.TalentDtos.ResumeParseRequest;
+import com.fenglin.talent.web.dto.TalentDtos.ResumeParseResult;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,6 +47,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * 招聘主链：需求（编制校验 + 审批）、候选人（PII 加密 + 内推提示）、应聘、面试、Offer（薪酬带宽校验）。
@@ -52,6 +59,13 @@ public class RecruitService {
     private static final Set<String> CAND_SOURCES = Set.of("REFERRAL", "JOB_SITE", "HEADHUNTER", "OFFICIAL");
     private static final Set<String> INTERVIEW_MODES = Set.of("ONSITE", "VIDEO", "PHONE");
     private static final Set<String> INTERVIEW_RESULTS = Set.of("PASS", "HOLD", "REJECT");
+    private static final Pattern PHONE_PATTERN = Pattern.compile("1[3-9]\\d{9}");
+    private static final Pattern EMAIL_PATTERN =
+            Pattern.compile("[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}");
+    private static final Pattern NAME_PATTERN =
+            Pattern.compile("(?:姓\\s*名|名字)\\s*[:：]?\\s*([\\u4e00-\\u9fa5·]{2,20})");
+    private static final Pattern EXPERIENCE_PATTERN =
+            Pattern.compile("(\\d{1,2}(?:\\.\\d)?)\\s*年(?:以上)?(?:相关)?(?:工作)?经验");
 
     private final RecruitMapper recruitMapper;
     private final AdminMapper adminMapper;
@@ -160,6 +174,34 @@ public class RecruitService {
         return new RequisitionSubmitResult(id, "APPROVING", instanceId);
     }
 
+    /**
+     * 招聘需求审批回调：通过 -> RECRUITING，驳回 -> DRAFT；同状态幂等返回。
+     */
+    @Transactional
+    public RequisitionApprovalResult approveRequisition(long id, ApprovalRequest request) {
+        long tenantId = TalentContext.tenantId();
+        long userId = TalentContext.userId();
+        Map<String, Object> requisition = recruitMapper.findRequisition(tenantId, id);
+        if (requisition == null) {
+            throw new BizException(TalentErrorCode.RESOURCE_NOT_FOUND, "招聘需求不存在");
+        }
+        if (request == null || request.approved() == null) {
+            throw new BizException(TalentErrorCode.PARAM_INVALID, "approved 不能为空");
+        }
+        String status = Rows.str(requisition, "reqStatus");
+        String target = request.approved() ? "RECRUITING" : "DRAFT";
+        if (target.equals(status)) {
+            return new RequisitionApprovalResult(id, status);
+        }
+        if (!"APPROVING".equals(status)) {
+            throw new BizException(TalentErrorCode.STATE_CONFLICT, "仅审批中的招聘需求可处理");
+        }
+        recruitMapper.updateRequisitionStatus(tenantId, id, target, userId);
+        audit.publish(request.approved() ? "TALENT_REQUISITION_APPROVED" : "TALENT_REQUISITION_REJECTED",
+                "APPROVE", "talent_recruit_requisition", id, "MEDIUM");
+        return new RequisitionApprovalResult(id, target);
+    }
+
     // ---------- 候选人 ----------
 
     @Transactional
@@ -210,6 +252,46 @@ public class RecruitService {
                 .toList();
         return PageResult.of(records, recruitMapper.countCandidates(tenantId, requisitionId, status, sourceFilter,
                 keywordFilter), pageNo, pageSize);
+    }
+
+    /**
+     * 简历文本解析：仅回填候选人空字段，手机号加密 + 哈希落库；无法解析时返回空结果而非报错。
+     */
+    @Transactional
+    public ResumeParseResult parseResume(long id, ResumeParseRequest request) {
+        long tenantId = TalentContext.tenantId();
+        long userId = TalentContext.userId();
+        Map<String, Object> candidate = recruitMapper.findCandidateProfile(tenantId, id);
+        if (candidate == null) {
+            throw new BizException(TalentErrorCode.RESOURCE_NOT_FOUND, "候选人不存在");
+        }
+        String text = request == null ? null : request.resumeText();
+        String parsedName = matchFirst(NAME_PATTERN, text, 1);
+        String parsedPhone = matchFirst(PHONE_PATTERN, text, 0);
+        String parsedEmail = matchFirst(EMAIL_PATTERN, text, 0);
+        String yearsText = matchFirst(EXPERIENCE_PATTERN, text, 1);
+        BigDecimal parsedYears = yearsText == null ? null : new BigDecimal(yearsText);
+
+        String name = isBlank(Rows.str(candidate, "name")) ? parsedName : null;
+        String email = isBlank(Rows.str(candidate, "email")) ? parsedEmail : null;
+        BigDecimal years = Rows.dec(candidate, "experienceYears") == null ? parsedYears : null;
+        String phoneEnc = null;
+        String phoneHash = null;
+        if (isBlank(Rows.str(candidate, "phoneHash")) && parsedPhone != null) {
+            String hash = crypto.hash(tenantId, parsedPhone);
+            if (recruitMapper.countByCandidatePhoneHash(tenantId, hash) > 0) {
+                throw new BizException(TalentErrorCode.PII_DUPLICATED, "候选人手机号已存在");
+            }
+            phoneEnc = crypto.encrypt(tenantId, "talent_candidate", "phone", parsedPhone);
+            phoneHash = hash;
+        }
+        boolean applied = name != null || email != null || years != null || phoneHash != null;
+        if (applied) {
+            recruitMapper.updateCandidateParsed(tenantId, id, name, phoneEnc, phoneHash, email, years, userId);
+            audit.publish("TALENT_CANDIDATE_RESUME_PARSED", "UPDATE", "talent_candidate", id, "MEDIUM");
+        }
+        return new ResumeParseResult(id, new ParsedResume(parsedName, parsedPhone, parsedEmail, parsedYears),
+                applied);
     }
 
     // ---------- 应聘记录（文档缺口补齐，面试前置） ----------
@@ -386,5 +468,17 @@ public class RecruitService {
 
     private String blankToNull(String value) {
         return value == null || value.isBlank() ? null : value;
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
+    }
+
+    private String matchFirst(Pattern pattern, String text, int group) {
+        if (text == null || text.isBlank()) {
+            return null;
+        }
+        Matcher matcher = pattern.matcher(text);
+        return matcher.find() ? matcher.group(group) : null;
     }
 }

@@ -131,6 +131,29 @@ public interface RecruitMapper {
     Map<String, Object> findCandidate(@Param("tenantId") long tenantId, @Param("id") long id);
 
     @Select("""
+            SELECT id AS "id", name AS "name", phone_enc AS "phoneEnc", phone_hash AS "phoneHash",
+                   email AS "email", experience_years AS "experienceYears", version AS "version"
+            FROM talent_candidate
+            WHERE tenant_id = #{tenantId} AND id = #{id} AND deleted = 0
+            """)
+    Map<String, Object> findCandidateProfile(@Param("tenantId") long tenantId, @Param("id") long id);
+
+    @Update("""
+            UPDATE talent_candidate
+            SET name = COALESCE(name, #{name,jdbcType=VARCHAR}),
+                phone_enc = COALESCE(phone_enc, #{phoneEnc,jdbcType=VARCHAR}),
+                phone_hash = COALESCE(phone_hash, #{phoneHash,jdbcType=CHAR}),
+                email = COALESCE(email, #{email,jdbcType=VARCHAR}),
+                experience_years = COALESCE(experience_years, #{experienceYears,jdbcType=NUMERIC}),
+                updated_by = #{userId}, version = version + 1
+            WHERE tenant_id = #{tenantId} AND id = #{id} AND deleted = 0
+            """)
+    void updateCandidateParsed(@Param("tenantId") long tenantId, @Param("id") long id,
+                               @Param("name") String name, @Param("phoneEnc") String phoneEnc,
+                               @Param("phoneHash") String phoneHash, @Param("email") String email,
+                               @Param("experienceYears") BigDecimal experienceYears, @Param("userId") long userId);
+
+    @Select("""
             SELECT count(1) FROM talent_candidate
             WHERE tenant_id = #{tenantId} AND phone_hash = #{phoneHash} AND deleted = 0
             """)

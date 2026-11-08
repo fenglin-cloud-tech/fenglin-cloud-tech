@@ -3,6 +3,7 @@ package com.fenglin.talent.web;
 import com.fenglin.common.core.ApiResponse;
 import com.fenglin.common.security.PermissionGuard;
 import com.fenglin.talent.service.LifecycleService;
+import com.fenglin.talent.web.dto.TalentDtos.ApprovalRequest;
 import com.fenglin.talent.web.dto.TalentDtos.OnboardingCompleteResult;
 import com.fenglin.talent.web.dto.TalentDtos.OnboardingCreateRequest;
 import com.fenglin.talent.web.dto.TalentDtos.OnboardingCreateResult;
@@ -11,6 +12,8 @@ import com.fenglin.talent.web.dto.TalentDtos.ProbationEvaluateResult;
 import com.fenglin.talent.web.dto.TalentDtos.ResignationApproveRequest;
 import com.fenglin.talent.web.dto.TalentDtos.ResignationCreateRequest;
 import com.fenglin.talent.web.dto.TalentDtos.ResignationStatusResult;
+import com.fenglin.talent.web.dto.TalentDtos.TransferAfter;
+import com.fenglin.talent.web.dto.TalentDtos.TransferApprovalResult;
 import com.fenglin.talent.web.dto.TalentDtos.TransferCreateRequest;
 import com.fenglin.talent.web.dto.TalentDtos.TransferCreateResult;
 import com.fenglin.talent.web.dto.TalentDtos.TransferEffectiveResult;
@@ -31,6 +34,7 @@ public class TalentLifecycleController {
     private static final String ONBOARDING_CREATE = "talent:admin:onboarding:create";
     private static final String PROBATION_EVALUATE = "talent:admin:probation:evaluate";
     private static final String TRANSFER_CREATE = "talent:admin:transfer:create";
+    private static final String TRANSFER_APPROVE = "talent:admin:transfer:approve";
     private static final String RESIGNATION_APPLY = "biz:talent:resignation:apply";
     private static final String RESIGNATION_APPROVE = "talent:admin:resignation:approve";
 
@@ -78,6 +82,14 @@ public class TalentLifecycleController {
             @PathVariable("id") long id) {
         PermissionGuard.require(permissions, TRANSFER_CREATE);
         return ApiResponse.success(lifecycleService.createEffectiveTransfer(id));
+    }
+
+    @PostMapping("/transfers/{id}/approval")
+    public ApiResponse<TransferApprovalResult> approveTransfer(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id, @RequestBody ApprovalRequest request) {
+        PermissionGuard.require(permissions, TRANSFER_APPROVE);
+        return ApiResponse.success(lifecycleService.approveTransfer(id, request));
     }
 
     @PostMapping("/resignations")

@@ -14,14 +14,26 @@ import com.fenglin.talent.web.dto.TalentDtos.EmployeeCreateRequest;
 import com.fenglin.talent.web.dto.TalentDtos.EmployeeCreateResult;
 import com.fenglin.talent.web.dto.TalentDtos.EmployeeDetail;
 import com.fenglin.talent.web.dto.TalentDtos.EmployeeListItem;
+import com.fenglin.talent.web.dto.TalentDtos.EmployeeImportError;
+import com.fenglin.talent.web.dto.TalentDtos.EmployeeImportRequest;
+import com.fenglin.talent.web.dto.TalentDtos.EmployeeImportResult;
+import com.fenglin.talent.web.dto.TalentDtos.EmployeeImportRow;
 import com.fenglin.talent.web.dto.TalentDtos.EmployeeUpdateRequest;
 import com.fenglin.talent.web.dto.TalentDtos.EmployeeUpdateResult;
+import com.fenglin.talent.web.dto.TalentDtos.HeadcountReport;
 import com.fenglin.talent.web.dto.TalentDtos.NameRef;
+import com.fenglin.talent.web.dto.TalentDtos.OrgHeadcount;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -172,6 +184,131 @@ public class EmployeeService {
             throw new BizException(TalentErrorCode.RESOURCE_NOT_FOUND, "员工不存在");
         }
         return row;
+    }
+
+    // ---------- 批量导入 / 导出 / 报表 ----------
+
+    @Transactional
+    public EmployeeImportResult importEmployees(EmployeeImportRequest request) {
+        if (request == null || request.rows() == null || request.rows().isEmpty()) {
+            throw new BizException(TalentErrorCode.PARAM_INVALID, "导入数据不能为空");
+        }
+        if (request.rows().size() > 500) {
+            throw new BizException(TalentErrorCode.PARAM_INVALID, "单次最多导入 500 行");
+        }
+        List<EmployeeImportRow> rows = request.rows();
+        List<EmployeeImportError> errors = new ArrayList<>();
+        int success = 0;
+        for (int i = 0; i < rows.size(); i++) {
+            EmployeeImportRow row = rows.get(i);
+            if (row == null) {
+                errors.add(new EmployeeImportError(i, null, TalentErrorCode.PARAM_INVALID.code(), "行数据为空"));
+                continue;
+            }
+            try {
+                create(new EmployeeCreateRequest(row.empNo(), row.name(), row.gender(), row.birthDate(),
+                        row.phone(), row.idCard(), row.email(), row.orgId(), row.positionId(), row.gradeId(),
+                        row.managerId(), row.employmentType(), row.hireDate(), row.workLocation()));
+                success++;
+            } catch (BizException ex) {
+                errors.add(new EmployeeImportError(i, row.empNo(), ex.getErrorCode().code(), ex.getMessage()));
+            }
+        }
+        audit.publish("TALENT_EMPLOYEES_IMPORTED", "IMPORT", "talent_employee", 0L, "MEDIUM");
+        return new EmployeeImportResult(rows.size(), success, rows.size() - success, errors);
+    }
+
+    @Transactional(readOnly = true)
+    public String rosterCsv(Long orgId, Boolean includeSubOrg, String empStatus) {
+        long tenantId = TalentContext.tenantId();
+        Scope scope = resolveScope(tenantId, orgId, includeSubOrg);
+        List<Map<String, Object>> rows = employeeMapper.listEmployees(tenantId, scope.exactOrgId(),
+                scope.pathPrefix(), blankToNull(empStatus), null, 100000, 0);
+        StringBuilder csv = new StringBuilder("\uFEFF");
+        csv.append("工号,姓名,性别,组织,岗位,职级,直属上级,入职日期,员工状态,工作地,脱敏手机号\n");
+        for (Map<String, Object> row : rows) {
+            LocalDate hireDate = Rows.date(row, "hireDate");
+            csv.append(csvCell(Rows.str(row, "empNo"))).append(',')
+                    .append(csvCell(Rows.str(row, "name"))).append(',')
+                    .append(csvCell(Rows.str(row, "gender"))).append(',')
+                    .append(csvCell(Rows.str(row, "orgName"))).append(',')
+                    .append(csvCell(Rows.str(row, "positionName"))).append(',')
+                    .append(csvCell(Rows.str(row, "gradeName"))).append(',')
+                    .append(csvCell(Rows.str(row, "managerName"))).append(',')
+                    .append(csvCell(hireDate == null ? null : hireDate.toString())).append(',')
+                    .append(csvCell(Rows.str(row, "empStatus"))).append(',')
+                    .append(csvCell(Rows.str(row, "workLocation"))).append(',')
+                    .append(csvCell(maskedPhone(tenantId, row))).append('\n');
+        }
+        return csv.toString();
+    }
+
+    @Transactional(readOnly = true)
+    public HeadcountReport headcountReport(Long orgId, Boolean includeSubOrg) {
+        long tenantId = TalentContext.tenantId();
+        Scope scope = resolveScope(tenantId, orgId, includeSubOrg);
+        List<Map<String, Object>> rows = employeeMapper.listEmployees(tenantId, scope.exactOrgId(),
+                scope.pathPrefix(), null, null, 100000, 0);
+        Map<String, Long> byStatus = new LinkedHashMap<>();
+        for (String status : List.of("ACTIVE", "PROBATION", "PENDING", "RESIGNED")) {
+            byStatus.put(status, 0L);
+        }
+        Map<String, Long> byEmploymentType = new LinkedHashMap<>();
+        Map<Long, Long> orgCounts = new LinkedHashMap<>();
+        Map<Long, String> orgNames = new LinkedHashMap<>();
+        long tenureMonths = 0;
+        int tenureCount = 0;
+        LocalDate today = LocalDate.now();
+        for (Map<String, Object> row : rows) {
+            byStatus.merge(Rows.str(row, "empStatus"), 1L, Long::sum);
+            String employmentType = Rows.str(row, "employmentType");
+            byEmploymentType.merge(employmentType == null ? "UNKNOWN" : employmentType, 1L, Long::sum);
+            Long rowOrgId = Rows.lng(row, "orgId");
+            if (rowOrgId != null) {
+                orgCounts.merge(rowOrgId, 1L, Long::sum);
+                orgNames.putIfAbsent(rowOrgId, Rows.str(row, "orgName"));
+            }
+            LocalDate hireDate = Rows.date(row, "hireDate");
+            if (hireDate != null && !hireDate.isAfter(today)) {
+                tenureMonths += ChronoUnit.MONTHS.between(hireDate, today);
+                tenureCount++;
+            }
+        }
+        List<OrgHeadcount> byOrg = new ArrayList<>();
+        orgCounts.forEach((key, count) -> byOrg.add(new OrgHeadcount(key, orgNames.get(key), count)));
+        BigDecimal avgTenureMonths = tenureCount == 0 ? BigDecimal.ZERO
+                : BigDecimal.valueOf(tenureMonths)
+                        .divide(BigDecimal.valueOf(tenureCount), 1, RoundingMode.HALF_UP);
+        return new HeadcountReport(rows.size(), byStatus, byOrg, byEmploymentType, avgTenureMonths);
+    }
+
+    private Scope resolveScope(long tenantId, Long orgId, Boolean includeSubOrg) {
+        if (orgId == null) {
+            return new Scope(null, null);
+        }
+        if (!Boolean.TRUE.equals(includeSubOrg)) {
+            return new Scope(orgId, null);
+        }
+        Map<String, Object> org = orgMapper.findOrg(tenantId, orgId);
+        if (org == null) {
+            throw new BizException(TalentErrorCode.RESOURCE_NOT_FOUND, "组织不存在");
+        }
+        return new Scope(null, Rows.str(org, "path"));
+    }
+
+    private String csvCell(String value) {
+        if (value == null) {
+            return "";
+        }
+        String escaped = value.replace("\"", "\"\"");
+        if (escaped.contains(",") || escaped.contains("\"") || escaped.contains("\n")
+                || escaped.contains("\r")) {
+            return "\"" + escaped + "\"";
+        }
+        return escaped;
+    }
+
+    private record Scope(Long exactOrgId, String pathPrefix) {
     }
 
     private NameRef ref(Long id, String name) {

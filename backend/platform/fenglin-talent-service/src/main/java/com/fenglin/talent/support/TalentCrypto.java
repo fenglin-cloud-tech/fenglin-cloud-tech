@@ -2,44 +2,29 @@ package com.fenglin.talent.support;
 
 import com.fenglin.common.crypto.AesGcmCipher;
 import com.fenglin.common.crypto.PiiHasher;
-import org.springframework.beans.factory.annotation.Value;
+import com.fenglin.talent.service.TalentTenantKeyService;
 import org.springframework.stereotype.Component;
-
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.Base64;
 
 /**
  * 云才 PII 处理：手机号/身份证号 AES-256-GCM 密文 + 租户盐 SHA-256 哈希，与 CRM/云协方案保持一致。
  *
- * <p>缺口兜底：文档要求"租户盐独立生成并加密存储"（talent_tenant_key），平台尚未提供租户密钥下发接口，
- * 此处以服务密钥 + 租户 ID 确定性派生 32 字节租户盐；后续替换为 KMS 接口即可。</p>
+ * <p>租户盐由 {@link TalentTenantKeyService} 在首次使用时落库（talent_tenant_key），后续复用。</p>
  */
 @Component
 public class TalentCrypto {
 
     private final AesGcmCipher cipher;
     private final PiiHasher hasher;
-    private final String saltSecret;
+    private final TalentTenantKeyService tenantKeyService;
 
-    public TalentCrypto(AesGcmCipher cipher, PiiHasher hasher,
-                        @Value("${fenglin.talent.pii-salt-secret}") String saltSecret) {
+    public TalentCrypto(AesGcmCipher cipher, PiiHasher hasher, TalentTenantKeyService tenantKeyService) {
         this.cipher = cipher;
         this.hasher = hasher;
-        this.saltSecret = saltSecret;
+        this.tenantKeyService = tenantKeyService;
     }
 
     public String tenantSalt(long tenantId) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            digest.update(saltSecret.getBytes(StandardCharsets.UTF_8));
-            digest.update((byte) '|');
-            digest.update(Long.toString(tenantId).getBytes(StandardCharsets.UTF_8));
-            return Base64.getEncoder().encodeToString(digest.digest());
-        } catch (NoSuchAlgorithmException ex) {
-            throw new IllegalStateException("当前 JVM 不支持 SHA-256", ex);
-        }
+        return tenantKeyService.salt(tenantId);
     }
 
     /** AAD 绑定租户、表与字段，防止密文跨租户/跨字段搬运。 */
