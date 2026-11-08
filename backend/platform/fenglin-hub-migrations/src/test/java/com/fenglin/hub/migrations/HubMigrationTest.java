@@ -33,7 +33,8 @@ class HubMigrationTest {
             "hub_open_app", "hub_app_key", "hub_api_quota", "hub_api_call_log",
             "hub_metric", "hub_report_dataset", "hub_report_dataset_field", "hub_report_def",
             "hub_lowcode_app", "hub_lowcode_form", "hub_lowcode_page", "hub_lowcode_model",
-            "hub_lowcode_version", "hub_lowcode_publish", "hub_lowcode_record");
+            "hub_lowcode_version", "hub_lowcode_publish", "hub_lowcode_record",
+            "hub_ai_capability_grant", "hub_ai_metering");
 
     private static EmbeddedPostgresSupport postgres;
     private static MigrateResult migrateResult;
@@ -58,7 +59,7 @@ class HubMigrationTest {
     @Test
     void appliesAllMigrationsOnEmptyDatabase() {
         assertThat(migrateResult.success).isTrue();
-        assertThat(migrateResult.migrationsExecuted).isEqualTo(30);
+        assertThat(migrateResult.migrationsExecuted).isEqualTo(31);
     }
 
     @Test
@@ -119,6 +120,8 @@ class HubMigrationTest {
         assertThat(rowLevelSecurityOf("hub_lowcode_version")).isTrue();
         assertThat(rowLevelSecurityOf("hub_lowcode_publish")).isTrue();
         assertThat(rowLevelSecurityOf("hub_lowcode_record")).isTrue();
+        assertThat(rowLevelSecurityOf("hub_ai_capability_grant")).isTrue();
+        assertThat(rowLevelSecurityOf("hub_ai_metering")).isTrue();
         assertThat(rowLevelSecurityOf("hub_permission"))
                 .as("功能权限为平台全局表，不启用 RLS")
                 .isFalse();
@@ -136,7 +139,7 @@ class HubMigrationTest {
                      "SELECT count(*) FROM fenglin_hub.flyway_schema_history "
                              + "WHERE success = true AND type = 'SQL'")) {
             assertThat(resultSet.next()).isTrue();
-            assertThat(resultSet.getInt(1)).isEqualTo(30);
+            assertThat(resultSet.getInt(1)).isEqualTo(31);
         }
     }
 
