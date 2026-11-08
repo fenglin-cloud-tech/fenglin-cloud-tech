@@ -8,7 +8,6 @@ import com.fenglin.collab.web.dto.CollabDtos.KrCreateRequest;
 import com.fenglin.collab.web.dto.CollabDtos.KrView;
 import com.fenglin.collab.web.dto.CollabDtos.ObjectiveCreateRequest;
 import com.fenglin.collab.web.dto.CollabDtos.ObjectiveView;
-import com.fenglin.collab.web.dto.CollabDtos.PeriodUpsertRequest;
 import com.fenglin.collab.web.dto.CollabDtos.PeriodView;
 import com.fenglin.collab.web.dto.CollabDtos.ProgressRequest;
 import com.fenglin.collab.web.dto.CollabDtos.ProgressResult;
@@ -40,14 +39,6 @@ public class CollabOkrController {
 
     public CollabOkrController(OkrService okrService) {
         this.okrService = okrService;
-    }
-
-    @PostMapping("/admin/periods")
-    public ApiResponse<PeriodView> createPeriod(
-            @RequestHeader(value = "X-Permissions", required = false) String permissions,
-            @RequestBody PeriodUpsertRequest request) {
-        PermissionGuard.require(permissions, PERIOD_ADMIN);
-        return ApiResponse.success(okrService.createPeriod(request));
     }
 
     @GetMapping("/periods")

@@ -7,7 +7,6 @@ import com.fenglin.collab.web.dto.CollabDtos.InstanceView;
 import com.fenglin.collab.web.dto.CollabDtos.RejectRequest;
 import com.fenglin.collab.web.dto.CollabDtos.TaskActionRequest;
 import com.fenglin.collab.web.dto.CollabDtos.TaskResult;
-import com.fenglin.collab.web.dto.CollabDtos.TemplateCreateRequest;
 import com.fenglin.collab.web.dto.CollabDtos.TemplateView;
 import com.fenglin.collab.web.dto.CollabDtos.TransferRequest;
 import com.fenglin.common.core.ApiResponse;
@@ -31,23 +30,14 @@ import java.util.Map;
 @RequestMapping("/api/collab/v1/approvals")
 public class CollabApprovalController {
 
-    private static final String READ = "biz:collab:approval:read";
     private static final String SUBMIT = "biz:collab:approval:submit";
     private static final String HANDLE = "biz:collab:approval:handle";
-    private static final String TEMPLATE_ADMIN = "tenant:collab:approval:template:manage";
+    private static final String READ = "biz:collab:approval:read";
 
     private final ApprovalService approvalService;
 
     public CollabApprovalController(ApprovalService approvalService) {
         this.approvalService = approvalService;
-    }
-
-    @PostMapping("/admin/templates")
-    public ApiResponse<TemplateView> createTemplate(
-            @RequestHeader(value = "X-Permissions", required = false) String permissions,
-            @RequestBody TemplateCreateRequest request) {
-        PermissionGuard.require(permissions, TEMPLATE_ADMIN);
-        return ApiResponse.success(approvalService.createTemplate(request));
     }
 
     @GetMapping("/templates")

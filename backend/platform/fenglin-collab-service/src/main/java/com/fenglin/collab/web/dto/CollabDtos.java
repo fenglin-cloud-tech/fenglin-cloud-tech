@@ -315,4 +315,93 @@ public final class CollabDtos {
 
     public record NotificationReadResult(long notificationId, boolean read) {
     }
+
+    // ---------- 管理端 ----------
+
+    public record SensitiveWordPolicyRequest(List<String> words, String action, String scope, Boolean enabled) {
+    }
+
+    public record SensitiveWordPolicyView(long policyId, int wordCount, String action, String scope,
+                                          boolean enabled) {
+    }
+
+    public record ConversationAuditView(String convId, String title, String convType, int memberCount,
+                                        long msgCount, String status, Instant createdAt) {
+    }
+
+    public record ConversationAuditPage(List<ConversationAuditView> records, long total, int page, int size) {
+    }
+
+    public record DocPolicyRequest(Boolean confidentialNoLink, Boolean confidentialNoDownload,
+                                   String watermarkTemplate, Integer maxConcurrentEditors) {
+    }
+
+    public record DocPolicyView(boolean confidentialNoLink, boolean confidentialNoDownload,
+                                String watermarkTemplate, int maxConcurrentEditors) {
+    }
+
+    // ---------- ONA ----------
+
+    public record OnaNodeView(long id, String type, String name, Long deptId) {
+    }
+
+    public record OnaEdgeView(String source, String target, BigDecimal weight, boolean crossDept) {
+    }
+
+    public record OnaSummary(int nodeCount, int edgeCount, BigDecimal density) {
+    }
+
+    public record OnaGraphView(List<OnaNodeView> nodes, List<OnaEdgeView> edges, OnaSummary summary) {
+    }
+
+    public record OnaMetricView(long nodeId, String nodeType, BigDecimal degreeCentrality, BigDecimal betweenness,
+                                BigDecimal closeness, BigDecimal clusteringCoef, BigDecimal structuralHole,
+                                boolean keyConnector, BigDecimal crossDeptRatio) {
+    }
+
+    public record OnaKeyConnectorView(long nodeId, String nodeType, BigDecimal degreeCentrality,
+                                      BigDecimal crossDeptRatio, long connections) {
+    }
+
+    public record OnaSnapshotView(String snapshotId, String periodType, String periodKey,
+                                  BigDecimal networkDensity, BigDecimal avgDegree, BigDecimal crossDeptRatio,
+                                  int keyConnectorCount, int siloCount, Instant generatedAt) {
+    }
+
+    public record MeetingEfficiencyView(BigDecimal efficiencyScore, BigDecimal decisionRate,
+                                        BigDecimal onTimeRate, BigDecimal actionCompletionRate,
+                                        BigDecimal overStaffRate, BigDecimal overTimeRate,
+                                        BigDecimal costEstimate, List<String> warnings) {
+    }
+
+    public record DeptNetworkNodeView(String deptId, long nodeCount, long internalEdges) {
+    }
+
+    public record DeptNetworkLinkView(String sourceDeptId, String targetDeptId, long edgeCount,
+                                      BigDecimal weight) {
+    }
+
+    public record DeptNetworkView(int deptCount, boolean sampleSufficient, List<DeptNetworkNodeView> departments,
+                                  List<DeptNetworkLinkView> links) {
+    }
+
+    public record SelfTrendPoint(String periodKey, int degree) {
+    }
+
+    public record OnaCollaboratorView(long userId, Long deptId, BigDecimal weight) {
+    }
+
+    public record SelfProfileView(int myDegree, BigDecimal myCrossDeptRatio,
+                                  List<OnaCollaboratorView> topCollaborators, List<SelfTrendPoint> trend) {
+    }
+
+    public record OnaConfigRequest(BigDecimal weightIm, BigDecimal weightDoc, BigDecimal weightMeeting,
+                                   BigDecimal weightApproval, BigDecimal weightOkr, Integer anonymityThreshold,
+                                   BigDecimal keyConnectorTopRatio, String profileVisibleScope) {
+    }
+
+    public record OnaConfigView(BigDecimal weightIm, BigDecimal weightDoc, BigDecimal weightMeeting,
+                                BigDecimal weightApproval, BigDecimal weightOkr, int anonymityThreshold,
+                                BigDecimal keyConnectorTopRatio, String profileVisibleScope) {
+    }
 }

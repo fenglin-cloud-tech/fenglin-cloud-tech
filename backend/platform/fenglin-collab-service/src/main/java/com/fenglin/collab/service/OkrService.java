@@ -77,6 +77,40 @@ public class OkrService {
         return new PeriodView(periodId, request.name(), request.startDate(), request.endDate(), status);
     }
 
+    /**
+     * 管理端周期配置（API-OKR-050）：按名称幂等 upsert。
+     */
+    @Transactional
+    public PeriodView upsertPeriod(PeriodUpsertRequest request) {
+        long tenantId = CollabContext.tenantId();
+        long userId = CollabContext.userId();
+        if (request == null || request.name() == null || request.name().isBlank()
+                || request.startDate() == null || request.endDate() == null) {
+            throw new BizException(CollabErrorCode.PARAM_INVALID, "周期名称与起止日期不能为空");
+        }
+        if (request.endDate().isBefore(request.startDate())) {
+            throw new BizException(CollabErrorCode.PARAM_INVALID, "周期结束日期不能早于开始日期");
+        }
+        String status = request.status() == null ? "OPEN" : request.status();
+        if (!"OPEN".equals(status) && !"CLOSED".equals(status)) {
+            throw new BizException(CollabErrorCode.PARAM_INVALID, "周期状态必须为 OPEN/CLOSED");
+        }
+        String scorePolicy = request.scorePolicy() == null ? "AVG_KR" : request.scorePolicy();
+        Map<String, Object> existing = okrMapper.findPeriodByName(tenantId, request.name());
+        String periodId;
+        if (existing == null) {
+            periodId = UUID.randomUUID().toString();
+            okrMapper.insertPeriod(periodId, tenantId, request.name(), request.startDate(), request.endDate(),
+                    scorePolicy, status, userId);
+        } else {
+            periodId = Rows.str(existing, "periodId");
+            okrMapper.updatePeriod(tenantId, periodId, request.startDate(), request.endDate(), scorePolicy,
+                    status, userId);
+        }
+        audit.publish("COLLAB_OKR_PERIOD_UPSERTED", "UPDATE", "collab_okr_period", periodId, "LOW");
+        return new PeriodView(periodId, request.name(), request.startDate(), request.endDate(), status);
+    }
+
     @Transactional(readOnly = true)
     public List<PeriodView> listPeriods() {
         long tenantId = CollabContext.tenantId();

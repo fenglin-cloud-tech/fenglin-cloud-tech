@@ -63,8 +63,11 @@ class CollabIntegrationTest {
             "biz:collab:meeting:join", "biz:collab:meeting:manage", "tenant:collab:meeting:room:manage",
             "biz:collab:okr:read", "biz:collab:okr:manage", "tenant:collab:okr:period:manage",
             "biz:collab:approval:read", "biz:collab:approval:submit", "biz:collab:approval:handle",
-            "tenant:collab:approval:template:manage",
-            "biz:collab:workbench:personal", "tenant:collab:workbench:template:manage");
+            "tenant:collab:approval:template:manage", "biz:collab:okr:progress",
+            "biz:collab:workbench:personal", "tenant:collab:workbench:template:manage",
+            "tenant:collab:im:sensitive:manage", "tenant:collab:im:govern", "tenant:collab:doc:policy",
+            "tenant:collab:calendar:public:manage", "tenant:collab:ona:dept", "tenant:collab:ona:tenant",
+            "tenant:collab:ona:config", "biz:collab:ona:self");
 
     private static final String JDBC_URL;
     private static final List<AuditEvent> AUDIT_EVENTS = new CopyOnWriteArrayList<>();
@@ -357,7 +360,7 @@ class CollabIntegrationTest {
         assertThat(slots.get("slots").size()).isEqualTo(5);
         assertThat(slots.get("slots").get(0).get("available_count").asInt()).isEqualTo(1);
 
-        JsonNode room = read(post("/api/collab/v1/meeting-rooms", TENANT_A, USER_OWNER, ALL_PERMISSIONS,
+        JsonNode room = read(post("/api/collab/v1/admin/meeting-rooms", TENANT_A, USER_OWNER, ALL_PERMISSIONS,
                 Map.of("name", "A301", "location", "3F", "capacity", 12, "equipments", List.of("TV"),
                         "bookable", true)).getBody()).get("data");
         long roomId = room.get("room_id").asLong();
@@ -446,9 +449,9 @@ class CollabIntegrationTest {
 
     @Test
     void completesOkrChainWithAlignmentCycleDetectionAndPeriodClose() throws Exception {
-        JsonNode period = read(post("/api/collab/v1/okr/admin/periods", TENANT_A, USER_OWNER, ALL_PERMISSIONS,
-                Map.of("name", "2026 Q4", "start_date", "2026-10-01", "end_date", "2026-12-31",
-                        "score_policy", "AVG_KR")).getBody()).get("data");
+        JsonNode period = read(exchange(HttpMethod.PUT, "/api/collab/v1/admin/okr/periods", TENANT_A,
+                USER_OWNER, ALL_PERMISSIONS, Map.of("name", "2026 Q4", "start_date", "2026-10-01",
+                        "end_date", "2026-12-31", "score_policy", "AVG_KR")).getBody()).get("data");
         String periodId = period.get("period_id").asText();
         assertThat(period.get("status").asText()).isEqualTo("OPEN");
 
@@ -523,7 +526,7 @@ class CollabIntegrationTest {
 
     @Test
     void completesApprovalChainWithIdempotencyNotificationAndCancel() throws Exception {
-        JsonNode template = read(post("/api/collab/v1/approvals/admin/templates", TENANT_A, USER_OWNER,
+        JsonNode template = read(post("/api/collab/v1/admin/approvals/templates", TENANT_A, USER_OWNER,
                 ALL_PERMISSIONS, Map.of("code", "COLLAB_LEAVE", "name", "请假审批", "category", "HR",
                         "form_schema", Map.of("fields", List.of("days")), "process_key", "collab_approval"))
                 .getBody()).get("data");
@@ -673,6 +676,196 @@ class CollabIntegrationTest {
                 + TENANT_A)).isEqualTo("1");
     }
 
+    // ---------- 管理端收口 ----------
+
+    @Test
+    void enforcesSensitiveWordsDocPolicyAndAdminConfiguration() throws Exception {
+        JsonNode sensitive = read(post("/api/collab/v1/admin/im/sensitive-words", TENANT_A, USER_OWNER,
+                ALL_PERMISSIONS, Map.of("words", List.of("泄密"), "action", "BLOCK", "scope", "TENANT",
+                        "enabled", true)).getBody()).get("data");
+        assertThat(sensitive.get("word_count").asInt()).isEqualTo(1);
+        assertThat(sensitive.get("action").asText()).isEqualTo("BLOCK");
+
+        String convId = read(post("/api/collab/v1/im/conversations", TENANT_A, USER_OWNER, ALL_PERMISSIONS,
+                Map.of("conv_type", "SINGLE", "title", "项目讨论", "member_ids", List.of(USER_MEMBER)))
+                .getBody()).get("data").get("conversation").get("conversation_id").asText();
+
+        ResponseEntity<String> blocked = post("/api/collab/v1/im/conversations/" + convId + "/messages",
+                TENANT_A, USER_OWNER, ALL_PERMISSIONS,
+                Map.of("client_msg_id", "sensitive-1", "msg_type", "TEXT", "content", "这里包含泄密内容"));
+        assertThat(blocked.getStatusCode().value()).isEqualTo(400);
+        assertThat(read(blocked.getBody()).get("code").asText()).isEqualTo("2001007");
+
+        read(post("/api/collab/v1/admin/im/sensitive-words", TENANT_A, USER_OWNER, ALL_PERMISSIONS,
+                Map.of("words", List.of("泄密"), "action", "REPLACE", "enabled", true)).getBody());
+        JsonNode replaced = read(post("/api/collab/v1/im/conversations/" + convId + "/messages", TENANT_A,
+                USER_OWNER, ALL_PERMISSIONS, Map.of("client_msg_id", "sensitive-2", "msg_type", "TEXT",
+                        "content", "这里包含泄密内容")).getBody()).get("data");
+        assertThat(replaced.get("summary").asText()).isEqualTo("这里包含***内容");
+
+        JsonNode audit = read(get("/api/collab/v1/admin/im/audit/conversations?keyword=项目", TENANT_A,
+                USER_OWNER, ALL_PERMISSIONS).getBody()).get("data");
+        assertThat(audit.get("total").asLong()).isEqualTo(1L);
+        assertThat(audit.get("records").get(0).get("msg_count").asLong()).isEqualTo(1L);
+
+        JsonNode docPolicy = read(exchange(HttpMethod.PUT, "/api/collab/v1/admin/docs/policy", TENANT_A,
+                USER_OWNER, ALL_PERMISSIONS, Map.of("confidential_no_link", false,
+                        "max_concurrent_editors", 20)).getBody()).get("data");
+        assertThat(docPolicy.get("confidential_no_link").asBoolean()).isFalse();
+        assertThat(docPolicy.get("max_concurrent_editors").asInt()).isEqualTo(20);
+
+        String confidentialDoc = read(post("/api/collab/v1/docs", TENANT_A, USER_OWNER, ALL_PERMISSIONS,
+                Map.of("title", "可外链机密文档", "secret_level", "CONFIDENTIAL")).getBody())
+                .get("data").get("doc_id").asText();
+        assertThat(post("/api/collab/v1/docs/" + confidentialDoc + "/share-link", TENANT_A, USER_OWNER,
+                ALL_PERMISSIONS, Map.of("expire_days", 3)).getStatusCode().value()).isEqualTo(200);
+
+        JsonNode holiday = read(post("/api/collab/v1/admin/calendars", TENANT_A, USER_OWNER, ALL_PERMISSIONS,
+                Map.of("name", "公司假期", "cal_type", "HOLIDAY", "visible_scope", "ALL"))
+                .getBody()).get("data");
+        assertThat(holiday.get("cal_type").asText()).isEqualTo("HOLIDAY");
+
+        ResponseEntity<String> invalidCalendar = post("/api/collab/v1/admin/calendars", TENANT_A,
+                USER_OWNER, ALL_PERMISSIONS, Map.of("name", "非法日历", "cal_type", "TEAM"));
+        assertThat(invalidCalendar.getStatusCode().value()).isEqualTo(400);
+
+        JsonNode room = read(post("/api/collab/v1/admin/meeting-rooms", TENANT_A, USER_OWNER, ALL_PERMISSIONS,
+                Map.of("name", "B201", "capacity", 8)).getBody()).get("data");
+        assertThat(room.get("room_id").asLong()).isPositive();
+
+        JsonNode firstPeriod = read(exchange(HttpMethod.PUT, "/api/collab/v1/admin/okr/periods", TENANT_A,
+                USER_OWNER, ALL_PERMISSIONS, Map.of("name", "2026 Q3", "start_date", "2026-07-01",
+                        "end_date", "2026-09-30", "status", "OPEN")).getBody()).get("data");
+        JsonNode secondPeriod = read(exchange(HttpMethod.PUT, "/api/collab/v1/admin/okr/periods", TENANT_A,
+                USER_OWNER, ALL_PERMISSIONS, Map.of("name", "2026 Q3", "start_date", "2026-07-01",
+                        "end_date", "2026-10-15", "status", "OPEN")).getBody()).get("data");
+        assertThat(secondPeriod.get("period_id").asText()).isEqualTo(firstPeriod.get("period_id").asText());
+        assertThat(secondPeriod.get("end_date").asText()).isEqualTo("2026-10-15");
+        assertThat(queryString("SELECT count(1) FROM fenglin_collab.collab_okr_period WHERE name = '2026 Q3'"))
+                .isEqualTo("1");
+
+        JsonNode firstTemplate = read(post("/api/collab/v1/admin/approvals/templates", TENANT_A, USER_OWNER,
+                ALL_PERMISSIONS, Map.of("code", "COLLAB_EXPENSE", "name", "报销审批", "category", "FIN",
+                        "process_key", "collab_approval")).getBody()).get("data");
+        JsonNode secondTemplate = read(post("/api/collab/v1/admin/approvals/templates", TENANT_A, USER_OWNER,
+                ALL_PERMISSIONS, Map.of("code", "COLLAB_EXPENSE", "name", "报销审批", "category", "FIN",
+                        "process_key", "collab_approval")).getBody()).get("data");
+        assertThat(secondTemplate.get("template_id").asText())
+                .isEqualTo(firstTemplate.get("template_id").asText());
+
+        assertThat(AUDIT_EVENTS).anyMatch(event -> "COLLAB_SENSITIVE_WORD_HIT".equals(event.eventType()));
+        assertThat(AUDIT_EVENTS).anyMatch(event -> "COLLAB_IM_CONVERSATION_AUDITED".equals(event.eventType()));
+        assertThat(AUDIT_EVENTS).anyMatch(event -> "COLLAB_DOC_POLICY_UPDATED".equals(event.eventType()));
+    }
+
+    // ---------- ONA 收口 ----------
+
+    @Test
+    void exposesOnaGraphMetricsDeptNetworkSelfProfileAndMeetingEfficiency() throws Exception {
+        String graphId = "11111111-1111-1111-1111-111111111111";
+        String snapshotId = "22222222-2222-2222-2222-222222222222";
+        String meetingId = "33333333-3333-3333-3333-333333333333";
+        String minutesId = "44444444-4444-4444-4444-444444444444";
+        execute("INSERT INTO fenglin_collab.collab_ona_graph "
+                + "(id, tenant_id, name, scope_type, period_start, period_end, node_count, edge_count, status) "
+                + "VALUES ('" + graphId + "', " + TENANT_A + ", '2026-10 协作网络', 'TENANT', "
+                + "'2026-10-01', '2026-10-31', 8, 7, 'READY')");
+        execute("INSERT INTO fenglin_collab.collab_ona_edge "
+                + "(id, tenant_id, graph_id, source_type, source_id, target_type, target_id, weight, cross_dept) "
+                + "VALUES (9001, " + TENANT_A + ", '" + graphId + "', 'USER', 5001, 'USER', 5002, 0.9, 0),"
+                + "(9002, " + TENANT_A + ", '" + graphId + "', 'USER', 5001, 'USER', 5003, 0.5, 1),"
+                + "(9003, " + TENANT_A + ", '" + graphId + "', 'DEPT', 10, 'DEPT', 11, 0.6, 1),"
+                + "(9004, " + TENANT_A + ", '" + graphId + "', 'DEPT', 11, 'DEPT', 12, 0.5, 1),"
+                + "(9005, " + TENANT_A + ", '" + graphId + "', 'DEPT', 12, 'DEPT', 13, 0.4, 1),"
+                + "(9006, " + TENANT_A + ", '" + graphId + "', 'DEPT', 13, 'DEPT', 14, 0.3, 1),"
+                + "(9007, " + TENANT_A + ", '" + graphId + "', 'DEPT', 10, 'DEPT', 14, 0.2, 1)");
+        execute("INSERT INTO fenglin_collab.collab_ona_snapshot "
+                + "(id, tenant_id, period_type, period_key, graph_id, network_density, avg_degree, "
+                + "cross_dept_ratio, key_connector_count, silo_count) VALUES ('" + snapshotId + "', " + TENANT_A
+                + ", 'MONTH', '2026-10', '" + graphId + "', 0.35, 2.5, 0.3, 2, 1)");
+        execute("INSERT INTO fenglin_collab.collab_ona_metric "
+                + "(id, tenant_id, snapshot_id, node_type, node_id, degree_centrality, betweenness, "
+                + "is_key_connector, cross_dept_ratio) VALUES "
+                + "(9101, " + TENANT_A + ", '" + snapshotId + "', 'USER', 5001, 0.9, 0.4, 1, 0.5),"
+                + "(9102, " + TENANT_A + ", '" + snapshotId + "', 'USER', 5002, 0.6, 0.2, 1, 0.25)");
+        execute("INSERT INTO fenglin_collab.collab_meeting "
+                + "(id, tenant_id, title, organizer_id, start_at, end_at, meeting_mode, status) VALUES ('"
+                + meetingId + "', " + TENANT_A + ", '十月复盘', 5001, '2026-10-10T10:00:00Z', "
+                + "'2026-10-10T11:00:00Z', 'ONLINE', 'ENDED')");
+        execute("INSERT INTO fenglin_collab.collab_meeting_minutes "
+                + "(id, tenant_id, meeting_id, summary, status, published_at) VALUES ('" + minutesId + "', "
+                + TENANT_A + ", '" + meetingId + "', '达成结论', 'PUBLISHED', now())");
+        execute("INSERT INTO fenglin_collab.collab_meeting_checkin "
+                + "(id, tenant_id, meeting_id, user_id, checkin_at) VALUES (9201, " + TENANT_A + ", '"
+                + meetingId + "', 5002, '2026-10-10T10:03:00Z')");
+        execute("INSERT INTO fenglin_collab.collab_meeting_action "
+                + "(id, tenant_id, minutes_id, content, status) VALUES (9202, " + TENANT_A + ", '"
+                + minutesId + "', '补充复盘结论', 'DONE')");
+
+        JsonNode graph = read(get("/api/collab/v1/ona/graph", TENANT_A, USER_OWNER, ALL_PERMISSIONS)
+                .getBody()).get("data");
+        assertThat(graph.get("summary").get("node_count").asInt()).isEqualTo(8);
+        assertThat(graph.get("summary").get("edge_count").asInt()).isEqualTo(7);
+        assertThat(graph.get("summary").get("density").asDouble()).isEqualTo(0.25);
+        assertThat(graph.get("nodes").get(0).get("id").asLong()).isEqualTo(5001L);
+        assertThat(graph.get("nodes").get(0).get("type").asText()).isEqualTo("USER");
+
+        JsonNode metric = read(get("/api/collab/v1/ona/metrics?snapshotId=" + snapshotId
+                + "&nodeType=USER&nodeId=5001", TENANT_A, USER_OWNER, ALL_PERMISSIONS)
+                .getBody()).get("data");
+        assertThat(metric.get("key_connector").asBoolean()).isTrue();
+        assertThat(metric.get("degree_centrality").asDouble()).isEqualTo(0.9);
+
+        JsonNode connectors = read(get("/api/collab/v1/ona/key-connectors?snapshotId=" + snapshotId, TENANT_A,
+                USER_OWNER, ALL_PERMISSIONS).getBody()).get("data");
+        assertThat(connectors.size()).isEqualTo(2);
+        assertThat(connectors.get(0).get("node_id").asLong()).isEqualTo(5001L);
+        assertThat(connectors.get(0).get("connections").asLong()).isEqualTo(2L);
+
+        JsonNode snapshots = read(get("/api/collab/v1/ona/snapshots?periodType=MONTH", TENANT_A,
+                USER_OWNER, ALL_PERMISSIONS).getBody()).get("data");
+        assertThat(snapshots.get("total").asLong()).isEqualTo(1L);
+        assertThat(snapshots.get("records").size()).isEqualTo(1);
+
+        JsonNode efficiency = read(get("/api/collab/v1/ona/meeting-efficiency?periodKey=2026-10", TENANT_A,
+                USER_OWNER, ALL_PERMISSIONS).getBody()).get("data");
+        assertThat(efficiency.get("efficiency_score").asDouble()).isEqualTo(1.0);
+        assertThat(efficiency.get("decision_rate").asDouble()).isEqualTo(1.0);
+        assertThat(efficiency.get("on_time_rate").asDouble()).isEqualTo(1.0);
+        assertThat(efficiency.get("action_completion_rate").asDouble()).isEqualTo(1.0);
+        assertThat(efficiency.get("cost_estimate").asDouble()).isEqualTo(100.0);
+        assertThat(efficiency.get("warnings").size()).isGreaterThanOrEqualTo(1);
+
+        JsonNode deptNetwork = read(get("/api/collab/v1/ona/dept-network?level=DEPT", TENANT_A,
+                USER_OWNER, ALL_PERMISSIONS).getBody()).get("data");
+        assertThat(deptNetwork.get("dept_count").asInt()).isEqualTo(5);
+        assertThat(deptNetwork.get("sample_sufficient").asBoolean()).isTrue();
+        assertThat(deptNetwork.get("links").size()).isEqualTo(5);
+
+        JsonNode self = read(get("/api/collab/v1/ona/self-profile", TENANT_A, USER_OWNER, ALL_PERMISSIONS)
+                .getBody()).get("data");
+        assertThat(self.get("my_degree").asInt()).isEqualTo(2);
+        assertThat(self.get("my_cross_dept_ratio").asDouble()).isEqualTo(0.5);
+        assertThat(self.get("top_collaborators").size()).isEqualTo(2);
+        assertThat(self.get("top_collaborators").get(0).get("user_id").asLong()).isEqualTo(5002L);
+
+        JsonNode config = read(exchange(HttpMethod.PUT, "/api/collab/v1/admin/ona/config", TENANT_A,
+                USER_OWNER, ALL_PERMISSIONS, Map.of("weight_im", 0.2, "weight_doc", 0.2, "weight_meeting", 0.2,
+                        "weight_approval", 0.2, "weight_okr", 0.2, "anonymity_threshold", 5,
+                        "key_connector_top_ratio", 0.05, "profile_visible_scope", "DEPT"))
+                .getBody()).get("data");
+        assertThat(config.get("anonymity_threshold").asInt()).isEqualTo(5);
+        assertThat(read(get("/api/collab/v1/admin/ona/config", TENANT_A, USER_OWNER, ALL_PERMISSIONS)
+                .getBody()).get("data").get("profile_visible_scope").asText()).isEqualTo("DEPT");
+
+        ResponseEntity<String> badWeights = exchange(HttpMethod.PUT, "/api/collab/v1/admin/ona/config",
+                TENANT_A, USER_OWNER, ALL_PERMISSIONS, Map.of("weight_im", 0.6, "weight_doc", 0.6));
+        assertThat(badWeights.getStatusCode().value()).isEqualTo(400);
+
+        assertThat(AUDIT_EVENTS).anyMatch(event -> "COLLAB_ONA_GRAPH_QUERIED".equals(event.eventType()));
+        assertThat(AUDIT_EVENTS).anyMatch(event -> "COLLAB_ONA_CONFIG_UPDATED".equals(event.eventType()));
+    }
+
     // ---------- helpers ----------
 
     private String time(int plusDays, int hour) {
@@ -725,6 +918,13 @@ class CollabIntegrationTest {
             return objectMapper.readTree(body);
         } catch (Exception ex) {
             throw new IllegalStateException("响应不是合法 JSON: " + body, ex);
+        }
+    }
+
+    private void execute(String sql) throws Exception {
+        try (Connection connection = DriverManager.getConnection(JDBC_URL, "postgres", "");
+             Statement statement = connection.createStatement()) {
+            statement.execute(sql);
         }
     }
 

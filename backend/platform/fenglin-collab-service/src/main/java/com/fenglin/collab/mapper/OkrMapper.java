@@ -30,6 +30,26 @@ public interface OkrMapper {
             SELECT id AS "periodId", name AS "name", to_char(start_date, 'YYYY-MM-DD') AS "startDate",
                    to_char(end_date, 'YYYY-MM-DD') AS "endDate", status AS "status", score_policy AS "scorePolicy"
             FROM collab_okr_period
+            WHERE tenant_id = #{tenantId} AND name = #{name} AND deleted = 0
+            ORDER BY created_at DESC LIMIT 1
+            """)
+    Map<String, Object> findPeriodByName(@Param("tenantId") long tenantId, @Param("name") String name);
+
+    @Update("""
+            UPDATE collab_okr_period
+            SET start_date = #{startDate}, end_date = #{endDate}, score_policy = #{scorePolicy},
+                status = #{status}, updated_by = #{userId}, updated_at = now()
+            WHERE tenant_id = #{tenantId} AND id = CAST(#{periodId} AS uuid) AND deleted = 0
+            """)
+    void updatePeriod(@Param("tenantId") long tenantId, @Param("periodId") String periodId,
+                      @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate,
+                      @Param("scorePolicy") String scorePolicy, @Param("status") String status,
+                      @Param("userId") long userId);
+
+    @Select("""
+            SELECT id AS "periodId", name AS "name", to_char(start_date, 'YYYY-MM-DD') AS "startDate",
+                   to_char(end_date, 'YYYY-MM-DD') AS "endDate", status AS "status", score_policy AS "scorePolicy"
+            FROM collab_okr_period
             WHERE tenant_id = #{tenantId} AND id = CAST(#{periodId} AS uuid) AND deleted = 0
             """)
     Map<String, Object> findPeriod(@Param("tenantId") long tenantId, @Param("periodId") String periodId);

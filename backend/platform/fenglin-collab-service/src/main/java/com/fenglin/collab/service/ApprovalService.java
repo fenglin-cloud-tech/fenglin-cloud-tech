@@ -68,8 +68,11 @@ public class ApprovalService {
         if (request == null || request.code() == null || request.name() == null) {
             throw new BizException(CollabErrorCode.PARAM_INVALID, "模板编码与名称不能为空");
         }
-        if (approvalMapper.findTemplateByCode(tenantId, request.code()) != null) {
-            throw new BizException(CollabErrorCode.STATE_CONFLICT, "审批模板编码已存在");
+        Map<String, Object> existing = approvalMapper.findTemplateByCode(tenantId, request.code());
+        if (existing != null) {
+            return new TemplateView(Rows.str(existing, "templateId"), Rows.str(existing, "code"),
+                    Rows.str(existing, "name"), Rows.str(existing, "category"),
+                    Rows.str(existing, "processKey"), Rows.intVal(existing, "enabled") == 1);
         }
         String templateId = UUID.randomUUID().toString();
         String schema = "{}";

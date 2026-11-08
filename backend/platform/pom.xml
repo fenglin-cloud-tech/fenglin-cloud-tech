@@ -33,6 +33,7 @@
         <module>fenglin-crm-bootstrap</module>
         <module>fenglin-crm-service</module>
         <module>fenglin-collab-migrations</module>
+        <module>fenglin-collab-bootstrap</module>
         <module>fenglin-collab-service</module>
     </modules>
 </project>

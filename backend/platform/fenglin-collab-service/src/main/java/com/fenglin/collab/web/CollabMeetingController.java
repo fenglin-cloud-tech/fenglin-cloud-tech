@@ -12,7 +12,6 @@ import com.fenglin.collab.web.dto.CollabDtos.MinutesCreateRequest;
 import com.fenglin.collab.web.dto.CollabDtos.MinutesResult;
 import com.fenglin.collab.web.dto.CollabDtos.ReserveRequest;
 import com.fenglin.collab.web.dto.CollabDtos.ReserveResult;
-import com.fenglin.collab.web.dto.CollabDtos.RoomCreateRequest;
 import com.fenglin.collab.web.dto.CollabDtos.RoomView;
 import com.fenglin.common.core.ApiResponse;
 import com.fenglin.common.core.PageResult;
@@ -38,7 +37,6 @@ public class CollabMeetingController {
 
     private static final String JOIN = "biz:collab:meeting:join";
     private static final String MANAGE = "biz:collab:meeting:manage";
-    private static final String ROOM_ADMIN = "tenant:collab:meeting:room:manage";
 
     private final MeetingService meetingService;
 
@@ -122,14 +120,6 @@ public class CollabMeetingController {
             @RequestParam("endTime") OffsetDateTime endTime) {
         PermissionGuard.require(permissions, JOIN);
         return ApiResponse.success(meetingService.availableRooms(startTime, endTime));
-    }
-
-    @PostMapping("/meeting-rooms")
-    public ApiResponse<RoomView> createRoom(
-            @RequestHeader(value = "X-Permissions", required = false) String permissions,
-            @RequestBody RoomCreateRequest request) {
-        PermissionGuard.require(permissions, ROOM_ADMIN);
-        return ApiResponse.success(meetingService.createRoom(request));
     }
 
     @PostMapping("/meeting-rooms/{roomId}/reserve")

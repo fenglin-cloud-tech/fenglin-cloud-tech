@@ -47,13 +47,16 @@ public class ImService {
     private final ImMapper imMapper;
     private final CollabCrypto crypto;
     private final CollabAudit audit;
+    private final CollabSettingService settingService;
     private final int groupMemberLimit;
 
     public ImService(ImMapper imMapper, CollabCrypto crypto, CollabAudit audit,
+                     CollabSettingService settingService,
                      @Value("${fenglin.collab.group-member-limit:2000}") int groupMemberLimit) {
         this.imMapper = imMapper;
         this.crypto = crypto;
         this.audit = audit;
+        this.settingService = settingService;
         this.groupMemberLimit = groupMemberLimit;
     }
 
@@ -237,9 +240,13 @@ public class ImService {
         if ("TEXT".equals(msgType) && (request.content() == null || request.content().isBlank())) {
             throw new BizException(CollabErrorCode.PARAM_INVALID, "文本消息内容不能为空");
         }
-        String cipher = crypto.encrypt(tenantId, "collab_message", "content", request.content());
-        String hash = crypto.hash(tenantId, request.content());
-        String summary = crypto.summary(msgType, request.content());
+        String content = request.content();
+        if ("TEXT".equals(msgType) || "RICH".equals(msgType)) {
+            content = settingService.applySensitiveFilter(content);
+        }
+        String cipher = crypto.encrypt(tenantId, "collab_message", "content", content);
+        String hash = crypto.hash(tenantId, content);
+        String summary = crypto.summary(msgType, content);
         String mentionIds = request.mentionIds() == null || request.mentionIds().isEmpty()
                 ? null : request.mentionIds().stream().map(String::valueOf).reduce((a, b) -> a + "," + b)
                 .map(value -> "{" + value + "}").orElse(null);

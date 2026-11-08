@@ -48,12 +48,15 @@ public class DocService {
     private final DocMapper docMapper;
     private final CollabCrypto crypto;
     private final CollabAudit audit;
+    private final CollabSettingService settingService;
     private final ObjectMapper objectMapper;
 
-    public DocService(DocMapper docMapper, CollabCrypto crypto, CollabAudit audit, ObjectMapper objectMapper) {
+    public DocService(DocMapper docMapper, CollabCrypto crypto, CollabAudit audit,
+                      CollabSettingService settingService, ObjectMapper objectMapper) {
         this.docMapper = docMapper;
         this.crypto = crypto;
         this.audit = audit;
+        this.settingService = settingService;
         this.objectMapper = objectMapper;
     }
 
@@ -237,7 +240,7 @@ public class DocService {
         long userId = CollabContext.userId();
         Map<String, Object> doc = requireDoc(tenantId, docId);
         requirePermission(resolvePermission(tenantId, doc, userId), "MANAGE");
-        if ("CONFIDENTIAL".equals(Rows.str(doc, "secretLevel"))) {
+        if ("CONFIDENTIAL".equals(Rows.str(doc, "secretLevel")) && settingService.docPolicy().confidentialNoLink()) {
             throw new BizException(CollabErrorCode.DOC_CONFIDENTIAL_FORBIDDEN);
         }
         int expireDays = request == null || request.expireDays() == null ? 7 : request.expireDays();
@@ -262,7 +265,7 @@ public class DocService {
         if (expireAt != null && expireAt.isBefore(Instant.now())) {
             throw new BizException(CollabErrorCode.DOC_LINK_EXPIRED);
         }
-        if ("CONFIDENTIAL".equals(Rows.str(doc, "secretLevel"))) {
+        if ("CONFIDENTIAL".equals(Rows.str(doc, "secretLevel")) && settingService.docPolicy().confidentialNoLink()) {
             throw new BizException(CollabErrorCode.DOC_CONFIDENTIAL_FORBIDDEN);
         }
         String content = crypto.decrypt(tenantId, "collab_document", "content", Rows.str(doc, "contentCipher"));
