@@ -65,6 +65,10 @@ spring:
           uri: ${FENGLIN_CRM_URI:http://localhost:18095}
           predicates:
             - Path=/api/crm/v1/**,/internal/v1/crm/**
+        - id: fenglin-collab-service
+          uri: ${FENGLIN_COLLAB_URI:http://localhost:18096}
+          predicates:
+            - Path=/api/collab/v1/**,/internal/v1/collab/**
 
 fenglin:
   gateway:

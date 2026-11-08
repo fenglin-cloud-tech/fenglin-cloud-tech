@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  云协默认审批流程（bootstrap/首次提交自动部署用）。
+  说明：02_丰麟云协 文档只约定"审批流支持或签/会签/转办/加签"，未提供 BPMN；
+  此处为最小可执行流程：部门主管审批 → 财务复核（金额 >= 10000）→ 结束。
+  复杂会签/条件分支由平台工作流中心按流程定义扩展，本地任务表仅承载首版单一节点流转。
+-->
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:flowable="http://flowable.org/bpmn"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             targetNamespace="http://fenglincloud.com/collab">
+    <process id="collab_approval" name="云协审批" isExecutable="true">
+        <startEvent id="start" name="发起审批"/>
+        <sequenceFlow id="flow1" sourceRef="start" targetRef="deptLeaderApprove"/>
+        <userTask id="deptLeaderApprove" name="部门主管审批"
+                  flowable:candidateGroups="DEPT_LEADER">
+            <extensionElements>
+                <flowable:formProperty id="amount" name="金额" type="string" writable="false"/>
+                <flowable:formProperty id="summary" name="事项" type="string" writable="false"/>
+            </extensionElements>
+        </userTask>
+        <sequenceFlow id="flow2" sourceRef="deptLeaderApprove" targetRef="amountGateway"/>
+        <exclusiveGateway id="amountGateway" name="金额判断"/>
+        <sequenceFlow id="flow3" sourceRef="amountGateway" targetRef="financeApprove">
+            <conditionExpression xsi:type="tFormalExpression"><![CDATA[${amount >= 10000}]]></conditionExpression>
+        </sequenceFlow>
+        <sequenceFlow id="flow4" sourceRef="amountGateway" targetRef="end"/>
+        <userTask id="financeApprove" name="财务复核" flowable:candidateGroups="FINANCE"/>
+        <sequenceFlow id="flow5" sourceRef="financeApprove" targetRef="end"/>
+        <endEvent id="end" name="结束"/>
+    </process>
+</definitions>

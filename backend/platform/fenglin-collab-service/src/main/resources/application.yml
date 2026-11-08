@@ -1,0 +1,53 @@
+server:
+  port: ${FENGLIN_COLLAB_PORT:18096}
+
+spring:
+  application:
+    name: fenglin-collab-service
+  jackson:
+    property-naming-strategy: SNAKE_CASE
+    default-property-inclusion: non_null
+  datasource:
+    # 业务域独立库：生产为独立 database fenglin_collab，本地/CI 至少独立 schema
+    url: ${FENGLIN_COLLAB_DB_URL:jdbc:postgresql://localhost:5432/fenglin_collab?currentSchema=fenglin_collab}
+    username: ${FENGLIN_COLLAB_DB_USER:fenglin}
+    password: ${FENGLIN_COLLAB_DB_PASSWORD:fenglin_dev}
+    hikari:
+      maximum-pool-size: 10
+      # 以非属主角色执行，确保 RLS 对应用连接生效
+      connection-init-sql: SET ROLE fl_collab_app
+  flyway:
+    # fenglin_collab 迁移唯一所有者是 fenglin-collab-migrations，由发布流程执行
+    enabled: false
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+
+fenglin:
+  collab:
+    workflow-service-url: ${FENGLIN_WORKFLOW_SERVICE_URL:http://localhost:18084}
+    approval-process-key: ${FENGLIN_COLLAB_APPROVAL_PROCESS_KEY:collab_approval}
+    workflow-timeout-ms: 3000
+    # 群成员上限（IM-R01）
+    group-member-limit: 2000
+    # 文档在线协同上限（DOC-R01），首版为锁编辑 + 版本，不做 CRDT
+    max-concurrent-editors: 50
+    pii-salt-secret: ${FENGLIN_COLLAB_PII_SALT_SECRET:fenglin-collab-pii-salt-dev}
+  crypto:
+    # 本地/测试密钥，生产由 KMS 注入
+    data-key-base64: ${FENGLIN_CRYPTO_DATA_KEY:MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+info:
+  app:
+    name: ${spring.application.name}
