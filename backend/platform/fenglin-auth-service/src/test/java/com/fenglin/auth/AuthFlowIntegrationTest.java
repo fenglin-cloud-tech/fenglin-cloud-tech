@@ -2,7 +2,7 @@ package com.fenglin.auth;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fenglin.auth.service.PasswordPolicy;
+import com.fenglin.common.security.PasswordPolicy;
 import com.fenglin.common.core.BizException;
 import com.fenglin.common.test.EmbeddedPostgresSupport;
 import com.nimbusds.jwt.SignedJWT;
@@ -79,9 +79,6 @@ class AuthFlowIntegrationTest {
     @Autowired
     private ObjectMapper objectMapper;
 
-    @Autowired
-    private PasswordPolicy passwordPolicy;
-
     @BeforeEach
     void resetData() throws Exception {
         // JDK 默认 HttpURLConnection 遇到 401 会尝试认证重试，改为 JDK HttpClient 以便断言 401/423 响应体
@@ -104,8 +101,8 @@ class AuthFlowIntegrationTest {
                     VALUES (2001, 1001, 'FL0001', 'admin', '系统管理员', 'ACTIVE', 0),
                            (2002, 1002, 'AC0001', 'admin', 'Acme 管理员', 'ACTIVE', 0)
                     """);
-            String hashA = passwordPolicy.encode(PASSWORD);
-            String hashB = passwordPolicy.encode(PASSWORD_B);
+            String hashA = PasswordPolicy.encode(PASSWORD);
+            String hashB = PasswordPolicy.encode(PASSWORD_B);
             statement.execute("""
                     INSERT INTO fenglin_hub.hub_account (id, tenant_id, user_id, password_hash, deleted)
                     VALUES (3001, 1001, 2001, '%s', 0), (3002, 1002, 2002, '%s', 0)
@@ -271,14 +268,14 @@ class AuthFlowIntegrationTest {
 
     @Test
     void passwordPolicyEnforcesStrengthAndBcryptCost() {
-        assertThatThrownBy(() -> passwordPolicy.validate("Short1!"))
+        assertThatThrownBy(() -> PasswordPolicy.validate("Short1!"))
                 .isInstanceOf(BizException.class);
-        assertThatThrownBy(() -> passwordPolicy.validate("alllowercase123!"))
+        assertThatThrownBy(() -> PasswordPolicy.validate("alllowercase123!"))
                 .isInstanceOf(BizException.class);
-        String hash = passwordPolicy.encode(PASSWORD);
+        String hash = PasswordPolicy.encode(PASSWORD);
         assertThat(hash).startsWith("$2a$12$");
-        assertThat(passwordPolicy.matches(PASSWORD, hash)).isTrue();
-        assertThat(passwordPolicy.matches("Wrong@Password1", hash)).isFalse();
+        assertThat(PasswordPolicy.matches(PASSWORD, hash)).isTrue();
+        assertThat(PasswordPolicy.matches("Wrong@Password1", hash)).isFalse();
     }
 
     @Test

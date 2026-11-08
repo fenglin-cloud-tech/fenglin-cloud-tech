@@ -25,6 +25,7 @@ import com.fenglin.common.audit.AuditEvent;
 import com.fenglin.common.audit.AuditSink;
 import com.fenglin.common.core.BizException;
 import com.fenglin.common.core.CommonErrorCode;
+import com.fenglin.common.security.PasswordPolicy;
 import com.fenglin.common.tenant.TenantContext;
 import com.nimbusds.jwt.JWTClaimsSet;
 import org.springframework.stereotype.Service;
@@ -56,7 +57,6 @@ public class AuthService {
     private final RefreshTokenMapper refreshTokenMapper;
     private final RevocationMapper revocationMapper;
     private final PermissionQueryMapper permissionQueryMapper;
-    private final PasswordPolicy passwordPolicy;
     private final JwtKeyProvider keyProvider;
     private final JwtTokenService jwtTokenService;
     private final AuthProperties properties;
@@ -65,7 +65,7 @@ public class AuthService {
     public AuthService(TenantMapper tenantMapper, UserMapper userMapper, AccountMapper accountMapper,
                        LoginSessionMapper loginSessionMapper, RefreshTokenMapper refreshTokenMapper,
                        RevocationMapper revocationMapper, PermissionQueryMapper permissionQueryMapper,
-                       PasswordPolicy passwordPolicy, JwtKeyProvider keyProvider,
+                       JwtKeyProvider keyProvider,
                        JwtTokenService jwtTokenService, AuthProperties properties, AuditSink auditSink) {
         this.tenantMapper = tenantMapper;
         this.userMapper = userMapper;
@@ -74,7 +74,6 @@ public class AuthService {
         this.refreshTokenMapper = refreshTokenMapper;
         this.revocationMapper = revocationMapper;
         this.permissionQueryMapper = permissionQueryMapper;
-        this.passwordPolicy = passwordPolicy;
         this.keyProvider = keyProvider;
         this.jwtTokenService = jwtTokenService;
         this.properties = properties;
@@ -122,7 +121,7 @@ public class AuthService {
             audit(tenant.getId(), user.getId(), clientType, "LOGIN_BLOCKED", "USER_" + user.getStatus());
             throw new BizException(AuthErrorCode.ACCOUNT_LOCKED);
         }
-        if (!passwordPolicy.matches(request.password(), account.getPasswordHash())) {
+        if (!PasswordPolicy.matches(request.password(), account.getPasswordHash())) {
             int failCount = (account.getFailCount() == null ? 0 : account.getFailCount()) + 1;
             if (failCount >= properties.getMaxFailCount()) {
                 accountMapper.updateFailState(tenant.getId(), user.getId(), failCount,

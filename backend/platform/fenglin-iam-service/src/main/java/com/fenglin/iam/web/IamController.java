@@ -1,0 +1,123 @@
+package com.fenglin.iam.web;
+
+import com.fenglin.common.core.ApiResponse;
+import com.fenglin.common.core.PageResult;
+import com.fenglin.common.security.PermissionGuard;
+import com.fenglin.iam.service.IamService;
+import com.fenglin.iam.web.dto.AssignRolesRequest;
+import com.fenglin.iam.web.dto.CreateRoleRequest;
+import com.fenglin.iam.web.dto.CreateUserRequest;
+import com.fenglin.iam.web.dto.CreateUserResult;
+import com.fenglin.iam.web.dto.GrantPermissionsRequest;
+import com.fenglin.iam.web.dto.MenuView;
+import com.fenglin.iam.web.dto.PermissionNode;
+import com.fenglin.iam.web.dto.RoleView;
+import com.fenglin.iam.web.dto.UserView;
+import jakarta.validation.Valid;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+import java.util.Map;
+
+/**
+ * 用户/角色/权限 HUB-API-301/303/401/402/403/404/405 与 INT-102。
+ * 写接口由网关下发 X-Permissions 后在此做二次校验。
+ */
+@RestController
+public class IamController {
+
+    private static final String CREATE_USER_PERMISSION = "tenant:iam:user:create";
+    private static final String MANAGE_ROLE_PERMISSION = "tenant:iam:role:manage";
+    private static final String ASSIGN_ROLE_PERMISSION = "tenant:iam:role:assign";
+
+    private final IamService iamService;
+
+    public IamController(IamService iamService) {
+        this.iamService = iamService;
+    }
+
+    @PostMapping("/api/hub/v1/admin/users")
+    public ApiResponse<CreateUserResult> createUser(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @Valid @RequestBody CreateUserRequest request) {
+        PermissionGuard.require(permissions, CREATE_USER_PERMISSION);
+        return ApiResponse.success(iamService.createUser(request));
+    }
+
+    @GetMapping("/api/hub/v1/admin/users")
+    public ApiResponse<PageResult<UserView>> listUsers(
+            @RequestParam(required = false) Long orgId,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        List<UserView> records = iamService.listUsers(orgId, status, keyword, page, size);
+        return ApiResponse.success(PageResult.of(records, iamService.countUsers(orgId, status, keyword),
+                Math.max(page, 1), Math.min(Math.max(size, 1), 200)));
+    }
+
+    @PutMapping("/api/hub/v1/admin/users/{id}/roles")
+    public ApiResponse<UserView> assignRoles(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable long id,
+            @RequestBody AssignRolesRequest request) {
+        PermissionGuard.require(permissions, ASSIGN_ROLE_PERMISSION);
+        return ApiResponse.success(iamService.assignRoles(id, request));
+    }
+
+    @PostMapping("/api/hub/v1/admin/roles")
+    public ApiResponse<RoleView> createRole(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @Valid @RequestBody CreateRoleRequest request) {
+        PermissionGuard.require(permissions, MANAGE_ROLE_PERMISSION);
+        return ApiResponse.success(iamService.createRole(request));
+    }
+
+    @GetMapping("/api/hub/v1/admin/roles")
+    public ApiResponse<PageResult<RoleView>> listRoles(
+            @RequestParam(required = false) String roleType,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        List<RoleView> records = iamService.listRoles(roleType, keyword, page, size);
+        return ApiResponse.success(PageResult.of(records, iamService.countRoles(roleType, keyword),
+                Math.max(page, 1), Math.min(Math.max(size, 1), 200)));
+    }
+
+    @PutMapping("/api/hub/v1/admin/roles/{id}/permissions")
+    public ApiResponse<RoleView> grantPermissions(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable long id,
+            @RequestBody GrantPermissionsRequest request) {
+        PermissionGuard.require(permissions, MANAGE_ROLE_PERMISSION);
+        return ApiResponse.success(iamService.grantPermissions(id, request));
+    }
+
+    @GetMapping("/api/hub/v1/admin/permissions/tree")
+    public ApiResponse<Map<String, List<PermissionNode>>> permissionTree(
+            @RequestParam(required = false) String domain) {
+        return ApiResponse.success(Map.of("nodes", iamService.permissionTree(domain)));
+    }
+
+    /** 契约缺口：文档未定义菜单接口，按平台总纲菜单模型提供扩展接口 */
+    @GetMapping("/api/hub/v1/admin/menus")
+    public ApiResponse<List<MenuView>> menus(
+            @RequestParam(required = false) String clientType,
+            @RequestHeader(value = "X-Permissions", required = false) String permissions) {
+        return ApiResponse.success(iamService.menus(clientType, permissions));
+    }
+
+    /** HUB-INT-102 用户信息（供业务域补全用户信息） */
+    @GetMapping("/internal/v1/iam/users/{id}")
+    public ApiResponse<UserView> internalGetUser(@PathVariable long id) {
+        return ApiResponse.success(iamService.getUser(id));
+    }
+}
