@@ -5,11 +5,13 @@ import com.fenglin.common.audit.AuditEvent;
 import com.fenglin.common.audit.AuditSink;
 import com.fenglin.common.core.BizException;
 import com.fenglin.common.core.CommonErrorCode;
+import com.fenglin.common.core.PageResult;
 import com.fenglin.common.tenant.TenantContext;
 import com.fenglin.openapi.OpenApiErrorCode;
 import com.fenglin.openapi.mapper.ApiCallLogMapper;
 import com.fenglin.openapi.mapper.ApiQuotaMapper;
 import com.fenglin.openapi.mapper.OpenAppMapper;
+import com.fenglin.openapi.web.dto.OpenApiDtos.AdminAppView;
 import com.fenglin.openapi.web.dto.OpenApiDtos.AppCreateRequest;
 import com.fenglin.openapi.web.dto.OpenApiDtos.AppCreateResponse;
 import com.fenglin.openapi.web.dto.OpenApiDtos.PortalAppView;
@@ -103,6 +105,30 @@ public class OpenAppService {
                 .toList();
     }
 
+    /** 扩展：管理端应用列表（按状态/审核状态过滤，租户隔离）。 */
+    @Transactional(readOnly = true)
+    public PageResult<AdminAppView> listAdmin(String status, String reviewStatus,
+                                              long page, long size) {
+        long tenantId = TenantContext.requireTenantId();
+        long safePage = Math.max(page, 1);
+        long safeSize = Math.min(Math.max(size, 1), 200);
+        String statusFilter = blankToNull(status);
+        String reviewFilter = blankToNull(reviewStatus);
+        List<AdminAppView> records = appMapper.listAdmin(tenantId, statusFilter, reviewFilter,
+                        (safePage - 1) * safeSize, safeSize).stream()
+                .map(row -> new AdminAppView(
+                        ((Number) row.get("id")).longValue(),
+                        (String) row.get("code"),
+                        (String) row.get("name"),
+                        (String) row.get("owner_type"),
+                        (String) row.get("review_status"),
+                        (String) row.get("status"),
+                        toInstant(row.get("created_at"))))
+                .toList();
+        return PageResult.of(records, appMapper.countAdmin(tenantId, statusFilter, reviewFilter),
+                safePage, safeSize);
+    }
+
     Map<String, Object> requireApp(long tenantId, long appId) {
         Map<String, Object> app = appMapper.findById(tenantId, appId);
         if (app == null) {
@@ -116,6 +142,23 @@ public class OpenAppService {
         auditSink.publish(new AuditEvent(UUID.randomUUID().toString(), eventType, "openapi", "WRITE", "MEDIUM",
                 tenantId, operatorId, context == null ? null : context.clientType(),
                 context == null ? null : context.requestId(), "OPEN_APP", resourceId, Instant.now()));
+    }
+
+    private String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    private Instant toInstant(Object value) {
+        if (value instanceof Instant instant) {
+            return instant;
+        }
+        if (value instanceof java.sql.Timestamp timestamp) {
+            return timestamp.toInstant();
+        }
+        if (value instanceof java.time.OffsetDateTime offsetDateTime) {
+            return offsetDateTime.toInstant();
+        }
+        return null;
     }
 
     private String requireText(String value, String field, int maxLength) {

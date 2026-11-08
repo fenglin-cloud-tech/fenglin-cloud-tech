@@ -8,6 +8,7 @@ import com.fenglin.openapi.service.OpenApiCallLogService;
 import com.fenglin.openapi.service.OpenApiKeyService;
 import com.fenglin.openapi.service.OpenApiQuotaService;
 import com.fenglin.openapi.service.OpenAppService;
+import com.fenglin.openapi.web.dto.OpenApiDtos.AdminAppView;
 import com.fenglin.openapi.web.dto.OpenApiDtos.AppCreateRequest;
 import com.fenglin.openapi.web.dto.OpenApiDtos.AppCreateResponse;
 import com.fenglin.openapi.web.dto.OpenApiDtos.CallLogView;
@@ -111,6 +112,18 @@ public class OpenApiAdminController {
             @RequestParam(defaultValue = "20") long size) {
         PermissionGuard.require(permissions, CALL_LOG_PERMISSION);
         return ApiResponse.success(callLogService.search(appId, apiPath, status, from, to, page, size));
+    }
+
+    /** 扩展：管理端开放应用列表（1006 仅定义开发者门户视角）。 */
+    @GetMapping("/api/hub/v1/admin/openapi/apps")
+    public ApiResponse<PageResult<AdminAppView>> list(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String reviewStatus,
+            @RequestParam(defaultValue = "1") long page,
+            @RequestParam(defaultValue = "20") long size) {
+        PermissionGuard.require(permissions, REVIEW_PERMISSION);
+        return ApiResponse.success(appService.listAdmin(status, reviewStatus, page, size));
     }
 
     private Long operator(Long userId) {

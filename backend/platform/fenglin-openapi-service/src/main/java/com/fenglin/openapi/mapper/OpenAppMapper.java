@@ -71,4 +71,34 @@ public interface OpenAppMapper {
              ORDER BY created_at DESC
             """)
     List<Map<String, Object>> listByTenant(@Param("tenantId") long tenantId);
+
+    @Select("""
+            <script>
+            SELECT id, code, name, owner_type, review_status, status, created_at
+              FROM hub_open_app
+             WHERE tenant_id = #{tenantId} AND deleted = 0
+             <if test="status != null"> AND status = #{status} </if>
+             <if test="reviewStatus != null"> AND review_status = #{reviewStatus} </if>
+             ORDER BY created_at DESC, id DESC
+             LIMIT #{size} OFFSET #{offset}
+            </script>
+            """)
+    List<Map<String, Object>> listAdmin(@Param("tenantId") long tenantId,
+                                        @Param("status") String status,
+                                        @Param("reviewStatus") String reviewStatus,
+                                        @Param("offset") long offset,
+                                        @Param("size") long size);
+
+    @Select("""
+            <script>
+            SELECT count(1)
+              FROM hub_open_app
+             WHERE tenant_id = #{tenantId} AND deleted = 0
+             <if test="status != null"> AND status = #{status} </if>
+             <if test="reviewStatus != null"> AND review_status = #{reviewStatus} </if>
+            </script>
+            """)
+    long countAdmin(@Param("tenantId") long tenantId,
+                    @Param("status") String status,
+                    @Param("reviewStatus") String reviewStatus);
 }

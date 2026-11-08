@@ -46,4 +46,9 @@ public final class OpenApiDtos {
 
     public record PortalAppView(long appId, String code, String status, long callToday, Long quotaDaily) {
     }
+
+    /** 扩展：管理端应用列表（1006 仅定义开发者门户视角）。 */
+    public record AdminAppView(long appId, String code, String name, String ownerType,
+                               String reviewStatus, String status, Instant createdAt) {
+    }
 }

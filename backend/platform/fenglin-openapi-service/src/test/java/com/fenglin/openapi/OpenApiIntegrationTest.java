@@ -260,6 +260,32 @@ class OpenApiIntegrationTest {
         assertThat(get("/openapi/portal/apps", TENANT_A, null).getStatusCode().value()).isEqualTo(403);
     }
 
+    @Test
+    void listsAdminAppsWithStatusFilters() {
+        long approvedId = approvedApp(TENANT_A, "列表应用");
+        createApp(TENANT_A, REVIEW_PERMISSION, "待审应用");
+
+        JsonNode all = read(get("/api/hub/v1/admin/openapi/apps", TENANT_A, REVIEW_PERMISSION)
+                .getBody()).get("data");
+        assertThat(all.get("total").asLong()).isEqualTo(2);
+
+        JsonNode pending = read(get("/api/hub/v1/admin/openapi/apps?reviewStatus=PENDING",
+                TENANT_A, REVIEW_PERMISSION).getBody()).get("data");
+        assertThat(pending.get("total").asLong()).isEqualTo(1);
+        assertThat(pending.get("records").get(0).get("name").asText()).isEqualTo("待审应用");
+
+        JsonNode enabled = read(get("/api/hub/v1/admin/openapi/apps?status=ENABLED",
+                TENANT_A, REVIEW_PERMISSION).getBody()).get("data");
+        assertThat(enabled.get("total").asLong()).isEqualTo(1);
+        assertThat(enabled.get("records").get(0).get("app_id").asLong()).isEqualTo(approvedId);
+        assertThat(enabled.get("records").get(0).get("created_at").asText()).isNotBlank();
+
+        assertThat(read(get("/api/hub/v1/admin/openapi/apps", TENANT_B, REVIEW_PERMISSION)
+                .getBody()).get("data").get("total").asLong()).isZero();
+        assertThat(get("/api/hub/v1/admin/openapi/apps", TENANT_A, null)
+                .getStatusCode().value()).isEqualTo(403);
+    }
+
     // ---------- helpers ----------
 
     private long approvedApp(long tenantId, String name) {
