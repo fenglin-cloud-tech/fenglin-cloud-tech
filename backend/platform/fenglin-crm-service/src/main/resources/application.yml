@@ -1,0 +1,54 @@
+server:
+  port: ${FENGLIN_CRM_PORT:18095}
+
+spring:
+  application:
+    name: fenglin-crm-service
+  jackson:
+    property-naming-strategy: SNAKE_CASE
+    default-property-inclusion: non_null
+  datasource:
+    # 业务域独立库：生产为独立 database fenglin_crm，本地/CI 至少独立 schema
+    url: ${FENGLIN_CRM_DB_URL:jdbc:postgresql://localhost:5432/fenglin_crm?currentSchema=fenglin_crm}
+    username: ${FENGLIN_CRM_DB_USER:fenglin}
+    password: ${FENGLIN_CRM_DB_PASSWORD:fenglin_dev}
+    hikari:
+      maximum-pool-size: 10
+      # 以非属主角色执行，确保 RLS 对应用连接生效
+      connection-init-sql: SET ROLE fl_crm_app
+  flyway:
+    # fenglin_crm 迁移唯一所有者是 fenglin-crm-migrations，由发布流程执行
+    enabled: false
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+
+fenglin:
+  crm:
+    workflow-service-url: ${FENGLIN_WORKFLOW_SERVICE_URL:http://localhost:18084}
+    # 报价审批流程定义标识；需由工作流中心预置部署（见模块说明）
+    quotation-process-key: ${FENGLIN_CRM_QUOTATION_PROCESS_KEY:crm_quotation_approval}
+    workflow-timeout-ms: 3000
+    # 综合折扣 > 20% 或含税总额 > 100 万时必须走审批（01_丰麟云销_02 F-QUOTE-005）
+    approval-discount-threshold: 20
+    approval-amount-threshold: 1000000
+    # 租户盐派生密钥：生产由 KMS 注入，禁止与加密数据密钥混用
+    pii-salt-secret: ${FENGLIN_CRM_PII_SALT_SECRET:fenglin-crm-pii-salt-dev}
+  crypto:
+    # 本地/测试密钥，生产由 KMS 注入
+    data-key-base64: ${FENGLIN_CRYPTO_DATA_KEY:MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+info:
+  app:
+    name: ${spring.application.name}

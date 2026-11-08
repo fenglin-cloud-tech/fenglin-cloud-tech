@@ -61,6 +61,10 @@ spring:
           uri: ${FENGLIN_AI_URI:http://localhost:18094}
           predicates:
             - Path=/api/hub/v1/ai/**,/api/hub/v1/admin/ai/**
+        - id: fenglin-crm-service
+          uri: ${FENGLIN_CRM_URI:http://localhost:18095}
+          predicates:
+            - Path=/api/crm/v1/**,/internal/v1/crm/**
 
 fenglin:
   gateway:
