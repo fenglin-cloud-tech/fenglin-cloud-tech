@@ -40,7 +40,7 @@ spring:
         - id: fenglin-audit-service
           uri: ${FENGLIN_AUDIT_URI:http://localhost:18087}
           predicates:
-            - Path=/api/hub/v1/admin/audits/**,/api/hub/v1/admin/audit/**,/internal/v1/audit/**
+            - Path=/api/hub/v1/admin/audits/**,/api/hub/v1/admin/audit/**,/api/hub/v1/audit/**,/internal/v1/audit/**
         - id: fenglin-search-service
           uri: ${FENGLIN_SEARCH_URI:http://localhost:18088}
           predicates:

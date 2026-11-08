@@ -11,6 +11,8 @@ import com.fenglin.audit.web.dto.ChainVerifyResult;
 import com.fenglin.audit.web.dto.ExportAuditRequest;
 import com.fenglin.audit.web.dto.RecordAuditRequest;
 import com.fenglin.common.core.ApiResponse;
+import com.fenglin.common.core.BizException;
+import com.fenglin.common.core.CommonErrorCode;
 import com.fenglin.common.core.PageResult;
 import com.fenglin.common.security.PermissionGuard;
 import com.fenglin.common.tenant.TenantContext;
@@ -145,6 +147,30 @@ public class AuditController {
                 .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
                         .filename(file.fileName(), StandardCharsets.UTF_8).build().toString())
                 .body(file.content());
+    }
+
+    /**
+     * HUB-API-805 我的操作记录：仅返回当前登录用户 operator_id 匹配的记录（租户由 RLS 约束）。
+     */
+    @GetMapping("/api/hub/v1/audit/my-records")
+    public ApiResponse<PageResult<AuditLogView>> myRecords(
+            @RequestHeader(value = "X-User-Id", required = false) Long userId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        Long resolvedUserId = userId != null ? userId
+                : (TenantContext.get() == null ? null : TenantContext.get().userId());
+        if (resolvedUserId == null) {
+            throw new BizException(CommonErrorCode.UNAUTHORIZED, "缺少当前用户身份");
+        }
+        int normalizedPage = Math.max(page, 1);
+        int normalizedSize = Math.min(Math.max(size, 1), 200);
+        List<AuditLogView> records = auditService.list(null, resolvedUserId, null, null, null, null,
+                from, to, normalizedPage, normalizedSize);
+        return ApiResponse.success(PageResult.of(records,
+                auditService.count(null, resolvedUserId, null, null, null, null, from, to),
+                normalizedPage, normalizedSize));
     }
 
     /**
