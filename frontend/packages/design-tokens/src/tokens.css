@@ -1,0 +1,49 @@
+/* 丰麟云枢设计令牌：严格对齐 00_丰麟云枢_06_UIUX设计规范 §1 */
+:root {
+  --fl-color-primary: #1f5eff;
+  --fl-color-primary-hover: #3d78ff;
+  --fl-color-success: #16a34a;
+  --fl-color-warning: #f59e0b;
+  --fl-color-danger: #dc2626;
+  --fl-color-info: #64748b;
+  --fl-color-text-primary: #1e293b;
+  --fl-color-text-secondary: #64748b;
+  --fl-color-bg: #f5f7fa;
+  --fl-color-surface: #ffffff;
+  --fl-color-border: #e2e8f0;
+  --fl-color-platform: #0f3d91;
+  --fl-color-tenant: #1f5eff;
+  --fl-color-biz: #0ea5e9;
+  --fl-color-quota-warn: #f59e0b;
+  --fl-color-quota-danger: #dc2626;
+
+  --fl-font-family: "PingFang SC", "Microsoft YaHei", -apple-system, "Segoe UI", Roboto, sans-serif;
+  --fl-font-size-xs: 12px;
+  --fl-font-size-sm: 13px;
+  --fl-font-size-base: 14px;
+  --fl-font-size-lg: 16px;
+  --fl-font-size-xl: 20px;
+  --fl-font-weight-normal: 400;
+  --fl-font-weight-medium: 500;
+  --fl-font-weight-bold: 600;
+
+  --fl-radius-sm: 4px;
+  --fl-radius-md: 8px;
+  --fl-radius-lg: 12px;
+  --fl-space-xs: 4px;
+  --fl-space-sm: 8px;
+  --fl-space-md: 16px;
+  --fl-space-lg: 24px;
+  --fl-space-xl: 32px;
+  --fl-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --fl-shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
+
+  /* Element Plus 主题映射 */
+  --el-color-primary: var(--fl-color-primary);
+  --el-color-success: var(--fl-color-success);
+  --el-color-warning: var(--fl-color-warning);
+  --el-color-danger: var(--fl-color-danger);
+  --el-color-info: var(--fl-color-info);
+  --el-border-radius-base: var(--fl-radius-sm);
+  --el-font-family: var(--fl-font-family);
+}

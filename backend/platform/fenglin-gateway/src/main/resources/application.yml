@@ -46,21 +46,21 @@ spring:
           predicates:
             - Path=/api/hub/v1/search/**,/api/hub/v1/admin/search/**,/internal/v1/search/**
         - id: fenglin-openapi-service
-          uri: ${FENGLIN_OPENAPI_URI:http://localhost:18089}
+          uri: ${FENGLIN_OPENAPI_URI:http://localhost:18091}
           predicates:
-            - Path=/openapi/**
+            - Path=/openapi/**,/api/hub/v1/admin/openapi/**
         - id: fenglin-report-service
-          uri: ${FENGLIN_REPORT_URI:http://localhost:18090}
+          uri: ${FENGLIN_REPORT_URI:http://localhost:18092}
           predicates:
-            - Path=/api/hub/v1/reports/**
+            - Path=/api/hub/v1/reports/**,/api/hub/v1/report/**,/api/hub/v1/report:export,/api/hub/v1/admin/metrics/**
         - id: fenglin-lowcode-service
-          uri: ${FENGLIN_LOWCODE_URI:http://localhost:18091}
+          uri: ${FENGLIN_LOWCODE_URI:http://localhost:18093}
           predicates:
-            - Path=/api/hub/v1/lowcode/**
+            - Path=/api/hub/v1/lowcode/**,/api/hub/v1/admin/lowcode/**
         - id: fenglin-ai-service
-          uri: ${FENGLIN_AI_URI:http://localhost:18092}
+          uri: ${FENGLIN_AI_URI:http://localhost:18094}
           predicates:
-            - Path=/api/hub/v1/ai/**
+            - Path=/api/hub/v1/ai/**,/api/hub/v1/admin/ai/**
 
 fenglin:
   gateway:

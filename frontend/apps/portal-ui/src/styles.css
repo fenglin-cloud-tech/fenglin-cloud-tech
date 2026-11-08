@@ -1,0 +1,40 @@
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  font-family: var(--fl-font-family);
+  font-size: var(--fl-font-size-base);
+  color: var(--fl-color-text-primary);
+  background: var(--fl-color-bg);
+}
+h2 {
+  margin: 0 0 8px;
+  font-size: var(--fl-font-size-xl);
+}
+p {
+  margin: 0 0 8px;
+  color: var(--fl-color-text-secondary);
+  line-height: 1.6;
+}
+.fl-portal-card {
+  background: var(--fl-color-surface);
+  border: 1px solid var(--fl-color-border);
+  border-radius: var(--fl-radius-md);
+  padding: var(--fl-space-lg);
+  margin-bottom: var(--fl-space-md);
+}
+.fl-portal-link {
+  display: inline-block;
+  margin-top: var(--fl-space-sm);
+  color: var(--fl-color-primary);
+  text-decoration: none;
+}
+.fl-portal-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: var(--fl-font-size-xs);
+  background: #eef2ff;
+  color: var(--fl-color-primary);
+}

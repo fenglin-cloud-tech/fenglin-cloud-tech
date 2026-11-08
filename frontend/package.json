@@ -4,6 +4,17 @@
   "private": true,
   "packageManager": "pnpm@9.15.0",
   "scripts": {
-    "build": "pnpm -r build"
+    "dev": "pnpm -r --parallel --filter \"./apps/*\" dev",
+    "dev:admin": "pnpm --filter @fenglin/admin-ui dev",
+    "dev:portal": "pnpm --filter @fenglin/portal-ui dev",
+    "dev:developer": "pnpm --filter @fenglin/developer-portal dev",
+    "build": "pnpm -r --filter \"./apps/*\" build",
+    "build:admin": "pnpm --filter @fenglin/admin-ui build",
+    "typecheck": "pnpm -r --if-present typecheck"
+  },
+  "devDependencies": {
+    "@types/node": "22.10.2",
+    "typescript": "5.5.4",
+    "vue-tsc": "2.1.10"
   }
 }

@@ -1,0 +1,52 @@
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  font-family: var(--fl-font-family);
+  font-size: var(--fl-font-size-base);
+  color: var(--fl-color-text-primary);
+  background: var(--fl-color-bg);
+}
+.fl-dev-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 60px;
+  padding: 0 var(--fl-space-lg);
+  background: #fff;
+  border-bottom: 1px solid var(--fl-color-border);
+}
+.fl-dev-brand {
+  font-weight: var(--fl-font-weight-bold);
+}
+.fl-dev-main {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: var(--fl-space-lg);
+}
+.fl-dev-card {
+  background: var(--fl-color-surface);
+  border: 1px solid var(--fl-color-border);
+  border-radius: var(--fl-radius-md);
+  padding: var(--fl-space-lg);
+  margin-bottom: var(--fl-space-md);
+}
+.fl-dev-card h2 {
+  margin: 0 0 8px;
+  font-size: var(--fl-font-size-lg);
+}
+.fl-dev-card p,
+.fl-dev-card li {
+  color: var(--fl-color-text-secondary);
+  line-height: 1.7;
+}
+.fl-dev-code {
+  background: #0f172a;
+  color: #e2e8f0;
+  border-radius: var(--fl-radius-sm);
+  padding: var(--fl-space-md);
+  font-family: Consolas, Monaco, monospace;
+  font-size: 12px;
+  overflow-x: auto;
+}
