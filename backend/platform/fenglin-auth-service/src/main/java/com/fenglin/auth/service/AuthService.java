@@ -167,13 +167,18 @@ public class AuthService {
         if (stored == null) {
             throw new BizException(AuthErrorCode.REFRESH_TOKEN_INVALID);
         }
+        Instant now = Instant.now();
         if (stored.getRevoked() != null && stored.getRevoked() == 1) {
-            // refresh token 复用视为泄露：终止整个会话
+            // 宽限期内被轮换视为并发刷新（多端同时到达），仅拒绝本次请求，不终止会话
+            if (stored.getRotatedAt() != null
+                    && stored.getRotatedAt().isAfter(now.minus(properties.getRefreshGrace()))) {
+                throw new BizException(AuthErrorCode.REFRESH_TOKEN_INVALID, "refresh token 已被并发轮换");
+            }
+            // 超过宽限期再次使用 refresh token 视为泄露：终止整个会话
             loginSessionMapper.closeBySession(tenantId, sessionId, SESSION_KICKED);
             refreshTokenMapper.revokeBySession(tenantId, sessionId);
             throw new BizException(AuthErrorCode.REFRESH_TOKEN_INVALID, "refresh token 已被使用，会话已终止");
         }
-        Instant now = Instant.now();
         if (stored.getExpiresAt() == null || stored.getExpiresAt().isBefore(now)) {
             throw new BizException(AuthErrorCode.REFRESH_TOKEN_INVALID, "refresh token 已过期");
         }

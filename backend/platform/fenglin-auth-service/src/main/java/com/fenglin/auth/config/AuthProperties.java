@@ -20,6 +20,8 @@ public class AuthProperties {
     private Duration expiredTokenRetention = Duration.ofDays(7);
     /** 清理任务单批删除条数 */
     private int tokenJanitorBatchSize = 5000;
+    /** refresh token 并发轮换宽限期：宽限期内复用视为并发刷新，不终止会话 */
+    private Duration refreshGrace = Duration.ofSeconds(10);
 
     public String getIssuer() {
         return issuer;
@@ -91,5 +93,13 @@ public class AuthProperties {
 
     public void setTokenJanitorBatchSize(int tokenJanitorBatchSize) {
         this.tokenJanitorBatchSize = tokenJanitorBatchSize;
+    }
+
+    public Duration getRefreshGrace() {
+        return refreshGrace;
+    }
+
+    public void setRefreshGrace(Duration refreshGrace) {
+        this.refreshGrace = refreshGrace;
     }
 }

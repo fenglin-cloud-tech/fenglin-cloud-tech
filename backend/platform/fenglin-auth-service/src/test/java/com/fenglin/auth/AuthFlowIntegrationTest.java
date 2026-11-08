@@ -36,7 +36,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /**
  * P1 认证链路集成测试：内嵌真实 PostgreSQL 15 + 完整 Flyway 迁移 + 应用以 fl_app 角色执行（RLS 生效）。
  */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+        properties = "fenglin.auth.refresh-grace=PT0S")
 class AuthFlowIntegrationTest {
 
     private static final String TENANT_CODE = "fenglin";

@@ -36,6 +36,8 @@ fenglin:
     expired-token-retention: P7D
     token-janitor-batch-size: 5000
     token-janitor-cron: "0 30 3 * * *"
+    # refresh token 并发轮换宽限期，期间复用按并发刷新处理，不误杀会话
+    refresh-grace: PT10S
   audit:
     endpoint: ${FENGLIN_AUDIT_ENDPOINT:http://localhost:18087/internal/v1/audit/logs}
 
