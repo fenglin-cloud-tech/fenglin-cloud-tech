@@ -96,6 +96,23 @@ public interface AuditLogMapper {
                @Param("to") Instant to);
 
     @Select("""
+            <script>
+            SELECT log_no, event_type, module, action, operator_id, operator_name,
+                   target_type, target_id, request_id, client_type, result, risk_level,
+                   detail::text AS detail, occurred_at
+              FROM hub_audit_log
+             WHERE deleted = 0
+             <if test="eventType != null and eventType != ''">AND event_type = #{eventType}</if>
+             <if test="from != null">AND occurred_at &gt;= #{from,jdbcType=TIMESTAMP}</if>
+             <if test="to != null">AND occurred_at &lt; #{to,jdbcType=TIMESTAMP}</if>
+             ORDER BY occurred_at ASC, id ASC
+            </script>
+            """)
+    List<Map<String, Object>> findForExport(@Param("eventType") String eventType,
+                                            @Param("from") Instant from,
+                                            @Param("to") Instant to);
+
+    @Select("""
             SELECT id, tenant_id, log_no, event_type, module, action, operator_id, operator_name,
                    target_type, target_id, request_id, trace_id, client_type, result, risk_level,
                    detail::text AS detail, occurred_at

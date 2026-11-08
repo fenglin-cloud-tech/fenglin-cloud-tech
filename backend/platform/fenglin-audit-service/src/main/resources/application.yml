@@ -32,6 +32,10 @@ fenglin:
     # 审计链完整性定时校验：每小时逐租户校验当月哈希链，断链记录 ERROR 日志
     chain-verify-enabled: ${FENGLIN_AUDIT_CHAIN_VERIFY_ENABLED:true}
     chain-verify-cron: "0 10 * * * *"
+    # HUB-API-802 审计导出：轮询 PENDING 任务生成 CSV，文件落本地导出目录
+    export-dir: ${FENGLIN_AUDIT_EXPORT_DIR:${java.io.tmpdir}/fenglin-audit-export}
+    export-job-enabled: ${FENGLIN_AUDIT_EXPORT_JOB_ENABLED:true}
+    export-poll-interval-ms: ${FENGLIN_AUDIT_EXPORT_POLL_INTERVAL_MS:5000}
 
 management:
   endpoints:

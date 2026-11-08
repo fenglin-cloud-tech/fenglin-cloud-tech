@@ -1,8 +1,11 @@
 package com.fenglin.audit.web;
 
+import com.fenglin.audit.service.AuditExportService;
 import com.fenglin.audit.service.AuditService;
+import com.fenglin.audit.web.dto.AuditExportTaskView;
 import com.fenglin.audit.web.dto.AuditLogView;
 import com.fenglin.audit.web.dto.ChainVerifyResult;
+import com.fenglin.audit.web.dto.ExportAuditRequest;
 import com.fenglin.audit.web.dto.RecordAuditRequest;
 import com.fenglin.common.core.ApiResponse;
 import com.fenglin.common.core.PageResult;
@@ -10,6 +13,10 @@ import com.fenglin.common.security.PermissionGuard;
 import com.fenglin.common.tenant.TenantContext;
 import jakarta.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -18,6 +25,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -29,11 +37,14 @@ import java.util.Map;
 public class AuditController {
 
     private static final String READ_PERMISSION = "hub:audit:read";
+    private static final String EXPORT_PERMISSION = "platform:audit:export";
 
     private final AuditService auditService;
+    private final AuditExportService auditExportService;
 
-    public AuditController(AuditService auditService) {
+    public AuditController(AuditService auditService, AuditExportService auditExportService) {
         this.auditService = auditService;
+        this.auditExportService = auditExportService;
     }
 
     @PostMapping("/internal/v1/audit/logs")
@@ -83,5 +94,48 @@ public class AuditController {
         Long contextTenantId = TenantContext.getTenantId();
         long resolvedTenantId = tenantId != null ? tenantId : (contextTenantId == null ? 0L : contextTenantId);
         return ApiResponse.success(auditService.verifyChain(resolvedTenantId, from, to));
+    }
+
+    /**
+     * HUB-API-802 审计日志导出：异步任务，返回 taskId/status。
+     */
+    @PostMapping("/api/hub/v1/admin/audit/logs:export")
+    public ApiResponse<AuditExportTaskView> export(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestHeader(value = "X-User-Id", required = false) Long userId,
+            @RequestBody(required = false) ExportAuditRequest request) {
+        PermissionGuard.require(permissions, EXPORT_PERMISSION);
+        ExportAuditRequest normalized = request == null
+                ? new ExportAuditRequest(null, null, null, null) : request;
+        Long operatorId = userId != null ? userId
+                : (TenantContext.get() == null ? null : TenantContext.get().userId());
+        return ApiResponse.success(auditExportService.create(normalized, operatorId));
+    }
+
+    /**
+     * 导出任务查询（契约缺口：802 仅定义创建，补充查询用于获取任务状态）。
+     */
+    @GetMapping("/api/hub/v1/admin/audit/export-tasks/{taskId}")
+    public ApiResponse<AuditExportTaskView> exportTask(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable long taskId) {
+        PermissionGuard.require(permissions, EXPORT_PERMISSION);
+        return ApiResponse.success(auditExportService.get(taskId));
+    }
+
+    /**
+     * 导出文件下载（契约缺口：802 未定义下载入口，补充 export-tasks 下载端点）。
+     */
+    @GetMapping("/api/hub/v1/admin/audit/export-tasks/{taskId}/download")
+    public ResponseEntity<byte[]> downloadExport(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable long taskId) {
+        PermissionGuard.require(permissions, EXPORT_PERMISSION);
+        AuditExportService.ExportFile file = auditExportService.download(taskId);
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType("text/csv; charset=UTF-8"))
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
+                        .filename(file.fileName(), StandardCharsets.UTF_8).build().toString())
+                .body(file.content());
     }
 }
