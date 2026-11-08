@@ -1,9 +1,43 @@
 server:
-  port: 18089
+  port: 18091
 
 spring:
   application:
     name: fenglin-openapi-service
+  jackson:
+    property-naming-strategy: SNAKE_CASE
+    default-property-inclusion: non_null
+  datasource:
+    url: ${FENGLIN_DB_URL:jdbc:postgresql://localhost:5432/fenglin_hub?currentSchema=fenglin_hub}
+    username: ${FENGLIN_DB_USER:fenglin}
+    password: ${FENGLIN_DB_PASSWORD:fenglin_dev}
+    hikari:
+      maximum-pool-size: 10
+      # 以非属主角色执行，确保 RLS 对应用连接生效
+      connection-init-sql: SET ROLE fl_app
+  flyway:
+    # 平台库迁移唯一所有者是 fenglin-hub-migrations
+    enabled: false
+  data:
+    redis:
+      host: ${FENGLIN_REDIS_HOST:localhost}
+      port: ${FENGLIN_REDIS_PORT:6379}
+      password: ${FENGLIN_REDIS_PASSWORD:}
+      timeout: 3s
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+
+fenglin:
+  openapi:
+    # X-Timestamp 允许偏差（秒），契约：≤ 5min
+    timestamp-skew-seconds: 300
+    # X-Nonce 防重放窗口，契约：Redis TTL 5min
+    nonce-ttl: PT5M
+  crypto:
+    # 本地/测试密钥，生产由 KMS 注入
+    data-key-base64: ${FENGLIN_CRYPTO_DATA_KEY:MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=}
 
 management:
   endpoints:

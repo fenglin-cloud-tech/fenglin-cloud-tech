@@ -29,7 +29,8 @@ class HubMigrationTest {
             "hub_data_scope", "hub_field_permission", "hub_menu", "hub_dict_type", "hub_dict_item", "hub_param",
             "hub_login_session", "hub_sso_config", "hub_auth_token", "hub_auth_revocation",
             "hub_audit_export_task", "hub_audit_alert_rule",
-            "hub_search_index_task", "hub_search_query_log");
+            "hub_search_index_task", "hub_search_query_log",
+            "hub_open_app", "hub_app_key", "hub_api_quota", "hub_api_call_log");
 
     private static EmbeddedPostgresSupport postgres;
     private static MigrateResult migrateResult;
@@ -54,7 +55,7 @@ class HubMigrationTest {
     @Test
     void appliesAllMigrationsOnEmptyDatabase() {
         assertThat(migrateResult.success).isTrue();
-        assertThat(migrateResult.migrationsExecuted).isEqualTo(27);
+        assertThat(migrateResult.migrationsExecuted).isEqualTo(28);
     }
 
     @Test
@@ -100,6 +101,10 @@ class HubMigrationTest {
         assertThat(rowLevelSecurityOf("hub_account")).isTrue();
         assertThat(rowLevelSecurityOf("hub_login_session")).isTrue();
         assertThat(rowLevelSecurityOf("hub_auth_token")).isTrue();
+        assertThat(rowLevelSecurityOf("hub_open_app")).isTrue();
+        assertThat(rowLevelSecurityOf("hub_app_key")).isTrue();
+        assertThat(rowLevelSecurityOf("hub_api_quota")).isTrue();
+        assertThat(rowLevelSecurityOf("hub_api_call_log")).isTrue();
         assertThat(rowLevelSecurityOf("hub_permission"))
                 .as("功能权限为平台全局表，不启用 RLS")
                 .isFalse();
@@ -117,7 +122,7 @@ class HubMigrationTest {
                      "SELECT count(*) FROM fenglin_hub.flyway_schema_history "
                              + "WHERE success = true AND type = 'SQL'")) {
             assertThat(resultSet.next()).isTrue();
-            assertThat(resultSet.getInt(1)).isEqualTo(27);
+            assertThat(resultSet.getInt(1)).isEqualTo(28);
         }
     }
 
