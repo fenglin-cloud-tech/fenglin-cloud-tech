@@ -1,0 +1,43 @@
+server:
+  port: ${FENGLIN_SERVICE_PORT:18100}
+
+spring:
+  application:
+    name: fenglin-service-service
+  jackson:
+    property-naming-strategy: SNAKE_CASE
+    default-property-inclusion: non_null
+  datasource:
+    url: ${FENGLIN_SERVICE_DB_URL:jdbc:postgresql://localhost:5432/fenglin_service?currentSchema=fenglin_service}
+    username: ${FENGLIN_SERVICE_DB_USER:fenglin}
+    password: ${FENGLIN_SERVICE_DB_PASSWORD:fenglin_dev}
+    hikari:
+      maximum-pool-size: 10
+      connection-init-sql: SET ROLE fl_service_app
+  flyway:
+    enabled: false
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+
+fenglin:
+  service:
+    workflow-service-url: ${FENGLIN_WORKFLOW_SERVICE_URL:http://localhost:18084}
+    workflow-bootstrap-enabled: true
+  crypto:
+    data-key-base64: ${FENGLIN_CRYPTO_DATA_KEY:MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+info:
+  app:
+    name: ${spring.application.name}

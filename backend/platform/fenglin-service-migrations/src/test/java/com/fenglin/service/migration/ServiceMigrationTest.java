@@ -40,22 +40,23 @@ class ServiceMigrationTest {
 
     @Test
     void createsAllBusinessTables() throws Exception {
-        // 文档 37 张业务表 + 租户盐表 + 幂等记录表 = 39
+        // 文档 37 张业务表 + 租户盐表 + 幂等记录表 + 配置兜底表 + 脚本兜底表 = 41
         assertThat(count("SELECT count(1) FROM pg_tables WHERE schemaname = 'fenglin_service' "
-                + "AND tablename LIKE 'svc\\_%' ESCAPE '\\'")).isEqualTo(39);
+                + "AND tablename LIKE 'svc\\_%' ESCAPE '\\'")).isEqualTo(41);
         assertThat(count("SELECT count(1) FROM pg_tables WHERE schemaname = 'fenglin_service' "
-                + "AND tablename IN ('svc_tenant_key', 'svc_idempotency_record')")).isEqualTo(2);
+                + "AND tablename IN ('svc_tenant_key', 'svc_idempotency_record', "
+                + "'svc_tenant_config', 'svc_script_definition')")).isEqualTo(4);
     }
 
     @Test
     void enablesRlsOnEveryTable() throws Exception {
         assertThat(count("SELECT count(1) FROM pg_tables t JOIN pg_class c ON c.relname = t.tablename "
                 + "WHERE t.schemaname = 'fenglin_service' AND t.tablename LIKE 'svc\\_%' ESCAPE '\\' "
-                + "AND c.relrowsecurity = true")).isEqualTo(39);
+                + "AND c.relrowsecurity = true")).isEqualTo(41);
         assertThat(count("SELECT count(1) FROM pg_policies WHERE schemaname = 'fenglin_service' "
-                + "AND policyname = 'tenant_isolation'")).isEqualTo(39);
+                + "AND policyname = 'tenant_isolation'")).isEqualTo(41);
         assertThat(count("SELECT count(1) FROM pg_trigger WHERE tgname LIKE 'trg\\_svc\\_%' ESCAPE '\\' "
-                + "AND NOT tgisinternal")).isEqualTo(39);
+                + "AND NOT tgisinternal")).isEqualTo(41);
     }
 
     @Test
