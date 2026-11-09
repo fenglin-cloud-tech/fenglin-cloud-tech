@@ -45,5 +45,6 @@
         <module>fenglin-rnd-bootstrap</module>
         <module>fenglin-rnd-service</module>
         <module>fenglin-service-migrations</module>
+        <module>fenglin-service-bootstrap</module>
     </modules>
 </project>
