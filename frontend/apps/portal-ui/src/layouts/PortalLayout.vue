@@ -2,7 +2,23 @@
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { ArrowDown, Aim, AlarmClock, Grid, Tickets, TrendCharts, UserFilled } from '@element-plus/icons-vue'
+import {
+  ArrowDown,
+  Aim,
+  AlarmClock,
+  Bell,
+  Calendar,
+  ChatDotRound,
+  Document,
+  Flag,
+  Grid,
+  Share,
+  Stamp,
+  Tickets,
+  TrendCharts,
+  UserFilled,
+  VideoCamera,
+} from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
 
 const route = useRoute()
@@ -19,8 +35,19 @@ const navItems = [
   { path: '/payment-reminders', title: '回款提醒', icon: AlarmClock, perm: 'crm:contract:view' },
 ]
 
+const collabItems = [
+  { path: '/messages', title: '消息', icon: ChatDotRound, perm: 'biz:collab:im:chat' },
+  { path: '/docs', title: '文档', icon: Document, perm: 'biz:collab:doc:read' },
+  { path: '/my-schedule', title: '我的日程', icon: Calendar, perm: 'biz:collab:calendar:read' },
+  { path: '/meetings', title: '会议邀请', icon: VideoCamera, perm: 'biz:collab:meeting:join' },
+  { path: '/my-okr', title: '我的 OKR', icon: Flag, perm: 'biz:collab:okr:read' },
+  { path: '/approvals', title: '审批', icon: Stamp, perm: 'biz:collab:approval:read' },
+  { path: '/notifications', title: '通知中心', icon: Bell, perm: 'biz:collab:workbench:personal' },
+]
+
 // 菜单按后端权限点收敛：未授权项不展示，避免前端伪造可访问入口。
 const visibleNavItems = computed(() => navItems.filter((item) => !item.perm || auth.can(item.perm)))
+const visibleCollabItems = computed(() => collabItems.filter((item) => auth.can(item.perm)))
 
 const activeMenu = computed(() => route.path)
 const currentTitle = computed(() => String(route.meta.title ?? '员工门户'))
@@ -47,6 +74,16 @@ async function handleLogout() {
           <el-icon><component :is="item.icon" /></el-icon>
           <span>{{ item.title }}</span>
         </el-menu-item>
+        <el-sub-menu v-if="visibleCollabItems.length" index="collab">
+          <template #title>
+            <el-icon><Share /></el-icon>
+            <span>云协协作</span>
+          </template>
+          <el-menu-item v-for="item in visibleCollabItems" :key="item.path" :index="item.path">
+            <el-icon><component :is="item.icon" /></el-icon>
+            <span>{{ item.title }}</span>
+          </el-menu-item>
+        </el-sub-menu>
       </el-menu>
       <div class="header-right">
         <el-button text @click="permissionVisible = true">权限 {{ auth.permissions.length }}</el-button>
