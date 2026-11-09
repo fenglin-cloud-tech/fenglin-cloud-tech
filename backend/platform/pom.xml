@@ -50,5 +50,6 @@
         <module>fenglin-legal-migrations</module>
         <module>fenglin-legal-bootstrap</module>
         <module>fenglin-legal-service</module>
+        <module>fenglin-intelligence-migrations</module>
     </modules>
 </project>
