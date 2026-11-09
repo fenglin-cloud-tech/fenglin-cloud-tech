@@ -3,11 +3,14 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import {
+  Aim,
+  AlarmClock,
   Bell,
   Connection,
   Cpu,
   DataAnalysis,
   Document,
+  DocumentChecked,
   Expand,
   Fold,
   Folder,
@@ -15,11 +18,15 @@ import {
   Guide,
   Key,
   Lock,
+  Money,
   Odometer,
   OfficeBuilding,
   Search,
   Share,
+  Tickets,
+  TrendCharts,
   User,
+  UserFilled,
 } from '@element-plus/icons-vue'
 import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
@@ -27,19 +34,26 @@ import { useTenantStore } from '@/stores/tenant'
 import { adminMenu } from '@/config/menu'
 
 const iconMap = {
+  Aim,
+  AlarmClock,
   Bell,
   Connection,
   Cpu,
   DataAnalysis,
   Document,
+  DocumentChecked,
   Folder,
   Grid,
   Guide,
+  Money,
   Odometer,
   OfficeBuilding,
   Search,
   Share,
+  Tickets,
+  TrendCharts,
   User,
+  UserFilled,
 } as const
 
 const route = useRoute()
@@ -115,7 +129,7 @@ onMounted(() => {
         </el-menu>
       </el-scrollbar>
       <div v-if="!appStore.sidebarCollapsed" class="aside-footer">
-        <span>13 个中台管理页面</span>
+        <span>{{ adminMenu.length }} 个管理页面</span>
         <el-tag v-if="restrictedCount > 0" size="small" type="warning">{{ restrictedCount }} 个受限</el-tag>
       </div>
     </el-aside>

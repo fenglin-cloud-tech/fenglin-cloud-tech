@@ -10,11 +10,17 @@
     "typecheck": "vue-tsc --noEmit"
   },
   "dependencies": {
+    "@element-plus/icons-vue": "2.3.1",
     "@fenglin/api-client": "workspace:*",
+    "@fenglin/auth": "workspace:*",
     "@fenglin/design-tokens": "workspace:*",
     "@fenglin/shared": "workspace:*",
+    "@fenglin/ui-admin": "workspace:*",
     "@fenglin/ui-portal": "workspace:*",
-    "vue": "3.4.38"
+    "element-plus": "2.8.8",
+    "pinia": "2.2.4",
+    "vue": "3.4.38",
+    "vue-router": "4.4.5"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "5.2.1",

@@ -38,3 +38,21 @@ p {
   background: #eef2ff;
   color: var(--fl-color-primary);
 }
+.fl-card {
+  background: var(--fl-color-surface);
+  border: 1px solid var(--fl-color-border);
+  border-radius: var(--fl-radius-md);
+  padding: var(--fl-space-md);
+}
+.fl-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.fl-muted {
+  color: var(--fl-color-text-secondary);
+  font-size: 12px;
+}
+

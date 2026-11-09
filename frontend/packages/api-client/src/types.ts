@@ -411,3 +411,453 @@ export interface AiModeValidateResult {
   consistent: boolean
   issues: string[]
 }
+
+// ---------- 开放平台开发者门户（HUB-API-1006） ----------
+
+export interface PortalAppView {
+  app_id: number
+  code: string
+  status: string
+  call_today: number
+  quota_daily?: number
+}
+
+// ---------- 云客 CRM（/api/crm/v1） ----------
+
+/**
+ * CRM 主键为雪花 ID（19 位），后端按字符串序列化以避免 JavaScript 精度丢失。
+ * 前端不应对该值做数值运算，仅透传或展示。
+ */
+export type CrmId = string | number
+
+export interface LeadView {
+  lead_id: CrmId
+  lead_no: string
+  name: string
+  contact_name?: string
+  mobile_masked?: string
+  email?: string
+  industry?: string
+  region_code?: string
+  source?: string
+  score: number
+  grade?: string
+  status: string
+  owner_id?: number
+  dept_id?: number
+  last_activity_at?: string
+  converted_customer_id?: CrmId
+  created_at?: string
+}
+
+export interface LeadDetailView {
+  lead: LeadView
+  activities: ActivityView[]
+}
+
+export interface LeadCreateRequest {
+  name: string
+  contact_name?: string
+  mobile?: string
+  email?: string
+  industry?: string
+  region_code?: string
+  source?: string
+  owner_id?: number
+  grade?: string
+  remark?: string
+}
+
+export interface LeadAssignRequest {
+  owner_id?: number
+  dept_id?: number
+  reason?: string
+}
+
+export interface LeadConvertRequest {
+  create_customer?: boolean
+  create_contact?: boolean
+  create_opportunity?: boolean
+  opportunity_name?: string
+  amount?: number
+  stage?: string
+}
+
+export interface LeadConvertResult {
+  lead_id: CrmId
+  customer_id: CrmId
+  contact_id?: CrmId
+  opportunity_id?: CrmId
+  opportunity_no?: string
+}
+
+export interface CustomerView {
+  customer_id: CrmId
+  customer_no: string
+  name: string
+  short_name?: string
+  uscc?: string
+  industry?: string
+  scale?: string
+  region_code?: string
+  grade?: string
+  segment?: string
+  owner_id?: number
+  csm_id?: number
+  dept_id?: number
+  mobile_masked?: string
+  annual_revenue?: number
+  arr?: number
+  status: string
+  created_at?: string
+}
+
+export interface ContactView {
+  contact_id: CrmId
+  customer_id: CrmId
+  name: string
+  position?: string
+  role_type?: string
+  mobile_masked?: string
+  email?: string
+  wechat?: string
+  influence: number
+  is_key: boolean
+}
+
+export interface CustomerDetailView {
+  customer: CustomerView
+  contacts: ContactView[]
+  opportunities: OpportunityView[]
+  activities: ActivityView[]
+}
+
+export interface CustomerCreateRequest {
+  name: string
+  short_name?: string
+  uscc?: string
+  industry?: string
+  scale?: string
+  region_code?: string
+  grade?: string
+  segment?: string
+  owner_id?: number
+  csm_id?: number
+  mobile?: string
+  annual_revenue?: number
+  arr?: number
+  remark?: string
+  source_lead_id?: CrmId
+}
+
+export interface CustomerOwnerRequest {
+  owner_id?: number
+  reason?: string
+}
+
+export interface ContactCreateRequest {
+  customer_id: CrmId
+  name: string
+  position?: string
+  role_type?: string
+  mobile?: string
+  email?: string
+  wechat?: string
+  influence?: number
+  is_key?: boolean
+}
+
+export interface OpportunityView {
+  opportunity_id: CrmId
+  opportunity_no: string
+  name: string
+  customer_id: CrmId
+  stage: string
+  win_rate?: number
+  amount?: number
+  weighted_amount?: number
+  expected_close_date?: string
+  owner_id?: number
+  status: string
+  next_step?: string
+  lost_reason?: string
+  created_at?: string
+}
+
+export interface OpportunityCreateRequest {
+  name: string
+  customer_id: CrmId
+  amount?: number
+  stage?: string
+  expected_close_date?: string
+  source?: string
+  next_step?: string
+  win_rate?: number
+  owner_id?: number
+}
+
+export interface StageChangeRequest {
+  to_stage: string
+  opinion?: string
+  amount?: number
+  expected_close_date?: string
+  lost_reason?: string
+  next_step?: string
+}
+
+export interface StageLogView {
+  from_stage?: string
+  to_stage: string
+  amount_snapshot?: number
+  changed_by?: number
+  changed_at?: string
+  opinion?: string
+}
+
+export interface PipelineStage {
+  stage: string
+  count: number
+  amount?: number
+  weighted_amount?: number
+}
+
+export interface PipelineView {
+  stages: PipelineStage[]
+  total_weighted_amount?: number
+  open_count: number
+}
+
+export interface QuotationItemRequest {
+  product_code: string
+  product_name?: string
+  unit?: string
+  quantity: number
+  unit_price: number
+  discount_rate?: number
+}
+
+export interface QuotationItemView extends QuotationItemRequest {
+  line_no: number
+  amount?: number
+}
+
+export interface QuotationCreateRequest {
+  opportunity_id?: CrmId
+  customer_id: CrmId
+  tax_rate?: number
+  valid_until?: string
+  remark?: string
+  items: QuotationItemRequest[]
+}
+
+export interface QuotationView {
+  quotation_id: CrmId
+  quotation_no: string
+  opportunity_id?: CrmId
+  customer_id: CrmId
+  version_no: number
+  total_amount?: number
+  discount_rate?: number
+  tax_rate?: number
+  valid_until?: string
+  status: string
+  approve_instance_id?: string
+  items: QuotationItemView[]
+  created_at?: string
+}
+
+export interface QuotationListItemView {
+  quotation_id: CrmId
+  quotation_no: string
+  opportunity_id?: CrmId
+  customer_id: CrmId
+  customer_name?: string
+  version_no: number
+  total_amount?: number
+  status: string
+  owner_id?: number
+  created_at?: string
+}
+
+export interface QuotationSubmitResult {
+  quotation_id: CrmId
+  status: string
+  approve_instance_id?: string
+  approval_required: boolean
+}
+
+export interface PaymentPlanRequest {
+  period_no?: number
+  due_date: string
+  amount: number
+}
+
+export interface PaymentPlanView {
+  plan_id: CrmId
+  period_no: number
+  due_date?: string
+  amount?: number
+  paid_amount?: number
+  remaining_amount?: number
+  status: string
+  overdue_days: number
+  collection_flag?: string
+  collection_note?: string
+}
+
+export interface ContractCreateRequest {
+  customer_id: CrmId
+  sla_level?: string
+  service_package?: string
+  amount?: number
+  start_date: string
+  end_date: string
+  payment_plans?: PaymentPlanRequest[]
+}
+
+export interface ContractView {
+  contract_id: CrmId
+  contract_no: string
+  customer_id: CrmId
+  sla_level?: string
+  service_package?: string
+  amount?: number
+  start_date?: string
+  end_date?: string
+  status: string
+  payment_plans: PaymentPlanView[]
+  created_at?: string
+}
+
+export interface ContractListItemView {
+  contract_id: CrmId
+  contract_no: string
+  customer_id: CrmId
+  customer_name?: string
+  sla_level?: string
+  service_package?: string
+  amount?: number
+  start_date?: string
+  end_date?: string
+  status: string
+  owner_id?: number
+  created_at?: string
+}
+
+export interface ContractAmendRequest {
+  amount?: number
+  sla_level?: string
+  service_package?: string
+  end_date?: string
+  reason?: string
+  payment_plans?: PaymentPlanRequest[]
+}
+
+export interface ContractRenewRequest {
+  start_date: string
+  end_date: string
+  amount?: number
+  sla_level?: string
+  service_package?: string
+  reason?: string
+  payment_plans?: PaymentPlanRequest[]
+}
+
+export interface ContractChangeView {
+  change_id: CrmId
+  change_no: string
+  contract_id: CrmId
+  change_type: string
+  before_amount?: number
+  after_amount?: number
+  before_start_date?: string
+  before_end_date?: string
+  after_start_date?: string
+  after_end_date?: string
+  reason?: string
+  new_contract_id?: CrmId
+  status: string
+  created_at?: string
+}
+
+export interface QuotationConvertRequest {
+  sla_level?: string
+  service_package?: string
+  start_date: string
+  end_date: string
+  reason?: string
+  payment_plans?: PaymentPlanRequest[]
+}
+
+export interface PaymentRegisterRequest {
+  plan_id?: CrmId
+  amount: number
+  received_date?: string
+  method?: string
+  voucher_no?: string
+  remark?: string
+}
+
+export interface PaymentRecordView {
+  payment_id: CrmId
+  contract_id: CrmId
+  plan_id: CrmId
+  amount?: number
+  received_date?: string
+  method?: string
+  voucher_no?: string
+  remark?: string
+  status: string
+  created_at?: string
+}
+
+export interface OverduePlanView {
+  plan_id: CrmId
+  contract_id: CrmId
+  contract_no: string
+  customer_id: CrmId
+  customer_name?: string
+  period_no: number
+  due_date?: string
+  amount?: number
+  paid_amount?: number
+  remaining_amount?: number
+  overdue_days: number
+  collection_flag?: string
+  collection_note?: string
+}
+
+export interface PaymentReminderView extends OverduePlanView {
+  state: string
+}
+
+export interface CollectionFlagRequest {
+  collection_flag: string
+  note?: string
+}
+
+export interface ActivityView {
+  activity_id: CrmId
+  biz_type: string
+  biz_id: CrmId
+  activity_type: string
+  subject?: string
+  content?: string
+  duration_min?: number
+  result?: string
+  next_plan?: string
+  occurred_at?: string
+  owner_id?: number
+}
+
+export interface ActivityCreateRequest {
+  biz_type: string
+  biz_id: CrmId
+  activity_type: string
+  subject?: string
+  content?: string
+  duration_min?: number
+  result?: string
+  next_plan?: string
+  occurred_at?: string
+}

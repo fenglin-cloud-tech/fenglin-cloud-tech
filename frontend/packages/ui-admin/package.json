@@ -9,6 +9,7 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
+    "@fenglin/api-client": "workspace:*",
     "@fenglin/auth": "workspace:*",
     "@fenglin/shared": "workspace:*"
   },

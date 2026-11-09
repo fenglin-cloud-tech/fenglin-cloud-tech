@@ -48,6 +48,43 @@ import type {
   AiPromptView,
   AiMeteringResult,
   AiModeValidateResult,
+  PortalAppView,
+  LeadView,
+  LeadDetailView,
+  LeadCreateRequest,
+  LeadAssignRequest,
+  LeadConvertRequest,
+  LeadConvertResult,
+  CustomerView,
+  CustomerDetailView,
+  CustomerCreateRequest,
+  CustomerOwnerRequest,
+  ContactView,
+  ContactCreateRequest,
+  OpportunityView,
+  OpportunityCreateRequest,
+  StageChangeRequest,
+  StageLogView,
+  PipelineView,
+  QuotationView,
+  QuotationListItemView,
+  QuotationCreateRequest,
+  QuotationSubmitResult,
+  QuotationConvertRequest,
+  ContractView,
+  ContractListItemView,
+  ContractCreateRequest,
+  ContractAmendRequest,
+  ContractRenewRequest,
+  ContractChangeView,
+  CrmId,
+  PaymentRegisterRequest,
+  PaymentRecordView,
+  OverduePlanView,
+  PaymentReminderView,
+  CollectionFlagRequest,
+  ActivityView,
+  ActivityCreateRequest,
 } from './types'
 
 export const authApi = {
@@ -259,6 +296,178 @@ export const openApi = {
     size?: number
   }) {
     return get<PageResult<OpenApiCallLogView>>('/api/hub/v1/admin/openapi/call-logs', params)
+  },
+}
+
+export const openApiPortal = {
+  apps() {
+    return get<PortalAppView[]>('/openapi/portal/apps')
+  },
+}
+
+/** 云客 CRM（全部经网关 /api/crm/v1，权限由网关注入 X-Permissions）。 */
+export const crmApi = {
+  leads: {
+    list(params: { status?: string; owner_id?: number; keyword?: string; page?: number; size?: number }) {
+      return get<PageResult<LeadView>>('/api/crm/v1/leads', params)
+    },
+    detail(id: CrmId) {
+      return get<LeadDetailView>(`/api/crm/v1/leads/${id}`)
+    },
+    create(body: LeadCreateRequest) {
+      return post<LeadView>('/api/crm/v1/leads', body)
+    },
+    assign(id: CrmId, body: LeadAssignRequest) {
+      return post<LeadView>(`/api/crm/v1/leads/${id}/assign`, body)
+    },
+    convert(id: CrmId, body: LeadConvertRequest = {}) {
+      return post<LeadConvertResult>(`/api/crm/v1/leads/${id}/convert`, body)
+    },
+  },
+  customers: {
+    list(params: {
+      keyword?: string
+      owner_id?: number
+      segment?: string
+      status?: string
+      page?: number
+      size?: number
+    }) {
+      return get<PageResult<CustomerView>>('/api/crm/v1/customers', params)
+    },
+    detail(id: CrmId) {
+      return get<CustomerDetailView>(`/api/crm/v1/customers/${id}`)
+    },
+    create(body: CustomerCreateRequest) {
+      return post<CustomerView>('/api/crm/v1/customers', body)
+    },
+    changeOwner(id: CrmId, body: CustomerOwnerRequest) {
+      return request<CustomerView>(`/api/crm/v1/customers/${id}/owner`, {
+        method: 'PATCH',
+        body: JSON.stringify(body),
+      })
+    },
+    contacts(id: CrmId) {
+      return get<ContactView[]>(`/api/crm/v1/customers/${id}/contacts`)
+    },
+    createContact(body: ContactCreateRequest) {
+      return post<ContactView>('/api/crm/v1/contacts', body)
+    },
+    contracts(id: CrmId) {
+      return get<ContractView[]>(`/api/crm/v1/customers/${id}/contracts`)
+    },
+  },
+  opportunities: {
+    list(params: {
+      stage?: string
+      status?: string
+      customer_id?: CrmId
+      owner_id?: number
+      page?: number
+      size?: number
+    }) {
+      return get<PageResult<OpportunityView>>('/api/crm/v1/opportunities', params)
+    },
+    detail(id: CrmId) {
+      return get<OpportunityView>(`/api/crm/v1/opportunities/${id}`)
+    },
+    create(body: OpportunityCreateRequest) {
+      return post<OpportunityView>('/api/crm/v1/opportunities', body)
+    },
+    changeStage(id: CrmId, body: StageChangeRequest) {
+      return request<OpportunityView>(`/api/crm/v1/opportunities/${id}/stage`, {
+        method: 'PATCH',
+        body: JSON.stringify(body),
+      })
+    },
+    stageLogs(id: CrmId) {
+      return get<StageLogView[]>(`/api/crm/v1/opportunities/${id}/stage-logs`)
+    },
+    pipeline() {
+      return get<PipelineView>('/api/crm/v1/opportunities/pipeline')
+    },
+  },
+  quotations: {
+    list(params: {
+      status?: string
+      owner_id?: number
+      customer_id?: CrmId
+      keyword?: string
+      page?: number
+      size?: number
+    }) {
+      return get<PageResult<QuotationListItemView>>('/api/crm/v1/quotations', params)
+    },
+    detail(id: CrmId) {
+      return get<QuotationView>(`/api/crm/v1/quotations/${id}`)
+    },
+    create(body: QuotationCreateRequest) {
+      return post<QuotationView>('/api/crm/v1/quotations', body)
+    },
+    submit(id: CrmId, body: { comment?: string } = {}) {
+      return post<QuotationSubmitResult>(`/api/crm/v1/quotations/${id}/submit`, body)
+    },
+    convertToContract(id: CrmId, body: QuotationConvertRequest) {
+      return post<ContractView>(`/api/crm/v1/quotations/${id}/convert-to-contract`, body)
+    },
+    approve(id: CrmId, body: { result: 'APPROVED' | 'REJECTED'; comment?: string }) {
+      return post<QuotationView>(`/api/crm/v1/internal/quotations/${id}/approval`, body)
+    },
+  },
+  contracts: {
+    list(params: {
+      status?: string
+      owner_id?: number
+      customer_id?: CrmId
+      keyword?: string
+      page?: number
+      size?: number
+    }) {
+      return get<PageResult<ContractListItemView>>('/api/crm/v1/contracts', params)
+    },
+    detail(id: CrmId) {
+      return get<ContractView>(`/api/crm/v1/contracts/${id}`)
+    },
+    create(body: ContractCreateRequest) {
+      return post<ContractView>('/api/crm/v1/contracts', body)
+    },
+    amend(id: CrmId, body: ContractAmendRequest) {
+      return post<ContractView>(`/api/crm/v1/contracts/${id}/changes`, body)
+    },
+    changes(id: CrmId) {
+      return get<ContractChangeView[]>(`/api/crm/v1/contracts/${id}/changes`)
+    },
+    renew(id: CrmId, body: ContractRenewRequest) {
+      return post<ContractView>(`/api/crm/v1/contracts/${id}/renew`, body)
+    },
+  },
+  payments: {
+    register(contractId: CrmId, body: PaymentRegisterRequest) {
+      return post<PaymentRecordView>(`/api/crm/v1/contracts/${contractId}/payments`, body)
+    },
+    records(contractId: CrmId) {
+      return get<PaymentRecordView[]>(`/api/crm/v1/contracts/${contractId}/payments`)
+    },
+    overdue(params: { customer_id?: CrmId; page?: number; size?: number }) {
+      return get<PageResult<OverduePlanView>>('/api/crm/v1/payment-plans/overdue', params)
+    },
+    reminders(params: { owner_id?: number; upcoming_days?: number; page?: number; size?: number }) {
+      return get<PageResult<PaymentReminderView>>('/api/crm/v1/payment-plans/reminders', params)
+    },
+    markCollection(planId: CrmId, body: CollectionFlagRequest) {
+      return request<void>(`/api/crm/v1/payment-plans/${planId}/collection`, {
+        method: 'PATCH',
+        body: JSON.stringify(body),
+      })
+    },
+  },
+  activities: {
+    list(params: { biz_type: string; biz_id: CrmId; limit?: number }) {
+      return get<ActivityView[]>('/api/crm/v1/activities', params)
+    },
+    create(body: ActivityCreateRequest) {
+      return post<ActivityView>('/api/crm/v1/activities', body)
+    },
   },
 }
 

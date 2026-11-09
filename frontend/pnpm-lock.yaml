@@ -72,18 +72,39 @@ importers:
 
   apps/developer-portal:
     dependencies:
+      '@element-plus/icons-vue':
+        specifier: 2.3.1
+        version: 2.3.1(vue@3.4.38(typescript@5.5.4))
       '@fenglin/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
+      '@fenglin/auth':
+        specifier: workspace:*
+        version: link:../../packages/auth
       '@fenglin/design-tokens':
         specifier: workspace:*
         version: link:../../packages/design-tokens
       '@fenglin/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@fenglin/ui-admin':
+        specifier: workspace:*
+        version: link:../../packages/ui-admin
+      '@fenglin/ui-portal':
+        specifier: workspace:*
+        version: link:../../packages/ui-portal
+      element-plus:
+        specifier: 2.8.8
+        version: 2.8.8(vue@3.4.38(typescript@5.5.4))
+      pinia:
+        specifier: 2.2.4
+        version: 2.2.4(typescript@5.5.4)(vue@3.4.38(typescript@5.5.4))
       vue:
         specifier: 3.4.38
         version: 3.4.38(typescript@5.5.4)
+      vue-router:
+        specifier: 4.4.5
+        version: 4.4.5(vue@3.4.38(typescript@5.5.4))
     devDependencies:
       '@vitejs/plugin-vue':
         specifier: 5.2.1
@@ -100,21 +121,39 @@ importers:
 
   apps/portal-ui:
     dependencies:
+      '@element-plus/icons-vue':
+        specifier: 2.3.1
+        version: 2.3.1(vue@3.4.38(typescript@5.5.4))
       '@fenglin/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
+      '@fenglin/auth':
+        specifier: workspace:*
+        version: link:../../packages/auth
       '@fenglin/design-tokens':
         specifier: workspace:*
         version: link:../../packages/design-tokens
       '@fenglin/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@fenglin/ui-admin':
+        specifier: workspace:*
+        version: link:../../packages/ui-admin
       '@fenglin/ui-portal':
         specifier: workspace:*
         version: link:../../packages/ui-portal
+      element-plus:
+        specifier: 2.8.8
+        version: 2.8.8(vue@3.4.38(typescript@5.5.4))
+      pinia:
+        specifier: 2.2.4
+        version: 2.2.4(typescript@5.5.4)(vue@3.4.38(typescript@5.5.4))
       vue:
         specifier: 3.4.38
         version: 3.4.38(typescript@5.5.4)
+      vue-router:
+        specifier: 4.4.5
+        version: 4.4.5(vue@3.4.38(typescript@5.5.4))
     devDependencies:
       '@vitejs/plugin-vue':
         specifier: 5.2.1
@@ -154,6 +193,9 @@ importers:
 
   packages/ui-admin:
     dependencies:
+      '@fenglin/api-client':
+        specifier: workspace:*
+        version: link:../api-client
       '@fenglin/auth':
         specifier: workspace:*
         version: link:../auth

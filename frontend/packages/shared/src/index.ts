@@ -14,8 +14,12 @@ export interface PageResult<T> {
 }
 
 export interface UserInfo {
+  /** 认证服务 /sso/userinfo 以 sub 返回用户 ID（字符串），部分网关会同时返回 user_id。 */
+  sub?: string
   user_id: number
   username: string
+  /** 认证服务返回的展示名（与 real_name 二选一） */
+  name?: string
   real_name?: string
   tenant_id: number
   tenant_code?: string
