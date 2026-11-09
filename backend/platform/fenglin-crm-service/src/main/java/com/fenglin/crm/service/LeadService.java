@@ -41,7 +41,8 @@ public class LeadService {
 
     private static final DateTimeFormatter MONTH = DateTimeFormatter.ofPattern("yyyyMM");
     private static final Set<String> SOURCES = Set.of("MANUAL", "IMPORT", "FORM", "API", "PARTNER", "OPINION");
-    private static final Set<String> CONVERTIBLE = Set.of("NEW", "FOLLOWING", "NURTURING");
+    /** 分配后状态推进为 ASSIGNED，因此 ASSIGNED 也必须允许转客户。 */
+    private static final Set<String> CONVERTIBLE = Set.of("NEW", "ASSIGNED", "FOLLOWING", "NURTURING");
 
     private final LeadMapper leadMapper;
     private final ActivityMapper activityMapper;

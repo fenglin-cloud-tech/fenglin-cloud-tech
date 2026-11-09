@@ -71,7 +71,9 @@ public interface LeadMapper {
     List<Map<String, Object>> findFuzzy(@Param("tenantId") long tenantId, @Param("keyword") String keyword,
                                         @Param("email") String email);
 
-    @Update("UPDATE crm_lead SET owner_id = #{ownerId}, dept_id = #{deptId}, updated_by = #{operatorId}, "
+    @Update("UPDATE crm_lead SET owner_id = #{ownerId}, dept_id = #{deptId}, "
+            + "status = CASE WHEN status = 'NEW' THEN 'ASSIGNED' ELSE status END, "
+            + "updated_by = #{operatorId}, "
             + "updated_at = now(), version = version + 1 "
             + "WHERE id = #{id} AND tenant_id = #{tenantId} AND deleted = 0")
     int assign(@Param("tenantId") long tenantId, @Param("id") long id, @Param("ownerId") Long ownerId,

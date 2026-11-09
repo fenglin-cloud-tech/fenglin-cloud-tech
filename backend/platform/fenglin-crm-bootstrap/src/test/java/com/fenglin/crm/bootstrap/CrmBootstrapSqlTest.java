@@ -61,8 +61,15 @@ class CrmBootstrapSqlTest {
                 + "AND dict_code = 'crm_opportunity_stage'"))
                 .isEqualTo(6);
         assertThat(count("SELECT count(1) FROM fenglin_hub.hub_dict_item WHERE tenant_id = 0 "
+                + "AND dict_code = 'crm_lead_source'"))
+                .isEqualTo(6);
+        assertThat(count("SELECT count(1) FROM fenglin_hub.hub_dict_item WHERE tenant_id = 0 "
+                + "AND dict_code = 'crm_lead_source' AND item_value IN "
+                + "('MANUAL','IMPORT','FORM','API','PARTNER','OPINION')"))
+                .isEqualTo(6);
+        assertThat(count("SELECT count(1) FROM fenglin_hub.hub_dict_item WHERE tenant_id = 0 "
                 + "AND dict_code LIKE 'crm\\_%' ESCAPE '\\'"))
-                .isEqualTo(35);
+                .isEqualTo(36);
     }
 
     private long count(String sql) throws Exception {

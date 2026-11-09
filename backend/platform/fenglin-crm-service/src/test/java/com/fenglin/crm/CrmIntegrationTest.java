@@ -147,6 +147,8 @@ class CrmIntegrationTest {
         JsonNode assigned = read(post("/api/crm/v1/leads/" + leadId + "/assign", TENANT_A, ALL_PERMISSIONS,
                 Map.of("owner_id", 4002)).getBody()).get("data");
         assertThat(assigned.get("owner_id").asLong()).isEqualTo(4002L);
+        // 分配后状态必须推进为 ASSIGNED，否则后续跟进/转化口径与列表筛选都会失真
+        assertThat(assigned.get("status").asText()).isEqualTo("ASSIGNED");
 
         Map<String, Object> activity = new LinkedHashMap<>();
         activity.put("biz_type", "LEAD");
