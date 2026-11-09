@@ -59,6 +59,8 @@
                     <version>${maven.surefire.plugin.version}</version>
                     <configuration>
                         <useModulePath>false</useModulePath>
+                        <argLine>-Xmx768m -XX:MaxMetaspaceSize=320m -XX:ReservedCodeCacheSize=128m
+                            -Djdk.net.URLClassPath.disableClassPathURLCheck=true</argLine>
                     </configuration>
                 </plugin>
                 <plugin>
