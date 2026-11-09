@@ -7,6 +7,7 @@ import com.fenglin.finance.FinanceErrorCode;
 import com.fenglin.finance.mapper.ArapMapper;
 import com.fenglin.finance.mapper.AssetMapper;
 import com.fenglin.finance.mapper.LedgerMapper;
+import com.fenglin.finance.mapper.OpsMapper;
 import com.fenglin.finance.mapper.VoucherMapper;
 import com.fenglin.finance.support.FinanceAudit;
 import com.fenglin.finance.support.FinanceContext;
@@ -17,6 +18,7 @@ import com.fenglin.finance.web.dto.FinanceDtos.LedgerView;
 import com.fenglin.finance.web.dto.FinanceDtos.PeriodCloseResult;
 import com.fenglin.finance.web.dto.FinanceDtos.PeriodView;
 import com.fenglin.finance.web.dto.FinanceDtos.SubjectCreateRequest;
+import com.fenglin.finance.web.dto.FinanceDtos.SubjectUpdateRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.SubjectView;
 import com.fenglin.finance.web.dto.FinanceDtos.TrialBalanceLine;
 import org.springframework.stereotype.Service;
@@ -74,17 +76,19 @@ public class LedgerService {
     private final VoucherMapper voucherMapper;
     private final ArapMapper arapMapper;
     private final AssetMapper assetMapper;
+    private final OpsMapper opsMapper;
     private final FinanceCrypto crypto;
     private final FinanceAudit audit;
     private final ObjectMapper objectMapper;
 
     public LedgerService(LedgerMapper ledgerMapper, VoucherMapper voucherMapper, ArapMapper arapMapper,
-                         AssetMapper assetMapper, FinanceCrypto crypto, FinanceAudit audit,
+                         AssetMapper assetMapper, OpsMapper opsMapper, FinanceCrypto crypto, FinanceAudit audit,
                          ObjectMapper objectMapper) {
         this.ledgerMapper = ledgerMapper;
         this.voucherMapper = voucherMapper;
         this.arapMapper = arapMapper;
         this.assetMapper = assetMapper;
+        this.opsMapper = opsMapper;
         this.crypto = crypto;
         this.audit = audit;
         this.objectMapper = objectMapper;
@@ -172,6 +176,85 @@ public class LedgerService {
         long tenantId = FinanceContext.tenantId();
         requireLedger(tenantId, ledgerId);
         return ledgerMapper.listSubjects(tenantId, ledgerId).stream().map(LedgerService::toSubject).toList();
+    }
+
+    @Transactional
+    public SubjectView updateSubject(long ledgerId, long id, SubjectUpdateRequest request) {
+        long tenantId = FinanceContext.tenantId();
+        requireLedger(tenantId, ledgerId);
+        Map<String, Object> subject = requireSubject(tenantId, ledgerId, id);
+        String name = request.subjectName() == null || request.subjectName().isBlank()
+                ? Rows.str(subject, "subjectName") : request.subjectName();
+        String category = request.subjectCategory() == null || request.subjectCategory().isBlank()
+                ? Rows.str(subject, "subjectCategory") : request.subjectCategory();
+        String direction = request.balanceDirection() == null || request.balanceDirection().isBlank()
+                ? Rows.str(subject, "balanceDirection") : request.balanceDirection();
+        boolean leaf = request.isLeaf() == null ? Rows.bool(subject, "isLeaf") : request.isLeaf();
+        String auxiliary = request.auxiliaryTypes() == null
+                ? Rows.str(subject, "auxiliaryTypes") : request.auxiliaryTypes();
+        ledgerMapper.updateSubject(tenantId, ledgerId, id, name, category, direction, leaf, auxiliary);
+        audit.publish("finance.subject.updated", "UPDATE", "fin_accounting_subject", id, "LOW");
+        return toSubject(ledgerMapper.findSubjectById(tenantId, id));
+    }
+
+    @Transactional
+    public SubjectView disableSubject(long ledgerId, long id) {
+        long tenantId = FinanceContext.tenantId();
+        requireLedger(tenantId, ledgerId);
+        Map<String, Object> subject = requireSubject(tenantId, ledgerId, id);
+        String subjectCode = Rows.str(subject, "subjectCode");
+        if (opsMapper.countUnpostedBySubject(tenantId, ledgerId, subjectCode) > 0) {
+            throw new BizException(FinanceErrorCode.STATE_CONFLICT);
+        }
+        BigDecimal closing = opsMapper.subjectClosing(tenantId, ledgerId, subjectCode, "9999-12");
+        if (closing != null && closing.signum() != 0) {
+            throw new BizException(FinanceErrorCode.STATE_CONFLICT);
+        }
+        ledgerMapper.disableSubject(tenantId, ledgerId, id);
+        audit.publish("finance.subject.disabled", "DISABLE", "fin_accounting_subject", id, "MEDIUM");
+        return toSubject(ledgerMapper.findSubjectById(tenantId, id));
+    }
+
+    public Map<String, Object> generalLedger(long ledgerId, String subjectCode, String periodCode) {
+        long tenantId = FinanceContext.tenantId();
+        requireLedger(tenantId, ledgerId);
+        Map<String, Object> subject = ledgerMapper.findSubject(tenantId, ledgerId, subjectCode);
+        if (subject == null) {
+            throw new BizException(FinanceErrorCode.RESOURCE_NOT_FOUND);
+        }
+        BigDecimal opening = opsMapper.subjectOpening(tenantId, ledgerId, subjectCode, periodCode);
+        BigDecimal running = opening;
+        List<Map<String, Object>> lines = new ArrayList<>();
+        for (Map<String, Object> row : opsMapper.listSubjectEntries(tenantId, ledgerId, subjectCode, periodCode)) {
+            BigDecimal amount = Rows.dec(row, "amount");
+            BigDecimal delta = "DEBIT".equals(Rows.str(row, "direction")) ? amount : amount.negate();
+            running = running.add(delta);
+            Map<String, Object> line = new LinkedHashMap<>();
+            line.put("voucher_no", Rows.str(row, "voucherNo"));
+            line.put("voucher_date", Rows.str(row, "voucherDate"));
+            line.put("line_no", Rows.intVal(row, "lineNo"));
+            line.put("summary", Rows.str(row, "summary"));
+            line.put("direction", Rows.str(row, "direction"));
+            line.put("amount", amount);
+            line.put("balance", running);
+            lines.add(line);
+        }
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("subject_code", subjectCode);
+        result.put("subject_name", Rows.str(subject, "subjectName"));
+        result.put("period_code", periodCode);
+        result.put("opening", opening);
+        result.put("lines", lines);
+        result.put("closing", running);
+        return result;
+    }
+
+    private Map<String, Object> requireSubject(long tenantId, long ledgerId, long id) {
+        Map<String, Object> subject = ledgerMapper.findSubjectById(tenantId, id);
+        if (subject == null || Rows.lngVal(subject, "ledgerId") != ledgerId) {
+            throw new BizException(FinanceErrorCode.RESOURCE_NOT_FOUND);
+        }
+        return subject;
     }
 
     public List<PeriodView> periods(long ledgerId) {
@@ -264,11 +347,30 @@ public class LedgerService {
         if (period == null) {
             throw new BizException(FinanceErrorCode.RESOURCE_NOT_FOUND);
         }
-        if (!"CLOSED".equals(Rows.str(period, "status"))) {
+        if (!"CLOSED".equals(Rows.str(period, "status")) && !"SEALED".equals(Rows.str(period, "status"))) {
             throw new BizException(FinanceErrorCode.STATE_CONFLICT);
         }
         ledgerMapper.updatePeriodStatus(tenantId, Rows.lngVal(period, "id"), "OPEN", FinanceContext.userId());
         audit.publish("finance.period.reopened", "REOPEN", "fin_accounting_period", periodCode, "HIGH");
+        Map<String, Object> updated = ledgerMapper.findPeriod(tenantId, ledgerId, periodCode);
+        return new PeriodView(Rows.lngVal(updated, "id"), Rows.str(updated, "periodCode"),
+                Rows.intVal(updated, "periodYear"), Rows.intVal(updated, "periodMonth"),
+                Rows.str(updated, "startDate"), Rows.str(updated, "endDate"), Rows.str(updated, "status"));
+    }
+
+    @Transactional
+    public PeriodView seal(long ledgerId, String periodCode) {
+        long tenantId = FinanceContext.tenantId();
+        requireLedger(tenantId, ledgerId);
+        Map<String, Object> period = ledgerMapper.findPeriod(tenantId, ledgerId, periodCode);
+        if (period == null) {
+            throw new BizException(FinanceErrorCode.RESOURCE_NOT_FOUND);
+        }
+        if (!"CLOSED".equals(Rows.str(period, "status"))) {
+            throw new BizException(FinanceErrorCode.STATE_CONFLICT);
+        }
+        ledgerMapper.updatePeriodStatus(tenantId, Rows.lngVal(period, "id"), "SEALED", FinanceContext.userId());
+        audit.publish("finance.period.sealed", "SEAL", "fin_accounting_period", periodCode, "HIGH");
         Map<String, Object> updated = ledgerMapper.findPeriod(tenantId, ledgerId, periodCode);
         return new PeriodView(Rows.lngVal(updated, "id"), Rows.str(updated, "periodCode"),
                 Rows.intVal(updated, "periodYear"), Rows.intVal(updated, "periodMonth"),

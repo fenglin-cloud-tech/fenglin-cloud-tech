@@ -130,6 +130,26 @@ public interface LedgerMapper {
                       @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate,
                       @Param("status") String status, @Param("userId") long userId);
 
+    @Update("""
+            UPDATE fin_accounting_subject
+            SET subject_name = #{subjectName}, subject_category = #{subjectCategory},
+                balance_direction = #{balanceDirection}, is_leaf = #{isLeaf},
+                auxiliary_types = #{auxiliaryTypes,jdbcType=VARCHAR}, version = version + 1
+            WHERE tenant_id = #{tenantId} AND ledger_id = #{ledgerId} AND id = #{id} AND deleted = 0
+            """)
+    int updateSubject(@Param("tenantId") long tenantId, @Param("ledgerId") long ledgerId,
+                      @Param("id") long id, @Param("subjectName") String subjectName,
+                      @Param("subjectCategory") String subjectCategory,
+                      @Param("balanceDirection") String balanceDirection, @Param("isLeaf") boolean isLeaf,
+                      @Param("auxiliaryTypes") String auxiliaryTypes);
+
+    @Update("""
+            UPDATE fin_accounting_subject SET status = 'DISABLED', version = version + 1
+            WHERE tenant_id = #{tenantId} AND ledger_id = #{ledgerId} AND id = #{id} AND deleted = 0
+            """)
+    int disableSubject(@Param("tenantId") long tenantId, @Param("ledgerId") long ledgerId,
+                       @Param("id") long id);
+
     @Select("""
             SELECT id AS "id", ledger_id AS "ledgerId", period_year AS "periodYear",
                    period_month AS "periodMonth", period_code AS "periodCode",

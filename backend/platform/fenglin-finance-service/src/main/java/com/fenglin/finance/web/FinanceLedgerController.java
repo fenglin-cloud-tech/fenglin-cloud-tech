@@ -9,19 +9,23 @@ import com.fenglin.finance.web.dto.FinanceDtos.LedgerView;
 import com.fenglin.finance.web.dto.FinanceDtos.PeriodCloseResult;
 import com.fenglin.finance.web.dto.FinanceDtos.PeriodView;
 import com.fenglin.finance.web.dto.FinanceDtos.SubjectCreateRequest;
+import com.fenglin.finance.web.dto.FinanceDtos.SubjectUpdateRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.SubjectView;
 import com.fenglin.finance.web.dto.FinanceDtos.TrialBalanceLine;
 import com.fenglin.finance.web.dto.FinanceDtos.TrialBalanceView;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 账套、科目、会计期间与试算平衡接口。
@@ -74,6 +78,32 @@ public class FinanceLedgerController {
         return ApiResponse.success(ledgerService.subjects(ledgerId));
     }
 
+    @PutMapping("/{ledgerId}/subjects/{id}")
+    public ApiResponse<SubjectView> updateSubject(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("ledgerId") long ledgerId, @PathVariable("id") long id,
+            @RequestBody SubjectUpdateRequest request) {
+        PermissionGuard.require(permissions, SUBJECT_MANAGE);
+        return ApiResponse.success(ledgerService.updateSubject(ledgerId, id, request));
+    }
+
+    @PostMapping("/{ledgerId}/subjects/{id}/disable")
+    public ApiResponse<SubjectView> disableSubject(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("ledgerId") long ledgerId, @PathVariable("id") long id) {
+        PermissionGuard.require(permissions, SUBJECT_MANAGE);
+        return ApiResponse.success(ledgerService.disableSubject(ledgerId, id));
+    }
+
+    @GetMapping("/{ledgerId}/subjects/{subjectCode}/general-ledger")
+    public ApiResponse<Map<String, Object>> generalLedger(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("ledgerId") long ledgerId, @PathVariable("subjectCode") String subjectCode,
+            @RequestParam("periodCode") String periodCode) {
+        PermissionGuard.require(permissions, REPORT_VIEW);
+        return ApiResponse.success(ledgerService.generalLedger(ledgerId, subjectCode, periodCode));
+    }
+
     @GetMapping("/{ledgerId}/periods")
     public ApiResponse<List<PeriodView>> periods(
             @RequestHeader(value = "X-Permissions", required = false) String permissions,
@@ -96,6 +126,14 @@ public class FinanceLedgerController {
             @PathVariable("ledgerId") long ledgerId, @PathVariable("periodCode") String periodCode) {
         PermissionGuard.require(permissions, PERIOD_MANAGE);
         return ApiResponse.success(ledgerService.reopen(ledgerId, periodCode));
+    }
+
+    @PostMapping("/{ledgerId}/periods/{periodCode}/seal")
+    public ApiResponse<PeriodView> seal(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("ledgerId") long ledgerId, @PathVariable("periodCode") String periodCode) {
+        PermissionGuard.require(permissions, PERIOD_MANAGE);
+        return ApiResponse.success(ledgerService.seal(ledgerId, periodCode));
     }
 
     @GetMapping("/{ledgerId}/periods/{periodCode}/trial-balance")

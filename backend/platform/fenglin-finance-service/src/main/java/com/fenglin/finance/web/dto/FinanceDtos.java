@@ -480,4 +480,52 @@ public final class FinanceDtos {
 
     public record EsgReportExport(String fileName, String contentType, String content) {
     }
+
+    // ---------- 云财收口：科目/模板/发票/币种/规则/付款计划 ----------
+
+    public record SubjectUpdateRequest(String subjectName, String subjectCategory, String balanceDirection,
+                                       Boolean isLeaf, String auxiliaryTypes) {
+    }
+
+    public record VoucherTemplateUpsertRequest(String templateCode, String templateName, String bizType,
+                                               String debitSubjectCode, String creditSubjectCode,
+                                               Map<String, Object> auxiliaryMapping, String conditionExpr) {
+    }
+
+    public record VoucherTemplateView(long id, String templateCode, String templateName, String bizType,
+                                      String debitSubjectCode, String creditSubjectCode,
+                                      Map<String, Object> auxiliaryMapping, String conditionExpr, String status) {
+    }
+
+    public record VoucherImportRequest(Long ledgerId, List<VoucherCreateRequest> vouchers) {
+    }
+
+    public record CurrencyUpsertRequest(String currencyCode, String currencyName, String symbol,
+                                        Integer decimalPlaces) {
+    }
+
+    public record CurrencyView(long id, String currencyCode, String currencyName, String symbol,
+                               int decimalPlaces, String status) {
+    }
+
+    public record ExchangeRateUpsertRequest(String fromCurrency, String toCurrency, BigDecimal rate,
+                                            LocalDate effectiveDate, String source) {
+    }
+
+    public record ExchangeRateView(long id, String fromCurrency, String toCurrency, BigDecimal rate,
+                                   String effectiveDate, String source) {
+    }
+
+    public record BusinessRuleUpsertRequest(String ruleCode, String ruleName, String ruleType,
+                                            Map<String, Object> config) {
+    }
+
+    public record BusinessRuleView(long id, String ruleCode, String ruleName, String ruleType,
+                                   Map<String, Object> config, String status) {
+    }
+
+    public record PaymentPlanLine(long payableId, String apNo, String supplierName, String currencyCode,
+                                  String dueDate, String plannedPayDate, BigDecimal amount,
+                                  BigDecimal settledAmount, BigDecimal outstanding) {
+    }
 }

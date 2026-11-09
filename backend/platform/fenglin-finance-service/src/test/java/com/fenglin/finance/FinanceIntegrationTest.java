@@ -420,6 +420,128 @@ class FinanceIntegrationTest {
                 .getBody()).contains("report_no").contains("E-01");
     }
 
+    @Test
+    void managementOpsCloseGaps() throws Exception {
+        long ledgerId = createLedger();
+        String base = "/api/finance/v1/ledgers/" + ledgerId;
+
+        long expenseSubjectId = 0;
+        long financeSubjectId = 0;
+        for (JsonNode subject : read(get(base + "/subjects", USER_MAKER, ALL_PERMISSIONS).getBody()).get("data")) {
+            if ("6602".equals(subject.get("subject_code").asText())) {
+                expenseSubjectId = subject.get("id").asLong();
+            }
+            if ("6603".equals(subject.get("subject_code").asText())) {
+                financeSubjectId = subject.get("id").asLong();
+            }
+        }
+        assertThat(expenseSubjectId).isPositive();
+        assertThat(put(base + "/subjects/" + expenseSubjectId, USER_MAKER,
+                Map.of("subject_name", "管理费用（改）")).getStatusCode().is2xxSuccessful()).isTrue();
+        assertThat(post(base + "/subjects/" + financeSubjectId + "/disable", USER_MAKER, ALL_PERMISSIONS, null)
+                .getStatusCode().is2xxSuccessful()).isTrue();
+
+        // 凭证模板 + 批量导入 + 一般明细账
+        ResponseEntity<String> template = post("/api/finance/v1/voucher-templates", USER_MAKER,
+                ALL_PERMISSIONS, Map.of("template_code", "TPL-001", "template_name", "收到投资款",
+                        "biz_type", "INVESTMENT", "debit_subject_code", "1002",
+                        "credit_subject_code", "4001", "auxiliary_mapping", Map.of(),
+                        "condition_expr", "amount > 0"));
+        assertThat(template.getStatusCode().is2xxSuccessful()).isTrue();
+        assertThat(read(get("/api/finance/v1/voucher-templates", USER_MAKER, ALL_PERMISSIONS).getBody())
+                .get("data")).hasSize(1);
+
+        Map<String, Object> importBody = new java.util.LinkedHashMap<>();
+        importBody.put("ledger_id", ledgerId);
+        importBody.put("vouchers", List.of(voucherBody(ledgerId, "2000", "2000")));
+        JsonNode imported = read(post("/api/finance/v1/vouchers/import", USER_MAKER, ALL_PERMISSIONS, importBody)
+                .getBody()).get("data");
+        assertThat(imported.get("imported").asInt()).isEqualTo(1);
+        long voucherId = imported.get("voucher_ids").get(0).asLong();
+        assertThat(post("/api/finance/v1/vouchers/" + voucherId + "/submit", USER_MAKER, ALL_PERMISSIONS, null)
+                .getStatusCode().is2xxSuccessful()).isTrue();
+        assertThat(post("/api/finance/v1/vouchers/" + voucherId + "/audit", USER_AUDITOR, ALL_PERMISSIONS, null)
+                .getStatusCode().is2xxSuccessful()).isTrue();
+        assertThat(post("/api/finance/v1/vouchers/" + voucherId + "/post", USER_MAKER, ALL_PERMISSIONS, null)
+                .getStatusCode().is2xxSuccessful()).isTrue();
+
+        JsonNode ledger = read(get(base + "/subjects/1002/general-ledger?periodCode=" + PERIOD, USER_MAKER,
+                ALL_PERMISSIONS).getBody()).get("data");
+        assertThat(ledger.get("lines")).hasSize(1);
+        assertThat(num(ledger.get("closing"))).isEqualByComparingTo("2000.0000");
+        long cashSubjectId = 0;
+        for (JsonNode subject : read(get(base + "/subjects", USER_MAKER, ALL_PERMISSIONS).getBody()).get("data")) {
+            if ("1002".equals(subject.get("subject_code").asText())) {
+                cashSubjectId = subject.get("id").asLong();
+            }
+        }
+        assertThat(post(base + "/subjects/" + cashSubjectId + "/disable", USER_MAKER, ALL_PERMISSIONS, null)
+                .getStatusCode().is2xxSuccessful()).isFalse();
+
+        // 期间结账 → 封账 → 反结账
+        assertThat(post(base + "/periods/" + PERIOD + "/close", USER_MAKER, ALL_PERMISSIONS, null)
+                .getStatusCode().is2xxSuccessful()).isTrue();
+        assertThat(read(post(base + "/periods/" + PERIOD + "/seal", USER_MAKER, ALL_PERMISSIONS, null).getBody())
+                .get("data").get("status").asText()).isEqualTo("SEALED");
+        assertThat(read(post(base + "/periods/" + PERIOD + "/reopen", USER_MAKER, ALL_PERMISSIONS, null).getBody())
+                .get("data").get("status").asText()).isEqualTo("OPEN");
+
+        // 发票
+        Map<String, Object> invoiceBody = new java.util.LinkedHashMap<>();
+        invoiceBody.put("invoice_code", "033001");
+        invoiceBody.put("invoice_number", "INV-2026-001");
+        invoiceBody.put("invoice_type", "INPUT");
+        invoiceBody.put("buyer_name", "丰麟云创科技有限公司");
+        invoiceBody.put("seller_name", "测试供应商");
+        invoiceBody.put("amount", 1000);
+        invoiceBody.put("tax_rate", 0.06);
+        invoiceBody.put("invoice_date", TODAY.toString());
+        ResponseEntity<String> invoice = post("/api/finance/v1/invoices", USER_MAKER, ALL_PERMISSIONS, invoiceBody);
+        assertThat(invoice.getStatusCode().is2xxSuccessful()).isTrue();
+        long invoiceId = read(invoice.getBody()).get("data").get("id").asLong();
+        assertThat(read(post("/api/finance/v1/invoices/" + invoiceId + "/verify", USER_MAKER, ALL_PERMISSIONS,
+                null).getBody()).get("data").get("verify_status").asText()).isEqualTo("VERIFIED");
+        assertThat(read(get("/api/finance/v1/invoices", USER_MAKER, ALL_PERMISSIONS).getBody())
+                .get("data")).hasSize(1);
+
+        // 币种与汇率
+        assertThat(post("/api/finance/v1/currencies", USER_MAKER, ALL_PERMISSIONS,
+                Map.of("currency_code", "USD", "currency_name", "美元", "symbol", "$", "decimal_places", 2))
+                .getStatusCode().is2xxSuccessful()).isTrue();
+        assertThat(read(post("/api/finance/v1/exchange-rates", USER_MAKER, ALL_PERMISSIONS,
+                Map.of("from_currency", "USD", "to_currency", "CNY", "rate", 7.1,
+                        "effective_date", TODAY.toString(), "source", "PBOC")).getBody())
+                .get("data").get("rate").asText()).isEqualTo("7.1000");
+
+        // 业财规则
+        assertThat(post("/api/finance/v1/rules", USER_MAKER, ALL_PERMISSIONS,
+                Map.of("rule_code", "AR_AP_AUTO", "rule_name", "往来自动凭证", "rule_type", "VOUCHER",
+                        "config", Map.of("auto_create", true))).getStatusCode().is2xxSuccessful()).isTrue();
+        assertThat(read(get("/api/finance/v1/rules", USER_MAKER, ALL_PERMISSIONS).getBody())
+                .get("data").get(0).get("config").get("auto_create").asBoolean()).isTrue();
+
+        // 付款计划 + 预算可用额度
+        execute("INSERT INTO fenglin_finance.fin_payable (id, tenant_id, ap_no, supplier_name, source_type, "
+                + "currency_code, amount, settled_amount, bill_date, due_date, status, created_by) VALUES "
+                + "(6001, " + TENANT + ", 'AP-T1', '测试供应商', 'MANUAL', 'CNY', 900, 0, CURRENT_DATE, "
+                + "CURRENT_DATE + 10, 'OPEN', " + USER_MAKER + ")");
+        JsonNode plan = read(get("/api/finance/v1/payment-plan", USER_MAKER, ALL_PERMISSIONS).getBody()).get("data");
+        assertThat(plan).hasSize(1);
+        assertThat(num(plan.get(0).get("outstanding"))).isEqualByComparingTo("900.0000");
+
+        ResponseEntity<String> budget = post("/api/finance/v1/budgets", USER_MAKER, ALL_PERMISSIONS,
+                Map.of("budget_no", "BUD-T1", "budget_name", "管理费用预算", "period_year", TODAY.getYear(),
+                        "dimension", "DEPARTMENT", "dimension_id", 1,
+                        "subject_code", "6602", "budget_amount", 1000, "control_mode", "STRICT",
+                        "currency_code", "CNY"));
+        long budgetId = read(budget.getBody()).get("data").get("id").asLong();
+        assertThat(post("/api/finance/v1/budgets/" + budgetId + "/release", USER_MAKER, ALL_PERMISSIONS, null)
+                .getStatusCode().is2xxSuccessful()).isTrue();
+        assertThat(num(read(get("/api/finance/v1/budgets/available?periodYear=" + TODAY.getYear()
+                + "&dimension=DEPARTMENT&dimensionId=1&subjectCode=6602", USER_MAKER, ALL_PERMISSIONS)
+                .getBody()).get("data").get("available"))).isEqualByComparingTo("1000.0000");
+    }
+
     private long createLedger() {
         ResponseEntity<String> response = post("/api/finance/v1/ledgers", USER_MAKER, ALL_PERMISSIONS,
                 Map.of("ledger_code", "L" + System.nanoTime(), "ledger_name", "丰麟测试账套",
@@ -482,6 +604,10 @@ class FinanceIntegrationTest {
 
     private ResponseEntity<String> get(String path, long userId, String permissions) {
         return exchange(HttpMethod.GET, path, userId, permissions, null, null);
+    }
+
+    private ResponseEntity<String> put(String path, long userId, Object body) {
+        return exchange(HttpMethod.PUT, path, userId, ALL_PERMISSIONS, body, null);
     }
 
     private ResponseEntity<String> exchange(HttpMethod method, String path, long userId, String permissions,
