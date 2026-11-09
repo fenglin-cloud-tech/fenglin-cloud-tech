@@ -40,7 +40,8 @@ public enum RndErrorCode implements ErrorCode {
     RELEASE_WINDOW_INVALID("4109002", "发布时间窗不合法", 400),
 
     METRIC_CONFIG_MISSING("4110001", "度量口径未配置", 400),
-    METRIC_DATA_INSUFFICIENT("4110002", "度量数据不足，无法计算", 409);
+    METRIC_DATA_INSUFFICIENT("4110002", "度量数据不足，无法计算", 409),
+    CALIBER_REQUIRED("4110003", "度量口径变更需先发布口径版本", 409);
 
     private final String code;
     private final String message;

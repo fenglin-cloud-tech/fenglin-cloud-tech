@@ -4,17 +4,24 @@ import com.fenglin.common.core.ApiResponse;
 import com.fenglin.common.security.PermissionGuard;
 import com.fenglin.rnd.service.MetricService;
 import com.fenglin.rnd.web.dto.RndDtos.AlertCreateRequest;
+import com.fenglin.rnd.web.dto.RndDtos.AlertUpdateRequest;
 import com.fenglin.rnd.web.dto.RndDtos.AlertView;
 import com.fenglin.rnd.web.dto.RndDtos.ContributionView;
 import com.fenglin.rnd.web.dto.RndDtos.DoraView;
 import com.fenglin.rnd.web.dto.RndDtos.InsightView;
+import com.fenglin.rnd.web.dto.RndDtos.MetricCaliberCreateRequest;
+import com.fenglin.rnd.web.dto.RndDtos.MetricCaliberView;
 import com.fenglin.rnd.web.dto.RndDtos.MetricComputeRequest;
 import com.fenglin.rnd.web.dto.RndDtos.MetricComputeResult;
 import com.fenglin.rnd.web.dto.RndDtos.MetricConfigCreateRequest;
+import com.fenglin.rnd.web.dto.RndDtos.MetricConfigUpdateRequest;
 import com.fenglin.rnd.web.dto.RndDtos.MetricConfigView;
+import com.fenglin.rnd.web.dto.RndDtos.MetricDataQualityView;
 import com.fenglin.rnd.web.dto.RndDtos.MetricValueView;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -104,20 +111,73 @@ public class RndMetricController {
         return ApiResponse.success(metricService.createConfig(request));
     }
 
-    @GetMapping("/alerts")
-    public ApiResponse<List<AlertView>> alerts(
+    @PutMapping("/metric-configs/{metricCode}")
+    public ApiResponse<MetricConfigView> updateConfig(
             @RequestHeader(value = "X-Permissions", required = false) String permissions,
-            @RequestParam(value = "status", required = false) String status) {
-        PermissionGuard.require(permissions, ALERT_MANAGE);
-        return ApiResponse.success(metricService.alerts(status));
+            @PathVariable("metricCode") String metricCode,
+            @RequestBody MetricConfigUpdateRequest request) {
+        PermissionGuard.require(permissions, CONFIG_MANAGE);
+        return ApiResponse.success(metricService.updateConfig(metricCode, request));
     }
 
-    @PostMapping("/alerts")
+    @GetMapping("/metric-calibers")
+    public ApiResponse<List<MetricCaliberView>> calibers(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(value = "metricCode", required = false) String metricCode) {
+        PermissionGuard.require(permissions, CONFIG_MANAGE);
+        return ApiResponse.success(metricService.calibers(metricCode));
+    }
+
+    @PostMapping("/metric-calibers")
+    public ApiResponse<MetricCaliberView> publishCaliber(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestBody MetricCaliberCreateRequest request) {
+        PermissionGuard.require(permissions, CONFIG_MANAGE);
+        return ApiResponse.success(metricService.publishCaliber(request));
+    }
+
+    @GetMapping("/metric-data-quality")
+    public ApiResponse<MetricDataQualityView> dataQuality(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(value = "metricCode", required = false) String metricCode,
+            @RequestParam(value = "periodType", required = false) String periodType,
+            @RequestParam(value = "periodKey", required = false) String periodKey) {
+        PermissionGuard.require(permissions, CONFIG_MANAGE);
+        return ApiResponse.success(metricService.dataQuality(metricCode, periodType, periodKey));
+    }
+
+    @GetMapping("/metric-alerts")
+    public ApiResponse<List<AlertView>> alerts(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "metricCode", required = false) String metricCode) {
+        PermissionGuard.require(permissions, ALERT_MANAGE);
+        return ApiResponse.success(metricService.alerts(status, metricCode));
+    }
+
+    @PostMapping("/metric-alerts")
     public ApiResponse<AlertView> createAlert(
             @RequestHeader(value = "X-Permissions", required = false) String permissions,
             @RequestBody AlertCreateRequest request) {
         PermissionGuard.require(permissions, ALERT_MANAGE);
         return ApiResponse.success(metricService.createAlert(request));
+    }
+
+    @PutMapping("/metric-alerts/{id}")
+    public ApiResponse<AlertView> updateAlert(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id,
+            @RequestBody AlertUpdateRequest request) {
+        PermissionGuard.require(permissions, ALERT_MANAGE);
+        return ApiResponse.success(metricService.updateAlert(id, request));
+    }
+
+    @PostMapping("/metric-alerts/{id}/resolve")
+    public ApiResponse<AlertView> resolveAlert(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id) {
+        PermissionGuard.require(permissions, ALERT_MANAGE);
+        return ApiResponse.success(metricService.resolveAlert(id));
     }
 
     @PostMapping("/metrics/alerts/evaluate")

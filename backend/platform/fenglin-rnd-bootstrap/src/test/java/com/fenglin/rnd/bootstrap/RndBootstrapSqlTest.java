@@ -50,9 +50,9 @@ class RndBootstrapSqlTest {
         assertThat(count("SELECT count(1) FROM fenglin_hub.hub_permission "
                 + "WHERE code = 'biz:devops:release:deploy'")).isEqualTo(1);
         assertThat(count("SELECT count(1) FROM fenglin_hub.hub_permission WHERE domain = 'devops'"))
-                .isEqualTo(52);
+                .isEqualTo(53);
         assertThat(count("SELECT count(DISTINCT code) FROM fenglin_hub.hub_permission WHERE domain = 'devops'"))
-                .isEqualTo(52);
+                .isEqualTo(53);
     }
 
     @Test

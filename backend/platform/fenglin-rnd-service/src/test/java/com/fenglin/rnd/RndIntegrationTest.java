@@ -292,7 +292,7 @@ class RndIntegrationTest {
                         "project", Map.of("git_http_url", "https://gitlab.example.com/fenglin/rnd.git"),
                         "commits", List.of(Map.of("id", "abc123def456")))));
         assertThat(webhook.getStatusCode().is2xxSuccessful()).isTrue();
-        assertThat(read(webhook.getBody()).get("data").get("eventType").asText()).isEqualTo("push");
+        assertThat(read(webhook.getBody()).get("data").get("event_type").asText()).isEqualTo("push");
 
         ResponseEntity<String> pipeline = post("/api/rnd/v1/pipelines", Map.of(
                 "product_id", productId, "name", "主链流水线", "ci_type", "jenkins",
@@ -371,13 +371,96 @@ class RndIntegrationTest {
                 "target_value", 20, "unit", "个"));
         assertThat(config.getStatusCode().is2xxSuccessful()).isTrue();
 
-        ResponseEntity<String> alert = post("/api/rnd/v1/alerts", Map.of(
+        ResponseEntity<String> alert = post("/api/rnd/v1/metric-alerts", Map.of(
                 "metric_code", "dora.change_failure_rate", "scope_type", "product", "scope_id", productId,
                 "threshold", 0, "compare_op", "gte", "notify_channel", "im"));
         assertThat(alert.getStatusCode().is2xxSuccessful()).isTrue();
         JsonNode evaluated = read(post("/api/rnd/v1/metrics/alerts/evaluate?productId=" + productId
                 + "&periodType=month&periodKey=" + periodKey, null).getBody()).get("data");
         assertThat(evaluated).anyMatch(node -> "triggered".equals(node.get("status").asText()));
+    }
+
+    @Test
+    void managementConfigurationCoverage() throws Exception {
+        long productId = createProduct("PRD-E");
+
+        ResponseEntity<String> productUpdated = put("/api/rnd/v1/products/" + productId,
+                Map.of("name", "丰麟云研-PRD-E-更新", "sprint_cycle_days", 21));
+        assertThat(productUpdated.getStatusCode().is2xxSuccessful()).isTrue();
+        assertThat(read(productUpdated.getBody()).get("data").get("sprint_cycle_days").asInt()).isEqualTo(21);
+
+        long memberId = read(post("/api/rnd/v1/products/" + productId + "/members",
+                Map.of("user_id", USER_DEV, "role_code", "developer", "data_scope", "self"))
+                .getBody()).get("data").get("id").asLong();
+        JsonNode member = read(put("/api/rnd/v1/products/" + productId + "/members/" + memberId,
+                Map.of("role_code", "tester", "data_scope", "all")).getBody()).get("data");
+        assertThat(member.get("role_code").asText()).isEqualTo("tester");
+        assertThat(delete("/api/rnd/v1/products/" + productId + "/members/" + memberId)
+                .getStatusCode().is2xxSuccessful()).isTrue();
+        assertThat(read(get("/api/rnd/v1/products/" + productId + "/members").getBody()).get("data")).hasSize(1);
+
+        JsonNode tenantConfig = read(put("/api/rnd/v1/tenant-config", Map.of(
+                "config_json", Map.of("gitlab_url", "https://gitlab.example.com"),
+                "timezone", "Asia/Shanghai", "data_retention_months", 36,
+                "dora_target_level", "elite", "webhook_base_url", "https://hook.example.com"))
+                .getBody()).get("data");
+        assertThat(tenantConfig.get("data_retention_months").asInt()).isEqualTo(36);
+        assertThat(tenantConfig.get("config_json").get("gitlab_url").asText())
+                .isEqualTo("https://gitlab.example.com");
+        assertThat(read(get("/api/rnd/v1/tenant-config").getBody()).get("data")
+                .get("dora_target_level").asText()).isEqualTo("elite");
+
+        ResponseEntity<String> configUpdated = put("/api/rnd/v1/metric-configs/delivery.throughput",
+                Map.of("metric_name", "需求交付吞吐", "weight", 2.0, "target_value", 30, "unit", "个",
+                        "status", "enabled"));
+        assertThat(configUpdated.getStatusCode().is2xxSuccessful()).isTrue();
+        assertThat(new java.math.BigDecimal(read(configUpdated.getBody()).get("data").get("weight").asText()))
+                .isEqualByComparingTo("2");
+        // 公式变更必须走口径版本发布
+        assertThat(put("/api/rnd/v1/metric-configs/delivery.throughput",
+                Map.of("formula", "count(new)/period")).getStatusCode().is2xxSuccessful()).isFalse();
+
+        JsonNode caliber = read(post("/api/rnd/v1/metric-calibers", Map.of(
+                "metric_code", "delivery.throughput", "caliber_version", "v2",
+                "formula", "count(done)/sprint", "effective_from", TODAY + "T00:00:00+08:00"))
+                .getBody()).get("data");
+        assertThat(caliber.get("caliber_version").asText()).isEqualTo("v2");
+        assertThat(read(get("/api/rnd/v1/metric-calibers?metricCode=delivery.throughput").getBody())
+                .get("data")).hasSize(1);
+        assertThat(read(get("/api/rnd/v1/metric-configs").getBody()).get("data")).hasSize(10);
+
+        long alertId = read(post("/api/rnd/v1/metric-alerts", Map.of(
+                "metric_code", "dora.change_failure_rate", "scope_type", "product", "scope_id", productId,
+                "threshold", 0.15, "compare_op", "gte", "notify_channel", "im"))
+                .getBody()).get("data").get("id").asLong();
+        JsonNode alertUpdated = read(put("/api/rnd/v1/metric-alerts/" + alertId,
+                Map.of("threshold", 0.2, "status", "active")).getBody()).get("data");
+        assertThat(new java.math.BigDecimal(alertUpdated.get("threshold").asText()))
+                .isEqualByComparingTo("0.2");
+        assertThat(read(post("/api/rnd/v1/metric-alerts/" + alertId + "/resolve", null).getBody())
+                .get("data").get("status").asText()).isEqualTo("resolved");
+        assertThat(read(get("/api/rnd/v1/metric-alerts?status=resolved").getBody()).get("data")).hasSize(1);
+
+        String periodKey = YearMonth.now().toString();
+        assertThat(post("/api/rnd/v1/metrics/compute", Map.of("product_id", productId,
+                "period_type", "month", "period_key", periodKey)).getStatusCode().is2xxSuccessful()).isTrue();
+        JsonNode quality = read(get("/api/rnd/v1/metric-data-quality?metricCode=delivery.throughput"
+                + "&periodType=month&periodKey=" + periodKey).getBody()).get("data");
+        assertThat(quality.get("sample_count").asInt()).isEqualTo(1);
+        assertThat(quality.get("quality_flag").asText()).isNotBlank();
+
+        long repoId = read(post("/api/rnd/v1/repos", Map.of(
+                "product_id", productId, "repo_name", "fenglin-rnd", "vcs_type", "gitlab",
+                "repo_url", "https://gitlab.example.com/fenglin/rnd2.git", "default_branch", "main",
+                "access_token", "glpat-abcdefgh", "webhook_secret", "hook-2")).getBody())
+                .get("data").get("id").asLong();
+        JsonNode repoUpdated = read(put("/api/rnd/v1/repos/" + repoId, Map.of(
+                "repo_name", "fenglin-rnd-v2", "default_branch", "release",
+                "access_token", "glpat-1234567890")).getBody()).get("data");
+        assertThat(repoUpdated.get("repo_name").asText()).isEqualTo("fenglin-rnd-v2");
+        assertThat(repoUpdated.get("token_masked").asText()).isEqualTo("glpa****7890");
+        assertThat(delete("/api/rnd/v1/repos/" + repoId).getStatusCode().is2xxSuccessful()).isTrue();
+        assertThat(get("/api/rnd/v1/repos/" + repoId).getStatusCode().is2xxSuccessful()).isFalse();
     }
 
     private long createProduct(String code) {
@@ -391,6 +474,14 @@ class RndIntegrationTest {
 
     private ResponseEntity<String> post(String path, Object body) {
         return exchange(HttpMethod.POST, path, body, Map.of());
+    }
+
+    private ResponseEntity<String> put(String path, Object body) {
+        return exchange(HttpMethod.PUT, path, body, Map.of());
+    }
+
+    private ResponseEntity<String> delete(String path) {
+        return exchange(HttpMethod.DELETE, path, null, Map.of());
     }
 
     private ResponseEntity<String> postWithHeaders(String path, Map<String, String> extra, Object body) {

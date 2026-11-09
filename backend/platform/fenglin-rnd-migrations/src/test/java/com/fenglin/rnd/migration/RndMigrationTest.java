@@ -41,7 +41,7 @@ class RndMigrationTest {
     @Test
     void createsAllBusinessTables() throws Exception {
         assertThat(count("SELECT count(1) FROM pg_tables WHERE schemaname = 'fenglin_devops' "
-                + "AND tablename LIKE 'devops\\_%' ESCAPE '\\'")).isEqualTo(34);
+                + "AND tablename LIKE 'devops\\_%' ESCAPE '\\'")).isEqualTo(36);
         assertThat(count("SELECT count(1) FROM pg_tables WHERE schemaname = 'fenglin_devops' "
                 + "AND tablename = 'devops_tenant_key'")).isEqualTo(1);
     }
@@ -50,18 +50,18 @@ class RndMigrationTest {
     void enablesRlsOnEveryTable() throws Exception {
         assertThat(count("SELECT count(1) FROM pg_tables t JOIN pg_class c ON c.relname = t.tablename "
                 + "WHERE t.schemaname = 'fenglin_devops' AND t.tablename LIKE 'devops\\_%' ESCAPE '\\' "
-                + "AND c.relrowsecurity = true")).isEqualTo(34);
+                + "AND c.relrowsecurity = true")).isEqualTo(36);
         assertThat(count("SELECT count(1) FROM pg_policies WHERE schemaname = 'fenglin_devops' "
-                + "AND policyname = 'tenant_isolation'")).isEqualTo(34);
+                + "AND policyname = 'tenant_isolation'")).isEqualTo(36);
         assertThat(count("SELECT count(1) FROM pg_trigger WHERE tgname LIKE 'trg\\_devops\\_%' ESCAPE '\\' "
-                + "AND NOT tgisinternal")).isEqualTo(34);
+                + "AND NOT tgisinternal")).isEqualTo(36);
     }
 
     @Test
     void createsCriticalIndexes() throws Exception {
         assertThat(count("SELECT count(1) FROM pg_indexes WHERE schemaname = 'fenglin_devops' "
                 + "AND indexname IN ('uk_commit_sha', 'uk_snapshot', 'uk_release_no', 'uk_event_id', "
-                + "'uk_metric_config', 'uk_tenant_key')")).isEqualTo(6);
+                + "'uk_metric_config', 'uk_tenant_key', 'uk_metric_caliber', 'uk_tenant_config')")).isEqualTo(8);
     }
 
     @Test

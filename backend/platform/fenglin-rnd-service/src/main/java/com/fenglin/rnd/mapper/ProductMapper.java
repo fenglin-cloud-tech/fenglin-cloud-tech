@@ -4,6 +4,7 @@ import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
 
 import java.util.List;
 import java.util.Map;
@@ -58,6 +59,20 @@ public interface ProductMapper {
             + "AND deleted = 0")
     long countProductCode(@Param("tenantId") long tenantId, @Param("code") String code);
 
+    @Update("""
+            UPDATE devops_product
+            SET name = #{name}, product_line = #{productLine,jdbcType=VARCHAR},
+                owner_id = #{ownerId}, visibility = #{visibility},
+                sprint_cycle_days = #{sprintCycleDays}, description = #{description,jdbcType=VARCHAR},
+                status = #{status}, updated_by = #{userId}, version = version + 1
+            WHERE tenant_id = #{tenantId} AND id = #{id} AND deleted = 0
+            """)
+    int updateProduct(@Param("id") long id, @Param("tenantId") long tenantId, @Param("name") String name,
+                      @Param("productLine") String productLine, @Param("ownerId") long ownerId,
+                      @Param("visibility") String visibility, @Param("sprintCycleDays") int sprintCycleDays,
+                      @Param("description") String description, @Param("status") String status,
+                      @Param("userId") long userId);
+
     @Insert("""
             INSERT INTO devops_product_member (id, tenant_id, product_id, user_id, role_code, data_scope,
                                                created_by)
@@ -79,6 +94,32 @@ public interface ProductMapper {
     @Select("SELECT count(1) FROM devops_product_member WHERE tenant_id = #{tenantId} "
             + "AND product_id = #{productId} AND user_id = #{userId} AND deleted = 0")
     long countMember(@Param("tenantId") long tenantId, @Param("productId") long productId,
+                     @Param("userId") long userId);
+
+    @Select("""
+            SELECT id AS "id", product_id AS "productId", user_id AS "userId", role_code AS "roleCode",
+                   data_scope AS "dataScope", created_at::text AS "createdAt"
+            FROM devops_product_member
+            WHERE tenant_id = #{tenantId} AND product_id = #{productId} AND id = #{id} AND deleted = 0
+            """)
+    Map<String, Object> findMember(@Param("tenantId") long tenantId, @Param("productId") long productId,
+                                   @Param("id") long id);
+
+    @Update("""
+            UPDATE devops_product_member
+            SET role_code = #{roleCode}, data_scope = #{dataScope},
+                updated_by = #{userId}, version = version + 1
+            WHERE tenant_id = #{tenantId} AND product_id = #{productId} AND id = #{id} AND deleted = 0
+            """)
+    int updateMember(@Param("tenantId") long tenantId, @Param("productId") long productId, @Param("id") long id,
+                     @Param("roleCode") String roleCode, @Param("dataScope") String dataScope,
+                     @Param("userId") long userId);
+
+    @Update("""
+            UPDATE devops_product_member SET deleted = 1, updated_by = #{userId}, version = version + 1
+            WHERE tenant_id = #{tenantId} AND product_id = #{productId} AND id = #{id} AND deleted = 0
+            """)
+    int deleteMember(@Param("tenantId") long tenantId, @Param("productId") long productId, @Param("id") long id,
                      @Param("userId") long userId);
 
     @Select("""

@@ -17,39 +17,126 @@ import java.util.Map;
 public interface MetricMapper {
 
     @Select("""
-            SELECT c.id AS "id", c.tenant_id AS "tenantId", c.metric_code AS "metricCode",
-                   c.metric_name AS "metricName", c.metric_group AS "metricGroup", c.formula AS "formula",
-                   c.caliber_version AS "caliberVersion", c.weight AS "weight", c.target_value AS "targetValue",
-                   c.unit AS "unit", c.status AS "status"
-            FROM devops_metric_config c
-            WHERE (c.tenant_id = #{tenantId} OR c.tenant_id = 0) AND c.deleted = 0
-              AND NOT EXISTS (
-                    SELECT 1 FROM devops_metric_config o
-                    WHERE o.tenant_id = #{tenantId} AND o.metric_code = c.metric_code
-                      AND o.caliber_version = c.caliber_version AND o.deleted = 0
-                      AND c.tenant_id = 0)
-            ORDER BY c.metric_group, c.metric_code
+            SELECT id AS "id", tenant_id AS "tenantId", metric_code AS "metricCode",
+                   metric_name AS "metricName", metric_group AS "metricGroup", formula AS "formula",
+                   caliber_version AS "caliberVersion", weight AS "weight", target_value AS "targetValue",
+                   unit AS "unit", status AS "status"
+            FROM (
+                SELECT DISTINCT ON (metric_code) *
+                FROM devops_metric_config
+                WHERE (tenant_id = #{tenantId} OR tenant_id = 0) AND deleted = 0
+                ORDER BY metric_code, (tenant_id = #{tenantId}) DESC, caliber_version DESC
+            ) c
+            ORDER BY metric_group, metric_code
             """)
     List<Map<String, Object>> listConfigs(@Param("tenantId") long tenantId);
+
+    @Select("""
+            SELECT id AS "id", tenant_id AS "tenantId", metric_code AS "metricCode",
+                   metric_name AS "metricName", metric_group AS "metricGroup", formula AS "formula",
+                   caliber_version AS "caliberVersion", weight AS "weight", target_value AS "targetValue",
+                   unit AS "unit", status AS "status"
+            FROM devops_metric_config
+            WHERE tenant_id = #{tenantId} AND metric_code = #{metricCode} AND deleted = 0
+            ORDER BY caliber_version DESC
+            LIMIT 1
+            """)
+    Map<String, Object> findTenantConfig(@Param("tenantId") long tenantId,
+                                         @Param("metricCode") String metricCode);
+
+    @Select("""
+            SELECT id AS "id", tenant_id AS "tenantId", metric_code AS "metricCode",
+                   metric_name AS "metricName", metric_group AS "metricGroup", formula AS "formula",
+                   caliber_version AS "caliberVersion", weight AS "weight", target_value AS "targetValue",
+                   unit AS "unit", status AS "status"
+            FROM devops_metric_config
+            WHERE tenant_id = 0 AND metric_code = #{metricCode} AND deleted = 0
+            ORDER BY caliber_version DESC
+            LIMIT 1
+            """)
+    Map<String, Object> findPlatformConfig(@Param("metricCode") String metricCode);
+
+    @Update("""
+            UPDATE devops_metric_config
+            SET metric_name = #{metricName}, metric_group = #{metricGroup}, formula = #{formula},
+                caliber_version = #{caliberVersion}, weight = #{weight,jdbcType=NUMERIC},
+                target_value = #{targetValue,jdbcType=NUMERIC}, unit = #{unit,jdbcType=VARCHAR},
+                status = #{status}, updated_by = #{userId}, version = version + 1
+            WHERE tenant_id = #{tenantId} AND id = #{id} AND deleted = 0
+            """)
+    int updateConfig(@Param("id") long id, @Param("tenantId") long tenantId,
+                     @Param("metricName") String metricName, @Param("metricGroup") String metricGroup,
+                     @Param("formula") String formula, @Param("caliberVersion") String caliberVersion,
+                     @Param("weight") BigDecimal weight, @Param("targetValue") BigDecimal targetValue,
+                     @Param("unit") String unit, @Param("status") String status,
+                     @Param("userId") long userId);
+
+    @Insert("""
+            INSERT INTO devops_metric_caliber
+                (id, tenant_id, metric_code, caliber_version, formula, effective_from, status, created_by)
+            VALUES (#{id}, #{tenantId}, #{metricCode}, #{caliberVersion}, #{formula},
+                    CAST(#{effectiveFrom} AS timestamptz), 'published', #{userId})
+            ON CONFLICT (tenant_id, metric_code, caliber_version) WHERE deleted = 0
+            DO UPDATE SET formula = EXCLUDED.formula, effective_from = EXCLUDED.effective_from,
+                          status = 'published', updated_by = #{userId},
+                          version = devops_metric_caliber.version + 1
+            """)
+    int upsertCaliber(@Param("id") long id, @Param("tenantId") long tenantId,
+                      @Param("metricCode") String metricCode, @Param("caliberVersion") String caliberVersion,
+                      @Param("formula") String formula, @Param("effectiveFrom") String effectiveFrom,
+                      @Param("userId") long userId);
+
+    @Select("""
+            <script>
+            SELECT id AS "id", metric_code AS "metricCode", caliber_version AS "caliberVersion",
+                   formula AS "formula", effective_from::text AS "effectiveFrom",
+                   created_at::text AS "createdAt"
+            FROM devops_metric_caliber
+            WHERE tenant_id = #{tenantId} AND deleted = 0
+              <if test="metricCode != null">AND metric_code = #{metricCode}</if>
+            ORDER BY metric_code, caliber_version DESC
+            </script>
+            """)
+    List<Map<String, Object>> listCalibers(@Param("tenantId") long tenantId,
+                                           @Param("metricCode") String metricCode);
+
+    @Select("""
+            <script>
+            SELECT count(1) AS "sampleCount",
+                   count(1) FILTER (WHERE data_quality = 'missing') AS "missingCount",
+                   count(1) FILTER (WHERE data_quality = 'outlier') AS "outlierCount"
+            FROM devops_metric_snapshot
+            WHERE tenant_id = #{tenantId} AND deleted = 0
+              AND period_type = #{periodType} AND period_key = #{periodKey}
+              <if test="metricCode != null">AND metric_code = #{metricCode}</if>
+            </script>
+            """)
+    Map<String, Object> aggregateDataQuality(@Param("tenantId") long tenantId,
+                                             @Param("metricCode") String metricCode,
+                                             @Param("periodType") String periodType,
+                                             @Param("periodKey") String periodKey);
 
     @Insert("""
             INSERT INTO devops_metric_config
                 (id, tenant_id, metric_code, metric_name, metric_group, formula, caliber_version, weight,
                  target_value, unit, status, created_by)
-            VALUES (#{id}, #{tenantId}, #{metricCode}, #{metricName}, #{metricGroup}, #{formula}, 'v1',
-                    #{weight,jdbcType=NUMERIC}, #{targetValue,jdbcType=NUMERIC}, #{unit,jdbcType=VARCHAR},
-                    'enabled', #{userId})
+            VALUES (#{id}, #{tenantId}, #{metricCode}, #{metricName}, #{metricGroup}, #{formula},
+                    #{caliberVersion}, #{weight,jdbcType=NUMERIC}, #{targetValue,jdbcType=NUMERIC},
+                    #{unit,jdbcType=VARCHAR}, #{status}, #{userId})
             ON CONFLICT (tenant_id, metric_code, caliber_version) WHERE deleted = 0
             DO UPDATE SET metric_name = EXCLUDED.metric_name, metric_group = EXCLUDED.metric_group,
                           formula = EXCLUDED.formula, weight = EXCLUDED.weight,
                           target_value = EXCLUDED.target_value, unit = EXCLUDED.unit,
+                          status = EXCLUDED.status,
                           updated_by = #{userId}, version = devops_metric_config.version + 1
             """)
     int upsertConfig(@Param("id") long id, @Param("tenantId") long tenantId,
                      @Param("metricCode") String metricCode, @Param("metricName") String metricName,
                      @Param("metricGroup") String metricGroup, @Param("formula") String formula,
+                     @Param("caliberVersion") String caliberVersion,
                      @Param("weight") BigDecimal weight, @Param("targetValue") BigDecimal targetValue,
-                     @Param("unit") String unit, @Param("userId") long userId);
+                     @Param("unit") String unit, @Param("status") String status,
+                     @Param("userId") long userId);
 
     @Insert("""
             INSERT INTO devops_metric_snapshot
@@ -218,10 +305,40 @@ public interface MetricMapper {
             FROM devops_metric_alert
             WHERE tenant_id = #{tenantId} AND deleted = 0
               <if test="status != null">AND status = #{status}</if>
+              <if test="metricCode != null">AND metric_code = #{metricCode}</if>
             ORDER BY id DESC
             </script>
             """)
-    List<Map<String, Object>> listAlerts(@Param("tenantId") long tenantId, @Param("status") String status);
+    List<Map<String, Object>> listAlerts(@Param("tenantId") long tenantId, @Param("status") String status,
+                                         @Param("metricCode") String metricCode);
+
+    @Select("""
+            SELECT id AS "id", metric_code AS "metricCode", scope_type AS "scopeType", scope_id AS "scopeId",
+                   threshold AS "threshold", compare_op AS "compareOp", triggered_value AS "triggeredValue",
+                   status AS "status", notify_channel AS "notifyChannel", triggered_at::text AS "triggeredAt"
+            FROM devops_metric_alert
+            WHERE tenant_id = #{tenantId} AND id = #{id} AND deleted = 0
+            """)
+    Map<String, Object> findAlert(@Param("tenantId") long tenantId, @Param("id") long id);
+
+    @Update("""
+            UPDATE devops_metric_alert
+            SET threshold = #{threshold}, compare_op = #{compareOp},
+                notify_channel = #{notifyChannel,jdbcType=VARCHAR}, status = #{status},
+                updated_by = #{userId}, version = version + 1
+            WHERE tenant_id = #{tenantId} AND id = #{id} AND deleted = 0
+            """)
+    int updateAlert(@Param("tenantId") long tenantId, @Param("id") long id,
+                    @Param("threshold") BigDecimal threshold, @Param("compareOp") String compareOp,
+                    @Param("notifyChannel") String notifyChannel, @Param("status") String status,
+                    @Param("userId") long userId);
+
+    @Update("""
+            UPDATE devops_metric_alert
+            SET status = 'resolved', updated_by = #{userId}, version = version + 1
+            WHERE tenant_id = #{tenantId} AND id = #{id} AND deleted = 0
+            """)
+    int resolveAlert(@Param("tenantId") long tenantId, @Param("id") long id, @Param("userId") long userId);
 
     @Update("""
             UPDATE devops_metric_alert

@@ -9,8 +9,10 @@ import com.fenglin.rnd.support.RndAudit;
 import com.fenglin.rnd.support.RndContext;
 import com.fenglin.rnd.support.Rows;
 import com.fenglin.rnd.web.dto.RndDtos.MemberCreateRequest;
+import com.fenglin.rnd.web.dto.RndDtos.MemberUpdateRequest;
 import com.fenglin.rnd.web.dto.RndDtos.MemberView;
 import com.fenglin.rnd.web.dto.RndDtos.ProductCreateRequest;
+import com.fenglin.rnd.web.dto.RndDtos.ProductUpdateRequest;
 import com.fenglin.rnd.web.dto.RndDtos.ProductView;
 import com.fenglin.rnd.web.dto.RndDtos.StatusView;
 import org.springframework.stereotype.Service;
@@ -57,6 +59,35 @@ public class ProductService {
         return get(id);
     }
 
+    @Transactional
+    public ProductView update(long id, ProductUpdateRequest request) {
+        long tenantId = RndContext.tenantId();
+        long userId = RndContext.userId();
+        Map<String, Object> row = productMapper.findProduct(tenantId, id);
+        if (row == null) {
+            throw new BizException(RndErrorCode.RESOURCE_NOT_FOUND);
+        }
+        String name = request.name() == null ? Rows.str(row, "name")
+                : RndContext.requireText(request.name(), "name");
+        String productLine = request.productLine() == null
+                ? Rows.str(row, "productLine") : request.productLine();
+        long ownerId = request.ownerId() == null ? Rows.lng(row, "ownerId") : request.ownerId();
+        String visibility = request.visibility() == null ? Rows.str(row, "visibility") : request.visibility();
+        int sprintCycleDays = request.sprintCycleDays() == null
+                ? Rows.intg(row, "sprintCycleDays") : request.sprintCycleDays();
+        String description = request.description() == null
+                ? Rows.str(row, "description") : request.description();
+        String status = request.status() == null ? Rows.str(row, "status") : request.status();
+        productMapper.updateProduct(id, tenantId, name, productLine, ownerId, visibility, sprintCycleDays,
+                description, status, userId);
+        // 负责人变更时确保新负责人具备 owner 成员身份，避免权限悬空
+        if (ownerId != Rows.lng(row, "ownerId") && productMapper.countMember(tenantId, id, ownerId) == 0) {
+            productMapper.insertMember(IdWorker.getId(), tenantId, id, ownerId, "owner", "all", userId);
+        }
+        audit.publish("PRODUCT_UPDATED", "update", "devops_product", id, "medium");
+        return get(id);
+    }
+
     public ProductView get(long id) {
         long tenantId = RndContext.tenantId();
         Map<String, Object> row = productMapper.findProduct(tenantId, id);
@@ -90,13 +121,43 @@ public class ProductService {
                 .orElseThrow(() -> new BizException(RndErrorCode.RESOURCE_NOT_FOUND));
     }
 
+    @Transactional
+    public MemberView updateMember(long productId, long memberId, MemberUpdateRequest request) {
+        long tenantId = RndContext.tenantId();
+        long userId = RndContext.userId();
+        requireProduct(tenantId, productId);
+        Map<String, Object> row = productMapper.findMember(tenantId, productId, memberId);
+        if (row == null) {
+            throw new BizException(RndErrorCode.RESOURCE_NOT_FOUND);
+        }
+        String roleCode = request.roleCode() == null ? Rows.str(row, "roleCode") : request.roleCode();
+        String dataScope = request.dataScope() == null ? Rows.str(row, "dataScope") : request.dataScope();
+        productMapper.updateMember(tenantId, productId, memberId, roleCode, dataScope, userId);
+        audit.publish("DEVOPS_MEMBER_UPDATED", "update", "devops_product_member", memberId, "low");
+        return toMemberView(productMapper.findMember(tenantId, productId, memberId));
+    }
+
+    @Transactional
+    public void deleteMember(long productId, long memberId) {
+        long tenantId = RndContext.tenantId();
+        requireProduct(tenantId, productId);
+        if (productMapper.deleteMember(tenantId, productId, memberId, RndContext.userId()) == 0) {
+            throw new BizException(RndErrorCode.RESOURCE_NOT_FOUND);
+        }
+        audit.publish("DEVOPS_MEMBER_DELETED", "delete", "devops_product_member", memberId, "low");
+    }
+
     public List<MemberView> listMembers(long productId) {
         long tenantId = RndContext.tenantId();
         requireProduct(tenantId, productId);
         return productMapper.listMembers(tenantId, productId).stream()
-                .map(row -> new MemberView(Rows.lng(row, "id"), Rows.lng(row, "productId"), Rows.lng(row, "userId"),
-                        Rows.str(row, "roleCode"), Rows.str(row, "dataScope"), Rows.str(row, "createdAt")))
+                .map(ProductService::toMemberView)
                 .toList();
+    }
+
+    private static MemberView toMemberView(Map<String, Object> row) {
+        return new MemberView(Rows.lng(row, "id"), Rows.lng(row, "productId"), Rows.lng(row, "userId"),
+                Rows.str(row, "roleCode"), Rows.str(row, "dataScope"), Rows.str(row, "createdAt"));
     }
 
     public List<StatusView> listStatuses(long productId) {

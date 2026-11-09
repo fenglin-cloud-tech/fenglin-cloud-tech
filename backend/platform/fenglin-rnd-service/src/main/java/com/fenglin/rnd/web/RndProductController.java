@@ -5,13 +5,17 @@ import com.fenglin.common.security.PermissionGuard;
 import com.fenglin.rnd.service.ProductService;
 import com.fenglin.rnd.support.RndContext;
 import com.fenglin.rnd.web.dto.RndDtos.MemberCreateRequest;
+import com.fenglin.rnd.web.dto.RndDtos.MemberUpdateRequest;
 import com.fenglin.rnd.web.dto.RndDtos.MemberView;
 import com.fenglin.rnd.web.dto.RndDtos.ProductCreateRequest;
+import com.fenglin.rnd.web.dto.RndDtos.ProductUpdateRequest;
 import com.fenglin.rnd.web.dto.RndDtos.ProductView;
 import com.fenglin.rnd.web.dto.RndDtos.StatusView;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -64,6 +68,15 @@ public class RndProductController {
         return ApiResponse.success(productService.get(id));
     }
 
+    @PutMapping("/{id}")
+    public ApiResponse<ProductView> update(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id,
+            @RequestBody ProductUpdateRequest request) {
+        PermissionGuard.require(permissions, MANAGE);
+        return ApiResponse.success(productService.update(id, request));
+    }
+
     @PostMapping("/{id}/members")
     public ApiResponse<MemberView> addMember(
             @RequestHeader(value = "X-Permissions", required = false) String permissions,
@@ -79,6 +92,26 @@ public class RndProductController {
             @PathVariable("id") long id) {
         PermissionGuard.require(permissions, MEMBER_VIEW);
         return ApiResponse.success(productService.listMembers(id));
+    }
+
+    @PutMapping("/{id}/members/{memberId}")
+    public ApiResponse<MemberView> updateMember(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id,
+            @PathVariable("memberId") long memberId,
+            @RequestBody MemberUpdateRequest request) {
+        PermissionGuard.require(permissions, MEMBER_MANAGE);
+        return ApiResponse.success(productService.updateMember(id, memberId, request));
+    }
+
+    @DeleteMapping("/{id}/members/{memberId}")
+    public ApiResponse<Void> deleteMember(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id,
+            @PathVariable("memberId") long memberId) {
+        PermissionGuard.require(permissions, MEMBER_MANAGE);
+        productService.deleteMember(id, memberId);
+        return ApiResponse.success();
     }
 
     @GetMapping("/{id}/statuses")

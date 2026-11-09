@@ -14,14 +14,19 @@ import com.fenglin.rnd.support.RndAudit;
 import com.fenglin.rnd.support.RndContext;
 import com.fenglin.rnd.support.Rows;
 import com.fenglin.rnd.web.dto.RndDtos.AlertCreateRequest;
+import com.fenglin.rnd.web.dto.RndDtos.AlertUpdateRequest;
 import com.fenglin.rnd.web.dto.RndDtos.AlertView;
 import com.fenglin.rnd.web.dto.RndDtos.ContributionView;
 import com.fenglin.rnd.web.dto.RndDtos.DoraView;
 import com.fenglin.rnd.web.dto.RndDtos.InsightView;
+import com.fenglin.rnd.web.dto.RndDtos.MetricCaliberCreateRequest;
+import com.fenglin.rnd.web.dto.RndDtos.MetricCaliberView;
 import com.fenglin.rnd.web.dto.RndDtos.MetricComputeRequest;
 import com.fenglin.rnd.web.dto.RndDtos.MetricComputeResult;
 import com.fenglin.rnd.web.dto.RndDtos.MetricConfigCreateRequest;
+import com.fenglin.rnd.web.dto.RndDtos.MetricConfigUpdateRequest;
 import com.fenglin.rnd.web.dto.RndDtos.MetricConfigView;
+import com.fenglin.rnd.web.dto.RndDtos.MetricDataQualityView;
 import com.fenglin.rnd.web.dto.RndDtos.MetricValueView;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -256,19 +261,107 @@ public class MetricService {
         metricMapper.upsertConfig(IdWorker.getId(), tenantId, code,
                 RndContext.requireText(request.metricName(), "metricName"),
                 request.metricGroup() == null ? "delivery" : request.metricGroup(),
-                RndContext.requireText(request.formula(), "formula"), request.weight(), request.targetValue(),
-                RndContext.text(request.unit()), userId);
+                RndContext.requireText(request.formula(), "formula"), "v1", request.weight(), request.targetValue(),
+                RndContext.text(request.unit()), "enabled", userId);
         audit.publish("METRIC_CONFIG_UPSERTED", "upsert", "devops_metric_config", code, "medium");
         return configs().stream().filter(c -> c.metricCode().equals(code)).findFirst()
                 .orElseThrow(() -> new BizException(RndErrorCode.METRIC_CONFIG_MISSING));
     }
 
-    public List<AlertView> alerts(String status) {
-        return metricMapper.listAlerts(RndContext.tenantId(), RndContext.text(status)).stream()
-                .map(row -> new AlertView(Rows.lng(row, "id"), Rows.str(row, "metricCode"),
-                        Rows.str(row, "scopeType"), Rows.lng(row, "scopeId"), Rows.dec(row, "threshold"),
-                        Rows.str(row, "compareOp"), Rows.dec(row, "triggeredValue"), Rows.str(row, "status"),
-                        Rows.str(row, "notifyChannel"), Rows.str(row, "triggeredAt")))
+    @Transactional
+    public MetricConfigView updateConfig(String metricCode, MetricConfigUpdateRequest request) {
+        long tenantId = RndContext.tenantId();
+        long userId = RndContext.userId();
+        String code = RndContext.requireText(metricCode, "metricCode");
+        Map<String, Object> tenantRow = metricMapper.findTenantConfig(tenantId, code);
+        Map<String, Object> row = tenantRow == null ? metricMapper.findPlatformConfig(code) : tenantRow;
+        if (row == null) {
+            throw new BizException(RndErrorCode.METRIC_CONFIG_MISSING);
+        }
+        String currentFormula = Rows.str(row, "formula");
+        String formula = request.formula() == null ? currentFormula : request.formula().strip();
+        // 文档 API-71：口径变更必须走 API-72 发布版本，普通更新不允许直接改公式
+        if (!formula.equals(currentFormula)) {
+            throw new BizException(RndErrorCode.CALIBER_REQUIRED);
+        }
+        String name = request.metricName() == null ? Rows.str(row, "metricName") : request.metricName().strip();
+        String group = request.metricGroup() == null ? Rows.str(row, "metricGroup") : request.metricGroup().strip();
+        BigDecimal weight = request.weight() == null ? Rows.dec(row, "weight") : request.weight();
+        BigDecimal target = request.targetValue() == null ? Rows.dec(row, "targetValue") : request.targetValue();
+        String unit = request.unit() == null ? Rows.str(row, "unit") : request.unit().strip();
+        String status = request.status() == null ? Rows.str(row, "status") : request.status().strip();
+        String caliberVersion = Rows.str(row, "caliberVersion");
+        if (tenantRow == null) {
+            metricMapper.upsertConfig(IdWorker.getId(), tenantId, code, name, group, formula, caliberVersion,
+                    weight, target, unit, status, userId);
+        } else {
+            metricMapper.updateConfig(Rows.lng(tenantRow, "id"), tenantId, name, group, formula, caliberVersion,
+                    weight, target, unit, status, userId);
+        }
+        audit.publish("METRIC_CONFIG_UPDATED", "update", "devops_metric_config", code, "medium");
+        return configs().stream().filter(c -> c.metricCode().equals(code)).findFirst()
+                .orElseThrow(() -> new BizException(RndErrorCode.METRIC_CONFIG_MISSING));
+    }
+
+    public List<MetricCaliberView> calibers(String metricCode) {
+        return metricMapper.listCalibers(RndContext.tenantId(), RndContext.text(metricCode)).stream()
+                .map(row -> new MetricCaliberView(Rows.lng(row, "id"), Rows.str(row, "metricCode"),
+                        Rows.str(row, "caliberVersion"), Rows.str(row, "formula"),
+                        Rows.str(row, "effectiveFrom"), Rows.str(row, "createdAt")))
+                .toList();
+    }
+
+    @Transactional
+    public MetricCaliberView publishCaliber(MetricCaliberCreateRequest request) {
+        long tenantId = RndContext.tenantId();
+        long userId = RndContext.userId();
+        String code = RndContext.requireText(request.metricCode(), "metricCode");
+        String version = RndContext.requireText(request.caliberVersion(), "caliberVersion");
+        String formula = RndContext.requireText(request.formula(), "formula");
+        String effectiveFrom = request.effectiveFrom() == null
+                ? OffsetDateTime.now().toString() : request.effectiveFrom();
+        Map<String, Object> tenantRow = metricMapper.findTenantConfig(tenantId, code);
+        Map<String, Object> row = tenantRow == null ? metricMapper.findPlatformConfig(code) : tenantRow;
+        if (row == null) {
+            throw new BizException(RndErrorCode.METRIC_CONFIG_MISSING);
+        }
+        metricMapper.upsertCaliber(IdWorker.getId(), tenantId, code, version, formula, effectiveFrom, userId);
+        // 历史快照保留原版本标记，仅切换配置的当前口径与生效版本
+        if (tenantRow == null) {
+            metricMapper.upsertConfig(IdWorker.getId(), tenantId, code, Rows.str(row, "metricName"),
+                    Rows.str(row, "metricGroup"), formula, version, Rows.dec(row, "weight"),
+                    Rows.dec(row, "targetValue"), Rows.str(row, "unit"), Rows.str(row, "status"), userId);
+        } else {
+            metricMapper.updateConfig(Rows.lng(tenantRow, "id"), tenantId, Rows.str(tenantRow, "metricName"),
+                    Rows.str(tenantRow, "metricGroup"), formula, version, Rows.dec(tenantRow, "weight"),
+                    Rows.dec(tenantRow, "targetValue"), Rows.str(tenantRow, "unit"),
+                    Rows.str(tenantRow, "status"), userId);
+        }
+        audit.publish("METRIC_CALIBER_PUBLISHED", "publish", "devops_metric_caliber",
+                code + ":" + version, "high");
+        return calibers(code).stream().filter(c -> c.caliberVersion().equals(version)).findFirst()
+                .orElseThrow(() -> new BizException(RndErrorCode.RESOURCE_NOT_FOUND));
+    }
+
+    public MetricDataQualityView dataQuality(String metricCode, String periodType, String periodKey) {
+        String type = periodType == null ? "month" : periodType;
+        String key = periodKey == null ? YearMonth.now(ZONE).toString() : periodKey;
+        String code = RndContext.text(metricCode);
+        Map<String, Object> row = metricMapper.aggregateDataQuality(RndContext.tenantId(), code, type, key);
+        int sample = row == null ? 0 : Rows.intVal(row, "sampleCount");
+        int missing = row == null ? 0 : Rows.intVal(row, "missingCount");
+        int outlier = row == null ? 0 : Rows.intVal(row, "outlierCount");
+        BigDecimal missingRate = sample == 0
+                ? BigDecimal.ZERO.setScale(6, RoundingMode.HALF_UP)
+                : BigDecimal.valueOf(missing).divide(BigDecimal.valueOf(sample), 6, RoundingMode.HALF_UP);
+        String flag = sample == 0 ? "missing" : (missing > 0 ? "missing" : (outlier > 0 ? "outlier" : "normal"));
+        return new MetricDataQualityView(code, type, key, sample, missing, outlier, missingRate, flag);
+    }
+
+    public List<AlertView> alerts(String status, String metricCode) {
+        return metricMapper.listAlerts(RndContext.tenantId(), RndContext.text(status),
+                        RndContext.text(metricCode)).stream()
+                .map(MetricService::toAlertView)
                 .toList();
     }
 
@@ -282,8 +375,42 @@ public class MetricService {
                 request.compareOp() == null ? "gt" : request.compareOp(), RndContext.text(request.notifyChannel()),
                 RndContext.userId());
         audit.publish("METRIC_ALERT_CREATED", "create", "devops_metric_alert", id, "low");
-        return alerts(null).stream().filter(a -> a.id() == id).findFirst()
-                .orElseThrow(() -> new BizException(RndErrorCode.RESOURCE_NOT_FOUND));
+        return toAlertView(metricMapper.findAlert(tenantId, id));
+    }
+
+    @Transactional
+    public AlertView updateAlert(long id, AlertUpdateRequest request) {
+        long tenantId = RndContext.tenantId();
+        Map<String, Object> row = metricMapper.findAlert(tenantId, id);
+        if (row == null) {
+            throw new BizException(RndErrorCode.RESOURCE_NOT_FOUND);
+        }
+        BigDecimal threshold = request.threshold() == null ? Rows.dec(row, "threshold") : request.threshold();
+        String compareOp = request.compareOp() == null ? Rows.str(row, "compareOp") : request.compareOp();
+        String notifyChannel = request.notifyChannel() == null
+                ? Rows.str(row, "notifyChannel") : request.notifyChannel();
+        String status = request.status() == null ? Rows.str(row, "status") : request.status();
+        metricMapper.updateAlert(tenantId, id, threshold, compareOp, notifyChannel, status, RndContext.userId());
+        audit.publish("METRIC_ALERT_UPDATED", "update", "devops_metric_alert", id, "low");
+        return toAlertView(metricMapper.findAlert(tenantId, id));
+    }
+
+    @Transactional
+    public AlertView resolveAlert(long id) {
+        long tenantId = RndContext.tenantId();
+        if (metricMapper.findAlert(tenantId, id) == null) {
+            throw new BizException(RndErrorCode.RESOURCE_NOT_FOUND);
+        }
+        metricMapper.resolveAlert(tenantId, id, RndContext.userId());
+        audit.publish("METRIC_ALERT_RESOLVED", "resolve", "devops_metric_alert", id, "low");
+        return toAlertView(metricMapper.findAlert(tenantId, id));
+    }
+
+    private static AlertView toAlertView(Map<String, Object> row) {
+        return new AlertView(Rows.lng(row, "id"), Rows.str(row, "metricCode"),
+                Rows.str(row, "scopeType"), Rows.lng(row, "scopeId"), Rows.dec(row, "threshold"),
+                Rows.str(row, "compareOp"), Rows.dec(row, "triggeredValue"), Rows.str(row, "status"),
+                Rows.str(row, "notifyChannel"), Rows.str(row, "triggeredAt"));
     }
 
     @Transactional
@@ -292,7 +419,7 @@ public class MetricService {
         long userId = RndContext.userId();
         String type = periodType == null ? "month" : periodType;
         String key = periodKey == null ? YearMonth.now(ZONE).toString() : periodKey;
-        for (AlertView alert : alerts("active")) {
+        for (AlertView alert : alerts("active", null)) {
             if (!"product".equals(alert.scopeType()) || (alert.scopeId() != null && alert.scopeId() != productId)) {
                 continue;
             }
@@ -311,7 +438,7 @@ public class MetricService {
                 metricMapper.triggerAlert(tenantId, alert.id(), value, userId);
             }
         }
-        return alerts(null);
+        return alerts(null, null);
     }
 
     private MetricValueView record(long tenantId, long productId, String periodType, String periodKey,

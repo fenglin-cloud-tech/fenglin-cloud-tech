@@ -15,8 +15,10 @@ import com.fenglin.rnd.web.dto.RndDtos.CommitIngestRequest;
 import com.fenglin.rnd.web.dto.RndDtos.CommitLinkRequest;
 import com.fenglin.rnd.web.dto.RndDtos.CommitView;
 import com.fenglin.rnd.web.dto.RndDtos.RepoCreateRequest;
+import com.fenglin.rnd.web.dto.RndDtos.RepoUpdateRequest;
 import com.fenglin.rnd.web.dto.RndDtos.RepoView;
 import com.fenglin.rnd.web.dto.RndDtos.SyncResult;
+import com.fenglin.rnd.web.dto.RndDtos.WebhookEventView;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -94,6 +96,34 @@ public class CodeService {
     }
 
     @Transactional
+    public RepoView updateRepo(long id, RepoUpdateRequest request) {
+        long tenantId = RndContext.tenantId();
+        long userId = RndContext.userId();
+        if (codeMapper.findRepo(tenantId, id) == null) {
+            throw new BizException(RndErrorCode.RESOURCE_NOT_FOUND);
+        }
+        String token = RndContext.text(request.accessToken());
+        codeMapper.updateRepo(tenantId, id, RndContext.text(request.repoName()),
+                RndContext.text(request.defaultBranch()),
+                token == null ? null : crypto.encrypt(tenantId, TOKEN_TABLE, "access_token", token),
+                token == null ? null : crypto.hash(tenantId, token),
+                request.webhookSecret() == null ? null
+                        : crypto.encrypt(tenantId, TOKEN_TABLE, "webhook_secret", request.webhookSecret()),
+                userId);
+        audit.publish("REPO_UPDATED", "update", "devops_repo", id, "medium");
+        return getRepo(id);
+    }
+
+    @Transactional
+    public void deleteRepo(long id) {
+        long tenantId = RndContext.tenantId();
+        if (codeMapper.deleteRepo(tenantId, id, RndContext.userId()) == 0) {
+            throw new BizException(RndErrorCode.RESOURCE_NOT_FOUND);
+        }
+        audit.publish("REPO_DELETED", "delete", "devops_repo", id, "medium");
+    }
+
+    @Transactional
     public SyncResult syncRepo(long id) {
         long tenantId = RndContext.tenantId();
         getRepo(id);
@@ -153,7 +183,7 @@ public class CodeService {
     }
 
     @Transactional
-    public Map<String, Object> handleWebhook(String source, String signature, String payload) {
+    public WebhookEventView handleWebhook(String source, String signature, String payload) {
         long tenantId = RndContext.tenantId();
         long userId = RndContext.userId();
         String actual = signature == null ? "" : signature;
@@ -176,7 +206,12 @@ public class CodeService {
         if ("push".equals(eventType)) {
             ingestPushPayload(root);
         }
-        return codeMapper.findWebhookEvent(tenantId, source, eventId);
+        return toWebhookView(codeMapper.findWebhookEvent(tenantId, source, eventId));
+    }
+
+    private static WebhookEventView toWebhookView(Map<String, Object> row) {
+        return new WebhookEventView(Rows.lng(row, "id"), Rows.str(row, "source"), Rows.str(row, "eventType"),
+                Rows.str(row, "eventId"), Rows.str(row, "processStatus"), Rows.str(row, "createdAt"));
     }
 
     private void ingestPushPayload(JsonNode root) {

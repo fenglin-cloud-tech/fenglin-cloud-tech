@@ -59,6 +59,27 @@ public interface CodeMapper {
             """)
     int markSynced(@Param("tenantId") long tenantId, @Param("id") long id, @Param("userId") long userId);
 
+    @Update("""
+            UPDATE devops_repo
+            SET repo_name = COALESCE(#{repoName,jdbcType=VARCHAR}, repo_name),
+                default_branch = COALESCE(#{defaultBranch,jdbcType=VARCHAR}, default_branch),
+                access_token_cipher = COALESCE(#{tokenCipher,jdbcType=VARCHAR}, access_token_cipher),
+                access_token_hash = COALESCE(#{tokenHash,jdbcType=VARCHAR}, access_token_hash),
+                webhook_secret_cipher = COALESCE(#{secretCipher,jdbcType=VARCHAR}, webhook_secret_cipher),
+                updated_by = #{userId}, version = version + 1
+            WHERE tenant_id = #{tenantId} AND id = #{id} AND deleted = 0
+            """)
+    int updateRepo(@Param("tenantId") long tenantId, @Param("id") long id,
+                   @Param("repoName") String repoName, @Param("defaultBranch") String defaultBranch,
+                   @Param("tokenCipher") String tokenCipher, @Param("tokenHash") String tokenHash,
+                   @Param("secretCipher") String secretCipher, @Param("userId") long userId);
+
+    @Update("""
+            UPDATE devops_repo SET deleted = 1, updated_by = #{userId}, version = version + 1
+            WHERE tenant_id = #{tenantId} AND id = #{id} AND deleted = 0
+            """)
+    int deleteRepo(@Param("tenantId") long tenantId, @Param("id") long id, @Param("userId") long userId);
+
     @Insert("""
             INSERT INTO devops_commit
                 (id, tenant_id, repo_id, commit_sha, branch, author_name, author_email_hash, author_user_id,

@@ -3,6 +3,7 @@ package com.fenglin.rnd.web.dto;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 云研接口 DTO 集合：请求与视图record，JSON 由全局 SNAKE_CASE 策略输出。
@@ -262,5 +263,50 @@ public final class RndDtos {
     public record AlertView(Long id, String metricCode, String scopeType, Long scopeId, BigDecimal threshold,
                             String compareOp, BigDecimal triggeredValue, String status, String notifyChannel,
                             String triggeredAt) {
+    }
+
+    public record ProductUpdateRequest(String name, String productLine, Long ownerId, String visibility,
+                                       Integer sprintCycleDays, String description, String status) {
+    }
+
+    public record MemberUpdateRequest(String roleCode, String dataScope) {
+    }
+
+    public record RepoUpdateRequest(String repoName, String defaultBranch, String accessToken,
+                                    String webhookSecret) {
+    }
+
+    public record MetricConfigUpdateRequest(String metricName, String metricGroup, String formula, BigDecimal weight,
+                                            BigDecimal targetValue, String unit, String status) {
+    }
+
+    public record MetricCaliberCreateRequest(String metricCode, String caliberVersion, String formula,
+                                             String effectiveFrom) {
+    }
+
+    public record MetricCaliberView(Long id, String metricCode, String caliberVersion, String formula,
+                                    String effectiveFrom, String createdAt) {
+    }
+
+    public record MetricDataQualityView(String metricCode, String periodType, String periodKey, Integer sampleCount,
+                                        Integer missingCount, Integer outlierCount, BigDecimal missingRate,
+                                        String qualityFlag) {
+    }
+
+    public record AlertUpdateRequest(BigDecimal threshold, String compareOp, String notifyChannel, String status) {
+    }
+
+    public record WebhookEventView(Long id, String source, String eventType, String eventId, String processStatus,
+                                   String createdAt) {
+    }
+
+    public record TenantConfigUpdateRequest(Map<String, Object> configJson, String timezone,
+                                            Integer dataRetentionMonths, String doraTargetLevel,
+                                            String webhookBaseUrl) {
+    }
+
+    public record TenantConfigView(Long id, Map<String, Object> configJson, String timezone,
+                                   Integer dataRetentionMonths, String doraTargetLevel, String webhookBaseUrl,
+                                   String updatedAt) {
     }
 }
