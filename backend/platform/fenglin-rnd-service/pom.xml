@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.fenglin</groupId>
+        <artifactId>fenglin-cloud</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+        <relativePath>../../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>fenglin-rnd-service</artifactId>
+    <name>fenglin-rnd-service</name>
+    <description>丰麟云研（DevOps）业务域服务：需求/迭代/看板/任务/缺陷/测试/代码/流水线/发布与效能度量</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.fenglin</groupId>
+            <artifactId>fenglin-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fenglin</groupId>
+            <artifactId>fenglin-starter-mybatis</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fenglin</groupId>
+            <artifactId>fenglin-starter-observability</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fenglin</groupId>
+            <artifactId>fenglin-common-security</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fenglin</groupId>
+            <artifactId>fenglin-common-audit</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fenglin</groupId>
+            <artifactId>fenglin-common-crypto</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.fenglin</groupId>
+            <artifactId>fenglin-common-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.fenglin</groupId>
+            <artifactId>fenglin-rnd-migrations</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+            <!-- 内嵌 PostgreSQL 集成测试在低内存终端下需显式限制堆与元空间，避免 fork JVM 原生内存分配失败 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <argLine>-Xmx768m -XX:MaxMetaspaceSize=320m -XX:ReservedCodeCacheSize=128m
+                        -Djdk.net.URLClassPath.disableClassPathURLCheck=true</argLine>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

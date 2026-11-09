@@ -41,5 +41,8 @@
         <module>fenglin-finance-migrations</module>
         <module>fenglin-finance-bootstrap</module>
         <module>fenglin-finance-service</module>
+        <module>fenglin-rnd-migrations</module>
+        <module>fenglin-rnd-bootstrap</module>
+        <module>fenglin-rnd-service</module>
     </modules>
 </project>
