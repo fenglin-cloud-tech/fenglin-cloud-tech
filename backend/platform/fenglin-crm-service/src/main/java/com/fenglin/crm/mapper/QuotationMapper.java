@@ -56,6 +56,37 @@ public interface QuotationMapper {
             + "AND status IN ('APPROVED', 'PENDING') AND deleted = 0")
     long countApprovedOrPending(@Param("tenantId") long tenantId, @Param("opportunityId") long opportunityId);
 
+    // ---------- 列表（扩展） ----------
+
+    String LIST_COLUMNS = " q.id AS \"quotationId\", q.quotation_no AS \"quotationNo\", "
+            + "q.opportunity_id AS \"opportunityId\", q.customer_id AS \"customerId\", cu.name AS \"customerName\", "
+            + "q.version_no AS \"versionNo\", q.total_amount AS \"totalAmount\", q.status AS \"status\", "
+            + "q.owner_id AS \"ownerId\", (EXTRACT(EPOCH FROM q.created_at) * 1000)::bigint AS \"createdMs\" ";
+
+    String LIST_FROM = " FROM crm_quotation q "
+            + "JOIN crm_customer cu ON cu.id = q.customer_id AND cu.tenant_id = q.tenant_id AND cu.deleted = 0 ";
+
+    String LIST_FILTERS = " AND (CAST(#{status,jdbcType=VARCHAR} AS varchar) IS NULL OR q.status = #{status}) "
+            + " AND (CAST(#{ownerId,jdbcType=BIGINT} AS bigint) IS NULL OR q.owner_id = #{ownerId}) "
+            + " AND (CAST(#{customerId,jdbcType=BIGINT} AS bigint) IS NULL OR q.customer_id = #{customerId}) "
+            + " AND (CAST(#{keyword,jdbcType=VARCHAR} AS varchar) IS NULL "
+            + "      OR q.quotation_no ILIKE '%' || CAST(#{keyword,jdbcType=VARCHAR} AS varchar) || '%' "
+            + "      OR cu.name ILIKE '%' || CAST(#{keyword,jdbcType=VARCHAR} AS varchar) || '%') ";
+
+    @Select("SELECT " + LIST_COLUMNS + LIST_FROM
+            + "WHERE q.tenant_id = #{tenantId} AND q.deleted = 0" + LIST_FILTERS
+            + "ORDER BY q.created_at DESC LIMIT #{size} OFFSET #{offset}")
+    List<Map<String, Object>> list(@Param("tenantId") long tenantId, @Param("status") String status,
+                                   @Param("ownerId") Long ownerId, @Param("customerId") Long customerId,
+                                   @Param("keyword") String keyword, @Param("offset") int offset,
+                                   @Param("size") int size);
+
+    @Select("SELECT count(1)" + LIST_FROM
+            + "WHERE q.tenant_id = #{tenantId} AND q.deleted = 0" + LIST_FILTERS)
+    long count(@Param("tenantId") long tenantId, @Param("status") String status,
+               @Param("ownerId") Long ownerId, @Param("customerId") Long customerId,
+               @Param("keyword") String keyword);
+
     // ---------- 明细 ----------
 
     @Insert("INSERT INTO crm_quotation_item (id, tenant_id, quotation_id, product_code, product_name, unit, "

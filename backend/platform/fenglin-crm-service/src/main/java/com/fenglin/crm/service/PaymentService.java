@@ -12,6 +12,7 @@ import com.fenglin.crm.web.dto.CrmDtos.CollectionFlagRequest;
 import com.fenglin.crm.web.dto.CrmDtos.OverduePlanView;
 import com.fenglin.crm.web.dto.CrmDtos.PaymentRecordView;
 import com.fenglin.crm.web.dto.CrmDtos.PaymentRegisterRequest;
+import com.fenglin.crm.web.dto.CrmDtos.PaymentReminderView;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -122,6 +123,33 @@ public class PaymentService {
                         Rows.str(row, "collectionFlag"), Rows.str(row, "collectionNote")))
                 .toList();
         long total = contractMapper.countOverduePlans(tenantId, customerId);
+        return PageResult.of(records, total, safePage, safeSize);
+    }
+
+    /**
+     * 扩展：回款提醒。未结清且到期日不晚于未来 N 天（含已逾期），可按负责人过滤。
+     */
+    @Transactional(readOnly = true)
+    public PageResult<PaymentReminderView> reminders(Long ownerId, Integer upcomingDays, Integer page, Integer size) {
+        long tenantId = CrmContext.tenantId();
+        int safePage = CrmContext.page(page);
+        int safeSize = CrmContext.size(size);
+        int days = upcomingDays == null || upcomingDays < 0 ? 30 : upcomingDays;
+        List<PaymentReminderView> records = contractMapper
+                .listReminders(tenantId, ownerId, days, (safePage - 1) * safeSize, safeSize)
+                .stream()
+                .map(row -> {
+                    int overdueDays = Rows.intVal(row, "overdueDays");
+                    return new PaymentReminderView(
+                            Rows.lngVal(row, "planId"), Rows.lngVal(row, "contractId"), Rows.str(row, "contractNo"),
+                            Rows.lngVal(row, "customerId"), Rows.str(row, "customerName"), Rows.intVal(row, "periodNo"),
+                            Rows.date(row, "dueDate"), Rows.dec(row, "amount"), Rows.dec(row, "paidAmount"),
+                            Rows.dec(row, "remainingAmount"), overdueDays,
+                            overdueDays > 0 ? "OVERDUE" : "DUE_SOON",
+                            Rows.str(row, "collectionFlag"), Rows.str(row, "collectionNote"));
+                })
+                .toList();
+        long total = contractMapper.countReminders(tenantId, ownerId, days);
         return PageResult.of(records, total, safePage, safeSize);
     }
 

@@ -8,6 +8,7 @@ import com.fenglin.crm.web.dto.CrmDtos.CollectionFlagRequest;
 import com.fenglin.crm.web.dto.CrmDtos.OverduePlanView;
 import com.fenglin.crm.web.dto.CrmDtos.PaymentRecordView;
 import com.fenglin.crm.web.dto.CrmDtos.PaymentRegisterRequest;
+import com.fenglin.crm.web.dto.CrmDtos.PaymentReminderView;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -59,6 +60,18 @@ public class CrmPaymentController {
             @RequestParam(value = "size", required = false) Integer size) {
         PermissionGuard.require(permissions, "crm:contract:view");
         return ApiResponse.success(paymentService.overdue(customerId, page, size));
+    }
+
+    /** 扩展：回款提醒（未结清且到期日不晚于未来 N 天，可按负责人过滤）。 */
+    @GetMapping("/api/crm/v1/payment-plans/reminders")
+    public ApiResponse<PageResult<PaymentReminderView>> reminders(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(value = "ownerId", required = false) Long ownerId,
+            @RequestParam(value = "upcomingDays", required = false) Integer upcomingDays,
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false) Integer size) {
+        PermissionGuard.require(permissions, "crm:contract:view");
+        return ApiResponse.success(paymentService.reminders(ownerId, upcomingDays, page, size));
     }
 
     /** 扩展：设置催收标记。 */

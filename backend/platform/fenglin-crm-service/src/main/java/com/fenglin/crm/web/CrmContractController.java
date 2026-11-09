@@ -1,11 +1,13 @@
 package com.fenglin.crm.web;
 
 import com.fenglin.common.core.ApiResponse;
+import com.fenglin.common.core.PageResult;
 import com.fenglin.common.security.PermissionGuard;
 import com.fenglin.crm.service.ContractService;
 import com.fenglin.crm.web.dto.CrmDtos.ContractAmendRequest;
 import com.fenglin.crm.web.dto.CrmDtos.ContractChangeView;
 import com.fenglin.crm.web.dto.CrmDtos.ContractCreateRequest;
+import com.fenglin.crm.web.dto.CrmDtos.ContractListItemView;
 import com.fenglin.crm.web.dto.CrmDtos.ContractRenewRequest;
 import com.fenglin.crm.web.dto.CrmDtos.ContractView;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -13,6 +15,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -38,6 +41,20 @@ public class CrmContractController {
             @RequestBody ContractCreateRequest request) {
         PermissionGuard.require(permissions, "crm:contract:manage");
         return ApiResponse.success(contractService.create(request));
+    }
+
+    /** 扩展：合同分页列表（员工端「我的合同」与回款提醒使用）。 */
+    @GetMapping("/api/crm/v1/contracts")
+    public ApiResponse<PageResult<ContractListItemView>> list(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "ownerId", required = false) Long ownerId,
+            @RequestParam(value = "customerId", required = false) Long customerId,
+            @RequestParam(value = "keyword", required = false) String keyword,
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false) Integer size) {
+        PermissionGuard.require(permissions, "crm:contract:view");
+        return ApiResponse.success(contractService.list(status, ownerId, customerId, keyword, page, size));
     }
 
     /** 扩展：合同详情（含回款计划）。 */

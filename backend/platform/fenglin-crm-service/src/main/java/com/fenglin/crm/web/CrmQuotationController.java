@@ -1,12 +1,14 @@
 package com.fenglin.crm.web;
 
 import com.fenglin.common.core.ApiResponse;
+import com.fenglin.common.core.PageResult;
 import com.fenglin.common.security.PermissionGuard;
 import com.fenglin.crm.service.ContractService;
 import com.fenglin.crm.service.QuotationService;
 import com.fenglin.crm.web.dto.CrmDtos.ContractView;
 import com.fenglin.crm.web.dto.CrmDtos.QuotationConvertRequest;
 import com.fenglin.crm.web.dto.CrmDtos.QuotationCreateRequest;
+import com.fenglin.crm.web.dto.CrmDtos.QuotationListItemView;
 import com.fenglin.crm.web.dto.CrmDtos.QuotationSubmitRequest;
 import com.fenglin.crm.web.dto.CrmDtos.QuotationSubmitResult;
 import com.fenglin.crm.web.dto.CrmDtos.QuotationView;
@@ -15,6 +17,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -37,6 +40,20 @@ public class CrmQuotationController {
             @RequestBody QuotationCreateRequest request) {
         PermissionGuard.require(permissions, "crm:quotation:create");
         return ApiResponse.success(quotationService.create(request));
+    }
+
+    /** 扩展：报价分页列表（员工端「我的报价」与客户详情使用）。 */
+    @GetMapping("/api/crm/v1/quotations")
+    public ApiResponse<PageResult<QuotationListItemView>> list(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "ownerId", required = false) Long ownerId,
+            @RequestParam(value = "customerId", required = false) Long customerId,
+            @RequestParam(value = "keyword", required = false) String keyword,
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false) Integer size) {
+        PermissionGuard.require(permissions, "crm:quotation:view");
+        return ApiResponse.success(quotationService.list(status, ownerId, customerId, keyword, page, size));
     }
 
     @GetMapping("/api/crm/v1/quotations/{id}")

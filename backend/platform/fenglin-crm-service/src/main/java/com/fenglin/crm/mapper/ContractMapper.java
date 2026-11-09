@@ -57,6 +57,63 @@ public interface ContractMapper {
             + "AND customer_id = #{customerId} AND deleted = 0 ORDER BY start_date DESC")
     List<Map<String, Object>> listByCustomer(@Param("tenantId") long tenantId, @Param("customerId") long customerId);
 
+    // ---------- 列表（扩展） ----------
+
+    String LIST_COLUMNS = " c.id AS \"contractId\", c.contract_no AS \"contractNo\", c.customer_id AS \"customerId\", "
+            + "cu.name AS \"customerName\", c.sla_level AS \"slaLevel\", c.service_package AS \"servicePackage\", "
+            + "c.amount AS \"amount\", to_char(c.start_date, 'YYYY-MM-DD') AS \"startDate\", "
+            + "to_char(c.end_date, 'YYYY-MM-DD') AS \"endDate\", c.status AS \"status\", "
+            + "c.owner_id AS \"ownerId\", (EXTRACT(EPOCH FROM c.created_at) * 1000)::bigint AS \"createdMs\" ";
+
+    String LIST_FROM = " FROM crm_service_contract c "
+            + "JOIN crm_customer cu ON cu.id = c.customer_id AND cu.tenant_id = c.tenant_id AND cu.deleted = 0 ";
+
+    String LIST_FILTERS = " AND (CAST(#{status,jdbcType=VARCHAR} AS varchar) IS NULL OR c.status = #{status}) "
+            + " AND (CAST(#{ownerId,jdbcType=BIGINT} AS bigint) IS NULL OR c.owner_id = #{ownerId}) "
+            + " AND (CAST(#{customerId,jdbcType=BIGINT} AS bigint) IS NULL OR c.customer_id = #{customerId}) "
+            + " AND (CAST(#{keyword,jdbcType=VARCHAR} AS varchar) IS NULL "
+            + "      OR c.contract_no ILIKE '%' || CAST(#{keyword,jdbcType=VARCHAR} AS varchar) || '%' "
+            + "      OR cu.name ILIKE '%' || CAST(#{keyword,jdbcType=VARCHAR} AS varchar) || '%') ";
+
+    @Select("SELECT " + LIST_COLUMNS + LIST_FROM
+            + "WHERE c.tenant_id = #{tenantId} AND c.deleted = 0" + LIST_FILTERS
+            + "ORDER BY c.created_at DESC LIMIT #{size} OFFSET #{offset}")
+    List<Map<String, Object>> list(@Param("tenantId") long tenantId, @Param("status") String status,
+                                   @Param("ownerId") Long ownerId, @Param("customerId") Long customerId,
+                                   @Param("keyword") String keyword, @Param("offset") int offset,
+                                   @Param("size") int size);
+
+    @Select("SELECT count(1)" + LIST_FROM
+            + "WHERE c.tenant_id = #{tenantId} AND c.deleted = 0" + LIST_FILTERS)
+    long count(@Param("tenantId") long tenantId, @Param("status") String status,
+               @Param("ownerId") Long ownerId, @Param("customerId") Long customerId,
+               @Param("keyword") String keyword);
+
+    // ---------- 回款提醒（扩展） ----------
+
+    @Select("SELECT " + PLAN_COLUMNS + ", p.contract_id AS \"contractId\", c.contract_no AS \"contractNo\", "
+            + "c.customer_id AS \"customerId\", cu.name AS \"customerName\" "
+            + "FROM crm_payment_plan p "
+            + "JOIN crm_service_contract c ON c.id = p.contract_id AND c.tenant_id = p.tenant_id AND c.deleted = 0 "
+            + "JOIN crm_customer cu ON cu.id = c.customer_id AND cu.tenant_id = c.tenant_id AND cu.deleted = 0 "
+            + "WHERE p.tenant_id = #{tenantId} AND p.deleted = 0 AND p.status <> 'PAID' "
+            + "AND (CAST(#{ownerId,jdbcType=BIGINT} AS bigint) IS NULL OR c.owner_id = #{ownerId}) "
+            + "AND (CAST(#{upcomingDays,jdbcType=INTEGER} AS integer) IS NULL "
+            + "     OR p.due_date <= CURRENT_DATE + CAST(#{upcomingDays,jdbcType=INTEGER} AS integer)) "
+            + "ORDER BY p.due_date, p.period_no LIMIT #{limit} OFFSET #{offset}")
+    List<Map<String, Object>> listReminders(@Param("tenantId") long tenantId, @Param("ownerId") Long ownerId,
+                                            @Param("upcomingDays") Integer upcomingDays,
+                                            @Param("offset") int offset, @Param("limit") int limit);
+
+    @Select("SELECT count(1) FROM crm_payment_plan p "
+            + "JOIN crm_service_contract c ON c.id = p.contract_id AND c.tenant_id = p.tenant_id AND c.deleted = 0 "
+            + "WHERE p.tenant_id = #{tenantId} AND p.deleted = 0 AND p.status <> 'PAID' "
+            + "AND (CAST(#{ownerId,jdbcType=BIGINT} AS bigint) IS NULL OR c.owner_id = #{ownerId}) "
+            + "AND (CAST(#{upcomingDays,jdbcType=INTEGER} AS integer) IS NULL "
+            + "     OR p.due_date <= CURRENT_DATE + CAST(#{upcomingDays,jdbcType=INTEGER} AS integer))")
+    long countReminders(@Param("tenantId") long tenantId, @Param("ownerId") Long ownerId,
+                        @Param("upcomingDays") Integer upcomingDays);
+
     @Update("UPDATE crm_service_contract SET amount = COALESCE(CAST(#{amount,jdbcType=NUMERIC} AS numeric), amount), "
             + "sla_level = COALESCE(CAST(#{slaLevel,jdbcType=VARCHAR} AS varchar), sla_level), "
             + "service_package = COALESCE(CAST(#{servicePackage,jdbcType=VARCHAR} AS varchar), service_package), "

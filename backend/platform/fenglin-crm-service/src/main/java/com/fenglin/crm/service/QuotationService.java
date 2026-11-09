@@ -3,6 +3,7 @@ package com.fenglin.crm.service;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.fenglin.common.core.BizException;
 import com.fenglin.common.core.CommonErrorCode;
+import com.fenglin.common.core.PageResult;
 import com.fenglin.crm.CrmErrorCode;
 import com.fenglin.crm.client.WorkflowClient;
 import com.fenglin.crm.mapper.CustomerMapper;
@@ -13,6 +14,7 @@ import com.fenglin.crm.support.Rows;
 import com.fenglin.crm.web.dto.CrmDtos.QuotationCreateRequest;
 import com.fenglin.crm.web.dto.CrmDtos.QuotationItemRequest;
 import com.fenglin.crm.web.dto.CrmDtos.QuotationItemView;
+import com.fenglin.crm.web.dto.CrmDtos.QuotationListItemView;
 import com.fenglin.crm.web.dto.CrmDtos.QuotationSubmitResult;
 import com.fenglin.crm.web.dto.CrmDtos.QuotationView;
 import org.springframework.beans.factory.annotation.Value;
@@ -117,6 +119,27 @@ public class QuotationService {
                 Rows.instant(row, "createdMs"));
     }
 
+    /** 扩展：报价分页列表（可按状态/负责人/客户过滤，支持员工端「我的报价」）。 */
+    @Transactional(readOnly = true)
+    public PageResult<QuotationListItemView> list(String status, Long ownerId, Long customerId, String keyword,
+                                                  Integer page, Integer size) {
+        long tenantId = CrmContext.tenantId();
+        int safePage = CrmContext.page(page);
+        int safeSize = CrmContext.size(size);
+        List<QuotationListItemView> records = quotationMapper
+                .list(tenantId, blankToNull(status), ownerId, customerId, blankToNull(keyword),
+                        (safePage - 1) * safeSize, safeSize)
+                .stream()
+                .map(row -> new QuotationListItemView(
+                        Rows.lngVal(row, "quotationId"), Rows.str(row, "quotationNo"), Rows.lng(row, "opportunityId"),
+                        Rows.lngVal(row, "customerId"), Rows.str(row, "customerName"), Rows.intVal(row, "versionNo"),
+                        Rows.dec(row, "totalAmount"), Rows.str(row, "status"), Rows.lng(row, "ownerId"),
+                        Rows.instant(row, "createdMs")))
+                .toList();
+        long total = quotationMapper.count(tenantId, blankToNull(status), ownerId, customerId, blankToNull(keyword));
+        return PageResult.of(records, total, safePage, safeSize);
+    }
+
     /**
      * 提交审批：综合折扣 > 20% 或含税总额 > 100 万走工作流中心；否则自动通过。
      */
@@ -171,6 +194,10 @@ public class QuotationService {
         BigDecimal rate = item.discountRate() == null ? BigDecimal.ZERO : item.discountRate();
         BigDecimal factor = BigDecimal.ONE.subtract(rate.divide(HUNDRED, 6, RoundingMode.HALF_UP));
         return item.quantity().multiply(item.unitPrice()).multiply(factor).setScale(2, RoundingMode.HALF_UP);
+    }
+
+    private String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value;
     }
 
     private Map<String, Object> requireQuotation(long tenantId, long quotationId) {

@@ -126,6 +126,12 @@ public final class CrmDtos {
                                 List<QuotationItemView> items, Instant createdAt) {
     }
 
+    /** 扩展：报价列表（01 文档未定义列表接口，员工端「我的报价」与客户详情需要）。 */
+    public record QuotationListItemView(long quotationId, String quotationNo, Long opportunityId, long customerId,
+                                        String customerName, int versionNo, BigDecimal totalAmount,
+                                        String status, Long ownerId, Instant createdAt) {
+    }
+
     public record QuotationSubmitRequest(String comment) {
     }
 
@@ -149,6 +155,13 @@ public final class CrmDtos {
     public record PaymentPlanView(long planId, int periodNo, LocalDate dueDate, BigDecimal amount,
                                   BigDecimal paidAmount, BigDecimal remainingAmount, String status, int overdueDays,
                                   String collectionFlag, String collectionNote) {
+    }
+
+    /** 扩展：合同列表（01 文档未定义列表接口，员工端「我的合同」与回款提醒需要）。 */
+    public record ContractListItemView(long contractId, String contractNo, long customerId, String customerName,
+                                       String slaLevel, String servicePackage, BigDecimal amount,
+                                       LocalDate startDate, LocalDate endDate, String status, Long ownerId,
+                                       Instant createdAt) {
     }
 
     public record ContractView(long contractId, String contractNo, long customerId, String slaLevel,
@@ -183,6 +196,13 @@ public final class CrmDtos {
                                   String customerName, int periodNo, LocalDate dueDate, BigDecimal amount,
                                   BigDecimal paidAmount, BigDecimal remainingAmount, int overdueDays,
                                   String collectionFlag, String collectionNote) {
+    }
+
+    /** 扩展：回款提醒（未结清且到期日不晚于未来 N 天，按负责人过滤）。 */
+    public record PaymentReminderView(long planId, long contractId, String contractNo, long customerId,
+                                      String customerName, int periodNo, LocalDate dueDate, BigDecimal amount,
+                                      BigDecimal paidAmount, BigDecimal remainingAmount, int overdueDays,
+                                      String state, String collectionFlag, String collectionNote) {
     }
 
     public record CollectionFlagRequest(String collectionFlag, String note) {

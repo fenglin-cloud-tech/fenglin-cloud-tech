@@ -3,6 +3,7 @@ package com.fenglin.crm.service;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.fenglin.common.core.BizException;
 import com.fenglin.common.core.CommonErrorCode;
+import com.fenglin.common.core.PageResult;
 import com.fenglin.crm.CrmErrorCode;
 import com.fenglin.crm.mapper.ContractMapper;
 import com.fenglin.crm.mapper.CustomerMapper;
@@ -13,6 +14,7 @@ import com.fenglin.crm.support.Rows;
 import com.fenglin.crm.web.dto.CrmDtos.ContractAmendRequest;
 import com.fenglin.crm.web.dto.CrmDtos.ContractChangeView;
 import com.fenglin.crm.web.dto.CrmDtos.ContractCreateRequest;
+import com.fenglin.crm.web.dto.CrmDtos.ContractListItemView;
 import com.fenglin.crm.web.dto.CrmDtos.ContractRenewRequest;
 import com.fenglin.crm.web.dto.CrmDtos.ContractView;
 import com.fenglin.crm.web.dto.CrmDtos.PaymentPlanRequest;
@@ -83,6 +85,27 @@ public class ContractService {
                 Rows.str(row, "slaLevel"), Rows.str(row, "servicePackage"), Rows.dec(row, "amount"),
                 Rows.date(row, "startDate"), Rows.date(row, "endDate"), Rows.str(row, "status"), plans,
                 Rows.instant(row, "createdMs"));
+    }
+
+    /** 扩展：合同分页列表（可按状态/负责人/客户过滤，支持员工端「我的合同」）。 */
+    @Transactional(readOnly = true)
+    public PageResult<ContractListItemView> list(String status, Long ownerId, Long customerId, String keyword,
+                                                 Integer page, Integer size) {
+        long tenantId = CrmContext.tenantId();
+        int safePage = CrmContext.page(page);
+        int safeSize = CrmContext.size(size);
+        List<ContractListItemView> records = contractMapper
+                .list(tenantId, blankToNull(status), ownerId, customerId, blankToNull(keyword),
+                        (safePage - 1) * safeSize, safeSize)
+                .stream()
+                .map(row -> new ContractListItemView(
+                        Rows.lngVal(row, "contractId"), Rows.str(row, "contractNo"), Rows.lngVal(row, "customerId"),
+                        Rows.str(row, "customerName"), Rows.str(row, "slaLevel"), Rows.str(row, "servicePackage"),
+                        Rows.dec(row, "amount"), Rows.date(row, "startDate"), Rows.date(row, "endDate"),
+                        Rows.str(row, "status"), Rows.lng(row, "ownerId"), Rows.instant(row, "createdMs")))
+                .toList();
+        long total = contractMapper.count(tenantId, blankToNull(status), ownerId, customerId, blankToNull(keyword));
+        return PageResult.of(records, total, safePage, safeSize);
     }
 
     @Transactional(readOnly = true)
@@ -293,6 +316,10 @@ public class ContractService {
         if (slaLevel != null && !slaLevel.isBlank() && !SLA_LEVELS.contains(slaLevel)) {
             throw new BizException(CommonErrorCode.BAD_REQUEST, "不支持的 SLA 等级: " + slaLevel);
         }
+    }
+
+    private String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value;
     }
 
     private Map<String, Object> requireContract(long tenantId, long contractId) {

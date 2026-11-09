@@ -24,7 +24,12 @@ import java.util.Map;
 public class HttpWorkflowClient implements WorkflowClient {
 
     private static final String START_PERMISSION = "biz:workflow:instance:start";
-    private static final String DEPLOY_PERMISSION = "platform:workflow:definition:deploy";
+    /**
+     * 与工作流中心 WorkflowAdminController.DEF_PERMISSION 对齐；此前误用
+     * platform:workflow:definition:deploy 导致首次自动部署恒被 403 拒绝，
+     * 进而提交审批报“流程定义不存在”。
+     */
+    private static final String DEPLOY_PERMISSION = "tenant:workflow:def:manage";
     private static final String BPMN_RESOURCE = "workflow/crm_quotation_approval.bpmn20.xml";
 
     private final RestClient restClient;
