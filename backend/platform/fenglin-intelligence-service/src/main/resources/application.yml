@@ -1,0 +1,45 @@
+server:
+  port: ${FENGLIN_INTELLIGENCE_PORT:18102}
+
+spring:
+  application:
+    name: fenglin-intelligence-service
+  jackson:
+    property-naming-strategy: SNAKE_CASE
+    default-property-inclusion: non_null
+  datasource:
+    url: ${FENGLIN_INTELLIGENCE_DB_URL:jdbc:postgresql://localhost:5432/fenglin_intelligence?currentSchema=fenglin_intelligence}
+    username: ${FENGLIN_INTELLIGENCE_DB_USER:fenglin}
+    password: ${FENGLIN_INTELLIGENCE_DB_PASSWORD:fenglin_dev}
+    hikari:
+      maximum-pool-size: 10
+      connection-init-sql: SET ROLE fl_intelligence_app
+  flyway:
+    enabled: false
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+
+fenglin:
+  intelligence:
+    workflow-service-url: ${FENGLIN_WORKFLOW_SERVICE_URL:http://localhost:18084}
+    workflow-bootstrap-enabled: true
+    # 平台 AI 中台：模型网关、护栏、计量、提示词、能力授权的唯一入口
+    ai-platform-url: ${FENGLIN_AI_SERVICE_URL:http://localhost:18094}
+  crypto:
+    data-key-base64: ${FENGLIN_CRYPTO_DATA_KEY:MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+info:
+  app:
+    name: ${spring.application.name}
