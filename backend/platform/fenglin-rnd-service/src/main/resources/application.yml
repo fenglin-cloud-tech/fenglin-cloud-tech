@@ -1,0 +1,49 @@
+server:
+  port: ${FENGLIN_RND_PORT:18099}
+
+spring:
+  application:
+    name: fenglin-rnd-service
+  jackson:
+    property-naming-strategy: SNAKE_CASE
+    default-property-inclusion: non_null
+  datasource:
+    # 业务域独立 schema：生产为独立 database fenglin_devops，本地/CI 至少独立 schema
+    url: ${FENGLIN_RND_DB_URL:jdbc:postgresql://localhost:5432/fenglin_devops?currentSchema=fenglin_devops}
+    username: ${FENGLIN_RND_DB_USER:fenglin}
+    password: ${FENGLIN_RND_DB_PASSWORD:fenglin_dev}
+    hikari:
+      maximum-pool-size: 10
+      # 以非属主角色执行，确保 RLS 对应用连接生效
+      connection-init-sql: SET ROLE fl_devops_app
+  flyway:
+    # fenglin_devops 迁移唯一所有者是 fenglin-rnd-migrations，由发布流程执行
+    enabled: false
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+
+fenglin:
+  rnd:
+    workflow-service-url: ${FENGLIN_WORKFLOW_SERVICE_URL:http://localhost:18084}
+    workflow-bootstrap-enabled: true
+    # Webhook 签名校验密钥，生产由 KMS 注入
+    webhook-secret: ${FENGLIN_RND_WEBHOOK_SECRET:fenglin-rnd-webhook-dev}
+  crypto:
+    # 本地/测试密钥，生产由 KMS 注入
+    data-key-base64: ${FENGLIN_CRYPTO_DATA_KEY:MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+info:
+  app:
+    name: ${spring.application.name}
