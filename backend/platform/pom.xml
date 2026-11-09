@@ -49,5 +49,6 @@
         <module>fenglin-service-service</module>
         <module>fenglin-legal-migrations</module>
         <module>fenglin-legal-bootstrap</module>
+        <module>fenglin-legal-service</module>
     </modules>
 </project>
