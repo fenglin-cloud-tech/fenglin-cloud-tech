@@ -30,7 +30,7 @@ const csatSaving = ref(false)
 const csatForm = reactive({ ticket_id: undefined as number | undefined, score: 5, comment: '' })
 
 const gapItems = [
-  '自助查询接口 /my/tickets 后端要求 service:ticket:view（运营视角权限），数据库里虽存在 biz:service:self:view，但未被后端使用；本页按真实接口收敛。',
+  '自助查询接口 /my/tickets 后端校验 biz:service:self:view（员工自助视角），与后台工单视图 service:ticket:view 分离。',
   '缺少员工自助“关闭/重开工单”接口：流转 /tickets/{id}/transition 需要 service:ticket:handle，员工端不提供。',
   '满意度提交要求 service:csat:submit；无该权限时不显示评分入口。',
 ]

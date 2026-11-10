@@ -53,6 +53,8 @@ public class TalentRecruitController {
     private static final String INTERVIEW_EVALUATE = "talent:interview:evaluate";
     private static final String INTERVIEW_MY = "biz:talent:interview:my";
     private static final String OFFER_CREATE = "talent:admin:offer:create";
+    private static final String OFFER_SEND = "talent:admin:offer:send";
+    private static final String OFFER_ACCEPT = "talent:admin:offer:accept";
 
     private final RecruitService recruitService;
 
@@ -172,7 +174,7 @@ public class TalentRecruitController {
     public ApiResponse<OfferStatusResult> sendOffer(
             @RequestHeader(value = "X-Permissions", required = false) String permissions,
             @PathVariable("id") long id) {
-        PermissionGuard.require(permissions, OFFER_CREATE);
+        PermissionGuard.require(permissions, OFFER_SEND);
         return ApiResponse.success(recruitService.sendOffer(id));
     }
 
@@ -180,7 +182,7 @@ public class TalentRecruitController {
     public ApiResponse<OfferStatusResult> acceptOffer(
             @RequestHeader(value = "X-Permissions", required = false) String permissions,
             @PathVariable("id") long id) {
-        PermissionGuard.require(permissions, OFFER_CREATE);
+        PermissionGuard.require(permissions, OFFER_ACCEPT);
         return ApiResponse.success(recruitService.acceptOffer(id));
     }
 }

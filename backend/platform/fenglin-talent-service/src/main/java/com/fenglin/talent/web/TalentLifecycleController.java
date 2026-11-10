@@ -32,9 +32,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class TalentLifecycleController {
 
     private static final String ONBOARDING_CREATE = "talent:admin:onboarding:create";
+    private static final String ONBOARDING_COMPLETE = "talent:admin:onboarding:complete";
     private static final String PROBATION_EVALUATE = "talent:admin:probation:evaluate";
     private static final String TRANSFER_CREATE = "talent:admin:transfer:create";
     private static final String TRANSFER_APPROVE = "talent:admin:transfer:approve";
+    private static final String TRANSFER_EFFECTIVE = "talent:admin:transfer:effective";
     private static final String RESIGNATION_APPLY = "biz:talent:resignation:apply";
     private static final String RESIGNATION_APPROVE = "talent:admin:resignation:approve";
 
@@ -56,7 +58,7 @@ public class TalentLifecycleController {
     public ApiResponse<OnboardingCompleteResult> completeOnboarding(
             @RequestHeader(value = "X-Permissions", required = false) String permissions,
             @PathVariable("id") long id) {
-        PermissionGuard.require(permissions, ONBOARDING_CREATE);
+        PermissionGuard.require(permissions, ONBOARDING_COMPLETE);
         return ApiResponse.success(lifecycleService.completeOnboarding(id));
     }
 
@@ -80,7 +82,7 @@ public class TalentLifecycleController {
     public ApiResponse<TransferEffectiveResult> effectiveTransfer(
             @RequestHeader(value = "X-Permissions", required = false) String permissions,
             @PathVariable("id") long id) {
-        PermissionGuard.require(permissions, TRANSFER_CREATE);
+        PermissionGuard.require(permissions, TRANSFER_EFFECTIVE);
         return ApiResponse.success(lifecycleService.createEffectiveTransfer(id));
     }
 

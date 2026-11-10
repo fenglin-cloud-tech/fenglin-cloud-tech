@@ -39,7 +39,7 @@ const form = reactive({
 
 const gapItems = [
   '工单列表返回 PageResult（records/total），前端按真实分页渲染。',
-  '“我的工单/服务台工单”接口分别要求 service:ticket:view 与 biz:service:desk:view，权限不足时后端返回真实 403。',
+  '“我的工单/服务台工单”接口分别校验 biz:service:self:view 与 biz:service:desk:view，权限不足时后端返回真实 403。',
   '工单详情中的联系人字段后端加密存储（contact_enc），接口只回显脱敏值。',
 ]
 

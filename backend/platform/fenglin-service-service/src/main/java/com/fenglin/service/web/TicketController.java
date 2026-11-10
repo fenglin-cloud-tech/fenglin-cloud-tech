@@ -26,6 +26,8 @@ public class TicketController {
 
     private static final String CREATE = "service:ticket:create";
     private static final String VIEW = "service:ticket:view";
+    private static final String SELF_VIEW = "biz:service:self:view";
+    private static final String DESK_VIEW = "biz:service:desk:view";
     private static final String ASSIGN = "service:ticket:assign";
     private static final String HANDLE = "service:ticket:handle";
     private static final String SLA_VIEW = "service:sla:view";
@@ -179,7 +181,7 @@ public class TicketController {
             @RequestHeader(value = "X-Permissions", required = false) String permissions,
             @RequestParam(value = "page", required = false) Integer page,
             @RequestParam(value = "size", required = false) Integer size) {
-        PermissionGuard.require(permissions, VIEW);
+        PermissionGuard.require(permissions, SELF_VIEW);
         return ApiResponse.success(ticketService.workspace("my", null, null, page, size));
     }
 
@@ -189,7 +191,7 @@ public class TicketController {
             @RequestParam(value = "assigneeId", required = false) Long assigneeId,
             @RequestParam(value = "page", required = false) Integer page,
             @RequestParam(value = "size", required = false) Integer size) {
-        PermissionGuard.require(permissions, VIEW);
+        PermissionGuard.require(permissions, DESK_VIEW);
         return ApiResponse.success(ticketService.workspace("desk", assigneeId, null, page, size));
     }
 

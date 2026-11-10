@@ -31,6 +31,7 @@ public class CatalogKnowledgeController {
 
     private static final String CATALOG_VIEW = "service:catalog:view";
     private static final String CATALOG_APPLY = "service:catalog:apply";
+    private static final String ASSET_REMINDER_VIEW = "service:asset:reminder:view";
     private static final String KB_VIEW = "service:kb:view";
     private static final String KB_EDIT = "service:kb:edit";
     private static final String KB_PUBLISH = "service:kb:publish";
@@ -255,7 +256,7 @@ public class CatalogKnowledgeController {
     @GetMapping("/assets/reminders")
     public ApiResponse<Map<String, Object>> assetReminders(
             @RequestHeader(value = "X-Permissions", required = false) String permissions) {
-        PermissionGuard.require(permissions, ASSET_VIEW);
+        PermissionGuard.require(permissions, ASSET_REMINDER_VIEW);
         return ApiResponse.success(csatAssetService.assetReminder());
     }
 }
