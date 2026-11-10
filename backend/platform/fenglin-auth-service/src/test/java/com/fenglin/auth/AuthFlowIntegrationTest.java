@@ -165,6 +165,10 @@ class AuthFlowIntegrationTest {
         assertThat(jwtClaims.getLongClaim("tenant_id")).isEqualTo(1001L);
         assertThat(jwtClaims.getStringClaim("tenant_code")).isEqualTo(TENANT_CODE);
         assertThat(jwtClaims.getStringClaim("token_use")).isEqualTo("access");
+        // PLAT-10：只带 roles + pv，不再带全量 permissions
+        assertThat(jwtClaims.getStringListClaim("roles")).containsExactly("TENANT_ADMIN");
+        assertThat(jwtClaims.getLongClaim("pv")).isZero();
+        assertThat(jwtClaims.getClaim("permissions")).isNull();
 
         HttpResult userinfo = get("/api/hub/v1/sso/userinfo", Map.of(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken));
         assertThat(userinfo.status()).isEqualTo(200);
@@ -200,6 +204,34 @@ class AuthFlowIntegrationTest {
             rs.next();
             assertThat(rs.getInt(1)).isEqualTo(1);
         }
+    }
+
+    @Test
+    void internalPrincipalPermissionsReturnsAuthoritativeVersion() throws Exception {
+        login(TENANT_CODE, USERNAME, PASSWORD);
+
+        HttpResult response = get("/internal/v1/auth/principals/2001/permissions?pv=0",
+                Map.of("X-Tenant-Id", "1001"));
+        assertThat(response.status()).isEqualTo(200);
+        JsonNode data = response.body().get("data");
+        assertThat(data.get("user_id").asText()).isEqualTo("2001");
+        assertThat(data.get("permission_version").asLong()).isZero();
+        assertThat(data.get("roles").get(0).asText()).isEqualTo("TENANT_ADMIN");
+        assertThat(data.get("permissions")).hasSize(2);
+
+        // 停用账号后解析接口返回空权限，网关注入空头由下游 403
+        try (Connection connection = ownerConnection(); Statement statement = connection.createStatement()) {
+            statement.execute("""
+                    UPDATE fenglin_hub.hub_user
+                       SET status = 'DISABLED', permission_version = permission_version + 1
+                     WHERE tenant_id = 1001 AND id = 2001
+                    """);
+        }
+        JsonNode disabled = get("/internal/v1/auth/principals/2001/permissions",
+                Map.of("X-Tenant-Id", "1001")).body().get("data");
+        assertThat(disabled.get("permission_version").asLong()).isEqualTo(1);
+        assertThat(disabled.get("roles")).isEmpty();
+        assertThat(disabled.get("permissions")).isEmpty();
     }
 
     @Test

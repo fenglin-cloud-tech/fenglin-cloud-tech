@@ -22,6 +22,12 @@ public class AuthProperties {
     private int tokenJanitorBatchSize = 5000;
     /** refresh token 并发轮换宽限期：宽限期内复用视为并发刷新，不终止会话 */
     private Duration refreshGrace = Duration.ofSeconds(10);
+    /** PLAT-10 灰度开关：true 时 access token 继续携带 permissions（回滚路径），默认 false 走网关 resolver */
+    private final Jwt jwt = new Jwt();
+
+    public Jwt getJwt() {
+        return jwt;
+    }
 
     public String getIssuer() {
         return issuer;
@@ -101,5 +107,17 @@ public class AuthProperties {
 
     public void setRefreshGrace(Duration refreshGrace) {
         this.refreshGrace = refreshGrace;
+    }
+
+    public static class Jwt {
+        private boolean includePermissions = false;
+
+        public boolean isIncludePermissions() {
+            return includePermissions;
+        }
+
+        public void setIncludePermissions(boolean includePermissions) {
+            this.includePermissions = includePermissions;
+        }
     }
 }

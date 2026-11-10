@@ -169,6 +169,24 @@ public interface UserMapper {
                          @Param("primaryOrgId") Long primaryOrgId,
                          @Param("operatorId") Long operatorId);
 
+    /** PLAT-10：账号状态/角色变更时递增权限版本，网关按 pv 失效权限缓存。 */
+    @Update("""
+            UPDATE hub_user
+               SET permission_version = permission_version + 1, updated_at = now()
+             WHERE tenant_id = #{tenantId} AND id = #{userId} AND deleted = 0
+            """)
+    int bumpPermissionVersion(@Param("tenantId") long tenantId, @Param("userId") long userId);
+
+    /** 角色权限点变更会影响该角色下全部用户，按角色批量递增。 */
+    @Update("""
+            UPDATE hub_user
+               SET permission_version = permission_version + 1, updated_at = now()
+             WHERE tenant_id = #{tenantId} AND deleted = 0
+               AND id IN (SELECT ur.user_id FROM hub_user_role ur
+                           WHERE ur.tenant_id = #{tenantId} AND ur.role_id = #{roleId} AND ur.deleted = 0)
+            """)
+    int bumpPermissionVersionByRole(@Param("tenantId") long tenantId, @Param("roleId") long roleId);
+
     @Insert("""
             INSERT INTO hub_user (id, tenant_id, uuid, employee_no, username, real_name, user_type,
                                   primary_org_id, primary_position_id, status, mfa_enabled,

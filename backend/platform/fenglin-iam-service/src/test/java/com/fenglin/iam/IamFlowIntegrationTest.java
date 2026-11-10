@@ -191,14 +191,32 @@ class IamFlowIntegrationTest {
                         "X-Permissions", ASSIGN_ROLE_PERMISSION)));
         assertThat(assigned.status()).isEqualTo(200);
         assertThat(assigned.body().get("data").get("roles").toString()).contains("sales_mgr");
+        // PLAT-10：分配角色递增权限版本
+        assertThat(permissionVersionOf(USER_ADMIN_A)).isEqualTo(1L);
 
         HttpResult unknown = exchange(HttpMethod.PUT, "/api/hub/v1/admin/roles/" + roleId + "/permissions",
                 Map.of("permission_codes", List.of("not:defined:code")), headers);
         assertThat(unknown.status()).isEqualTo(400);
 
+        // PLAT-10：角色权限点变更递增该角色下用户的权限版本（失败的写入不递增）
+        HttpResult regranted = exchange(HttpMethod.PUT, "/api/hub/v1/admin/roles/" + roleId + "/permissions",
+                Map.of("permission_codes", List.of(CREATE_USER_PERMISSION)), headers);
+        assertThat(regranted.status()).isEqualTo(200);
+        assertThat(permissionVersionOf(USER_ADMIN_A)).isEqualTo(2L);
+
         HttpResult list = exchange(HttpMethod.GET, "/api/hub/v1/admin/roles", null,
                 headers(Map.of("X-Tenant-Id", String.valueOf(TENANT_A))));
         assertThat(list.body().get("data").get("records").toString()).contains("sales_mgr");
+    }
+
+    @Test
+    void disablingUserBumpsPermissionVersion() {
+        HttpResult updated = exchange(HttpMethod.PUT, "/api/hub/v1/admin/users/" + USER_ADMIN_A,
+                Map.of("status", "DISABLED"),
+                headers(Map.of("X-Tenant-Id", String.valueOf(TENANT_A),
+                        "X-Permissions", "tenant:iam:user:update")));
+        assertThat(updated.status()).isEqualTo(200);
+        assertThat(permissionVersionOf(USER_ADMIN_A)).isEqualTo(1L);
     }
 
     @Test
@@ -287,6 +305,17 @@ class IamFlowIntegrationTest {
             return objectMapper.readTree(body);
         } catch (Exception e) {
             throw new IllegalStateException("响应不是合法 JSON: " + body, e);
+        }
+    }
+
+    private long permissionVersionOf(long userId) {
+        try (Connection connection = ownerConnection(); Statement statement = connection.createStatement();
+             ResultSet rs = statement.executeQuery(
+                     "SELECT permission_version FROM fenglin_hub.hub_user WHERE id = " + userId)) {
+            assertThat(rs.next()).isTrue();
+            return rs.getLong(1);
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
         }
     }
 

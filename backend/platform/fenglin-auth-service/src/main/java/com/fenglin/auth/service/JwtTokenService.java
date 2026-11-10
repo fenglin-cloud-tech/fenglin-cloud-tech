@@ -26,17 +26,25 @@ public class JwtTokenService {
         this.properties = properties;
     }
 
+    /**
+     * PLAT-10：access token 只携带 roles + pv，不再携带全量权限点。
+     * permissions 非空时才写入 claim，仅用于灰度回滚（fenglin.auth.jwt.include-permissions=true）。
+     */
     public IssuedToken accessToken(TenantEntity tenant, UserEntity user, String clientType,
-                                   String sessionId, List<String> permissions, Instant now) {
+                                   String sessionId, List<String> roles, long permissionVersion,
+                                   List<String> permissions, Instant now) {
         Instant expiresAt = now.plus(properties.getAccessTokenTtl());
         String jti = UUID.randomUUID().toString().replace("-", "");
-        JWTClaimsSet claims = baseClaims(tenant, user, clientType, sessionId, now, expiresAt)
+        JWTClaimsSet.Builder builder = baseClaims(tenant, user, clientType, sessionId, now, expiresAt)
                 .jwtID(jti)
                 .claim("token_use", USE_ACCESS)
                 .claim("scope", "openid profile")
-                .claim("permissions", permissions)
-                .build();
-        return new IssuedToken(keyProvider.sign(claims), jti, expiresAt);
+                .claim("roles", roles == null ? List.of() : roles)
+                .claim("pv", permissionVersion);
+        if (permissions != null) {
+            builder.claim("permissions", permissions);
+        }
+        return new IssuedToken(keyProvider.sign(builder.build()), jti, expiresAt);
     }
 
     public IssuedToken refreshToken(TenantEntity tenant, UserEntity user, String clientType,

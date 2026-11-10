@@ -206,6 +206,7 @@ public class IamService {
         for (String code : codes) {
             roleMapper.grantPermission(IdWorker.getId(), tenantId, roleId, code);
         }
+        userMapper.bumpPermissionVersionByRole(tenantId, roleId);
         audit("IAM_ROLE_PERMISSIONS_GRANTED", "ROLE", String.valueOf(roleId));
         return toRoleView(tenantId, roleMapper.findById(tenantId, roleId));
     }
@@ -222,6 +223,7 @@ public class IamService {
         for (AssignRolesRequest.Item item : items) {
             roleMapper.grantUserRole(IdWorker.getId(), tenantId, userId, item.roleId(), item.expireAt());
         }
+        userMapper.bumpPermissionVersion(tenantId, userId);
         audit("IAM_USER_ROLES_ASSIGNED", "USER", String.valueOf(userId));
         return toUserView(tenantId, requireUser(tenantId, userId), roleMapper.listRoleCodes(tenantId, userId));
     }
@@ -441,6 +443,10 @@ public class IamService {
             orgMapper.clearOtherPrimary(tenantId, userId, request.primaryOrgId(), operatorId());
             orgMapper.upsertMember(IdWorker.getId(), tenantId, userId, request.primaryOrgId(), 1,
                     operatorId());
+        }
+        // PLAT-10：停用/启用账号需让网关权限缓存失效，解析接口随即返回空权限（停用）
+        if (status != null && !status.equals(user.get("status"))) {
+            userMapper.bumpPermissionVersion(tenantId, userId);
         }
         audit("IAM_USER_UPDATED", "USER", String.valueOf(userId));
         return toUserView(tenantId, requireUser(tenantId, userId), roleMapper.listRoleCodes(tenantId, userId));

@@ -19,6 +19,7 @@ import com.fenglin.auth.mapper.TenantMapper;
 import com.fenglin.auth.mapper.UserMapper;
 import com.fenglin.auth.web.dto.LoginRequest;
 import com.fenglin.auth.web.dto.LogoutPayload;
+import com.fenglin.auth.web.dto.PrincipalPermissionPayload;
 import com.fenglin.auth.web.dto.TokenPayload;
 import com.fenglin.auth.web.dto.UserInfoPayload;
 import com.fenglin.common.audit.AuditEvent;
@@ -138,8 +139,7 @@ public class AuthService {
         userMapper.touchLastLogin(tenant.getId(), user.getId());
 
         String sessionId = newSession(tenant, user, clientType, request.deviceId());
-        List<String> permissions = permissionQueryMapper.findPermissionCodes(user.getId());
-        JwtTokenService.IssuedToken access = jwtTokenService.accessToken(tenant, user, clientType, sessionId, permissions, now);
+        JwtTokenService.IssuedToken access = issueAccessToken(tenant, user, clientType, sessionId, now);
         JwtTokenService.IssuedToken refresh = jwtTokenService.refreshToken(tenant, user, clientType, sessionId, now);
         JwtTokenService.IssuedToken idToken = jwtTokenService.idToken(tenant, user, clientType, sessionId, now);
         storeRefreshToken(tenant, user, sessionId, clientType, refresh, now);
@@ -199,8 +199,7 @@ public class AuthService {
         if (refreshTokenMapper.revokeByHash(tenantId, tokenHash) != 1) {
             throw new BizException(AuthErrorCode.REFRESH_TOKEN_INVALID, "refresh token 轮换冲突");
         }
-        List<String> permissions = permissionQueryMapper.findPermissionCodes(userId);
-        JwtTokenService.IssuedToken access = jwtTokenService.accessToken(tenant, user, clientType, sessionId, permissions, now);
+        JwtTokenService.IssuedToken access = issueAccessToken(tenant, user, clientType, sessionId, now);
         JwtTokenService.IssuedToken refresh = jwtTokenService.refreshToken(tenant, user, clientType, sessionId, now);
         JwtTokenService.IssuedToken idToken = jwtTokenService.idToken(tenant, user, clientType, sessionId, now);
         storeRefreshToken(tenant, user, sessionId, clientType, refresh, now);
@@ -310,6 +309,40 @@ public class AuthService {
                 .eq(RevocationEntity::getTenantId, tenantId)
                 .eq(RevocationEntity::getJti, jti)
                 .eq(RevocationEntity::getDeleted, 0)) > 0;
+    }
+
+    /**
+     * PLAT-10：签发只带 roles + pv 的 access token。
+     * include-permissions=true 时额外写入全量权限（灰度回滚路径）。
+     */
+    private JwtTokenService.IssuedToken issueAccessToken(TenantEntity tenant, UserEntity user,
+                                                         String clientType, String sessionId, Instant now) {
+        List<String> roles = permissionQueryMapper.findRoleCodes(user.getId());
+        long pv = user.getPermissionVersion() == null ? 0L : user.getPermissionVersion();
+        List<String> permissions = properties.getJwt().isIncludePermissions()
+                ? permissionQueryMapper.findPermissionCodes(user.getId()) : null;
+        return jwtTokenService.accessToken(tenant, user, clientType, sessionId, roles, pv, permissions, now);
+    }
+
+    /**
+     * 网关按 (tenantId, userId, pv) 取权限的内部契约。账号非 ACTIVE 或无角色时返回空权限，
+     * 由下游 PermissionGuard 产生 403，而不是在网关层伪装成故障。
+     */
+    @Transactional(readOnly = true)
+    public PrincipalPermissionPayload permissionsOf(long userId) {
+        Long tenantId = TenantContext.requireTenantId();
+        UserEntity user = userMapper.selectById(userId);
+        if (user == null || (user.getDeleted() != null && user.getDeleted() == 1)
+                || !tenantId.equals(user.getTenantId())) {
+            return new PrincipalPermissionPayload(userId, 0L, List.of(), List.of());
+        }
+        long pv = user.getPermissionVersion() == null ? 0L : user.getPermissionVersion();
+        if (!STATUS_ACTIVE.equals(user.getStatus())) {
+            return new PrincipalPermissionPayload(userId, pv, List.of(), List.of());
+        }
+        return new PrincipalPermissionPayload(userId, pv,
+                permissionQueryMapper.findRoleCodes(userId),
+                permissionQueryMapper.findPermissionCodes(userId));
     }
 
     private JWTClaimsSet verifyRefresh(String rawRefreshToken) {

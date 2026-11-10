@@ -26,6 +26,7 @@ public class UserEntity {
     private Instant lastLoginAt;
     private Integer deleted;
     private Integer version;
+    private Long permissionVersion;
 
     public Long getId() {
         return id;
@@ -153,5 +154,13 @@ public class UserEntity {
 
     public void setVersion(Integer version) {
         this.version = version;
+    }
+
+    public Long getPermissionVersion() {
+        return permissionVersion;
+    }
+
+    public void setPermissionVersion(Long permissionVersion) {
+        this.permissionVersion = permissionVersion;
     }
 }
