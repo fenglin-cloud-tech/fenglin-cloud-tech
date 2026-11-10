@@ -4,26 +4,25 @@ import { GapNotice, PageHeader } from '@fenglin/ui-admin'
 import {
   talentApi,
   type TalentId,
-  type TalentPayPeriod,
-  type TalentPayrollRecord,
+  type TalentMyPayslip,
+  type TalentMyPayslipPeriod,
 } from '@fenglin/api-client'
 import { useAuthStore } from '@/stores/auth'
 import { describeError } from '@/utils/error'
 
 const auth = useAuthStore()
-const periods = ref<TalentPayPeriod[]>([])
+const periods = ref<TalentMyPayslipPeriod[]>([])
 const selectedPeriodId = ref<TalentId | ''>('')
-const myRecords = ref<TalentPayrollRecord[]>([])
+const mySlips = ref<TalentMyPayslip[]>([])
 const loading = ref(false)
-const recordLoading = ref(false)
+const slipLoading = ref(false)
 const error = ref('')
-const recordError = ref('')
+const slipError = ref('')
 
 const gapItems = [
-  '后端暂无员工自助薪酬接口（没有 /payroll/slips/my）：薪酬周期与核算明细仅提供管理端接口，需要 talent:admin:payroll:list。',
-  '金额字段另需 talent:payroll:amount:view：未持有时服务端返回 null 且 amount_masked=true，页面显示“已脱敏”，不返回完整金额。',
-  '本页仍按登录用户 ID 在核算明细中过滤本人记录；普通员工账号调用会返回真实 403。缺少用户与员工档案的绑定关系，暂无法做服务端本人收敛。',
-  '发放单 /payroll/slips 是按周期汇总的，不含员工个人维度，也没有工资条 PDF 下载接口，因此本页不展示汇总发放单。',
+  '本页调用员工自助接口 /payroll/slips/my，服务端只按当前登录用户返回本人工资条，不接收 employee_id 参数。',
+  '金额字段需 talent:payroll:amount:view：未持有时服务端不返回金额字段并标记 amount_masked=true，页面显示“已脱敏”。',
+  '暂无工资条 PDF 下载接口，本页仅做在线查看；查看全员薪酬请走管理端薪酬页面。',
 ]
 
 const recStatusLabels: Record<string, string> = {
@@ -46,12 +45,11 @@ async function loadPeriods() {
   loading.value = true
   error.value = ''
   try {
-    const page = await talentApi.payroll.periods({ page: 1, size: 50 })
-    periods.value = page.records
-    if (!selectedPeriodId.value && page.records.length) {
-      selectedPeriodId.value = page.records[0].id
+    periods.value = await talentApi.payroll.mySlipPeriods()
+    if (!selectedPeriodId.value && periods.value.length) {
+      selectedPeriodId.value = periods.value[0].id
     }
-    await loadRecords()
+    await loadSlips()
   } catch (err) {
     error.value = describeError(err)
   } finally {
@@ -59,25 +57,21 @@ async function loadPeriods() {
   }
 }
 
-async function loadRecords() {
+async function loadSlips() {
   if (!selectedPeriodId.value) {
-    myRecords.value = []
+    mySlips.value = []
     return
   }
-  if (!auth.userId) {
-    recordError.value = '当前令牌未返回用户 ID，无法定位本人薪酬记录'
-    return
-  }
-  recordLoading.value = true
-  recordError.value = ''
+  slipLoading.value = true
+  slipError.value = ''
   try {
-    const page = await talentApi.payroll.records(selectedPeriodId.value, { page: 1, size: 200 })
-    myRecords.value = page.records.filter((item) => String(item.employee_id) === String(auth.userId))
+    const page = await talentApi.payroll.mySlips({ periodId: selectedPeriodId.value, page: 1, size: 50 })
+    mySlips.value = page.records
   } catch (err) {
-    recordError.value = describeError(err)
-    myRecords.value = []
+    slipError.value = describeError(err)
+    mySlips.value = []
   } finally {
-    recordLoading.value = false
+    slipLoading.value = false
   }
 }
 
@@ -86,7 +80,7 @@ onMounted(loadPeriods)
 
 <template>
   <div>
-    <PageHeader module="云才人才" title="我的薪酬单" description="按薪资周期查看本人核算明细；数据直接来自薪酬核算接口。" />
+    <PageHeader module="云才人才" title="我的薪酬单" description="查看本人各薪资周期的工资条；数据由员工自助接口按登录用户返回。" />
 
     <GapNotice :items="gapItems" />
 
@@ -98,7 +92,7 @@ onMounted(loadPeriods)
           v-model="selectedPeriodId"
           placeholder="选择薪资周期"
           style="width: 260px"
-          @change="loadRecords"
+          @change="loadSlips"
         >
           <el-option
             v-for="period in periods"
@@ -107,22 +101,24 @@ onMounted(loadPeriods)
             :value="period.id"
           />
         </el-select>
-        <el-button :loading="loading || recordLoading" @click="loadPeriods">刷新</el-button>
+        <el-button :loading="loading || slipLoading" @click="loadPeriods">刷新</el-button>
         <span class="fl-muted">{{ auth.displayName }}</span>
       </div>
 
       <el-alert
-        v-if="recordError"
+        v-if="slipError"
         type="error"
         :closable="false"
         show-icon
-        :title="recordError"
+        :title="slipError"
         style="margin-bottom: 12px"
       />
 
-      <div v-loading="recordLoading">
-        <el-empty v-if="!myRecords.length && !recordError" description="该周期暂无本人薪酬记录" :image-size="80" />
-        <el-table v-else :data="myRecords" border stripe>
+      <div v-loading="slipLoading">
+        <el-empty v-if="!mySlips.length && !slipError" description="该周期暂无本人工资条" :image-size="80" />
+        <el-table v-else :data="mySlips" border stripe>
+          <el-table-column prop="period_code" label="薪资周期" width="120" />
+          <el-table-column prop="pay_date" label="发放日期" width="120" />
           <el-table-column prop="employee_name" label="员工" width="130" />
           <el-table-column label="基本工资" width="130">
             <template #default="{ row }">{{ money(row.base_salary, row.amount_masked) }}</template>

@@ -227,6 +227,31 @@ export interface TalentPayrollRecord {
   amount_masked?: boolean
 }
 
+/** 员工自助薪资单：employee_id 仅来自登录令牌，页面不可指定。 */
+export interface TalentMyPayslip {
+  id: TalentId
+  period_id: TalentId
+  period_code: string
+  pay_date?: string
+  employee_id: TalentId
+  employee_name: string
+  base_salary?: number
+  earning_total?: number
+  deduction_total?: number
+  gross_pay?: number
+  net_pay?: number
+  rec_status: string
+  amount_masked: boolean
+}
+
+export interface TalentMyPayslipPeriod {
+  id: TalentId
+  period_code: string
+  start_date: string
+  end_date: string
+  pay_date?: string
+}
+
 // ---------- 绩效 ----------
 
 export interface TalentPerfCycle {
@@ -691,6 +716,13 @@ export const talentApi = {
     },
     records(periodId: TalentId, params: { page?: number; size?: number } = {}) {
       return get<PageResult<TalentPayrollRecord>>(`/api/talent/v1/payroll/periods/${periodId}/records`, params)
+    },
+    /** 员工自助：服务端按登录用户收敛，不接受 employee_id 参数。 */
+    mySlips(params: { periodId?: TalentId; page?: number; size?: number } = {}) {
+      return get<PageResult<TalentMyPayslip>>('/api/talent/v1/payroll/slips/my', params)
+    },
+    mySlipPeriods() {
+      return get<TalentMyPayslipPeriod[]>('/api/talent/v1/payroll/slips/my/periods')
     },
   },
 

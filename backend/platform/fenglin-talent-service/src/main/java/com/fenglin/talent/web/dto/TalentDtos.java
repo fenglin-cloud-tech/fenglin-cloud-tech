@@ -290,6 +290,17 @@ public final class TalentDtos {
                               boolean amountMasked) {
     }
 
+    /** 员工自助薪资单：服务端按登录用户收敛，employeeId 只来自令牌上下文。 */
+    public record MyPayslipView(Long id, Long periodId, String periodCode, LocalDate payDate,
+                                Long employeeId, String employeeName, BigDecimal baseSalary,
+                                BigDecimal earningTotal, BigDecimal deductionTotal, BigDecimal grossPay,
+                                BigDecimal netPay, String recStatus, boolean amountMasked) {
+    }
+
+    public record MyPayslipPeriodView(Long id, String periodCode, LocalDate startDate, LocalDate endDate,
+                                      LocalDate payDate) {
+    }
+
     // ---------- 绩效 ----------
 
     public record PerfCycleCreateRequest(String cycleCode, String cycleName, String cycleType,

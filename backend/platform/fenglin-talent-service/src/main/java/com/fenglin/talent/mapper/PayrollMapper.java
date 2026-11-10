@@ -187,6 +187,55 @@ public interface PayrollMapper {
             """)
     long countRecords(@Param("tenantId") long tenantId, @Param("periodId") long periodId);
 
+    /** 员工自助：只按 tenantId + employeeId（来自令牌）查询，不接受调用方指定他人。 */
+    @Select("""
+            <script>
+            SELECT r.id AS "id", r.period_id AS "periodId", p.period_code AS "periodCode",
+                   p.pay_date AS "payDate", r.employee_id AS "employeeId", e.name AS "employeeName",
+                   r.base_salary AS "baseSalary", r.earning_total AS "earningTotal",
+                   r.deduction_total AS "deductionTotal", r.gross_pay AS "grossPay", r.net_pay AS "netPay",
+                   r.rec_status AS "recStatus"
+              FROM fenglin_talent.talent_payroll_record r
+              JOIN fenglin_talent.talent_pay_period p
+                ON p.id = r.period_id AND p.tenant_id = r.tenant_id AND p.deleted = 0
+              LEFT JOIN fenglin_talent.talent_employee e
+                ON e.id = r.employee_id AND e.tenant_id = r.tenant_id AND e.deleted = 0
+             WHERE r.tenant_id = #{tenantId} AND r.employee_id = #{employeeId} AND r.deleted = 0
+            <if test="periodId != null"> AND r.period_id = #{periodId} </if>
+             ORDER BY p.start_date DESC, r.id DESC
+             LIMIT #{limit} OFFSET #{offset}
+            </script>
+            """)
+    List<Map<String, Object>> listMySlipRecords(@Param("tenantId") long tenantId,
+                                                @Param("employeeId") long employeeId,
+                                                @Param("periodId") Long periodId,
+                                                @Param("limit") int limit,
+                                                @Param("offset") int offset);
+
+    @Select("""
+            <script>
+            SELECT count(1)
+              FROM fenglin_talent.talent_payroll_record r
+             WHERE r.tenant_id = #{tenantId} AND r.employee_id = #{employeeId} AND r.deleted = 0
+            <if test="periodId != null"> AND r.period_id = #{periodId} </if>
+            </script>
+            """)
+    long countMySlipRecords(@Param("tenantId") long tenantId, @Param("employeeId") long employeeId,
+                            @Param("periodId") Long periodId);
+
+    @Select("""
+            SELECT p.id AS "id", p.period_code AS "periodCode", p.start_date AS "startDate",
+                   p.end_date AS "endDate", p.pay_date AS "payDate"
+              FROM fenglin_talent.talent_payroll_record r
+              JOIN fenglin_talent.talent_pay_period p
+                ON p.id = r.period_id AND p.tenant_id = r.tenant_id AND p.deleted = 0
+             WHERE r.tenant_id = #{tenantId} AND r.employee_id = #{employeeId} AND r.deleted = 0
+             GROUP BY p.id, p.period_code, p.start_date, p.end_date, p.pay_date
+             ORDER BY p.start_date DESC
+            """)
+    List<Map<String, Object>> listMySlipPeriods(@Param("tenantId") long tenantId,
+                                                @Param("employeeId") long employeeId);
+
     // ---------- 发放单 ----------
 
     @Select("""

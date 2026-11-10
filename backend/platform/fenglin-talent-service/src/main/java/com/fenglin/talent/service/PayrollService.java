@@ -14,6 +14,8 @@ import com.fenglin.talent.support.Rows;
 import com.fenglin.talent.support.TalentAudit;
 import com.fenglin.talent.support.TalentContext;
 import com.fenglin.talent.web.dto.TalentDtos.ApprovalRequest;
+import com.fenglin.talent.web.dto.TalentDtos.MyPayslipPeriodView;
+import com.fenglin.talent.web.dto.TalentDtos.MyPayslipView;
 import com.fenglin.talent.web.dto.TalentDtos.PayItemCreateRequest;
 import com.fenglin.talent.web.dto.TalentDtos.PayItemView;
 import com.fenglin.talent.web.dto.TalentDtos.PayPeriodCreateRequest;
@@ -213,6 +215,36 @@ public class PayrollService {
         return PageResult.of(records, payrollMapper.countRecords(tenantId, periodId), pageNo, pageSize);
     }
 
+    // ---------- 员工自助薪资单 ----------
+
+    /**
+     * 本人薪资单：employeeId 只取令牌上下文，任何请求参数都不能替代；
+     * 金额沿用 isAmountVisible 判断，无权限时字段不返回并标记 amountMasked。
+     */
+    @Transactional(readOnly = true)
+    public PageResult<MyPayslipView> mySlips(Long periodId, Integer page, Integer size, String permissions) {
+        long tenantId = TalentContext.tenantId();
+        long employeeId = TalentContext.userId();
+        int pageNo = TalentContext.page(page);
+        int pageSize = TalentContext.size(size);
+        boolean visible = amountVisible(permissions);
+        List<MyPayslipView> records = payrollMapper
+                .listMySlipRecords(tenantId, employeeId, periodId, pageSize, (pageNo - 1) * pageSize)
+                .stream().map(row -> toMyPayslipView(row, visible)).toList();
+        return PageResult.of(records, payrollMapper.countMySlipRecords(tenantId, employeeId, periodId),
+                pageNo, pageSize);
+    }
+
+    @Transactional(readOnly = true)
+    public List<MyPayslipPeriodView> mySlipPeriods() {
+        long tenantId = TalentContext.tenantId();
+        long employeeId = TalentContext.userId();
+        return payrollMapper.listMySlipPeriods(tenantId, employeeId).stream()
+                .map(row -> new MyPayslipPeriodView(Rows.lngVal(row, "id"), Rows.str(row, "periodCode"),
+                        Rows.date(row, "startDate"), Rows.date(row, "endDate"), Rows.date(row, "payDate")))
+                .toList();
+    }
+
     // ---------- 发放单 ----------
 
     @Transactional
@@ -382,6 +414,18 @@ public class PayrollService {
 
     private PayrollRecordView toRecordView(Map<String, Object> row, boolean amountVisible) {
         return new PayrollRecordView(Rows.lngVal(row, "id"), Rows.lngVal(row, "periodId"),
+                Rows.lngVal(row, "employeeId"), Rows.str(row, "employeeName"),
+                amountVisible ? Rows.dec(row, "baseSalary") : null,
+                amountVisible ? Rows.dec(row, "earningTotal") : null,
+                amountVisible ? Rows.dec(row, "deductionTotal") : null,
+                amountVisible ? Rows.dec(row, "grossPay") : null,
+                amountVisible ? Rows.dec(row, "netPay") : null,
+                Rows.str(row, "recStatus"), !amountVisible);
+    }
+
+    private MyPayslipView toMyPayslipView(Map<String, Object> row, boolean amountVisible) {
+        return new MyPayslipView(Rows.lngVal(row, "id"), Rows.lngVal(row, "periodId"),
+                Rows.str(row, "periodCode"), Rows.date(row, "payDate"),
                 Rows.lngVal(row, "employeeId"), Rows.str(row, "employeeName"),
                 amountVisible ? Rows.dec(row, "baseSalary") : null,
                 amountVisible ? Rows.dec(row, "earningTotal") : null,
