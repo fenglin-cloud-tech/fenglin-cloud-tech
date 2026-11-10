@@ -3,10 +3,8 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { GapNotice, PageHeader } from '@fenglin/ui-admin'
 import { rndApi, type RndWorklog } from '@fenglin/api-client'
-import { useAuthStore } from '@/stores/auth'
 import { describeError } from '@/utils/error'
 
-const auth = useAuthStore()
 const worklogs = ref<RndWorklog[]>([])
 const loading = ref(false)
 const saving = ref(false)
@@ -17,16 +15,11 @@ const dialogVisible = ref(false)
 const today = new Date().toISOString().slice(0, 10)
 const form = reactive({ task_id: '', work_date: today, hours: '8', remark: '' })
 
-const myWorklogs = computed(() =>
-  worklogs.value.filter((item) => String(item.user_id) === String(auth.userId)),
-)
-
 const totalHours = computed(() =>
-  myWorklogs.value.reduce((sum, item) => sum + Number(item.hours || 0), 0).toFixed(1),
+  worklogs.value.reduce((sum, item) => sum + Number(item.hours || 0), 0).toFixed(1),
 )
 
 const gapItems = [
-  '缺“按员工查询工时”接口：/worklogs 仅支持 taskId 与 limit，本页取最近 200 条后在浏览器按当前用户过滤。',
   '填报工时必须手工填写任务 ID：没有“我的任务下拉选择”接口，任务来自“我的任务”页。',
   '工时接口没有撤回/修改接口，提交后只能新增记录。',
 ]
@@ -35,7 +28,7 @@ async function loadWorklogs() {
   loading.value = true
   error.value = ''
   try {
-    worklogs.value = await rndApi.worklogs.list({ limit: 200 })
+    worklogs.value = await rndApi.worklogs.my({ page: 1, size: 200 })
   } catch (err) {
     worklogs.value = []
     error.value = describeError(err)
@@ -78,7 +71,7 @@ onMounted(loadWorklogs)
     <PageHeader
       module="云研 R&D"
       title="工时填报"
-      description="登记研发工时并查看本人记录；数据来自 /api/rnd/v1/worklogs。"
+      description="登记研发工时并查看本人记录；数据来自 /api/rnd/v1/worklogs/my。"
     >
       <template #actions>
         <el-button v-perm="'biz:devops:worklog:submit'" type="primary" @click="dialogVisible = true">登记工时</el-button>
@@ -92,9 +85,9 @@ onMounted(loadWorklogs)
     <el-card shadow="never">
       <div class="fl-toolbar">
         <el-tag type="success" effect="plain">本人累计 {{ totalHours }} 小时</el-tag>
-        <span class="fl-muted">共 {{ myWorklogs.length }} 条记录</span>
+        <span class="fl-muted">共 {{ worklogs.length }} 条记录</span>
       </div>
-      <el-table :data="myWorklogs" v-loading="loading" border stripe max-height="520">
+      <el-table :data="worklogs" v-loading="loading" border stripe max-height="520">
         <el-table-column prop="id" label="记录ID" width="100" />
         <el-table-column prop="task_id" label="任务ID" width="120" />
         <el-table-column prop="work_date" label="工作日期" width="130" />

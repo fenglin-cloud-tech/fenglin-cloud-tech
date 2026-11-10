@@ -16,6 +16,7 @@ import com.fenglin.rnd.web.dto.RndDtos.TaskTransitionRequest;
 import com.fenglin.rnd.web.dto.RndDtos.TaskView;
 import com.fenglin.rnd.web.dto.RndDtos.WorklogCreateRequest;
 import com.fenglin.rnd.web.dto.RndDtos.WorklogView;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -25,6 +26,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -149,6 +151,16 @@ public class RndAgileController {
         return ApiResponse.success(taskService.list(productId, sprintId, assigneeId, status, page, size));
     }
 
+    @GetMapping("/tasks/my")
+    public ApiResponse<List<TaskView>> myTasks(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false) Integer size) {
+        PermissionGuard.require(permissions, TASK_VIEW);
+        return ApiResponse.success(taskService.listMine(status, page, size));
+    }
+
     @GetMapping("/tasks/{id}")
     public ApiResponse<TaskView> getTask(
             @RequestHeader(value = "X-Permissions", required = false) String permissions,
@@ -181,5 +193,18 @@ public class RndAgileController {
             @RequestParam(value = "limit", required = false) Integer limit) {
         PermissionGuard.require(permissions, WORKLOG_VIEW);
         return ApiResponse.success(taskService.listWorklogs(taskId, limit));
+    }
+
+    @GetMapping("/worklogs/my")
+    public ApiResponse<List<WorklogView>> myWorklogs(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(value = "from", required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(value = "to", required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false) Integer size) {
+        PermissionGuard.require(permissions, WORKLOG_VIEW);
+        return ApiResponse.success(taskService.listMyWorklogs(from, to, page, size));
     }
 }

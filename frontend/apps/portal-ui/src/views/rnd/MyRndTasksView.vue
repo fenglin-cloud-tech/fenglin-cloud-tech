@@ -2,13 +2,10 @@
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { GapNotice, PageHeader } from '@fenglin/ui-admin'
-import { rndApi, type RndProduct, type RndTask } from '@fenglin/api-client'
-import { useAuthStore } from '@/stores/auth'
+import { rndApi, type RndTask } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 
-const auth = useAuthStore()
-const products = ref<RndProduct[]>([])
-const tasks = ref<Array<RndTask & { product_name: string }>>([])
+const tasks = ref<RndTask[]>([])
 const loading = ref(false)
 const error = ref('')
 const statusFilter = ref('')
@@ -27,9 +24,7 @@ const transitions: Record<string, string[]> = {
 }
 
 const gapItems = [
-  '缺“跨产品查询我的任务”接口：/tasks 必须携带 productId，本页对每个有权限的产品逐个查询后在浏览器合并。',
   '缺“我的需求”接口：需求列表不支持按负责人过滤，员工端不提供需求页。',
-  '产品数量较多时会产生多次请求，当前逐一串行请求以降低并发压力。',
 ]
 
 const filteredTasks = computed(() =>
@@ -49,29 +44,10 @@ function statusType(value?: string) {
 }
 
 async function loadTasks() {
-  if (!auth.userId) {
-    error.value = '当前登录用户缺少用户 ID，无法查询“我的任务”'
-    return
-  }
   loading.value = true
   error.value = ''
   try {
-    products.value = await rndApi.products.list({ page: 1, size: 100 })
-    const collected: Array<RndTask & { product_name: string }> = []
-    for (const product of products.value) {
-      try {
-        const list = await rndApi.tasks.list({
-          productId: product.id,
-          assigneeId: auth.userId,
-          page: 1,
-          size: 100,
-        })
-        list.forEach((task) => collected.push({ ...task, product_name: product.name }))
-      } catch {
-        // 单个产品无权限或接口异常时跳过，不影响其余产品。
-      }
-    }
-    tasks.value = collected
+    tasks.value = await rndApi.tasks.my({ page: 1, size: 200 })
   } catch (err) {
     error.value = describeError(err)
   } finally {
@@ -97,7 +73,7 @@ onMounted(loadTasks)
     <PageHeader
       module="云研 R&D"
       title="我的任务"
-      description="按当前登录用户汇总各产品下的任务；数据来自 /api/rnd/v1/tasks（assigneeId）。"
+      description="按当前登录用户汇总所指派的任务；数据来自 /api/rnd/v1/tasks/my。"
     >
       <template #actions>
         <el-select v-model="statusFilter" placeholder="全部状态" clearable style="width: 140px">

@@ -112,6 +112,7 @@ export interface RndBoard {
 export interface RndTask {
   id: RndId
   product_id: RndId
+  product_name?: string
   task_no?: string
   title: string
   task_type?: string
@@ -543,6 +544,9 @@ export const rndApi = {
     get(id: RndId) {
       return get<RndTask>(`${BASE}/tasks/${id}`)
     },
+    my(params: { status?: string; page?: number; size?: number } = {}) {
+      return get<RndTask[]>(`${BASE}/tasks/my`, params)
+    },
     create(body: {
       product_id: RndId
       title: string
@@ -564,6 +568,9 @@ export const rndApi = {
   worklogs: {
     list(params: { taskId?: RndId; limit?: number } = {}) {
       return get<RndWorklog[]>(`${BASE}/worklogs`, params)
+    },
+    my(params: { from?: string; to?: string; page?: number; size?: number } = {}) {
+      return get<RndWorklog[]>(`${BASE}/worklogs/my`, params)
     },
     create(body: {
       task_id?: RndId | null

@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -79,6 +80,15 @@ public class TaskService {
                 .stream().map(TaskService::toView).toList();
     }
 
+    /**
+     * 员工自助：跨产品返回指派给当前登录用户的任务，范围由服务端强制收敛。
+     */
+    public List<TaskView> listMine(String status, Integer page, Integer size) {
+        return taskMapper.listTasksByAssignee(RndContext.tenantId(), RndContext.userId(),
+                        RndContext.text(status), RndContext.size(size), RndContext.offset(page, size))
+                .stream().map(TaskService::toView).toList();
+    }
+
     @Transactional
     public TaskView transition(long id, String status) {
         long tenantId = RndContext.tenantId();
@@ -131,6 +141,19 @@ public class TaskService {
                 .toList();
     }
 
+    /**
+     * 员工自助：只返回当前登录用户的工时记录，支持工作日期区间。
+     */
+    public List<WorklogView> listMyWorklogs(LocalDate from, LocalDate to, Integer page, Integer size) {
+        return taskMapper.listWorklogsByUser(RndContext.tenantId(), RndContext.userId(), from, to,
+                        RndContext.size(size), RndContext.offset(page, size))
+                .stream()
+                .map(row -> new WorklogView(Rows.lng(row, "id"), Rows.lng(row, "taskId"),
+                        Rows.lng(row, "defectId"), Rows.lng(row, "userId"), Rows.date(row, "workDate"),
+                        Rows.dec(row, "hours"), Rows.str(row, "remark"), Rows.str(row, "createdAt")))
+                .toList();
+    }
+
     private Map<String, Object> requireTask(long tenantId, long id) {
         Map<String, Object> task = taskMapper.findTask(tenantId, id);
         if (task == null) {
@@ -140,8 +163,8 @@ public class TaskService {
     }
 
     public static TaskView toView(Map<String, Object> row) {
-        return new TaskView(Rows.lng(row, "id"), Rows.lng(row, "productId"), Rows.str(row, "taskNo"),
-                Rows.str(row, "title"), Rows.str(row, "taskType"), Rows.str(row, "status"),
+        return new TaskView(Rows.lng(row, "id"), Rows.lng(row, "productId"), Rows.str(row, "productName"),
+                Rows.str(row, "taskNo"), Rows.str(row, "title"), Rows.str(row, "taskType"), Rows.str(row, "status"),
                 Rows.str(row, "priority"), Rows.lng(row, "sprintId"), Rows.lng(row, "requirementId"),
                 Rows.lng(row, "assigneeId"), Rows.dec(row, "estimateHours"), Rows.dec(row, "actualHours"),
                 Rows.date(row, "dueDate"), Rows.str(row, "completedAt"), Rows.str(row, "createdAt"));

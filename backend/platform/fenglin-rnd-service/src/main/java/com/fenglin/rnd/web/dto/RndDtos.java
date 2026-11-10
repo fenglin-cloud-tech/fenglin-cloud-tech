@@ -101,8 +101,8 @@ public final class RndDtos {
                                     LocalDate dueDate, String priority) {
     }
 
-    public record TaskView(Long id, Long productId, String taskNo, String title, String taskType, String status,
-                           String priority, Long sprintId, Long requirementId, Long assigneeId,
+    public record TaskView(Long id, Long productId, String productName, String taskNo, String title, String taskType,
+                           String status, String priority, Long sprintId, Long requirementId, Long assigneeId,
                            BigDecimal estimateHours, BigDecimal actualHours, LocalDate dueDate, String completedAt,
                            String createdAt) {
     }

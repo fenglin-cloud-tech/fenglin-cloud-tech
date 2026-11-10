@@ -66,6 +66,30 @@ public interface TaskMapper {
                                         @Param("status") String status, @Param("limit") int limit,
                                         @Param("offset") int offset);
 
+    /**
+     * 员工自助：跨产品返回指派给本人的任务，tenant_id + assignee_id 双重收敛。
+     */
+    @Select("""
+            <script>
+            SELECT t.id AS "id", t.product_id AS "productId", p.name AS "productName", t.task_no AS "taskNo",
+                   t.title AS "title", t.task_type AS "taskType", t.status AS "status", t.priority AS "priority",
+                   t.sprint_id AS "sprintId", t.requirement_id AS "requirementId", t.assignee_id AS "assigneeId",
+                   t.estimate_hours AS "estimateHours", t.actual_hours AS "actualHours", t.due_date AS "dueDate",
+                   t.completed_at::text AS "completedAt", t.created_at::text AS "createdAt"
+            FROM devops_task t
+            LEFT JOIN devops_product p ON p.id = t.product_id AND p.tenant_id = t.tenant_id AND p.deleted = 0
+            WHERE t.tenant_id = #{tenantId} AND t.assignee_id = #{assigneeId} AND t.deleted = 0
+              <if test="status != null">AND t.status = #{status}</if>
+            ORDER BY t.id DESC
+            LIMIT #{limit} OFFSET #{offset}
+            </script>
+            """)
+    List<Map<String, Object>> listTasksByAssignee(@Param("tenantId") long tenantId,
+                                                  @Param("assigneeId") long assigneeId,
+                                                  @Param("status") String status,
+                                                  @Param("limit") int limit,
+                                                  @Param("offset") int offset);
+
     @Update("""
             UPDATE devops_task
             SET status = #{status},
@@ -116,6 +140,28 @@ public interface TaskMapper {
             """)
     List<Map<String, Object>> listWorklogs(@Param("tenantId") long tenantId, @Param("taskId") Long taskId,
                                            @Param("limit") int limit);
+
+    /**
+     * 员工自助：只返回本人填报的工时，tenant_id + user_id 双重收敛，支持工作日期区间。
+     */
+    @Select("""
+            <script>
+            SELECT id AS "id", task_id AS "taskId", defect_id AS "defectId", user_id AS "userId",
+                   work_date AS "workDate", hours AS "hours", remark AS "remark", created_at::text AS "createdAt"
+            FROM devops_task_worklog
+            WHERE tenant_id = #{tenantId} AND user_id = #{userId} AND deleted = 0
+              <if test="from != null">AND work_date &gt;= #{from}</if>
+              <if test="to != null">AND work_date &lt;= #{to}</if>
+            ORDER BY work_date DESC, id DESC
+            LIMIT #{limit} OFFSET #{offset}
+            </script>
+            """)
+    List<Map<String, Object>> listWorklogsByUser(@Param("tenantId") long tenantId,
+                                                 @Param("userId") long userId,
+                                                 @Param("from") LocalDate from,
+                                                 @Param("to") LocalDate to,
+                                                 @Param("limit") int limit,
+                                                 @Param("offset") int offset);
 
     @Select("SELECT count(1) FROM devops_task WHERE tenant_id = #{tenantId} AND product_id = #{productId} "
             + "AND deleted = 0")
