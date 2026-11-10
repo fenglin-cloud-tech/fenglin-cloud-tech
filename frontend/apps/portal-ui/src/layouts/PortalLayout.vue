@@ -59,10 +59,17 @@ const talentItems = [
   { path: '/internal-opportunities', title: '内部机会', icon: Promotion, perm: 'biz:talent:flow:market' },
 ]
 
+const financeItems = [
+  { path: '/my-expenses', title: '我的报销', icon: Tickets, perm: 'biz:finance:expense:view' },
+  { path: '/my-timesheets', title: '我的工时', icon: Clock, perm: 'biz:finance:timesheet:view' },
+  { path: '/my-carbon', title: '碳活动填报', icon: Flag, perm: 'biz:finance:carbon:submit' },
+]
+
 // 菜单按后端权限点收敛：未授权项不展示，避免前端伪造可访问入口。
 const visibleNavItems = computed(() => navItems.filter((item) => !item.perm || auth.can(item.perm)))
 const visibleCollabItems = computed(() => collabItems.filter((item) => auth.can(item.perm)))
 const visibleTalentItems = computed(() => talentItems.filter((item) => !item.perm || auth.can(item.perm)))
+const visibleFinanceItems = computed(() => financeItems.filter((item) => auth.can(item.perm)))
 
 const activeMenu = computed(() => route.path)
 const currentTitle = computed(() => String(route.meta.title ?? '员工门户'))
@@ -105,6 +112,16 @@ async function handleLogout() {
             <span>云才人才</span>
           </template>
           <el-menu-item v-for="item in visibleTalentItems" :key="item.path" :index="item.path">
+            <el-icon><component :is="item.icon" /></el-icon>
+            <span>{{ item.title }}</span>
+          </el-menu-item>
+        </el-sub-menu>
+        <el-sub-menu v-if="visibleFinanceItems.length" index="finance">
+          <template #title>
+            <el-icon><Money /></el-icon>
+            <span>云财财务</span>
+          </template>
+          <el-menu-item v-for="item in visibleFinanceItems" :key="item.path" :index="item.path">
             <el-icon><component :is="item.icon" /></el-icon>
             <span>{{ item.title }}</span>
           </el-menu-item>
