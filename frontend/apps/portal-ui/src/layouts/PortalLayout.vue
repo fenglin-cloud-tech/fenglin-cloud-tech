@@ -97,6 +97,15 @@ const intelligenceItems = [
   { path: '/ai-insights', title: '洞察与问数', icon: TrendCharts, perm: 'ai:bi:view' },
 ]
 
+const legalItems = [
+  { path: '/legal', title: '法务工作台', icon: Grid, perm: '' },
+  { path: '/my-contracts', title: '我的合同', icon: Document, perm: 'legal:contract:view:self' },
+  { path: '/my-sign-tasks', title: '我的签署任务', icon: Finished, perm: 'legal:sign:self:execute' },
+  { path: '/my-seal-applications', title: '用印申请', icon: Stamp, perm: 'legal:seal:apply' },
+  { path: '/my-data-release', title: '数据放行申请', icon: Share, perm: 'legal:dlp:release:apply' },
+  { path: '/my-evidence', title: '我的存证', icon: Warning, perm: 'legal:evidence:view' },
+]
+
 // 菜单按后端权限点收敛：未授权项不展示，避免前端伪造可访问入口。
 const visibleNavItems = computed(() => navItems.filter((item) => !item.perm || auth.can(item.perm)))
 const visibleCollabItems = computed(() => collabItems.filter((item) => auth.can(item.perm)))
@@ -105,6 +114,7 @@ const visibleFinanceItems = computed(() => financeItems.filter((item) => auth.ca
 const visibleRndItems = computed(() => rndItems.filter((item) => auth.can(item.perm)))
 const visibleServiceItems = computed(() => serviceItems.filter((item) => auth.can(item.perm)))
 const visibleIntelligenceItems = computed(() => intelligenceItems.filter((item) => auth.can(item.perm)))
+const visibleLegalItems = computed(() => legalItems.filter((item) => !item.perm || auth.can(item.perm)))
 
 const activeMenu = computed(() => route.path)
 const currentTitle = computed(() => String(route.meta.title ?? '员工门户'))
@@ -187,6 +197,16 @@ async function handleLogout() {
             <span>云智 Intelligence</span>
           </template>
           <el-menu-item v-for="item in visibleIntelligenceItems" :key="item.path" :index="item.path">
+            <el-icon><component :is="item.icon" /></el-icon>
+            <span>{{ item.title }}</span>
+          </el-menu-item>
+        </el-sub-menu>
+        <el-sub-menu v-if="visibleLegalItems.length" index="legal">
+          <template #title>
+            <el-icon><Stamp /></el-icon>
+            <span>云法 Legal</span>
+          </template>
+          <el-menu-item v-for="item in visibleLegalItems" :key="item.path" :index="item.path">
             <el-icon><component :is="item.icon" /></el-icon>
             <span>{{ item.title }}</span>
           </el-menu-item>
