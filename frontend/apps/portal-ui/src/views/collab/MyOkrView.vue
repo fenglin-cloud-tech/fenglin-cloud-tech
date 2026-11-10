@@ -57,7 +57,7 @@ const confidenceOptions = [
 
 const gapItems = [
   '员工端只展示 owner_id 等于当前账号的目标，没有团队/下属 OKR 视图。',
-  'KR 进度接口实际校验 biz:collab:okr:manage，权限种子里的 biz:collab:okr:progress 未被后端使用。',
+  'KR 进度接口校验 biz:collab:okr:progress（已与权限种子对齐），新增/编辑目标与 KR 仍需 biz:collab:okr:manage。',
   '目标/KR 没有编辑、删除接口；对齐关系只能在管理端维护。',
   'KR 指标类型后端只接受 PERCENT/NUMBER/BOOLEAN，CURRENCY 会被参数校验拒绝。',
 ]

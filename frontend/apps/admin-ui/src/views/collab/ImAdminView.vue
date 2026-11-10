@@ -18,15 +18,19 @@ const saving = ref(false)
 const formError = ref('')
 const form = reactive({
   words: '',
-  action: 'MASK',
-  scope: '',
+  action: 'BLOCK',
+  scope: 'TENANT',
   enabled: true,
 })
 
 const actionOptions = [
-  { value: 'MASK', label: 'MASK（掩码）' },
   { value: 'BLOCK', label: 'BLOCK（拦截）' },
-  { value: 'REVIEW', label: 'REVIEW（送审）' },
+  { value: 'REPLACE', label: 'REPLACE（替换为 ***）' },
+]
+
+const scopeOptions = [
+  { value: 'TENANT', label: 'TENANT（全租户）' },
+  { value: 'DEPT', label: 'DEPT（部门）' },
 ]
 
 async function loadAudit() {
@@ -57,6 +61,21 @@ function resetAudit() {
   void loadAudit()
 }
 
+function fillForm(policy: { words: string[]; action: string; scope: string; enabled: boolean }) {
+  form.words = (policy.words || []).join('\n')
+  form.action = policy.action || 'BLOCK'
+  form.scope = policy.scope || 'TENANT'
+  form.enabled = policy.enabled
+}
+
+async function loadWords() {
+  try {
+    fillForm(await collabApi.admin.sensitiveWords())
+  } catch (err) {
+    formError.value = describeError(err)
+  }
+}
+
 async function submitWords() {
   const words = form.words
     .split(/[\n,，]+/)
@@ -72,9 +91,10 @@ async function submitWords() {
     const result = await collabApi.admin.saveSensitiveWords({
       words,
       action: form.action,
-      scope: form.scope || undefined,
+      scope: form.scope,
       enabled: form.enabled,
     })
+    fillForm(result)
     ElMessage.success(`敏感词策略已保存（策略 ID ${result.policy_id}，共 ${result.word_count} 个词）`)
   } catch (err) {
     formError.value = describeError(err)
@@ -85,6 +105,7 @@ async function submitWords() {
 
 onMounted(() => {
   void loadAudit()
+  void loadWords()
 })
 </script>
 
@@ -102,7 +123,7 @@ onMounted(() => {
 
     <GapNotice
       :items="[
-        '敏感词策略后端只有 POST 保存接口，没有 GET 查询接口，刷新后无法回显已保存内容。',
+        '敏感词策略已支持 GET 回显，进入页面自动加载已保存的词语与处置动作。',
         '会话审计是只读列表，后端没有单会话消息导出/封禁/解散接口。',
         '管理端不读取会话消息正文，避免越过 biz:collab:im:chat 业务权限。',
       ]"
@@ -167,10 +188,11 @@ onMounted(() => {
               <el-select v-model="form.action" style="width: 240px">
                 <el-option v-for="opt in actionOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
               </el-select>
-              <span class="fl-muted" style="margin-left: 8px">枚举值以后端为准</span>
             </el-form-item>
             <el-form-item label="生效范围">
-              <el-input v-model="form.scope" placeholder="可选，例如 TENANT 或具体会话范围" />
+              <el-select v-model="form.scope" style="width: 240px">
+                <el-option v-for="opt in scopeOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
+              </el-select>
             </el-form-item>
             <el-form-item label="启用">
               <el-switch v-model="form.enabled" />
@@ -186,10 +208,10 @@ onMounted(() => {
             type="info"
             :closable="false"
             show-icon
-            title="后端仅保存策略，不提供查询接口"
+            title="保存后立即生效，刷新页面自动回显"
             style="margin-top: 12px; max-width: 720px"
           >
-            <div class="fl-muted">保存成功后无法在本页回显；如需核对，请直接查询后端策略表。</div>
+            <div class="fl-muted">BLOCK 会拦截命中敏感词的文本消息；REPLACE 会把命中词替换为 ***。</div>
           </el-alert>
         </el-tab-pane>
       </el-tabs>

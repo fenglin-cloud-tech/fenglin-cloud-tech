@@ -107,12 +107,6 @@ function parseIdList(text: string): number[] {
     .filter((value) => Number.isInteger(value) && value > 0)
 }
 
-function parseOptionalId(text: string): number | undefined {
-  if (!text.trim()) return undefined
-  const value = Number(text.trim())
-  return Number.isInteger(value) && value > 0 ? value : undefined
-}
-
 function toLocalInput(date: Date): string {
   const pad = (value: number) => String(value).padStart(2, '0')
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:00`
@@ -177,14 +171,7 @@ async function submitEvent() {
     eventError.value = '开始/结束时间格式不正确'
     return
   }
-  let roomId: number | undefined
-  if (eventForm.room_id.trim()) {
-    roomId = parseOptionalId(eventForm.room_id)
-    if (roomId === undefined) {
-      eventError.value = '会议室 ID 需为正整数'
-      return
-    }
-  }
+  const roomId = eventForm.room_id.trim() || undefined
   eventSaving.value = true
   eventError.value = ''
   try {

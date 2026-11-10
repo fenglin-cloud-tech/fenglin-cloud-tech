@@ -101,7 +101,7 @@ onMounted(() => {
 
     <GapNotice
       :items="[
-        '组织架构树：talent 服务有 GET /api/talent/v1/orgs/tree，但网关未配置 /api/talent/** 路由，管理台无法调用，本页不展示虚构组织树。',
+        '组织架构树：网关已配置 /api/talent/** 路由，可用 GET /api/talent/v1/orgs/tree 获取；本页只展示 IAM 成员目录，不混排组织树。',
         '成员部门归属：IAM 用户列表未返回部门字段，只能展示账号与角色。',
         '成员邀请/停用/离职等状态变更没有 Collab 接口，需在 IAM 身份与权限页办理。',
       ]"

@@ -184,7 +184,7 @@ export interface CollabMeetingDetail {
 }
 
 export interface CollabRoom {
-  room_id: number
+  room_id: string
   name: string
   location?: string
   capacity: number
@@ -278,6 +278,7 @@ export interface CollabSensitiveWordPolicy {
   action: string
   scope: string
   enabled: boolean
+  words: string[]
 }
 
 export interface CollabDocPolicy {
@@ -288,7 +289,7 @@ export interface CollabDocPolicy {
 }
 
 export interface CollabNotification {
-  notification_id: number
+  notification_id: string
   category: string
   title: string
   content: string
@@ -297,7 +298,7 @@ export interface CollabNotification {
 }
 
 export interface CollabTodo {
-  todo_id: number
+  todo_id: string
   source_type: string
   source_id?: string
   title: string
@@ -435,7 +436,7 @@ export const collabApi = {
       rrule?: string
       reminder_minutes?: number[]
       attendee_ids?: number[]
-      room_id?: number
+      room_id?: string
     }) {
       return post<CollabEvent>('/api/collab/v1/events', body)
     },
@@ -472,7 +473,7 @@ export const collabApi = {
       start_at: string
       end_at: string
       meeting_mode?: string
-      room_id?: number
+      room_id?: string
       external_allowed?: boolean
       agenda?: string
     }) {
@@ -508,7 +509,7 @@ export const collabApi = {
     availableRooms(params: { startTime: string; endTime: string }) {
       return get<CollabRoom[]>('/api/collab/v1/meeting-rooms/available', params)
     },
-    reserve(roomId: number, body: { start_at: string; end_at: string; meeting_id?: CollabId }) {
+    reserve(roomId: CollabId, body: { start_at: string; end_at: string; meeting_id?: CollabId }) {
       return post<{ reservation_id: string; status: string }>(
         `/api/collab/v1/meeting-rooms/${roomId}/reserve`,
         body,
@@ -586,22 +587,22 @@ export const collabApi = {
     myTasks() {
       return get<CollabApprovalRow[]>('/api/collab/v1/approvals/tasks/my')
     },
-    approve(taskId: number, comment?: string) {
+    approve(taskId: string | number, comment?: string) {
       return post<{ task_status: string; instance_status: string }>(
         `/api/collab/v1/approvals/tasks/${taskId}/approve`,
         { comment },
       )
     },
-    reject(taskId: number, comment?: string) {
+    reject(taskId: string | number, comment?: string) {
       return post<{ task_status: string; instance_status: string }>(
         `/api/collab/v1/approvals/tasks/${taskId}/reject`,
         { comment },
       )
     },
-    transfer(taskId: number, body: { assignee_id: number; reason?: string }) {
+    transfer(taskId: string | number, body: { assignee_id: number; reason?: string }) {
       return post<void>(`/api/collab/v1/approvals/tasks/${taskId}/transfer`, body)
     },
-    addSign(taskId: number, body: { assignee_id: number; position?: string }) {
+    addSign(taskId: string | number, body: { assignee_id: number; position?: string }) {
       return post<void>(`/api/collab/v1/approvals/tasks/${taskId}/add-sign`, body)
     },
   },
@@ -610,14 +611,14 @@ export const collabApi = {
     todos(params: { status?: string; page?: number; size?: number } = {}) {
       return get<PageResult<CollabTodo>>('/api/collab/v1/workbench/todos', params)
     },
-    completeTodo(todoId: number) {
+    completeTodo(todoId: string | number) {
       return post<void>(`/api/collab/v1/workbench/todos/${todoId}/done`)
     },
     notifications(params: { unreadOnly?: boolean; page?: number; size?: number } = {}) {
       return get<PageResult<CollabNotification>>('/api/collab/v1/notifications', params)
     },
-    readNotification(notificationId: number) {
-      return post<{ notification_id: number; read: boolean }>(
+    readNotification(notificationId: string | number) {
+      return post<{ notification_id: string; read: boolean }>(
         `/api/collab/v1/notifications/${notificationId}/read`,
       )
     },
@@ -632,6 +633,9 @@ export const collabApi = {
       size?: number
     } = {}) {
       return get<CollabConversationAuditPage>('/api/collab/v1/admin/im/audit/conversations', params)
+    },
+    sensitiveWords() {
+      return get<CollabSensitiveWordPolicy>('/api/collab/v1/admin/im/sensitive-words')
     },
     saveSensitiveWords(body: { words: string[]; action: string; scope?: string; enabled?: boolean }) {
       return post<CollabSensitiveWordPolicy>('/api/collab/v1/admin/im/sensitive-words', body)

@@ -104,7 +104,7 @@ const parentOptions = computed(() => objectives.value.filter((item) => item.obje
 const gapItems = [
   '对齐关系用节点/边表格展示，未引入图形库。',
   '周期关闭后没有重开接口；目标/ KR 没有删除或编辑接口。',
-  'KR 进度接口实际校验 biz:collab:okr:manage，权限种子另有 biz:collab:okr:progress 但未被后端使用。',
+  'KR 进度接口校验 biz:collab:okr:progress（已与权限种子对齐），目标/KR 维护仍需 biz:collab:okr:manage。',
   '目标列表只能按周期/负责人过滤，没有部门树或跨周期汇总。',
 ]
 

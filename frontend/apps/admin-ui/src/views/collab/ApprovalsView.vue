@@ -33,11 +33,9 @@ function pickId(row: CollabApprovalRow, keys: string[]): string | undefined {
   return undefined
 }
 
-function rowTaskId(row: CollabApprovalRow): number | undefined {
-  const raw = pickId(row, ['task_id', 'taskId', 'id'])
-  if (!raw) return undefined
-  const id = Number(raw)
-  return Number.isFinite(id) ? id : undefined
+function rowTaskId(row: CollabApprovalRow): string | undefined {
+  // task_id 是 19 位雪花 ID，转 number 会被舍入导致办理失败，这里保持字符串原样透传
+  return pickId(row, ['task_id', 'taskId', 'id'])
 }
 
 function rowInstanceId(row: CollabApprovalRow): string | undefined {
@@ -64,7 +62,7 @@ const actionVisible = ref(false)
 const actionSaving = ref(false)
 const actionError = ref('')
 const actionMode = ref<'approve' | 'reject' | 'transfer' | 'addSign'>('approve')
-const actionTaskId = ref<number | null>(null)
+const actionTaskId = ref<string | null>(null)
 const actionForm = reactive({ comment: '', assignee_id: '', reason: '', position: '' })
 const actionTitles: Record<string, string> = {
   approve: '通过审批',

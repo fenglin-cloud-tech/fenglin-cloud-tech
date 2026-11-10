@@ -100,14 +100,7 @@ async function submitCreate() {
     createError.value = '结束时间必须晚于开始时间'
     return
   }
-  let roomId: number | undefined
-  if (createForm.room_id.trim()) {
-    roomId = Number(createForm.room_id.trim())
-    if (!Number.isFinite(roomId)) {
-      createError.value = '会议室 ID 必须是数字'
-      return
-    }
-  }
+  const roomId = createForm.room_id.trim() || undefined
   creating.value = true
   createError.value = ''
   try {

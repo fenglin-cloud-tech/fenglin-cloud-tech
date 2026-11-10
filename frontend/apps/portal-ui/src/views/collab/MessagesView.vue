@@ -241,7 +241,7 @@ onMounted(loadConversations)
                   <el-tag v-if="msg.msg_type !== 'TEXT'" size="small">{{ msg.msg_type }}</el-tag>
                   <el-tag v-if="msg.revoked" size="small" type="danger">已撤回</el-tag>
                   <el-button
-                    v-if="msg.sender_id === auth.userId && !msg.revoked"
+                    v-if="String(msg.sender_id) === String(auth.userId) && !msg.revoked"
                     link
                     type="danger"
                     size="small"

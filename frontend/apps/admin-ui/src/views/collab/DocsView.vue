@@ -21,12 +21,12 @@ const query = reactive({ keyword: '', page: 1, size: 10 })
 const createVisible = ref(false)
 const creating = ref(false)
 const createError = ref('')
-const createForm = reactive({ title: '', doc_type: 'DOC', secret_level: 'INTERNAL', folder_id: '' })
+const createForm = reactive({ title: '', doc_type: 'RICH', secret_level: 'INTERNAL', folder_id: '' })
 
 const docTypeOptions = [
-  { value: 'DOC', label: 'DOC' },
+  { value: 'RICH', label: 'RICH' },
   { value: 'SHEET', label: 'SHEET' },
-  { value: 'SLIDE', label: 'SLIDE' },
+  { value: 'KANBAN', label: 'KANBAN' },
 ]
 const secretLevelOptions = [
   { value: 'PUBLIC', label: 'PUBLIC' },
@@ -115,7 +115,7 @@ async function loadPolicy() {
 }
 
 function openCreate() {
-  Object.assign(createForm, { title: '', doc_type: 'DOC', secret_level: 'INTERNAL', folder_id: '' })
+  Object.assign(createForm, { title: '', doc_type: 'RICH', secret_level: 'INTERNAL', folder_id: '' })
   createError.value = ''
   createVisible.value = true
 }
