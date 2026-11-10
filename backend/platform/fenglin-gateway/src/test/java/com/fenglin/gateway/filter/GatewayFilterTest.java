@@ -3,6 +3,7 @@ package com.fenglin.gateway.filter;
 import com.fenglin.gateway.config.GatewayProperties;
 import com.fenglin.gateway.security.GatewayPrincipal;
 import com.fenglin.gateway.security.JwtVerifier;
+import com.fenglin.gateway.security.PermissionResolver;
 import com.fenglin.gateway.security.RevocationChecker;
 import com.nimbusds.jwt.JWTClaimsSet;
 import org.junit.jupiter.api.BeforeEach;
@@ -38,7 +39,9 @@ class GatewayFilterTest {
         verifier = mock(JwtVerifier.class);
         RevocationChecker revocationChecker = mock(RevocationChecker.class);
         when(revocationChecker.isRevoked(any(), anyLong())).thenReturn(Mono.just(false));
-        authFilter = new AuthGlobalFilter(verifier, revocationChecker);
+        PermissionResolver permissionResolver = mock(PermissionResolver.class);
+        when(permissionResolver.useClaim(any())).thenReturn(true);
+        authFilter = new AuthGlobalFilter(verifier, revocationChecker, permissionResolver);
     }
 
     @Test

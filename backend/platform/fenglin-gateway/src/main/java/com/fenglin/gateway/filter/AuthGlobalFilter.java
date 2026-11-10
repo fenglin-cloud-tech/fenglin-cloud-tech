@@ -2,6 +2,9 @@ package com.fenglin.gateway.filter;
 
 import com.fenglin.gateway.security.GatewayPrincipal;
 import com.fenglin.gateway.security.JwtVerifier;
+import com.fenglin.gateway.security.PermissionResolutionException;
+import com.fenglin.gateway.security.PermissionResolver;
+import com.fenglin.gateway.security.ResolvedPermissions;
 import com.fenglin.gateway.security.RevocationChecker;
 import com.fenglin.gateway.web.GatewayResponses;
 import com.nimbusds.jwt.JWTClaimsSet;
@@ -41,10 +44,13 @@ public class AuthGlobalFilter implements GlobalFilter, Ordered {
 
     private final JwtVerifier jwtVerifier;
     private final RevocationChecker revocationChecker;
+    private final PermissionResolver permissionResolver;
 
-    public AuthGlobalFilter(JwtVerifier jwtVerifier, RevocationChecker revocationChecker) {
+    public AuthGlobalFilter(JwtVerifier jwtVerifier, RevocationChecker revocationChecker,
+                            PermissionResolver permissionResolver) {
         this.jwtVerifier = jwtVerifier;
         this.revocationChecker = revocationChecker;
+        this.permissionResolver = permissionResolver;
     }
 
     @Override
@@ -65,55 +71,95 @@ public class AuthGlobalFilter implements GlobalFilter, Ordered {
             return GatewayResponses.error(exchange, HttpStatus.UNAUTHORIZED, "FL-COMMON-0401", "未认证或令牌失效");
         }
 
-        GatewayPrincipal principal;
+        Long tenantId;
+        Long userId;
+        String clientType;
+        String tenantCode;
+        Long tokenVersion;
+        List<String> claimRoles;
+        List<String> claimPermissions;
         try {
             if (!"access".equals(claims.getStringClaim("token_use"))) {
                 return GatewayResponses.error(exchange, HttpStatus.UNAUTHORIZED, "FL-COMMON-0401", "令牌类型不匹配");
             }
-            Long tenantId = claims.getLongClaim("tenant_id");
-            Long userId = claims.getLongClaim("user_id");
+            tenantId = claims.getLongClaim("tenant_id");
+            userId = claims.getLongClaim("user_id");
             if (userId == null && claims.getSubject() != null) {
                 userId = Long.valueOf(claims.getSubject());
             }
             if (tenantId == null || userId == null) {
                 return GatewayResponses.error(exchange, HttpStatus.UNAUTHORIZED, "FL-COMMON-0401", "令牌缺少身份信息");
             }
-            String clientType = claims.getStringClaim("client_type");
-            principal = new GatewayPrincipal(tenantId, userId, claims.getStringClaim("tenant_code"),
-                    clientType == null ? "ADMIN" : clientType,
-                    safeList(claims.getStringListClaim("roles")),
-                    safeList(claims.getStringListClaim("permissions")));
+            clientType = claims.getStringClaim("client_type");
+            clientType = clientType == null ? "ADMIN" : clientType;
+            tenantCode = claims.getStringClaim("tenant_code");
+            tokenVersion = claims.getLongClaim("pv");
+            claimRoles = safeList(claims.getStringListClaim("roles"));
+            claimPermissions = safeList(claims.getStringListClaim("permissions"));
         } catch (Exception e) {
             return GatewayResponses.error(exchange, HttpStatus.UNAUTHORIZED, "FL-COMMON-0401", "令牌声明不合法");
         }
 
         String tenantHeader = exchange.getRequest().getHeaders().getFirst(HEADER_TENANT_ID);
         if (tenantHeader != null && !tenantHeader.isBlank()
-                && !tenantHeader.equals(String.valueOf(principal.tenantId()))) {
+                && !tenantHeader.equals(String.valueOf(tenantId))) {
             return GatewayResponses.error(exchange, HttpStatus.FORBIDDEN, "FL-COMMON-0403", "租户上下文与令牌不一致");
         }
-        if ("PORTAL".equals(principal.clientType()) && path.startsWith("/api/hub/v1/admin")) {
+        if ("PORTAL".equals(clientType) && path.startsWith("/api/hub/v1/admin")) {
             return GatewayResponses.error(exchange, HttpStatus.FORBIDDEN, "FL-COMMON-0403", "端别不允许访问管理端接口");
         }
 
+        final Long resolvedTenantId = tenantId;
+        final Long resolvedUserId = userId;
+        final String resolvedClientType = clientType;
+        final String resolvedTenantCode = tenantCode;
         String jti = claims.getJWTID();
-        return revocationChecker.isRevoked(jti, principal.tenantId()).flatMap(revoked -> {
+        return revocationChecker.isRevoked(jti, tenantId).flatMap(revoked -> {
             if (Boolean.TRUE.equals(revoked)) {
                 return GatewayResponses.error(exchange, HttpStatus.UNAUTHORIZED, "FL-COMMON-0401", "令牌已撤销");
             }
-            ServerHttpRequest mutated = exchange.getRequest().mutate().headers(headers -> {
-                headers.set(HEADER_TENANT_ID, String.valueOf(principal.tenantId()));
-                headers.set(HEADER_USER_ID, String.valueOf(principal.userId()));
-                headers.set(HEADER_CLIENT_TYPE, principal.clientType());
-                headers.set(HEADER_PERMISSIONS, String.join(",", principal.permissions()));
-                if (!headers.containsKey("X-Request-Id")) {
-                    headers.set("X-Request-Id", UUID.randomUUID().toString());
-                }
-            }).build();
-
-            exchange.getAttributes().put(PRINCIPAL_ATTRIBUTE, principal);
-            return chain.filter(exchange.mutate().request(mutated).build());
+            return resolvePermissions(claims, resolvedTenantId, resolvedUserId, tokenVersion,
+                    claimRoles, claimPermissions)
+                    .flatMap(resolved -> forward(exchange, chain, new GatewayPrincipal(resolvedTenantId,
+                            resolvedUserId, resolvedTenantCode, resolvedClientType,
+                            resolved.roles(), resolved.permissions())))
+                    .onErrorResume(PermissionResolutionException.class, ex -> {
+                        // fail-close：缓存与 auth 均不可用时拒绝，绝不以空权限放行下游
+                        exchange.getResponse().getHeaders().set(HttpHeaders.RETRY_AFTER, "1");
+                        return GatewayResponses.error(exchange, HttpStatus.SERVICE_UNAVAILABLE,
+                                "FL-COMMON-0503", "权限服务暂不可用，请稍后重试");
+                    });
         });
+    }
+
+    /**
+     * 兼容期双读：旧令牌带 permissions claim 时直接使用（行为与瘦身前一致）；
+     * 新令牌只有 roles + pv，回源 auth 解析权限点。两种令牌在过渡期都可用。
+     */
+    private Mono<ResolvedPermissions> resolvePermissions(JWTClaimsSet claims, long tenantId, long userId,
+                                                         Long tokenVersion, List<String> claimRoles,
+                                                         List<String> claimPermissions) {
+        if (permissionResolver.useClaim(claims)) {
+            return Mono.just(new ResolvedPermissions(0L, claimRoles, claimPermissions,
+                    System.currentTimeMillis()));
+        }
+        return permissionResolver.resolve(tenantId, userId, tokenVersion);
+    }
+
+    private Mono<Void> forward(ServerWebExchange exchange, GatewayFilterChain chain,
+                               GatewayPrincipal principal) {
+        ServerHttpRequest mutated = exchange.getRequest().mutate().headers(headers -> {
+            headers.set(HEADER_TENANT_ID, String.valueOf(principal.tenantId()));
+            headers.set(HEADER_USER_ID, String.valueOf(principal.userId()));
+            headers.set(HEADER_CLIENT_TYPE, principal.clientType());
+            headers.set(HEADER_PERMISSIONS, String.join(",", principal.permissions()));
+            if (!headers.containsKey("X-Request-Id")) {
+                headers.set("X-Request-Id", UUID.randomUUID().toString());
+            }
+        }).build();
+
+        exchange.getAttributes().put(PRINCIPAL_ATTRIBUTE, principal);
+        return chain.filter(exchange.mutate().request(mutated).build());
     }
 
     private boolean isPublic(String path) {

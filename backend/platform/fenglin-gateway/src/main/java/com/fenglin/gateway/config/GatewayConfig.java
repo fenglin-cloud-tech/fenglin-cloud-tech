@@ -1,13 +1,17 @@
 package com.fenglin.gateway.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fenglin.gateway.security.JwtVerifier;
+import com.fenglin.gateway.security.PermissionResolver;
 import com.fenglin.gateway.security.RevocationChecker;
 import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.jwk.source.RemoteJWKSet;
 import com.nimbusds.jose.proc.SecurityContext;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import java.net.MalformedURLException;
@@ -34,5 +38,15 @@ public class GatewayConfig {
                 .baseUrl(properties.getRevocation().getAuthInternalUri())
                 .build();
         return new RevocationChecker(properties, webClient);
+    }
+
+    @Bean
+    public PermissionResolver permissionResolver(GatewayProperties properties, WebClient.Builder webClientBuilder,
+                                                 ObjectProvider<ReactiveStringRedisTemplate> redisProvider,
+                                                 ObjectMapper objectMapper) {
+        WebClient webClient = webClientBuilder
+                .baseUrl(properties.getPermissionCache().getAuthInternalUri())
+                .build();
+        return new PermissionResolver(properties, webClient, redisProvider.getIfAvailable(), objectMapper);
     }
 }

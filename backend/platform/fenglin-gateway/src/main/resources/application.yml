@@ -6,6 +6,12 @@ server:
 spring:
   application:
     name: fenglin-gateway
+  data:
+    redis:
+      host: ${FENGLIN_REDIS_HOST:localhost}
+      port: ${FENGLIN_REDIS_PORT:6379}
+      timeout: 300ms
+      connect-timeout: 300ms
   cloud:
     gateway:
       discovery:
@@ -105,6 +111,16 @@ fenglin:
       cache-ttl: 30s
       auth-internal-uri: ${FENGLIN_AUTH_INTERNAL_URI:http://localhost:18081}
       timeout: 500ms
+    # PLAT-10：JWT 瘦身后的权限解析；source=jwt 兼容旧令牌，旧令牌带 permissions claim 时直接使用
+    permission-cache:
+      source: ${FENGLIN_GATEWAY_PERMISSION_SOURCE:jwt}
+      l1-ttl: 60s
+      l2-ttl: 10m
+      degraded-l1-ttl: 10s
+      timeout: 500ms
+      auth-internal-uri: ${FENGLIN_AUTH_INTERNAL_URI:http://localhost:18081}
+      max-size: 100000
+      redis-enabled: ${FENGLIN_GATEWAY_PERMISSION_REDIS_ENABLED:true}
     rate-limit:
       login-qps: 50
       read-qps: 500
@@ -126,6 +142,10 @@ management:
     health:
       probes:
         enabled: true
+  health:
+    # Redis 仅作 L2 缓存，故障时权限解析自动降级，不应把网关健康检查拖为 DOWN
+    redis:
+      enabled: false
 
 info:
   app:

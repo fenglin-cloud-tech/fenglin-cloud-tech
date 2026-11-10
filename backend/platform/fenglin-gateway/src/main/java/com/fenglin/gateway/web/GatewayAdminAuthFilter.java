@@ -2,6 +2,9 @@ package com.fenglin.gateway.web;
 
 import com.fenglin.gateway.security.GatewayPrincipal;
 import com.fenglin.gateway.security.JwtVerifier;
+import com.fenglin.gateway.security.PermissionResolutionException;
+import com.fenglin.gateway.security.PermissionResolver;
+import com.fenglin.gateway.security.ResolvedPermissions;
 import com.nimbusds.jwt.JWTClaimsSet;
 import org.springframework.core.Ordered;
 import org.springframework.http.HttpHeaders;
@@ -26,9 +29,11 @@ public class GatewayAdminAuthFilter implements WebFilter, Ordered {
     private static final String READ_PERMISSION = "hub:gw:route:read";
 
     private final JwtVerifier jwtVerifier;
+    private final PermissionResolver permissionResolver;
 
-    public GatewayAdminAuthFilter(JwtVerifier jwtVerifier) {
+    public GatewayAdminAuthFilter(JwtVerifier jwtVerifier, PermissionResolver permissionResolver) {
         this.jwtVerifier = jwtVerifier;
+        this.permissionResolver = permissionResolver;
     }
 
     @Override
@@ -64,11 +69,6 @@ public class GatewayAdminAuthFilter implements WebFilter, Ordered {
                 return GatewayResponses.error(exchange, HttpStatus.FORBIDDEN,
                         "FL-COMMON-0403", "端别不允许访问管理端接口");
             }
-            List<String> permissions = claims.getStringListClaim("permissions");
-            if (permissions == null || !permissions.contains(READ_PERMISSION)) {
-                return GatewayResponses.error(exchange, HttpStatus.FORBIDDEN,
-                        "FL-COMMON-0403", "缺少网关路由查看权限");
-            }
             Long tenantId = claims.getLongClaim("tenant_id");
             Long userId = claims.getLongClaim("user_id");
             if (tenantId == null || userId == null) {
@@ -76,15 +76,41 @@ public class GatewayAdminAuthFilter implements WebFilter, Ordered {
                         "FL-COMMON-0401", "令牌缺少身份信息");
             }
             List<String> roles = claims.getStringListClaim("roles");
-            exchange.getAttributes().put(PRINCIPAL_ATTRIBUTE, new GatewayPrincipal(tenantId,
-                    userId, claims.getStringClaim("tenant_code"),
-                    clientType == null ? "ADMIN" : clientType,
-                    roles == null ? List.of() : roles, permissions));
-            return chain.filter(exchange);
+            List<String> claimPermissions = claims.getStringListClaim("permissions");
+            String tenantCode = claims.getStringClaim("tenant_code");
+            Long tokenVersion = claims.getLongClaim("pv");
+            return resolvePermissions(claims, tenantId, userId, tokenVersion, roles, claimPermissions)
+                    .flatMap(resolved -> {
+                        if (!resolved.permissions().contains(READ_PERMISSION)) {
+                            return GatewayResponses.error(exchange, HttpStatus.FORBIDDEN,
+                                    "FL-COMMON-0403", "缺少网关路由查看权限");
+                        }
+                        exchange.getAttributes().put(PRINCIPAL_ATTRIBUTE, new GatewayPrincipal(tenantId,
+                                userId, tenantCode,
+                                clientType == null ? "ADMIN" : clientType,
+                                resolved.roles().isEmpty() && roles != null ? roles : resolved.roles(),
+                                resolved.permissions()));
+                        return chain.filter(exchange);
+                    })
+                    .onErrorResume(PermissionResolutionException.class, ex -> {
+                        exchange.getResponse().getHeaders().set(HttpHeaders.RETRY_AFTER, "1");
+                        return GatewayResponses.error(exchange, HttpStatus.SERVICE_UNAVAILABLE,
+                                "FL-COMMON-0503", "权限服务暂不可用，请稍后重试");
+                    });
         } catch (java.text.ParseException e) {
             return GatewayResponses.error(exchange, HttpStatus.UNAUTHORIZED,
                     "FL-COMMON-0401", "令牌声明解析失败");
         }
+    }
+
+    private Mono<ResolvedPermissions> resolvePermissions(JWTClaimsSet claims, long tenantId, long userId,
+                                                        Long tokenVersion, List<String> roles,
+                                                        List<String> claimPermissions) {
+        if (permissionResolver.useClaim(claims)) {
+            return Mono.just(new ResolvedPermissions(0L, roles, claimPermissions,
+                    System.currentTimeMillis()));
+        }
+        return permissionResolver.resolve(tenantId, userId, tokenVersion);
     }
 
     @Override

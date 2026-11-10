@@ -17,6 +17,7 @@ public class GatewayProperties {
     private final RateLimit rateLimit = new RateLimit();
     private final Gray gray = new Gray();
     private final Revocation revocation = new Revocation();
+    private final PermissionCache permissionCache = new PermissionCache();
 
     public String getIssuer() {
         return issuer;
@@ -44,6 +45,89 @@ public class GatewayProperties {
 
     public Revocation getRevocation() {
         return revocation;
+    }
+
+    public PermissionCache getPermissionCache() {
+        return permissionCache;
+    }
+
+    /**
+     * PLAT-10 权限解析：source=jwt 时优先使用旧令牌的 permissions claim，缺失则回源；
+     * source=resolver 时一律回源。Redis L2 不可用时自动降级为 L1 短 TTL（10s），auth 也不可用则 fail-close。
+     */
+    public static class PermissionCache {
+        private String source = "jwt";
+        private Duration l1Ttl = Duration.ofSeconds(60);
+        private Duration l2Ttl = Duration.ofMinutes(10);
+        private Duration degradedL1Ttl = Duration.ofSeconds(10);
+        private Duration timeout = Duration.ofMillis(500);
+        private String authInternalUri = "http://localhost:18081";
+        private long maxSize = 100_000;
+        private boolean redisEnabled = true;
+
+        public String getSource() {
+            return source;
+        }
+
+        public void setSource(String source) {
+            this.source = source;
+        }
+
+        public Duration getL1Ttl() {
+            return l1Ttl;
+        }
+
+        public void setL1Ttl(Duration l1Ttl) {
+            this.l1Ttl = l1Ttl;
+        }
+
+        public Duration getL2Ttl() {
+            return l2Ttl;
+        }
+
+        public void setL2Ttl(Duration l2Ttl) {
+            this.l2Ttl = l2Ttl;
+        }
+
+        public Duration getDegradedL1Ttl() {
+            return degradedL1Ttl;
+        }
+
+        public void setDegradedL1Ttl(Duration degradedL1Ttl) {
+            this.degradedL1Ttl = degradedL1Ttl;
+        }
+
+        public Duration getTimeout() {
+            return timeout;
+        }
+
+        public void setTimeout(Duration timeout) {
+            this.timeout = timeout;
+        }
+
+        public String getAuthInternalUri() {
+            return authInternalUri;
+        }
+
+        public void setAuthInternalUri(String authInternalUri) {
+            this.authInternalUri = authInternalUri;
+        }
+
+        public long getMaxSize() {
+            return maxSize;
+        }
+
+        public void setMaxSize(long maxSize) {
+            this.maxSize = maxSize;
+        }
+
+        public boolean isRedisEnabled() {
+            return redisEnabled;
+        }
+
+        public void setRedisEnabled(boolean redisEnabled) {
+            this.redisEnabled = redisEnabled;
+        }
     }
 
     /**

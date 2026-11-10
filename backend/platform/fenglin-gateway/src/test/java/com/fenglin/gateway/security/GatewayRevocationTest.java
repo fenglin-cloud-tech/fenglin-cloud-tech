@@ -102,7 +102,10 @@ class GatewayRevocationTest {
         when(verifier.verify("revoked-token")).thenReturn(claims("jti-9"));
         RevocationChecker checker = mock(RevocationChecker.class);
         when(checker.isRevoked("jti-9", 1001L)).thenReturn(Mono.just(true));
-        AuthGlobalFilter filter = new AuthGlobalFilter(verifier, checker);
+        com.fenglin.gateway.security.PermissionResolver resolver =
+                mock(com.fenglin.gateway.security.PermissionResolver.class);
+        when(resolver.useClaim(org.mockito.ArgumentMatchers.any())).thenReturn(true);
+        AuthGlobalFilter filter = new AuthGlobalFilter(verifier, checker, resolver);
 
         MockServerWebExchange exchange = MockServerWebExchange.from(MockServerHttpRequest
                 .get("/api/hub/v1/admin/users")
