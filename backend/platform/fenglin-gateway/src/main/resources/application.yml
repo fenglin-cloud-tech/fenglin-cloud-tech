@@ -83,6 +83,10 @@ spring:
           uri: ${FENGLIN_RND_URI:http://localhost:18099}
           predicates:
             - Path=/api/rnd/v1/**
+        - id: fenglin-service-service
+          uri: ${FENGLIN_SERVICE_URI:http://localhost:18100}
+          predicates:
+            - Path=/api/service/v1/**
 
 fenglin:
   gateway:

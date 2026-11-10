@@ -24,6 +24,9 @@ import {
   Money,
   Odometer,
   OfficeBuilding,
+  Box,
+  Promotion,
+  Reading,
   Search,
   Share,
   Stamp,
@@ -32,6 +35,7 @@ import {
   User,
   UserFilled,
   VideoCamera,
+  Warning,
 } from '@element-plus/icons-vue'
 import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
@@ -56,6 +60,9 @@ const iconMap = {
   Money,
   Odometer,
   OfficeBuilding,
+  Box,
+  Promotion,
+  Reading,
   Search,
   Share,
   Stamp,
@@ -64,6 +71,7 @@ const iconMap = {
   User,
   UserFilled,
   VideoCamera,
+  Warning,
 } as const
 
 const route = useRoute()

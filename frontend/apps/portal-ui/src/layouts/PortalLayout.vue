@@ -7,6 +7,7 @@ import {
   Aim,
   AlarmClock,
   Bell,
+  Box,
   Calendar,
   ChatDotRound,
   Document,
@@ -17,6 +18,7 @@ import {
   Money,
   Promotion,
   Reading,
+  Service,
   Share,
   Stamp,
   Tickets,
@@ -74,12 +76,20 @@ const rndItems = [
   { path: '/my-rnd-contribution', title: '我的贡献', icon: TrendCharts, perm: 'biz:devops:metric:view' },
 ]
 
+const serviceItems = [
+  { path: '/my-service-tickets', title: '我的工单', icon: Tickets, perm: 'service:ticket:view' },
+  { path: '/service-catalog', title: '服务申请', icon: Grid, perm: 'service:catalog:view' },
+  { path: '/service-kb', title: '知识库', icon: Reading, perm: 'service:kb:view' },
+  { path: '/my-service-assets', title: '我的资产', icon: Box, perm: 'service:asset:view' },
+]
+
 // 菜单按后端权限点收敛：未授权项不展示，避免前端伪造可访问入口。
 const visibleNavItems = computed(() => navItems.filter((item) => !item.perm || auth.can(item.perm)))
 const visibleCollabItems = computed(() => collabItems.filter((item) => auth.can(item.perm)))
 const visibleTalentItems = computed(() => talentItems.filter((item) => !item.perm || auth.can(item.perm)))
 const visibleFinanceItems = computed(() => financeItems.filter((item) => auth.can(item.perm)))
 const visibleRndItems = computed(() => rndItems.filter((item) => auth.can(item.perm)))
+const visibleServiceItems = computed(() => serviceItems.filter((item) => auth.can(item.perm)))
 
 const activeMenu = computed(() => route.path)
 const currentTitle = computed(() => String(route.meta.title ?? '员工门户'))
@@ -142,6 +152,16 @@ async function handleLogout() {
             <span>云研研发</span>
           </template>
           <el-menu-item v-for="item in visibleRndItems" :key="item.path" :index="item.path">
+            <el-icon><component :is="item.icon" /></el-icon>
+            <span>{{ item.title }}</span>
+          </el-menu-item>
+        </el-sub-menu>
+        <el-sub-menu v-if="visibleServiceItems.length" index="service">
+          <template #title>
+            <el-icon><Service /></el-icon>
+            <span>云服服务台</span>
+          </template>
+          <el-menu-item v-for="item in visibleServiceItems" :key="item.path" :index="item.path">
             <el-icon><component :is="item.icon" /></el-icon>
             <span>{{ item.title }}</span>
           </el-menu-item>
