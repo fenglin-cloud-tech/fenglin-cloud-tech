@@ -10,8 +10,10 @@ import {
   Calendar,
   ChatDotRound,
   Document,
+  Finished,
   Flag,
   Grid,
+  Warning,
   Money,
   Promotion,
   Reading,
@@ -65,11 +67,19 @@ const financeItems = [
   { path: '/my-carbon', title: '碳活动填报', icon: Flag, perm: 'biz:finance:carbon:submit' },
 ]
 
+const rndItems = [
+  { path: '/my-rnd-tasks', title: '我的任务', icon: Finished, perm: 'biz:devops:task:view' },
+  { path: '/my-rnd-worklogs', title: '工时填报', icon: Clock, perm: 'biz:devops:worklog:submit' },
+  { path: '/my-rnd-defects', title: '缺陷提报', icon: Warning, perm: 'biz:devops:defect:view' },
+  { path: '/my-rnd-contribution', title: '我的贡献', icon: TrendCharts, perm: 'biz:devops:metric:view' },
+]
+
 // 菜单按后端权限点收敛：未授权项不展示，避免前端伪造可访问入口。
 const visibleNavItems = computed(() => navItems.filter((item) => !item.perm || auth.can(item.perm)))
 const visibleCollabItems = computed(() => collabItems.filter((item) => auth.can(item.perm)))
 const visibleTalentItems = computed(() => talentItems.filter((item) => !item.perm || auth.can(item.perm)))
 const visibleFinanceItems = computed(() => financeItems.filter((item) => auth.can(item.perm)))
+const visibleRndItems = computed(() => rndItems.filter((item) => auth.can(item.perm)))
 
 const activeMenu = computed(() => route.path)
 const currentTitle = computed(() => String(route.meta.title ?? '员工门户'))
@@ -122,6 +132,16 @@ async function handleLogout() {
             <span>云财财务</span>
           </template>
           <el-menu-item v-for="item in visibleFinanceItems" :key="item.path" :index="item.path">
+            <el-icon><component :is="item.icon" /></el-icon>
+            <span>{{ item.title }}</span>
+          </el-menu-item>
+        </el-sub-menu>
+        <el-sub-menu v-if="visibleRndItems.length" index="rnd">
+          <template #title>
+            <el-icon><Finished /></el-icon>
+            <span>云研研发</span>
+          </template>
+          <el-menu-item v-for="item in visibleRndItems" :key="item.path" :index="item.path">
             <el-icon><component :is="item.icon" /></el-icon>
             <span>{{ item.title }}</span>
           </el-menu-item>
