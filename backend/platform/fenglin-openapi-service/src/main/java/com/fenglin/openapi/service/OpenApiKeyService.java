@@ -10,6 +10,7 @@ import com.fenglin.common.tenant.TenantContext;
 import com.fenglin.openapi.mapper.AppKeyMapper;
 import com.fenglin.openapi.mapper.OpenAppMapper;
 import com.fenglin.openapi.web.dto.OpenApiDtos.KeyResponse;
+import com.fenglin.openapi.web.dto.OpenApiDtos.PortalKeyView;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,6 +21,7 @@ import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -86,6 +88,57 @@ public class OpenApiKeyService {
                 context == null ? null : context.clientType(),
                 context == null ? null : context.requestId(), "APP_KEY", String.valueOf(keyId), Instant.now()));
         return new KeyResponse(appKey, appSecret, Instant.now(), fingerprint);
+    }
+
+    /** 开发者门户：密钥列表只返回掩码与指纹，绝不返回 AppSecret 明文/密文。 */
+    @Transactional(readOnly = true)
+    public List<PortalKeyView> listKeys(long appId) {
+        long tenantId = TenantContext.requireTenantId();
+        return keyMapper.listByApp(tenantId, appId).stream()
+                .map(row -> {
+                    String fingerprint = (String) row.get("secret_fingerprint");
+                    String masked = "SK-******" + (fingerprint == null ? "" : fingerprint);
+                    return new PortalKeyView(
+                            ((Number) row.get("id")).longValue(),
+                            (String) row.get("app_key"),
+                            masked,
+                            fingerprint,
+                            (String) row.get("status"),
+                            toInstant(row.get("expire_at")),
+                            toInstant(row.get("created_at")));
+                })
+                .toList();
+    }
+
+    /** 开发者门户签发/轮换：校验应用归属当前用户，且仅审核通过的应用可签发。 */
+    @Transactional
+    public KeyResponse issueOwned(long appId, String action, Integer graceHours, long ownerId) {
+        long tenantId = TenantContext.requireTenantId();
+        Map<String, Object> app = appMapper.findById(tenantId, appId);
+        if (app == null) {
+            throw new BizException(CommonErrorCode.NOT_FOUND, "开放应用不存在: " + appId);
+        }
+        Object owner = app.get("owner_id");
+        if (!(owner instanceof Number number) || number.longValue() != ownerId) {
+            throw new BizException(CommonErrorCode.FORBIDDEN, "无权访问该应用: " + appId);
+        }
+        if (!"APPROVED".equals(app.get("review_status"))) {
+            throw new BizException(CommonErrorCode.CONFLICT, "应用审核通过后才能签发密钥");
+        }
+        return issue(appId, action, graceHours, ownerId);
+    }
+
+    private Instant toInstant(Object value) {
+        if (value instanceof Instant instant) {
+            return instant;
+        }
+        if (value instanceof java.sql.Timestamp timestamp) {
+            return timestamp.toInstant();
+        }
+        if (value instanceof java.time.OffsetDateTime offsetDateTime) {
+            return offsetDateTime.toInstant();
+        }
+        return null;
     }
 
     byte[] randomBytes(int length) {

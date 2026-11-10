@@ -9,6 +9,7 @@ import com.fenglin.common.tenant.TenantContext;
 import com.fenglin.openapi.OpenApiErrorCode;
 import com.fenglin.openapi.mapper.ApiQuotaMapper;
 import com.fenglin.openapi.mapper.OpenAppMapper;
+import com.fenglin.openapi.web.dto.OpenApiDtos.PortalQuotaView;
 import com.fenglin.openapi.web.dto.OpenApiDtos.QuotaItem;
 import com.fenglin.openapi.web.dto.OpenApiDtos.QuotaRequest;
 import com.fenglin.openapi.web.dto.OpenApiDtos.QuotaView;
@@ -84,6 +85,44 @@ public class OpenApiQuotaService {
                 context == null ? null : context.requestId(),
                 "API_QUOTA", String.valueOf(request.appId()), Instant.now()));
         return views;
+    }
+
+    /** 开发者门户：按应用维度返回配额、当日用量与当前 QPS 限流状态。 */
+    @Transactional(readOnly = true)
+    public List<PortalQuotaView> listOwned(long appId) {
+        long tenantId = TenantContext.requireTenantId();
+        long epochSecond = Instant.now().getEpochSecond();
+        return quotaMapper.listByApp(tenantId, appId).stream()
+                .map(row -> {
+                    String apiPath = (String) row.get("api_path");
+                    Integer qpsLimit = toInteger(row.get("qps_limit"));
+                    Long dailyLimit = toLong(row.get("daily_limit"));
+                    long usedToday = row.get("used_today") == null ? 0L : ((Number) row.get("used_today")).longValue();
+                    Object usedDate = row.get("used_date");
+                    Integer currentQps = currentQps(appId, apiPath, epochSecond);
+                    boolean qpsFull = qpsLimit != null && qpsLimit > 0
+                            && currentQps != null && currentQps >= qpsLimit;
+                    boolean dailyExceeded = dailyLimit != null && dailyLimit > 0 && usedToday >= dailyLimit;
+                    boolean dailyWarning = dailyLimit != null && dailyLimit > 0 && usedToday * 5 >= dailyLimit * 4;
+                    String limitStatus = qpsFull || dailyExceeded ? "EXCEEDED" : dailyWarning ? "WARNING" : "NORMAL";
+                    return new PortalQuotaView(appId, apiPath, qpsLimit, dailyLimit, usedToday,
+                            usedDate == null ? null : usedDate.toString(), currentQps, limitStatus);
+                })
+                .toList();
+    }
+
+    private Integer currentQps(long appId, String apiPath, long epochSecond) {
+        if (apiPath == null || "*".equals(apiPath)) {
+            return null;
+        }
+        try {
+            String value = redisTemplate.opsForValue()
+                    .get("openapi:qps:" + appId + ":" + apiPath + ":" + epochSecond);
+            return value == null ? 0 : Integer.valueOf(value);
+        } catch (RuntimeException ex) {
+            log.warn("QPS 状态读取失败：appId={} path={}", appId, apiPath, ex);
+            return null;
+        }
     }
 
     /**

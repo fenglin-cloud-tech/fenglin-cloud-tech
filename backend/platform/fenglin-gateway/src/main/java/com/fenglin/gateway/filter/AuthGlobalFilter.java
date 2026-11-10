@@ -117,6 +117,11 @@ public class AuthGlobalFilter implements GlobalFilter, Ordered {
     }
 
     private boolean isPublic(String path) {
+        // 开放 API 使用 AppKey/AppSecret HMAC 验签，由 openapi-service 统一校验，不依赖用户 JWT；
+        // 开发者门户 /openapi/portal/** 仍然要求 JWT，以便注入租户与用户身份。
+        if (path.startsWith("/openapi/") && !path.startsWith("/openapi/portal/")) {
+            return true;
+        }
         return PUBLIC_PREFIXES.stream().anyMatch(path::startsWith);
     }
 

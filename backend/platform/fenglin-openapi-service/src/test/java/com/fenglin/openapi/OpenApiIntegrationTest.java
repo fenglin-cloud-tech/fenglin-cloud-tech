@@ -57,6 +57,10 @@ class OpenApiIntegrationTest {
     private static final String QUOTA_PERMISSION = "platform:openapi:quota:manage";
     private static final String CALL_LOG_PERMISSION = "platform:openapi:calllog:view";
     private static final String PORTAL_PERMISSION = "biz:openapi:portal:view";
+    private static final String PORTAL_APP_MANAGE = "biz:openapi:app:manage";
+    private static final String PORTAL_KEY_MANAGE = "biz:openapi:key:manage";
+    private static final String PORTAL_QUOTA_VIEW = "biz:openapi:quota:view";
+    private static final String PORTAL_CALL_LOG_VIEW = "biz:openapi:calllog:view";
     private static final String PING_PATH = "/openapi/ping/v1/ping";
     private static final String JDBC_URL;
     private static final List<AuditEvent> AUDIT_EVENTS = new CopyOnWriteArrayList<>();
@@ -286,6 +290,107 @@ class OpenApiIntegrationTest {
                 .getStatusCode().value()).isEqualTo(403);
     }
 
+    @Test
+    void portalLifecycleIsOwnerScopedAndSecretIsOneTime() {
+        long ownerId = 3001L;
+        JsonNode created = read(createPortalApp(TENANT_A, ownerId, "门户自建应用").getBody()).get("data");
+        long appId = created.get("app_id").asLong();
+        assertThat(created.get("review_status").asText()).isEqualTo("PENDING");
+
+        // 审核前不能签发可用密钥
+        assertThat(portalIssueKey(TENANT_A, appId, ownerId, "CREATE").getStatusCode().value()).isEqualTo(409);
+
+        // 他人不可见、不可操作
+        assertThat(portalDetail(TENANT_A, appId, 3002L).getStatusCode().value()).isEqualTo(403);
+        assertThat(portalKeys(TENANT_A, appId, 3002L).getStatusCode().value()).isEqualTo(403);
+        assertThat(read(getPortal("/openapi/portal/apps", TENANT_A, 3002L, PORTAL_PERMISSION)
+                .getBody()).get("data")).isEmpty();
+
+        // 管理端审核通过
+        assertThat(review(TENANT_A, appId, "APPROVE").getStatusCode().value()).isEqualTo(200);
+
+        JsonNode detail = read(portalDetail(TENANT_A, appId, ownerId).getBody()).get("data");
+        assertThat(detail.get("review_status").asText()).isEqualTo("APPROVED");
+        assertThat(detail.get("status").asText()).isEqualTo("ENABLED");
+        assertThat(detail.get("scopes").toString()).contains("biz:file:upload");
+        assertThat(detail.get("redirect_uris").get(0).asText()).isEqualTo("https://dev.example.com/cb");
+
+        // 回调地址与接口订阅
+        Map<String, Object> callback = Map.of("redirect_uris",
+                List.of("https://dev.example.com/callback", "https://dev.example.com/backup"));
+        ResponseEntity<String> updatedCallback = restTemplate.exchange(
+                url("/openapi/portal/apps/" + appId + "/callback"), HttpMethod.PUT,
+                new HttpEntity<>(callback, portalHeaders(TENANT_A, ownerId, PORTAL_APP_MANAGE)), String.class);
+        assertThat(read(updatedCallback.getBody()).get("data").get("redirect_uris")).hasSize(2);
+
+        Map<String, Object> scopesBody = Map.of("scopes", List.of("biz:file:upload", "biz:file:preview"));
+        ResponseEntity<String> updatedScopes = restTemplate.exchange(
+                url("/openapi/portal/apps/" + appId + "/scopes"), HttpMethod.PUT,
+                new HttpEntity<>(scopesBody, portalHeaders(TENANT_A, ownerId, PORTAL_APP_MANAGE)), String.class);
+        assertThat(read(updatedScopes.getBody()).get("data").get("scopes")).hasSize(2);
+
+        // 非法接口权限被拒绝
+        Map<String, Object> badScopes = Map.of("scopes", List.of("not:exists:scope"));
+        ResponseEntity<String> bad = restTemplate.exchange(
+                url("/openapi/portal/apps/" + appId + "/scopes"), HttpMethod.PUT,
+                new HttpEntity<>(badScopes, portalHeaders(TENANT_A, ownerId, PORTAL_APP_MANAGE)), String.class);
+        assertThat(bad.getStatusCode().value()).isEqualTo(400);
+
+        JsonNode catalog = read(getPortal("/openapi/portal/scopes?app_id=" + appId, TENANT_A, ownerId,
+                PORTAL_PERMISSION).getBody()).get("data");
+        assertThat(catalog.size()).isGreaterThan(0);
+        boolean subscribedFound = false;
+        for (JsonNode item : catalog) {
+            if ("biz:file:upload".equals(item.get("code").asText())) {
+                assertThat(item.get("subscribed").asBoolean()).isTrue();
+                subscribedFound = true;
+            }
+        }
+        assertThat(subscribedFound).isTrue();
+
+        // 签发密钥：明文仅本次返回
+        JsonNode key = read(portalIssueKey(TENANT_A, appId, ownerId, "CREATE").getBody()).get("data");
+        String appKey = key.get("app_key").asText();
+        String appSecret = key.get("app_secret").asText();
+        assertThat(appSecret).startsWith("SK-");
+
+        JsonNode keyList = read(portalKeys(TENANT_A, appId, ownerId).getBody()).get("data");
+        assertThat(keyList).hasSize(1);
+        assertThat(keyList.get(0).get("app_key").asText()).isEqualTo(appKey);
+        assertThat(keyList.get(0).get("secret_masked").asText()).startsWith("SK-******");
+        assertThat(keyList.get(0).get("app_secret")).isNull();
+        assertThat(keyList.get(0).toString()).doesNotContain(appSecret);
+
+        // 配额：管理端配置后，门户只读可见
+        Map<String, Object> quotaBody = new HashMap<>();
+        quotaBody.put("app_id", appId);
+        quotaBody.put("items", List.of(Map.of("api_path", PING_PATH, "qps_limit", 20, "daily_limit", 100)));
+        restTemplate.exchange(url("/api/hub/v1/admin/openapi/quotas"), HttpMethod.PUT,
+                new HttpEntity<>(quotaBody, headers(TENANT_A, QUOTA_PERMISSION)), String.class);
+
+        // 用密钥调用一次开放 API（同时消耗配额）
+        String nonce = UUID.randomUUID().toString();
+        ResponseEntity<String> ping = ping(appKey, appSecret, nonce, Instant.now().getEpochSecond());
+        assertThat(ping.getStatusCode().value()).isEqualTo(200);
+
+        // 门户调用日志：按应用维度查询
+        JsonNode logs = read(getPortal("/openapi/portal/apps/" + appId + "/call-logs",
+                TENANT_A, ownerId, PORTAL_CALL_LOG_VIEW).getBody()).get("data");
+        assertThat(logs.get("total").asLong()).isGreaterThanOrEqualTo(1);
+        assertThat(logs.get("records").get(0).get("app_id").asLong()).isEqualTo(appId);
+        assertThat(logs.get("records").get(0).get("api_path").asText()).isEqualTo(PING_PATH);
+
+        JsonNode quotas = read(getPortal("/openapi/portal/apps/" + appId + "/quotas",
+                TENANT_A, ownerId, PORTAL_QUOTA_VIEW).getBody()).get("data");
+        assertThat(quotas).hasSize(1);
+        assertThat(quotas.get(0).get("daily_limit").asLong()).isEqualTo(100);
+        assertThat(quotas.get(0).get("used_today").asLong()).isGreaterThanOrEqualTo(1);
+        assertThat(quotas.get(0).get("limit_status").asText()).isIn("NORMAL", "WARNING");
+
+        // 跨租户不可见
+        assertThat(portalDetail(TENANT_B, appId, ownerId).getStatusCode().value()).isEqualTo(404);
+    }
+
     // ---------- helpers ----------
 
     private long approvedApp(long tenantId, String name) {
@@ -302,6 +407,47 @@ class OpenApiIntegrationTest {
         body.put("redirect_uris", List.of("https://partner.example.com/cb"));
         return restTemplate.exchange(url("/api/hub/v1/admin/openapi/apps"), HttpMethod.POST,
                 new HttpEntity<>(body, headers(tenantId, permission)), String.class);
+    }
+
+    private ResponseEntity<String> createPortalApp(long tenantId, long userId, String name) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("name", name);
+        body.put("owner_type", "INTERNAL");
+        body.put("scopes", List.of("biz:file:upload"));
+        body.put("redirect_uris", List.of("https://dev.example.com/cb"));
+        return restTemplate.exchange(url("/openapi/portal/apps"), HttpMethod.POST,
+                new HttpEntity<>(body, portalHeaders(tenantId, userId, PORTAL_APP_MANAGE)), String.class);
+    }
+
+    private ResponseEntity<String> portalDetail(long tenantId, long appId, long userId) {
+        return getPortal("/openapi/portal/apps/" + appId, tenantId, userId, PORTAL_PERMISSION);
+    }
+
+    private ResponseEntity<String> portalKeys(long tenantId, long appId, long userId) {
+        return getPortal("/openapi/portal/apps/" + appId + "/keys", tenantId, userId, PORTAL_KEY_MANAGE);
+    }
+
+    private ResponseEntity<String> portalIssueKey(long tenantId, long appId, long userId, String action) {
+        return restTemplate.exchange(url("/openapi/portal/apps/" + appId + "/keys"), HttpMethod.POST,
+                new HttpEntity<>(Map.of("action", action, "grace_hours", 0),
+                        portalHeaders(tenantId, userId, PORTAL_KEY_MANAGE)), String.class);
+    }
+
+    private ResponseEntity<String> getPortal(String path, long tenantId, long userId, String permission) {
+        return restTemplate.exchange(url(path), HttpMethod.GET,
+                new HttpEntity<>(portalHeaders(tenantId, userId, permission)), String.class);
+    }
+
+    private HttpHeaders portalHeaders(long tenantId, long userId, String permission) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("X-Tenant-Id", String.valueOf(tenantId));
+        headers.set("X-User-Id", String.valueOf(userId));
+        headers.set("X-Client-Type", "PORTAL");
+        if (permission != null) {
+            headers.set("X-Permissions", permission);
+        }
+        return headers;
     }
 
     private ResponseEntity<String> review(long tenantId, long appId, String action) {

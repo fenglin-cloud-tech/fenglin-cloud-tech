@@ -44,11 +44,42 @@ public final class OpenApiDtos {
                               Instant calledAt) {
     }
 
-    public record PortalAppView(long appId, String code, String status, long callToday, Long quotaDaily) {
+    public record PortalAppView(long appId, String code, String name, String status, String reviewStatus,
+                                long callToday, Long quotaDaily) {
     }
 
     /** 扩展：管理端应用列表（1006 仅定义开发者门户视角）。 */
     public record AdminAppView(long appId, String code, String name, String ownerType,
                                String reviewStatus, String status, Instant createdAt) {
+    }
+
+    // ---------- 开发者门户（1001/1003/1004/1005/1006 的门户侧收敛接口） ----------
+
+    public record PortalAppCreateRequest(String name, String ownerType, List<String> scopes,
+                                         List<String> redirectUris) {
+    }
+
+    public record PortalCallbackRequest(List<String> redirectUris) {
+    }
+
+    public record PortalScopeRequest(List<String> scopes) {
+    }
+
+    public record PortalAppDetail(long appId, String code, String name, String ownerType,
+                                  String reviewStatus, String status, List<String> scopes,
+                                  List<String> redirectUris, Instant createdAt,
+                                  long callToday, Long quotaDaily) {
+    }
+
+    /** 密钥列表视图：AppSecret 只给掩码，明文仅在签发响应中出现一次。 */
+    public record PortalKeyView(long id, String appKey, String secretMasked, String secretFingerprint,
+                                String status, Instant expireAt, Instant createdAt) {
+    }
+
+    public record PortalQuotaView(long appId, String apiPath, Integer qpsLimit, Long dailyLimit,
+                                  long usedToday, String usedDate, Integer currentQps, String limitStatus) {
+    }
+
+    public record PortalScopeView(String code, String name, String domain, boolean subscribed) {
     }
 }

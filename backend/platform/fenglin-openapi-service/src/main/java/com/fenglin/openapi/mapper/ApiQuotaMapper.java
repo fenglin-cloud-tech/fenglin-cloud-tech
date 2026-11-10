@@ -6,6 +6,7 @@ import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
+import java.util.List;
 import java.util.Map;
 
 @Mapper
@@ -50,6 +51,16 @@ public interface ApiQuotaMapper {
              WHERE tenant_id = #{tenantId} AND app_id = #{appId} AND deleted = 0
             """)
     Long maxDailyLimit(@Param("tenantId") long tenantId, @Param("appId") long appId);
+
+    /** 开发者门户：按应用维度返回全部配额与当日用量。 */
+    @Select("""
+            SELECT id, api_path, qps_limit, daily_limit, used_today, used_date
+              FROM hub_api_quota
+             WHERE tenant_id = #{tenantId} AND app_id = #{appId} AND deleted = 0
+             ORDER BY api_path
+            """)
+    List<Map<String, Object>> listByApp(@Param("tenantId") long tenantId,
+                                        @Param("appId") long appId);
 
     /**
      * 原子累加当日用量：跨日自动重置；达到 daily_limit 时更新失败（返回 0）。

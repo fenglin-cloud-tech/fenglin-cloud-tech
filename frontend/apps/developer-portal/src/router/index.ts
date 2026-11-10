@@ -21,6 +21,30 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '我的应用' },
       },
       {
+        path: 'apps/:id',
+        name: 'app-detail',
+        component: () => import('@/views/AppDetailView.vue'),
+        meta: { title: '应用详情' },
+      },
+      {
+        path: 'logs',
+        name: 'call-logs',
+        component: () => import('@/views/CallLogsView.vue'),
+        meta: { title: '调用日志' },
+      },
+      {
+        path: 'quotas',
+        name: 'quotas',
+        component: () => import('@/views/QuotasView.vue'),
+        meta: { title: '配额与用量' },
+      },
+      {
+        path: 'docs',
+        name: 'api-docs',
+        component: () => import('@/views/ApiDocsView.vue'),
+        meta: { title: '接口文档' },
+      },
+      {
         path: 'guide',
         name: 'guide',
         component: () => import('@/views/GuideView.vue'),

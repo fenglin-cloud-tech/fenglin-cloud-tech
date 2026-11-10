@@ -1,7 +1,7 @@
 server:
   port: 18080
-  # 登录令牌约 7KB，默认 8KB 上限余量过小，调大避免 431
-  max-http-request-header-size: 16KB
+  # 登录令牌含全部权限声明可达 17KB，默认 8KB 上限会触发 431
+  max-http-request-header-size: 64KB
 
 spring:
   application:

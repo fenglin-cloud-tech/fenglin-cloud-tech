@@ -1,5 +1,7 @@
 server:
   port: 18091
+  # 网关注入的 X-Permissions 可能超过默认 8KB
+  max-http-request-header-size: 64KB
 
 spring:
   application:

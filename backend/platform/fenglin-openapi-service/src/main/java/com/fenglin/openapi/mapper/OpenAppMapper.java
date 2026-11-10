@@ -45,11 +45,44 @@ public interface OpenAppMapper {
     Map<String, Object> findByTenantAndName(@Param("tenantId") long tenantId, @Param("name") String name);
 
     @Select("""
-            SELECT id, code, name, owner_type, review_status, status
+            SELECT id, code, name, owner_type, owner_id, scopes, redirect_uris,
+                   review_status, status, created_at
               FROM hub_open_app
              WHERE tenant_id = #{tenantId} AND id = #{id} AND deleted = 0
             """)
     Map<String, Object> findById(@Param("tenantId") long tenantId, @Param("id") long id);
+
+    /** 开发者门户：只返回当前用户创建的应用，服务端强制按 owner_id 收敛。 */
+    @Select("""
+            SELECT id, code, name, owner_type, review_status, status, created_at
+              FROM hub_open_app
+             WHERE tenant_id = #{tenantId} AND owner_id = #{ownerId} AND deleted = 0
+             ORDER BY created_at DESC, id DESC
+            """)
+    List<Map<String, Object>> listByOwner(@Param("tenantId") long tenantId,
+                                          @Param("ownerId") long ownerId);
+
+    @Update("""
+            UPDATE hub_open_app
+               SET redirect_uris = #{redirectUris,jdbcType=VARCHAR},
+                   updated_by = #{operatorId,jdbcType=BIGINT}, updated_at = now()
+             WHERE tenant_id = #{tenantId} AND id = #{id} AND owner_id = #{operatorId} AND deleted = 0
+            """)
+    int updateCallback(@Param("tenantId") long tenantId,
+                       @Param("id") long id,
+                       @Param("operatorId") long operatorId,
+                       @Param("redirectUris") String redirectUris);
+
+    @Update("""
+            UPDATE hub_open_app
+               SET scopes = #{scopes,jdbcType=VARCHAR},
+                   updated_by = #{operatorId,jdbcType=BIGINT}, updated_at = now()
+             WHERE tenant_id = #{tenantId} AND id = #{id} AND owner_id = #{operatorId} AND deleted = 0
+            """)
+    int updateScopes(@Param("tenantId") long tenantId,
+                     @Param("id") long id,
+                     @Param("operatorId") long operatorId,
+                     @Param("scopes") String scopes);
 
     @Update("""
             UPDATE hub_open_app
@@ -63,14 +96,6 @@ public interface OpenAppMapper {
                      @Param("reviewStatus") String reviewStatus,
                      @Param("status") String status,
                      @Param("operatorId") Long operatorId);
-
-    @Select("""
-            SELECT id, code, name, review_status, status
-              FROM hub_open_app
-             WHERE tenant_id = #{tenantId} AND deleted = 0
-             ORDER BY created_at DESC
-            """)
-    List<Map<String, Object>> listByTenant(@Param("tenantId") long tenantId);
 
     @Select("""
             <script>

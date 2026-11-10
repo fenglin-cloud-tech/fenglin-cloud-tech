@@ -6,6 +6,7 @@ import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
+import java.util.List;
 import java.util.Map;
 
 @Mapper
@@ -53,4 +54,14 @@ public interface AppKeyMapper {
               FROM resolve_open_app_key(#{appKey})
             """)
     Map<String, Object> resolve(@Param("appKey") String appKey);
+
+    /** 开发者门户密钥列表：不查询 app_secret_enc，只返回指纹用于掩码展示。 */
+    @Select("""
+            SELECT id, app_key, secret_fingerprint, status, expire_at, created_at
+              FROM hub_app_key
+             WHERE tenant_id = #{tenantId} AND app_id = #{appId} AND deleted = 0
+             ORDER BY created_at DESC, id DESC
+            """)
+    List<Map<String, Object>> listByApp(@Param("tenantId") long tenantId,
+                                        @Param("appId") long appId);
 }

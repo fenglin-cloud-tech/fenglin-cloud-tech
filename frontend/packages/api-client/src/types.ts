@@ -290,7 +290,7 @@ export interface AnalyticsResponse {
 }
 
 export interface OpenAppCreateResponse {
-  app_id: number
+  app_id: string
   code: string
   review_status: string
 }
@@ -412,14 +412,59 @@ export interface AiModeValidateResult {
   issues: string[]
 }
 
-// ---------- 开放平台开发者门户（HUB-API-1006） ----------
+// ---------- 开放平台开发者门户（HUB-API-1001/1003/1004/1005/1006） ----------
 
 export interface PortalAppView {
-  app_id: number
+  app_id: string
   code: string
+  name: string
   status: string
+  review_status: string
   call_today: number
-  quota_daily?: number
+  quota_daily?: number | null
+}
+
+export interface PortalAppDetail {
+  app_id: string
+  code: string
+  name: string
+  owner_type: string
+  review_status: string
+  status: string
+  scopes: string[]
+  redirect_uris: string[]
+  created_at?: string
+  call_today: number
+  quota_daily?: number | null
+}
+
+/** 密钥列表：AppSecret 仅返回掩码，明文只在签发响应中出现一次。 */
+export interface PortalKeyView {
+  id: string
+  app_key: string
+  secret_masked: string
+  secret_fingerprint?: string
+  status: string
+  expire_at?: string
+  created_at?: string
+}
+
+export interface PortalQuotaView {
+  app_id: string
+  api_path: string
+  qps_limit?: number | null
+  daily_limit?: number | null
+  used_today: number
+  used_date?: string | null
+  current_qps?: number | null
+  limit_status: 'NORMAL' | 'WARNING' | 'EXCEEDED'
+}
+
+export interface PortalScopeView {
+  code: string
+  name: string
+  domain: string
+  subscribed: boolean
 }
 
 // ---------- 云客 CRM（/api/crm/v1） ----------

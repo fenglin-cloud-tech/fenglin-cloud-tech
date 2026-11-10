@@ -49,6 +49,10 @@ import type {
   AiMeteringResult,
   AiModeValidateResult,
   PortalAppView,
+  PortalAppDetail,
+  PortalKeyView,
+  PortalQuotaView,
+  PortalScopeView,
   LeadView,
   LeadDetailView,
   LeadCreateRequest,
@@ -302,6 +306,40 @@ export const openApi = {
 export const openApiPortal = {
   apps() {
     return get<PortalAppView[]>('/openapi/portal/apps')
+  },
+  createApp(body: { name: string; owner_type?: string; scopes?: string[]; redirect_uris?: string[] }) {
+    return post<OpenAppCreateResponse>('/openapi/portal/apps', body)
+  },
+  appDetail(id: string | number) {
+    return get<PortalAppDetail>(`/openapi/portal/apps/${id}`)
+  },
+  updateCallback(id: string | number, body: { redirect_uris: string[] }) {
+    return put<PortalAppDetail>(`/openapi/portal/apps/${id}/callback`, body)
+  },
+  scopes(params: { domain?: string; app_id?: string | number } = {}) {
+    return get<PortalScopeView[]>('/openapi/portal/scopes', params)
+  },
+  updateScopes(id: string | number, body: { scopes: string[] }) {
+    return put<PortalAppDetail>(`/openapi/portal/apps/${id}/scopes`, body)
+  },
+  keys(id: string | number) {
+    return get<PortalKeyView[]>(`/openapi/portal/apps/${id}/keys`)
+  },
+  issueKey(id: string | number, body: { action?: string; grace_hours?: number } = {}) {
+    return post<OpenApiKeyResponse>(`/openapi/portal/apps/${id}/keys`, body)
+  },
+  callLogs(id: string | number, params: {
+    api_path?: string
+    status?: number
+    from?: string
+    to?: string
+    page?: number
+    size?: number
+  } = {}) {
+    return get<PageResult<OpenApiCallLogView>>(`/openapi/portal/apps/${id}/call-logs`, params)
+  },
+  quotas(id: string | number) {
+    return get<PortalQuotaView[]>(`/openapi/portal/apps/${id}/quotas`)
   },
 }
 

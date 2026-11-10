@@ -8,7 +8,7 @@ const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 
-const activeMenu = computed(() => route.path)
+const activeMenu = computed(() => (route.path.startsWith('/apps') ? '/apps' : route.path))
 
 async function handleLogout() {
   await auth.logout()
@@ -29,6 +29,9 @@ async function handleLogout() {
       </div>
       <el-menu :default-active="activeMenu" mode="horizontal" router class="dev-menu">
         <el-menu-item index="/apps">我的应用</el-menu-item>
+        <el-menu-item index="/logs">调用日志</el-menu-item>
+        <el-menu-item index="/quotas">配额与用量</el-menu-item>
+        <el-menu-item index="/docs">接口文档</el-menu-item>
         <el-menu-item index="/guide">接入指引</el-menu-item>
       </el-menu>
       <div class="header-right">
