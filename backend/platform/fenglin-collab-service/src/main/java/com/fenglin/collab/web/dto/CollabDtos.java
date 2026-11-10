@@ -322,7 +322,7 @@ public final class CollabDtos {
     }
 
     public record SensitiveWordPolicyView(long policyId, int wordCount, String action, String scope,
-                                          boolean enabled) {
+                                          boolean enabled, List<String> words) {
     }
 
     public record ConversationAuditView(String convId, String title, String convType, int memberCount,

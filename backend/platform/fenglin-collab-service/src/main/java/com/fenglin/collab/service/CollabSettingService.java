@@ -46,7 +46,7 @@ public class CollabSettingService {
         this.objectMapper = objectMapper;
     }
 
-    public record SensitivePolicy(List<String> words, String action, boolean enabled) {
+    public record SensitivePolicy(List<String> words, String action, String scope, boolean enabled) {
     }
 
     public record DocPolicy(boolean confidentialNoLink, boolean confidentialNoDownload,
@@ -58,13 +58,25 @@ public class CollabSettingService {
         long tenantId = CollabContext.tenantId();
         Map<String, Object> row = settingMapper.find(tenantId, KEY_SENSITIVE_WORDS);
         if (row == null) {
-            return new SensitivePolicy(List.of(), "BLOCK", false);
+            return new SensitivePolicy(List.of(), "BLOCK", "TENANT", false);
         }
         Map<String, Object> content = parse(Rows.str(row, "content"));
         List<String> words = stringList(content.get("words"));
         String action = content.get("action") == null ? "BLOCK" : String.valueOf(content.get("action"));
+        String scope = content.get("scope") == null ? "TENANT" : String.valueOf(content.get("scope"));
         boolean enabled = Boolean.parseBoolean(String.valueOf(content.getOrDefault("enabled", true)));
-        return new SensitivePolicy(words, action, enabled);
+        return new SensitivePolicy(words, action, scope, enabled);
+    }
+
+    /**
+     * 管理端回显：返回已保存的敏感词及处置策略。
+     */
+    @Transactional(readOnly = true)
+    public SensitiveWordPolicyView sensitivePolicyView() {
+        Map<String, Object> row = settingMapper.find(CollabContext.tenantId(), KEY_SENSITIVE_WORDS);
+        SensitivePolicy policy = sensitivePolicy();
+        return new SensitiveWordPolicyView(row == null ? 0L : Rows.lngVal(row, "settingId"),
+                policy.words().size(), policy.action(), policy.scope(), policy.enabled(), policy.words());
     }
 
     /**
@@ -144,7 +156,8 @@ public class CollabSettingService {
         Map<String, Object> row = settingMapper.find(tenantId, KEY_SENSITIVE_WORDS);
         audit.publish("COLLAB_IM_SENSITIVE_POLICY_UPDATED", "UPDATE", "collab_setting",
                 Rows.lngVal(row, "settingId"), "MEDIUM");
-        return new SensitiveWordPolicyView(Rows.lngVal(row, "settingId"), words.size(), action, scope, enabled);
+        return new SensitiveWordPolicyView(Rows.lngVal(row, "settingId"), words.size(), action, scope, enabled,
+                words);
     }
 
     @Transactional

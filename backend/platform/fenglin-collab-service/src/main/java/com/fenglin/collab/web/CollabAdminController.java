@@ -53,6 +53,13 @@ public class CollabAdminController {
         this.onaService = onaService;
     }
 
+    @GetMapping("/im/sensitive-words")
+    public ApiResponse<SensitiveWordPolicyView> sensitiveWords(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions) {
+        PermissionGuard.require(permissions, IM_SENSITIVE);
+        return ApiResponse.success(adminService.sensitivePolicy());
+    }
+
     @PostMapping("/im/sensitive-words")
     public ApiResponse<SensitiveWordPolicyView> saveSensitiveWords(
             @RequestHeader(value = "X-Permissions", required = false) String permissions,

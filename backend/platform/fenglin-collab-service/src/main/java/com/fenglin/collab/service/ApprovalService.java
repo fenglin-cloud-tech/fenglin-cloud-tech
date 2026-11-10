@@ -169,7 +169,17 @@ public class ApprovalService {
     @Transactional(readOnly = true)
     public List<Map<String, Object>> myTasks() {
         long tenantId = CollabContext.tenantId();
-        return approvalMapper.listMyTasks(tenantId, CollabContext.userId());
+        return approvalMapper.listMyTasks(tenantId, CollabContext.userId()).stream()
+                .map(row -> {
+                    // task_id 是雪花 ID，前端 JSON 按 number 解析会被舍入，办理时命中“任务不存在”，统一转字符串
+                    Map<String, Object> copy = new LinkedHashMap<>(row);
+                    Object taskId = copy.get("taskId");
+                    if (taskId != null) {
+                        copy.put("taskId", String.valueOf(taskId));
+                    }
+                    return copy;
+                })
+                .toList();
     }
 
     @Transactional(readOnly = true)

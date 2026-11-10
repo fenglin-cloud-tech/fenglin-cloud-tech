@@ -23,7 +23,7 @@ import java.util.Map;
 public class HttpWorkflowClient implements WorkflowClient {
 
     private static final String START_PERMISSION = "biz:workflow:instance:start";
-    private static final String DEPLOY_PERMISSION = "platform:workflow:definition:deploy";
+    private static final String DEPLOY_PERMISSION = "tenant:workflow:def:manage";
     private static final String BPMN_RESOURCE = "workflow/collab_approval.bpmn20.xml";
 
     private final RestClient restClient;

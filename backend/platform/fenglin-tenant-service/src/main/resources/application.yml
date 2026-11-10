@@ -1,5 +1,7 @@
 server:
   port: 18083
+  # 网关透传的 Authorization + X-Permissions 合计超过 Tomcat 默认 8KB，调大避免 400
+  max-http-request-header-size: 16KB
 
 spring:
   application:

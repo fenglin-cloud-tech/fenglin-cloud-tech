@@ -33,6 +33,7 @@ public class CollabOkrController {
 
     private static final String READ = "biz:collab:okr:read";
     private static final String MANAGE = "biz:collab:okr:manage";
+    private static final String PROGRESS = "biz:collab:okr:progress";
     private static final String PERIOD_ADMIN = "tenant:collab:okr:period:manage";
 
     private final OkrService okrService;
@@ -97,7 +98,7 @@ public class CollabOkrController {
             @RequestHeader(value = "X-Permissions", required = false) String permissions,
             @PathVariable("krId") String krId,
             @RequestBody ProgressRequest request) {
-        PermissionGuard.require(permissions, MANAGE);
+        PermissionGuard.require(permissions, PROGRESS);
         return ApiResponse.success(okrService.updateProgress(krId, request));
     }
 

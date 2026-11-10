@@ -55,6 +55,11 @@ public class CollabAdminService {
         this.audit = audit;
     }
 
+    @Transactional(readOnly = true)
+    public SensitiveWordPolicyView sensitivePolicy() {
+        return settingService.sensitivePolicyView();
+    }
+
     @Transactional
     public SensitiveWordPolicyView saveSensitivePolicy(SensitiveWordPolicyRequest request) {
         return settingService.saveSensitivePolicy(request);

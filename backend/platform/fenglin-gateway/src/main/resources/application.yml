@@ -1,5 +1,7 @@
 server:
   port: 18080
+  # 登录令牌约 7KB，默认 8KB 上限余量过小，调大避免 431
+  max-http-request-header-size: 16KB
 
 spring:
   application:
@@ -69,6 +71,10 @@ spring:
           uri: ${FENGLIN_COLLAB_URI:http://localhost:18096}
           predicates:
             - Path=/api/collab/v1/**,/internal/v1/collab/**
+        - id: fenglin-talent-service
+          uri: ${FENGLIN_TALENT_URI:http://localhost:18097}
+          predicates:
+            - Path=/api/talent/v1/**
 
 fenglin:
   gateway:
