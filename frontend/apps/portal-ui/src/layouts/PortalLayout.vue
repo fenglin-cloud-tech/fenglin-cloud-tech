@@ -10,6 +10,8 @@ import {
   Box,
   Calendar,
   ChatDotRound,
+  Cpu,
+  DataAnalysis,
   Document,
   Finished,
   Flag,
@@ -18,6 +20,7 @@ import {
   Money,
   Promotion,
   Reading,
+  Search,
   Service,
   Share,
   Stamp,
@@ -83,6 +86,17 @@ const serviceItems = [
   { path: '/my-service-assets', title: '我的资产', icon: Box, perm: 'service:asset:view' },
 ]
 
+const intelligenceItems = [
+  { path: '/ai-workbench', title: '智能工作台', icon: Grid, perm: 'ai:chat:use' },
+  { path: '/ai-copilot', title: 'AI Copilot', icon: ChatDotRound, perm: 'ai:chat:use' },
+  { path: '/ai-search', title: '知识搜索', icon: Search, perm: 'ai:search:query' },
+  { path: '/ai-kg', title: '知识图谱', icon: Share, perm: 'ai:kg:query' },
+  { path: '/ai-tools', title: '文本工具箱', icon: Document, perm: 'ai:writing:use' },
+  { path: '/ai-agents', title: '智能体', icon: Cpu, perm: 'ai:agent:run' },
+  { path: '/ai-dashboards', title: '数据看板', icon: DataAnalysis, perm: 'ai:bi:view' },
+  { path: '/ai-insights', title: '洞察与问数', icon: TrendCharts, perm: 'ai:bi:view' },
+]
+
 // 菜单按后端权限点收敛：未授权项不展示，避免前端伪造可访问入口。
 const visibleNavItems = computed(() => navItems.filter((item) => !item.perm || auth.can(item.perm)))
 const visibleCollabItems = computed(() => collabItems.filter((item) => auth.can(item.perm)))
@@ -90,6 +104,7 @@ const visibleTalentItems = computed(() => talentItems.filter((item) => !item.per
 const visibleFinanceItems = computed(() => financeItems.filter((item) => auth.can(item.perm)))
 const visibleRndItems = computed(() => rndItems.filter((item) => auth.can(item.perm)))
 const visibleServiceItems = computed(() => serviceItems.filter((item) => auth.can(item.perm)))
+const visibleIntelligenceItems = computed(() => intelligenceItems.filter((item) => auth.can(item.perm)))
 
 const activeMenu = computed(() => route.path)
 const currentTitle = computed(() => String(route.meta.title ?? '员工门户'))
@@ -162,6 +177,16 @@ async function handleLogout() {
             <span>云服服务台</span>
           </template>
           <el-menu-item v-for="item in visibleServiceItems" :key="item.path" :index="item.path">
+            <el-icon><component :is="item.icon" /></el-icon>
+            <span>{{ item.title }}</span>
+          </el-menu-item>
+        </el-sub-menu>
+        <el-sub-menu v-if="visibleIntelligenceItems.length" index="intelligence">
+          <template #title>
+            <el-icon><Cpu /></el-icon>
+            <span>云智 Intelligence</span>
+          </template>
+          <el-menu-item v-for="item in visibleIntelligenceItems" :key="item.path" :index="item.path">
             <el-icon><component :is="item.icon" /></el-icon>
             <span>{{ item.title }}</span>
           </el-menu-item>

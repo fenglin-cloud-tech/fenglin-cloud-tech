@@ -87,6 +87,10 @@ spring:
           uri: ${FENGLIN_SERVICE_URI:http://localhost:18100}
           predicates:
             - Path=/api/service/v1/**
+        - id: fenglin-intelligence-service
+          uri: ${FENGLIN_INTELLIGENCE_URI:http://localhost:18102}
+          predicates:
+            - Path=/api/intelligence/v1/**
 
 fenglin:
   gateway:
