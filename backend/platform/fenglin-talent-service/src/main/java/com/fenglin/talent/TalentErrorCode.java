@@ -29,7 +29,12 @@ public enum TalentErrorCode implements ErrorCode {
 
     OKR_ALIGNMENT_CYCLE("3005005", "OKR 对齐形成环", 400),
     OKR_ALIGNMENT_CROSS_PERIOD("3005006", "跨周期对齐禁止", 400),
-    PROPOSAL_SELF_VOTE_FORBIDDEN("3005015", "提案人不可自我投票", 403);
+    PROPOSAL_SELF_VOTE_FORBIDDEN("3005015", "提案人不可自我投票", 403),
+
+    ATTENDANCE_CLOCK_CONFLICT("3006005", "重复打卡或缺少上班卡", 409),
+    ATTENDANCE_HANDLE_INVALID("3006006", "考勤异常处理状态非法", 400),
+    LEAVE_BALANCE_INSUFFICIENT("3007005", "假期额度不足", 409),
+    LEAVE_STATE_INVALID("3007006", "请假单状态不允许该操作", 409);
 
     private final String code;
     private final String message;

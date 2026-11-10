@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  云才请假审批流程（首次提交自动部署用）。
+  节点：直属主管审批 → HR 复核 → 结束。额度扣减由业务服务在审批通过后执行。
+-->
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:flowable="http://flowable.org/bpmn"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             targetNamespace="http://fenglincloud.com/talent">
+    <process id="leaveApproval" name="请假审批" isExecutable="true">
+        <startEvent id="start" name="提交请假申请"/>
+        <sequenceFlow id="flow1" sourceRef="start" targetRef="managerApprove"/>
+        <userTask id="managerApprove" name="直属主管审批" flowable:candidateGroups="DEPT_LEADER">
+            <extensionElements>
+                <flowable:formProperty id="leaveRequestId" name="请假单" type="string" writable="false"/>
+                <flowable:formProperty id="days" name="请假天数" type="string" writable="false"/>
+            </extensionElements>
+        </userTask>
+        <sequenceFlow id="flow2" sourceRef="managerApprove" targetRef="hrApprove"/>
+        <userTask id="hrApprove" name="HR 复核" flowable:candidateGroups="HR"/>
+        <sequenceFlow id="flow3" sourceRef="hrApprove" targetRef="end"/>
+        <endEvent id="end" name="结束"/>
+    </process>
+</definitions>

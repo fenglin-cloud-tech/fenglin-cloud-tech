@@ -24,14 +24,17 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.TestPropertySource;
 
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.Statement;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.YearMonth;
 import java.time.ZoneOffset;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -49,6 +52,11 @@ import static org.assertj.core.api.Assertions.assertThat;
  * <p>工作流中心在测试中以 @Primary 替身记录提单调用，流程引擎本身由工作流服务集成测试覆盖。</p>
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@TestPropertySource(properties = {
+        // 考勤判定基准调到 00:00，保证任意时刻打卡都会落到 LATE，断言可重复
+        "fenglin.talent.attendance.work-start=00:00",
+        "fenglin.talent.attendance.work-end=00:00"
+})
 class TalentIntegrationTest {
 
     private static final long TENANT = 9701L;
@@ -91,7 +99,10 @@ class TalentIntegrationTest {
             "talent:admin:okr:period", "talent:okr:create", "talent:okr:list", "talent:okr:kr:create",
             "talent:okr:kr:update", "talent:okr:align", "talent:okr:align:view", "talent:okr:review",
             "biz:talent:innovation:submit", "talent:innovation:list", "talent:innovation:review",
-            "biz:talent:innovation:vote", "talent:admin:innovation:incubate");
+            "biz:talent:innovation:vote", "talent:admin:innovation:incubate",
+            "talent:admin:attendance:list", "talent:admin:attendance:manage", "talent:attendance:clock",
+            "talent:attendance:view", "talent:admin:leave:list", "talent:admin:leave:approve",
+            "talent:leave:apply", "talent:leave:view");
 
     private static final String JDBC_URL;
     private static final List<AuditEvent> AUDIT_EVENTS = new CopyOnWriteArrayList<>();
@@ -171,6 +182,8 @@ class TalentIntegrationTest {
                     + "fenglin_talent.talent_okr_period, fenglin_talent.talent_okr_objective, "
                     + "fenglin_talent.talent_okr_key_result, fenglin_talent.talent_okr_alignment, "
                     + "fenglin_talent.talent_innovation_proposal, fenglin_talent.talent_innovation_review, "
+                    + "fenglin_talent.talent_attendance_record, fenglin_talent.talent_leave_type, "
+                    + "fenglin_talent.talent_leave_balance, fenglin_talent.talent_leave_request, "
                     + "fenglin_talent.talent_tenant_key");
         }
     }
@@ -1018,6 +1031,127 @@ class TalentIntegrationTest {
         JsonNode proposals = read(get("/api/talent/v1/innovation/proposals?page=1&size=10", USER_HR,
                 ALL_PERMISSIONS).getBody()).get("data");
         assertThat(proposals.get("total").asLong()).isEqualTo(1L);
+    }
+
+    // ---------- 考勤 / 假期 ----------
+
+    @Test
+    void attendanceClockExceptionAndSummaryFlow() {
+        String month = YearMonth.now().toString();
+        String today = LocalDate.now().toString();
+
+        JsonNode clockIn = read(post("/api/talent/v1/attendance/clock", USER_HR, ALL_PERMISSIONS,
+                Map.of("clock_type", "IN", "source", "WEB")).getBody()).get("data");
+        assertThat(clockIn.get("att_status").asText()).isEqualTo("LATE");
+        assertThat(clockIn.get("clock_in_at").isNull()).isFalse();
+        assertThat(clockIn.get("id").isTextual()).isTrue();
+
+        ResponseEntity<String> duplicateIn = post("/api/talent/v1/attendance/clock", USER_HR, ALL_PERMISSIONS,
+                Map.of("clock_type", "IN"));
+        assertThat(duplicateIn.getStatusCode().value()).isEqualTo(409);
+        assertThat(read(duplicateIn.getBody()).get("code").asText()).isEqualTo("3006005");
+
+        JsonNode clockOut = read(post("/api/talent/v1/attendance/clock", USER_HR, ALL_PERMISSIONS,
+                Map.of("clock_type", "OUT")).getBody()).get("data");
+        assertThat(clockOut.get("clock_out_at").isNull()).isFalse();
+        assertThat(clockOut.get("work_minutes").asInt()).isGreaterThanOrEqualTo(0);
+
+        JsonNode records = read(get("/api/talent/v1/attendance/records?employeeId=" + USER_HR
+                + "&from=" + today + "&to=" + today, USER_HR, ALL_PERMISSIONS).getBody()).get("data");
+        assertThat(records.get("total").asLong()).isEqualTo(1);
+        long recordId = records.get("records").get(0).get("id").asLong();
+
+        JsonNode exceptions = read(get("/api/talent/v1/attendance/exceptions?from=" + today + "&to=" + today,
+                USER_HR, ALL_PERMISSIONS).getBody()).get("data");
+        assertThat(exceptions.get("total").asLong()).isEqualTo(1);
+
+        JsonNode handled = read(post("/api/talent/v1/attendance/records/" + recordId + "/handle", USER_HR,
+                ALL_PERMISSIONS, Map.of("status", "MAKEUP", "note", "漏打下班卡，补卡")).getBody()).get("data");
+        assertThat(handled.get("att_status").asText()).isEqualTo("MAKEUP");
+        assertThat(handled.get("exception_note").asText()).contains("补卡");
+
+        JsonNode summary = read(get("/api/talent/v1/attendance/summary?month=" + month + "&employeeId=" + USER_HR,
+                USER_HR, ALL_PERMISSIONS).getBody()).get("data");
+        assertThat(summary.get("normal_days").asLong()).isEqualTo(1);
+        assertThat(summary.get("late_days").asLong()).isZero();
+
+        JsonNode my = read(get("/api/talent/v1/attendance/my?month=" + month, USER_HR, ALL_PERMISSIONS)
+                .getBody()).get("data");
+        assertThat(my.get("normal_days").asLong()).isEqualTo(1);
+        assertThat(AUDIT_EVENTS).anyMatch(event -> "TALENT_ATTENDANCE_HANDLED".equals(event.eventType()));
+    }
+
+    @Test
+    void leaveRequestIsIdempotentDeductsBalanceAndLinksWorkflow() {
+        long orgId = createOrg("假勤部", "LEAVE", null, "DEPT");
+        long employeeId = createEmployee("LV001", "请假员工", orgId);
+        int year = LocalDate.now().getYear();
+
+        JsonNode types = read(get("/api/talent/v1/leave/types", USER_HR, ALL_PERMISSIONS).getBody()).get("data");
+        long annualTypeId = 0;
+        for (JsonNode type : types) {
+            if ("ANNUAL".equals(type.get("type_code").asText())) {
+                annualTypeId = type.get("id").asLong();
+            }
+        }
+        assertThat(annualTypeId).isNotZero();
+
+        JsonNode balances = read(get("/api/talent/v1/leave/balances?employeeId=" + employeeId + "&year=" + year,
+                USER_HR, ALL_PERMISSIONS).getBody()).get("data");
+        BigDecimal annualAvailable = null;
+        for (JsonNode balance : balances) {
+            if ("ANNUAL".equals(balance.get("type_code").asText())) {
+                annualAvailable = balance.get("available_days").decimalValue();
+            }
+        }
+        assertThat(annualAvailable).isEqualByComparingTo("10.0");
+
+        Map<String, Object> createBody = new LinkedHashMap<>();
+        createBody.put("employee_id", employeeId);
+        createBody.put("leave_type_id", annualTypeId);
+        createBody.put("start_date", LocalDate.now().plusDays(1).toString());
+        createBody.put("end_date", LocalDate.now().plusDays(2).toString());
+        createBody.put("days", 2);
+        createBody.put("reason", "家庭事务");
+        createBody.put("idempotency_key", "LR-IDEM-1");
+
+        JsonNode created = read(post("/api/talent/v1/leave/requests", USER_HR, ALL_PERMISSIONS, createBody)
+                .getBody()).get("data");
+        long requestId = created.get("id").asLong();
+        assertThat(created.get("lr_status").asText()).isEqualTo("APPROVING");
+        assertThat(created.get("process_instance_id").asText()).startsWith("WF-");
+
+        JsonNode replay = read(post("/api/talent/v1/leave/requests", USER_HR, ALL_PERMISSIONS, createBody)
+                .getBody()).get("data");
+        assertThat(replay.get("id").asLong()).isEqualTo(requestId);
+        assertThat(WORKFLOW_CALLS.stream().filter(call -> call.startsWith("leaveApproval:")).count())
+                .isEqualTo(1);
+
+        JsonNode approved = read(post("/api/talent/v1/leave/requests/" + requestId + "/approval", USER_HR,
+                ALL_PERMISSIONS, Map.of("approved", true, "opinion", "同意")).getBody()).get("data");
+        assertThat(approved.get("lr_status").asText()).isEqualTo("APPROVED");
+        assertThat(approved.get("used_days").decimalValue()).isEqualByComparingTo("2.0");
+
+        JsonNode balancesAfter = read(get("/api/talent/v1/leave/balances?employeeId=" + employeeId + "&year=" + year,
+                USER_HR, ALL_PERMISSIONS).getBody()).get("data");
+        for (JsonNode balance : balancesAfter) {
+            if ("ANNUAL".equals(balance.get("type_code").asText())) {
+                assertThat(balance.get("used_days").decimalValue()).isEqualByComparingTo("2.0");
+                assertThat(balance.get("available_days").decimalValue()).isEqualByComparingTo("8.0");
+            }
+        }
+
+        createBody.put("days", 9);
+        createBody.put("idempotency_key", "LR-IDEM-2");
+        ResponseEntity<String> insufficient = post("/api/talent/v1/leave/requests", USER_HR, ALL_PERMISSIONS,
+                createBody);
+        assertThat(insufficient.getStatusCode().value()).isEqualTo(409);
+        assertThat(read(insufficient.getBody()).get("code").asText()).isEqualTo("3007005");
+
+        JsonNode list = read(get("/api/talent/v1/leave/requests?status=APPROVED&employeeId=" + employeeId,
+                USER_HR, ALL_PERMISSIONS).getBody()).get("data");
+        assertThat(list.get("total").asLong()).isEqualTo(1);
+        assertThat(list.get("records").get(0).get("employee_name").asText()).isEqualTo("请假员工");
     }
 
     // ---------- helpers ----------

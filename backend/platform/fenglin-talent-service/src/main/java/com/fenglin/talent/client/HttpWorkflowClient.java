@@ -23,13 +23,20 @@ import java.util.Map;
 public class HttpWorkflowClient implements WorkflowClient {
 
     private static final String START_PERMISSION = "biz:workflow:instance:start";
-    private static final String DEPLOY_PERMISSION = "platform:workflow:definition:deploy";
+    /**
+     * 与工作流中心 WorkflowAdminController.DEF_PERMISSION 对齐；此前误用
+     * platform:workflow:definition:deploy 导致首次自动部署恒被 403 拒绝，
+     * 进而提交审批报“流程定义不存在”。
+     */
+    private static final String DEPLOY_PERMISSION = "tenant:workflow:def:manage";
     private static final Map<String, String> BPMN_RESOURCES = Map.of(
             "recruitRequisitionApproval", "workflow/recruit_requisition_approval.bpmn20.xml",
-            "employeeLifecycle", "workflow/employee_lifecycle.bpmn20.xml");
+            "employeeLifecycle", "workflow/employee_lifecycle.bpmn20.xml",
+            "leaveApproval", "workflow/leave_approval.bpmn20.xml");
     private static final Map<String, String> BPMN_NAMES = Map.of(
             "recruitRequisitionApproval", "招聘需求审批",
-            "employeeLifecycle", "员工全生命周期");
+            "employeeLifecycle", "员工全生命周期",
+            "leaveApproval", "请假审批");
 
     private final RestClient restClient;
     private final String serviceUrl;

@@ -32,7 +32,12 @@ fenglin:
     approval-process-key:
       recruit: ${FENGLIN_TALENT_RECRUIT_PROCESS_KEY:recruitRequisitionApproval}
       lifecycle: ${FENGLIN_TALENT_LIFECYCLE_PROCESS_KEY:employeeLifecycle}
+      leave: ${FENGLIN_TALENT_LEAVE_PROCESS_KEY:leaveApproval}
     workflow-timeout-ms: 3000
+    # 考勤判定基准（本地默认 09:00 - 18:00，可按租户部署覆盖）
+    attendance:
+      work-start: ${FENGLIN_TALENT_WORK_START:09:00}
+      work-end: ${FENGLIN_TALENT_WORK_END:18:00}
     # 试用期默认 3 个月，延长上限 3 个月（BR-C1-008）
     probation-months: 3
     probation-extend-max-months: 3

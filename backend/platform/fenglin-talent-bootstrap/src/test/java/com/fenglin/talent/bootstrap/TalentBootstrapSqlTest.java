@@ -50,17 +50,17 @@ class TalentBootstrapSqlTest {
         assertThat(count("SELECT count(1) FROM fenglin_hub.hub_permission "
                 + "WHERE code = 'talent:admin:innovation:incubate'")).isEqualTo(1);
         assertThat(count("SELECT count(1) FROM fenglin_hub.hub_permission WHERE domain = 'talent'"))
-                .isEqualTo(81);
+                .isEqualTo(89);
         assertThat(count("SELECT count(DISTINCT code) FROM fenglin_hub.hub_permission WHERE domain = 'talent'"))
-                .isEqualTo(81);
+                .isEqualTo(89);
     }
 
     @Test
     void seedsDictionariesOnce() throws Exception {
         assertThat(count("SELECT count(1) FROM fenglin_hub.hub_dict_type WHERE code LIKE 'talent\\_%' ESCAPE '\\'"))
-                .isEqualTo(14);
+                .isEqualTo(16);
         assertThat(count("SELECT count(1) FROM fenglin_hub.hub_dict_item WHERE tenant_id = 0 "
-                + "AND dict_code LIKE 'talent\\_%' ESCAPE '\\'")).isEqualTo(61);
+                + "AND dict_code LIKE 'talent\\_%' ESCAPE '\\'")).isEqualTo(72);
         assertThat(count("SELECT count(1) FROM fenglin_hub.hub_dict_item WHERE tenant_id = 0 "
                 + "AND dict_code = 'talent_flow_status'")).isEqualTo(7);
     }

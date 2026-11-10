@@ -206,6 +206,52 @@ public final class TalentDtos {
     public record ResignationStatusResult(Long id, String rsStatus) {
     }
 
+    // ---------- 考勤 ----------
+
+    public record AttendanceClockRequest(String clockType, String source) {
+    }
+
+    public record AttendanceRecordView(Long id, Long employeeId, LocalDate workDate, Instant clockInAt,
+                                       Instant clockOutAt, String source, String attStatus, int workMinutes,
+                                       int lateMinutes, int earlyMinutes, String exceptionNote, Integer version) {
+    }
+
+    public record AttendanceHandleRequest(String status, String note) {
+    }
+
+    public record AttendanceSummaryView(long normalDays, long lateDays, long earlyDays, long lateEarlyDays,
+                                        long missingDays, long absentDays, long workMinutes, long lateMinutes,
+                                        long earlyMinutes) {
+    }
+
+    // ---------- 假期 ----------
+
+    public record LeaveTypeView(Long id, String typeCode, String typeName, BigDecimal annualQuotaDays,
+                                boolean paid) {
+    }
+
+    public record LeaveBalanceView(Long id, Long leaveTypeId, String typeCode, String typeName, int year,
+                                   BigDecimal totalDays, BigDecimal usedDays, BigDecimal availableDays,
+                                   Integer version) {
+    }
+
+    public record LeaveRequestCreateRequest(Long employeeId, Long leaveTypeId, LocalDate startDate,
+                                            LocalDate endDate, BigDecimal days, String reason,
+                                            String idempotencyKey) {
+    }
+
+    public record LeaveRequestResult(Long id, String requestNo, String lrStatus, String processInstanceId,
+                                     BigDecimal usedDays) {
+    }
+
+    public record LeaveRequestView(Long id, String requestNo, Long employeeId, String employeeName,
+                                   String leaveTypeName, LocalDate startDate, LocalDate endDate, BigDecimal days,
+                                   String lrStatus, String approveOpinion, Instant createdAt) {
+    }
+
+    public record LeaveApprovalRequest(Boolean approved, String opinion) {
+    }
+
     // ---------- 收口补充 ----------
 
     public record EmployeeImportRow(String empNo, String name, String gender, LocalDate birthDate, String phone,
