@@ -44,7 +44,7 @@ public class TalentPayrollController {
     public ApiResponse<List<PayItemView>> items(
             @RequestHeader(value = "X-Permissions", required = false) String permissions) {
         PermissionGuard.require(permissions, LIST);
-        return ApiResponse.success(payrollService.items());
+        return ApiResponse.success(payrollService.items(permissions));
     }
 
     @PostMapping("/items")
@@ -52,7 +52,7 @@ public class TalentPayrollController {
             @RequestHeader(value = "X-Permissions", required = false) String permissions,
             @RequestBody PayItemCreateRequest request) {
         PermissionGuard.require(permissions, MANAGE);
-        return ApiResponse.success(payrollService.createItem(request));
+        return ApiResponse.success(payrollService.createItem(request, permissions));
     }
 
     @GetMapping("/periods")
@@ -61,7 +61,7 @@ public class TalentPayrollController {
             @RequestParam(value = "page", required = false) Integer page,
             @RequestParam(value = "size", required = false) Integer size) {
         PermissionGuard.require(permissions, LIST);
-        return ApiResponse.success(payrollService.periods(page, size));
+        return ApiResponse.success(payrollService.periods(page, size, permissions));
     }
 
     @PostMapping("/periods")
@@ -69,7 +69,7 @@ public class TalentPayrollController {
             @RequestHeader(value = "X-Permissions", required = false) String permissions,
             @RequestBody PayPeriodCreateRequest request) {
         PermissionGuard.require(permissions, MANAGE);
-        return ApiResponse.success(payrollService.createPeriod(request));
+        return ApiResponse.success(payrollService.createPeriod(request, permissions));
     }
 
     @PostMapping("/periods/{id}/calculate")
@@ -77,7 +77,7 @@ public class TalentPayrollController {
             @RequestHeader(value = "X-Permissions", required = false) String permissions,
             @PathVariable("id") long id) {
         PermissionGuard.require(permissions, MANAGE);
-        return ApiResponse.success(payrollService.calculate(id));
+        return ApiResponse.success(payrollService.calculate(id, permissions));
     }
 
     @GetMapping("/periods/{id}/records")
@@ -87,7 +87,7 @@ public class TalentPayrollController {
             @RequestParam(value = "page", required = false) Integer page,
             @RequestParam(value = "size", required = false) Integer size) {
         PermissionGuard.require(permissions, LIST);
-        return ApiResponse.success(payrollService.records(id, page, size));
+        return ApiResponse.success(payrollService.records(id, page, size, permissions));
     }
 
     @PostMapping("/periods/{id}/slip")
@@ -104,7 +104,7 @@ public class TalentPayrollController {
             @RequestParam(value = "page", required = false) Integer page,
             @RequestParam(value = "size", required = false) Integer size) {
         PermissionGuard.require(permissions, LIST);
-        return ApiResponse.success(payrollService.slips(page, size));
+        return ApiResponse.success(payrollService.slips(page, size, permissions));
     }
 
     @GetMapping("/slips/{id}")
@@ -112,7 +112,7 @@ public class TalentPayrollController {
             @RequestHeader(value = "X-Permissions", required = false) String permissions,
             @PathVariable("id") long id) {
         PermissionGuard.require(permissions, LIST);
-        return ApiResponse.success(payrollService.slip(id));
+        return ApiResponse.success(payrollService.slip(id, permissions));
     }
 
     @PostMapping("/slips/{id}/approval")
@@ -120,7 +120,7 @@ public class TalentPayrollController {
             @RequestHeader(value = "X-Permissions", required = false) String permissions,
             @PathVariable("id") long id, @RequestBody ApprovalRequest request) {
         PermissionGuard.require(permissions, APPROVE);
-        return ApiResponse.success(payrollService.approve(id, request));
+        return ApiResponse.success(payrollService.approve(id, request, permissions));
     }
 
     @PostMapping("/slips/{id}/pay")
@@ -128,6 +128,6 @@ public class TalentPayrollController {
             @RequestHeader(value = "X-Permissions", required = false) String permissions,
             @PathVariable("id") long id) {
         PermissionGuard.require(permissions, APPROVE);
-        return ApiResponse.success(payrollService.pay(id));
+        return ApiResponse.success(payrollService.pay(id, permissions));
     }
 }

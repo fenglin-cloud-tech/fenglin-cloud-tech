@@ -260,7 +260,7 @@ public final class TalentDtos {
 
     public record PayItemView(Long id, String itemCode, String itemName, String itemType, String calcType,
                               BigDecimal amount, boolean taxable, int sortNo, String itemStatus,
-                              int version) {
+                              int version, boolean amountMasked) {
     }
 
     public record PayPeriodCreateRequest(String periodCode, LocalDate startDate, LocalDate endDate,
@@ -269,21 +269,25 @@ public final class TalentDtos {
 
     public record PayPeriodView(Long id, String periodCode, LocalDate startDate, LocalDate endDate,
                                 LocalDate payDate, String periodStatus, int employeeCount,
-                                BigDecimal grossTotal, BigDecimal netTotal, int version) {
+                                BigDecimal grossTotal, BigDecimal netTotal, int version,
+                                boolean amountMasked) {
     }
 
     public record PayrollRecordView(Long id, Long periodId, Long employeeId, String employeeName,
                                     BigDecimal baseSalary, BigDecimal earningTotal, BigDecimal deductionTotal,
-                                    BigDecimal grossPay, BigDecimal netPay, String recStatus) {
+                                    BigDecimal grossPay, BigDecimal netPay, String recStatus,
+                                    boolean amountMasked) {
     }
 
     public record PayslipSubmitResult(Long id, String slipNo, String slipStatus, Long periodId,
-                                      String processInstanceId, int employeeCount, BigDecimal netTotal) {
+                                      String processInstanceId, int employeeCount, BigDecimal netTotal,
+                                      boolean amountMasked) {
     }
 
     public record PayslipView(Long id, String slipNo, Long periodId, String periodCode, int employeeCount,
                               BigDecimal grossTotal, BigDecimal netTotal, String slipStatus,
-                              String processInstanceId, String approveOpinion, Instant createdAt) {
+                              String processInstanceId, String approveOpinion, Instant createdAt,
+                              boolean amountMasked) {
     }
 
     // ---------- 绩效 ----------

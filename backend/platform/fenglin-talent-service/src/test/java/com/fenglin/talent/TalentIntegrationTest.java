@@ -105,6 +105,7 @@ class TalentIntegrationTest {
             "talent:attendance:view", "talent:admin:leave:list", "talent:admin:leave:approve",
             "talent:leave:apply", "talent:leave:view",
             "talent:admin:payroll:list", "talent:admin:payroll:manage", "talent:admin:payroll:approve",
+            "talent:payroll:amount:view",
             "talent:admin:performance:list", "talent:admin:performance:manage",
             "talent:admin:performance:approve");
 
@@ -1208,6 +1209,22 @@ class TalentIntegrationTest {
         assertThat(records.get("records").get(0).get("employee_name").asText()).isEqualTo("薪资员工");
         assertThat(records.get("records").get(0).get("net_pay").decimalValue()).isEqualByComparingTo("10000");
 
+        // 无 talent:payroll:amount:view 时金额字段必须脱敏（null + amount_masked=true）
+        String listOnly = "talent:admin:payroll:list";
+        JsonNode maskedRecords = read(get("/api/talent/v1/payroll/periods/" + periodId + "/records",
+                USER_HR, listOnly).getBody()).get("data");
+        JsonNode maskedRecord = maskedRecords.get("records").get(0);
+        assertMasked(maskedRecord, "base_salary", "earning_total", "deduction_total", "gross_pay", "net_pay");
+        assertThat(maskedRecord.get("amount_masked").asBoolean()).isTrue();
+        JsonNode maskedPeriods = read(get("/api/talent/v1/payroll/periods", USER_HR, listOnly)
+                .getBody()).get("data");
+        assertMasked(maskedPeriods.get("records").get(0), "gross_total", "net_total");
+        assertThat(maskedPeriods.get("records").get(0).get("amount_masked").asBoolean()).isTrue();
+        JsonNode maskedItems = read(get("/api/talent/v1/payroll/items", USER_HR, listOnly)
+                .getBody()).get("data");
+        assertMasked(maskedItems.get(0), "amount");
+        assertThat(maskedItems.get(0).get("amount_masked").asBoolean()).isTrue();
+
         JsonNode submitted = read(post("/api/talent/v1/payroll/periods/" + periodId + "/slip", USER_HR,
                 ALL_PERMISSIONS, Map.of()).getBody()).get("data");
         long slipId = submitted.get("id").asLong();
@@ -1496,6 +1513,16 @@ class TalentIntegrationTest {
             return objectMapper.readTree(body);
         } catch (Exception ex) {
             throw new IllegalStateException("响应不是合法 JSON: " + body, ex);
+        }
+    }
+
+    /**
+     * 脱敏金额既可能序列化为 null，也可能因 NON_NULL 配置被整个省略，两种都视为已脱敏。
+     */
+    private static void assertMasked(JsonNode node, String... fields) {
+        for (String field : fields) {
+            JsonNode value = node.path(field);
+            assertThat(value.isNull() || value.isMissingNode()).as("字段 %s 应已脱敏", field).isTrue();
         }
     }
 

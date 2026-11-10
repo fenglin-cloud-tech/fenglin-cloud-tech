@@ -209,6 +209,7 @@ export interface TalentPayPeriod {
   employee_count: number
   gross_total?: number
   net_total?: number
+  amount_masked?: boolean
   version?: number
 }
 
@@ -223,6 +224,7 @@ export interface TalentPayrollRecord {
   gross_pay?: number
   net_pay?: number
   rec_status: string
+  amount_masked?: boolean
 }
 
 // ---------- 绩效 ----------

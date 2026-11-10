@@ -21,7 +21,8 @@ const recordError = ref('')
 
 const gapItems = [
   '后端暂无员工自助薪酬接口（没有 /payroll/slips/my）：薪酬周期与核算明细仅提供管理端接口，需要 talent:admin:payroll:list。',
-  '页面按登录用户 ID 在核算明细中过滤本人记录；普通员工账号调用会返回真实 403，管理员账号可看到真实数据。',
+  '金额字段另需 talent:payroll:amount:view：未持有时服务端返回 null 且 amount_masked=true，页面显示“已脱敏”，不返回完整金额。',
+  '本页仍按登录用户 ID 在核算明细中过滤本人记录；普通员工账号调用会返回真实 403。缺少用户与员工档案的绑定关系，暂无法做服务端本人收敛。',
   '发放单 /payroll/slips 是按周期汇总的，不含员工个人维度，也没有工资条 PDF 下载接口，因此本页不展示汇总发放单。',
 ]
 
@@ -36,7 +37,8 @@ function recStatusLabel(value?: string) {
   return value ? recStatusLabels[value] ?? value : '-'
 }
 
-function money(value?: number) {
+function money(value?: number, masked?: boolean) {
+  if (masked) return '已脱敏'
   return value === undefined || value === null ? '-' : Number(value).toFixed(2)
 }
 
@@ -123,20 +125,20 @@ onMounted(loadPeriods)
         <el-table v-else :data="myRecords" border stripe>
           <el-table-column prop="employee_name" label="员工" width="130" />
           <el-table-column label="基本工资" width="130">
-            <template #default="{ row }">{{ money(row.base_salary) }}</template>
+            <template #default="{ row }">{{ money(row.base_salary, row.amount_masked) }}</template>
           </el-table-column>
           <el-table-column label="应发合计" width="130">
-            <template #default="{ row }">{{ money(row.earning_total) }}</template>
+            <template #default="{ row }">{{ money(row.earning_total, row.amount_masked) }}</template>
           </el-table-column>
           <el-table-column label="扣款合计" width="130">
-            <template #default="{ row }">{{ money(row.deduction_total) }}</template>
+            <template #default="{ row }">{{ money(row.deduction_total, row.amount_masked) }}</template>
           </el-table-column>
           <el-table-column label="税前工资" width="130">
-            <template #default="{ row }">{{ money(row.gross_pay) }}</template>
+            <template #default="{ row }">{{ money(row.gross_pay, row.amount_masked) }}</template>
           </el-table-column>
           <el-table-column label="实发工资" width="130">
             <template #default="{ row }">
-              <strong>{{ money(row.net_pay) }}</strong>
+              <strong>{{ money(row.net_pay, row.amount_masked) }}</strong>
             </template>
           </el-table-column>
           <el-table-column label="状态" width="110">

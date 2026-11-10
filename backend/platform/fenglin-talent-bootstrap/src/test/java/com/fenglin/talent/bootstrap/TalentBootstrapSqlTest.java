@@ -50,9 +50,9 @@ class TalentBootstrapSqlTest {
         assertThat(count("SELECT count(1) FROM fenglin_hub.hub_permission "
                 + "WHERE code = 'talent:admin:innovation:incubate'")).isEqualTo(1);
         assertThat(count("SELECT count(1) FROM fenglin_hub.hub_permission WHERE domain = 'talent'"))
-                .isEqualTo(95);
+                .isEqualTo(96);
         assertThat(count("SELECT count(DISTINCT code) FROM fenglin_hub.hub_permission WHERE domain = 'talent'"))
-                .isEqualTo(95);
+                .isEqualTo(96);
     }
 
     @Test

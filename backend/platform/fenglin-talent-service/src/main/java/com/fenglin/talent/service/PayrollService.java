@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fenglin.common.core.BizException;
 import com.fenglin.common.core.PageResult;
 import com.fenglin.common.core.RequestContext;
+import com.fenglin.common.security.PermissionGuard;
 import com.fenglin.talent.TalentErrorCode;
 import com.fenglin.talent.client.WorkflowClient;
 import com.fenglin.talent.mapper.PayrollMapper;
@@ -44,6 +45,11 @@ public class PayrollService {
 
     private static final String BASE_ITEM_CODE = "BASE";
 
+    /**
+     * 薪酬金额字段级权限：未持有时所有金额返回 null，并以 amountMasked=true 标记。
+     */
+    private static final String AMOUNT_VIEW = "talent:payroll:amount:view";
+
     private final PayrollMapper payrollMapper;
     private final TalentAudit audit;
     private final WorkflowClient workflowClient;
@@ -63,12 +69,14 @@ public class PayrollService {
     // ---------- 薪资项 ----------
 
     @Transactional(readOnly = true)
-    public List<PayItemView> items() {
-        return payrollMapper.listItems(TalentContext.tenantId()).stream().map(this::toItemView).toList();
+    public List<PayItemView> items(String permissions) {
+        boolean visible = amountVisible(permissions);
+        return payrollMapper.listItems(TalentContext.tenantId()).stream()
+                .map(row -> toItemView(row, visible)).toList();
     }
 
     @Transactional
-    public PayItemView createItem(PayItemCreateRequest request) {
+    public PayItemView createItem(PayItemCreateRequest request, String permissions) {
         long tenantId = TalentContext.tenantId();
         long userId = TalentContext.userId();
         if (request == null || blank(request.itemCode()) || blank(request.itemName())) {
@@ -99,24 +107,25 @@ public class PayrollService {
                 scale(amount), Boolean.FALSE.equals(request.taxable()) ? 0 : 1,
                 request.sortNo() == null ? 0 : request.sortNo(), "ACTIVE", request.remark(), userId);
         audit.publish("TALENT_PAY_ITEM_CREATED", "CREATE", "talent_pay_item", id, "MEDIUM");
-        return toItemView(payrollMapper.findItemByCode(tenantId, itemCode));
+        return toItemView(payrollMapper.findItemByCode(tenantId, itemCode), amountVisible(permissions));
     }
 
     // ---------- 薪资周期 ----------
 
     @Transactional(readOnly = true)
-    public PageResult<PayPeriodView> periods(Integer page, Integer size) {
+    public PageResult<PayPeriodView> periods(Integer page, Integer size, String permissions) {
         long tenantId = TalentContext.tenantId();
         int pageNo = TalentContext.page(page);
         int pageSize = TalentContext.size(size);
+        boolean visible = amountVisible(permissions);
         List<PayPeriodView> records = payrollMapper
                 .listPeriods(tenantId, pageSize, (pageNo - 1) * pageSize)
-                .stream().map(this::toPeriodView).toList();
+                .stream().map(row -> toPeriodView(row, visible)).toList();
         return PageResult.of(records, payrollMapper.countPeriods(tenantId), pageNo, pageSize);
     }
 
     @Transactional
-    public PayPeriodView createPeriod(PayPeriodCreateRequest request) {
+    public PayPeriodView createPeriod(PayPeriodCreateRequest request, String permissions) {
         long tenantId = TalentContext.tenantId();
         long userId = TalentContext.userId();
         if (request == null || blank(request.periodCode()) || request.startDate() == null
@@ -134,11 +143,11 @@ public class PayrollService {
         payrollMapper.insertPeriod(id, tenantId, periodCode, request.startDate(), request.endDate(),
                 request.payDate(), userId);
         audit.publish("TALENT_PAY_PERIOD_CREATED", "CREATE", "talent_pay_period", id, "MEDIUM");
-        return toPeriodView(payrollMapper.findPeriod(tenantId, id));
+        return toPeriodView(payrollMapper.findPeriod(tenantId, id), amountVisible(permissions));
     }
 
     @Transactional
-    public PayPeriodView calculate(long periodId) {
+    public PayPeriodView calculate(long periodId, String permissions) {
         long tenantId = TalentContext.tenantId();
         long userId = TalentContext.userId();
         Map<String, Object> period = requirePeriod(tenantId, periodId);
@@ -188,18 +197,19 @@ public class PayrollService {
             throw new BizException(TalentErrorCode.STATE_CONFLICT, "薪资周期已被并发修改，请刷新后重试");
         }
         audit.publish("TALENT_PAYROLL_CALCULATED", "UPDATE", "talent_pay_period", periodId, "HIGH");
-        return toPeriodView(payrollMapper.findPeriod(tenantId, periodId));
+        return toPeriodView(payrollMapper.findPeriod(tenantId, periodId), amountVisible(permissions));
     }
 
     @Transactional(readOnly = true)
-    public PageResult<PayrollRecordView> records(long periodId, Integer page, Integer size) {
+    public PageResult<PayrollRecordView> records(long periodId, Integer page, Integer size, String permissions) {
         long tenantId = TalentContext.tenantId();
         requirePeriod(tenantId, periodId);
         int pageNo = TalentContext.page(page);
         int pageSize = TalentContext.size(size);
+        boolean visible = amountVisible(permissions);
         List<PayrollRecordView> records = payrollMapper
                 .listRecords(tenantId, periodId, pageSize, (pageNo - 1) * pageSize)
-                .stream().map(this::toRecordView).toList();
+                .stream().map(row -> toRecordView(row, visible)).toList();
         return PageResult.of(records, payrollMapper.countRecords(tenantId, periodId), pageNo, pageSize);
     }
 
@@ -219,6 +229,7 @@ public class PayrollService {
         int employeeCount = Rows.intVal(period, "employeeCount");
         BigDecimal grossTotal = Rows.dec(period, "grossTotal");
         BigDecimal netTotal = Rows.dec(period, "netTotal");
+        boolean visible = amountVisible(permissions);
         long id = IdWorker.getId();
         String slipNo = payrollMapper.nextSlipNo();
         Map<String, Object> formData = new LinkedHashMap<>();
@@ -226,8 +237,11 @@ public class PayrollService {
         formData.put("slipNo", slipNo);
         formData.put("periodCode", Rows.str(period, "periodCode"));
         formData.put("employeeCount", employeeCount);
-        formData.put("grossTotal", grossTotal);
-        formData.put("netTotal", netTotal);
+        formData.put("amountMasked", !visible);
+        if (visible) {
+            formData.put("grossTotal", grossTotal);
+            formData.put("netTotal", netTotal);
+        }
         String instanceId = workflowClient.startApproval(permissions, RequestContext.requestId(), payrollProcessKey,
                 String.valueOf(id), "PAYROLL_SLIP", "薪资发放单：" + Rows.str(period, "periodCode"), formData);
         payrollMapper.insertSlip(id, tenantId, periodId, slipNo, employeeCount, grossTotal, netTotal, instanceId,
@@ -236,11 +250,12 @@ public class PayrollService {
             throw new BizException(TalentErrorCode.STATE_CONFLICT, "薪资周期状态已变化，请刷新后重试");
         }
         audit.publish("TALENT_PAYSLIP_SUBMITTED", "CREATE", "talent_payslip", id, "HIGH");
-        return new PayslipSubmitResult(id, slipNo, "APPROVING", periodId, instanceId, employeeCount, netTotal);
+        return new PayslipSubmitResult(id, slipNo, "APPROVING", periodId, instanceId, employeeCount,
+                visible ? netTotal : null, !visible);
     }
 
     @Transactional
-    public PayslipView approve(long slipId, ApprovalRequest request) {
+    public PayslipView approve(long slipId, ApprovalRequest request, String permissions) {
         long tenantId = TalentContext.tenantId();
         long userId = TalentContext.userId();
         if (request == null || request.approved() == null) {
@@ -263,11 +278,11 @@ public class PayrollService {
             updatePeriod(tenantId, periodId, "APPROVING", "CALCULATED", userId);
         }
         audit.publish("TALENT_PAYSLIP_APPROVED", "UPDATE", "talent_payslip", slipId, "HIGH");
-        return toSlipView(payrollMapper.findSlip(tenantId, slipId));
+        return toSlipView(payrollMapper.findSlip(tenantId, slipId), amountVisible(permissions));
     }
 
     @Transactional
-    public PayslipView pay(long slipId) {
+    public PayslipView pay(long slipId, String permissions) {
         long tenantId = TalentContext.tenantId();
         long userId = TalentContext.userId();
         Map<String, Object> slip = requireSlip(tenantId, slipId);
@@ -279,24 +294,25 @@ public class PayrollService {
         }
         updatePeriod(tenantId, Rows.lngVal(slip, "periodId"), "APPROVED", "CLOSED", userId);
         audit.publish("TALENT_PAYSLIP_PAID", "UPDATE", "talent_payslip", slipId, "HIGH");
-        return toSlipView(payrollMapper.findSlip(tenantId, slipId));
+        return toSlipView(payrollMapper.findSlip(tenantId, slipId), amountVisible(permissions));
     }
 
     @Transactional(readOnly = true)
-    public PageResult<PayslipView> slips(Integer page, Integer size) {
+    public PageResult<PayslipView> slips(Integer page, Integer size, String permissions) {
         long tenantId = TalentContext.tenantId();
         int pageNo = TalentContext.page(page);
         int pageSize = TalentContext.size(size);
+        boolean visible = amountVisible(permissions);
         List<PayslipView> records = payrollMapper
                 .listSlips(tenantId, pageSize, (pageNo - 1) * pageSize)
-                .stream().map(this::toSlipView).toList();
+                .stream().map(row -> toSlipView(row, visible)).toList();
         return PageResult.of(records, payrollMapper.countSlips(tenantId), pageNo, pageSize);
     }
 
     @Transactional(readOnly = true)
-    public PayslipView slip(long slipId) {
+    public PayslipView slip(long slipId, String permissions) {
         long tenantId = TalentContext.tenantId();
-        return toSlipView(requireSlip(tenantId, slipId));
+        return toSlipView(requireSlip(tenantId, slipId), amountVisible(permissions));
     }
 
     // ---------- 内部 ----------
@@ -343,32 +359,45 @@ public class PayrollService {
         }
     }
 
-    private PayItemView toItemView(Map<String, Object> row) {
-        return new PayItemView(Rows.lngVal(row, "id"), Rows.str(row, "itemCode"), Rows.str(row, "itemName"),
-                Rows.str(row, "itemType"), Rows.str(row, "calcType"), Rows.dec(row, "amount"),
-                Rows.intVal(row, "taxable") == 1, Rows.intVal(row, "sortNo"), Rows.str(row, "itemStatus"),
-                Rows.intVal(row, "version"));
+    private boolean amountVisible(String permissions) {
+        return PermissionGuard.has(permissions, AMOUNT_VIEW);
     }
 
-    private PayPeriodView toPeriodView(Map<String, Object> row) {
+    private PayItemView toItemView(Map<String, Object> row, boolean amountVisible) {
+        return new PayItemView(Rows.lngVal(row, "id"), Rows.str(row, "itemCode"), Rows.str(row, "itemName"),
+                Rows.str(row, "itemType"), Rows.str(row, "calcType"),
+                amountVisible ? Rows.dec(row, "amount") : null,
+                Rows.intVal(row, "taxable") == 1, Rows.intVal(row, "sortNo"), Rows.str(row, "itemStatus"),
+                Rows.intVal(row, "version"), !amountVisible);
+    }
+
+    private PayPeriodView toPeriodView(Map<String, Object> row, boolean amountVisible) {
         return new PayPeriodView(Rows.lngVal(row, "id"), Rows.str(row, "periodCode"),
                 Rows.date(row, "startDate"), Rows.date(row, "endDate"), Rows.date(row, "payDate"),
-                Rows.str(row, "periodStatus"), Rows.intVal(row, "employeeCount"), Rows.dec(row, "grossTotal"),
-                Rows.dec(row, "netTotal"), Rows.intVal(row, "version"));
+                Rows.str(row, "periodStatus"), Rows.intVal(row, "employeeCount"),
+                amountVisible ? Rows.dec(row, "grossTotal") : null,
+                amountVisible ? Rows.dec(row, "netTotal") : null,
+                Rows.intVal(row, "version"), !amountVisible);
     }
 
-    private PayrollRecordView toRecordView(Map<String, Object> row) {
+    private PayrollRecordView toRecordView(Map<String, Object> row, boolean amountVisible) {
         return new PayrollRecordView(Rows.lngVal(row, "id"), Rows.lngVal(row, "periodId"),
-                Rows.lngVal(row, "employeeId"), Rows.str(row, "employeeName"), Rows.dec(row, "baseSalary"),
-                Rows.dec(row, "earningTotal"), Rows.dec(row, "deductionTotal"), Rows.dec(row, "grossPay"),
-                Rows.dec(row, "netPay"), Rows.str(row, "recStatus"));
+                Rows.lngVal(row, "employeeId"), Rows.str(row, "employeeName"),
+                amountVisible ? Rows.dec(row, "baseSalary") : null,
+                amountVisible ? Rows.dec(row, "earningTotal") : null,
+                amountVisible ? Rows.dec(row, "deductionTotal") : null,
+                amountVisible ? Rows.dec(row, "grossPay") : null,
+                amountVisible ? Rows.dec(row, "netPay") : null,
+                Rows.str(row, "recStatus"), !amountVisible);
     }
 
-    private PayslipView toSlipView(Map<String, Object> row) {
+    private PayslipView toSlipView(Map<String, Object> row, boolean amountVisible) {
         return new PayslipView(Rows.lngVal(row, "id"), Rows.str(row, "slipNo"), Rows.lngVal(row, "periodId"),
-                Rows.str(row, "periodCode"), Rows.intVal(row, "employeeCount"), Rows.dec(row, "grossTotal"),
-                Rows.dec(row, "netTotal"), Rows.str(row, "slipStatus"), Rows.str(row, "processInstanceId"),
-                Rows.str(row, "approveOpinion"), Rows.instant(row, "createdAt"));
+                Rows.str(row, "periodCode"), Rows.intVal(row, "employeeCount"),
+                amountVisible ? Rows.dec(row, "grossTotal") : null,
+                amountVisible ? Rows.dec(row, "netTotal") : null,
+                Rows.str(row, "slipStatus"), Rows.str(row, "processInstanceId"),
+                Rows.str(row, "approveOpinion"), Rows.instant(row, "createdAt"), !amountVisible);
     }
 
     private BigDecimal scale(BigDecimal value) {
