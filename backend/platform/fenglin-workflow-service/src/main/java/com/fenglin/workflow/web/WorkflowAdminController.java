@@ -3,6 +3,7 @@ package com.fenglin.workflow.web;
 import com.fenglin.common.core.ApiResponse;
 import com.fenglin.common.core.PageResult;
 import com.fenglin.common.security.PermissionGuard;
+import com.fenglin.common.security.WorkflowPermissions;
 import com.fenglin.workflow.service.WorkflowDefinitionService;
 import com.fenglin.workflow.service.WorkflowMonitorService;
 import com.fenglin.workflow.web.dto.DefinitionView;
@@ -21,7 +22,7 @@ import java.time.Instant;
 @RestController
 public class WorkflowAdminController {
 
-    private static final String DEF_PERMISSION = "tenant:workflow:def:manage";
+    private static final String DEF_PERMISSION = WorkflowPermissions.DEFINITION_DEPLOY;
     private static final String MONITOR_PERMISSION = "tenant:workflow:monitor:view";
 
     private final WorkflowDefinitionService definitionService;

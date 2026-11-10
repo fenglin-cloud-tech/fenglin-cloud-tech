@@ -2,6 +2,7 @@ package com.fenglin.crm.client;
 
 import com.fenglin.common.core.BizException;
 import com.fenglin.common.core.CommonErrorCode;
+import com.fenglin.common.security.WorkflowPermissions;
 import com.fenglin.common.tenant.TenantContext;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
@@ -23,13 +24,8 @@ import java.util.Map;
 @Component
 public class HttpWorkflowClient implements WorkflowClient {
 
-    private static final String START_PERMISSION = "biz:workflow:instance:start";
-    /**
-     * 与工作流中心 WorkflowAdminController.DEF_PERMISSION 对齐；此前误用
-     * platform:workflow:definition:deploy 导致首次自动部署恒被 403 拒绝，
-     * 进而提交审批报“流程定义不存在”。
-     */
-    private static final String DEPLOY_PERMISSION = "tenant:workflow:def:manage";
+    private static final String START_PERMISSION = WorkflowPermissions.INSTANCE_START;
+    private static final String DEPLOY_PERMISSION = WorkflowPermissions.DEFINITION_DEPLOY;
     private static final String BPMN_RESOURCE = "workflow/crm_quotation_approval.bpmn20.xml";
 
     private final RestClient restClient;

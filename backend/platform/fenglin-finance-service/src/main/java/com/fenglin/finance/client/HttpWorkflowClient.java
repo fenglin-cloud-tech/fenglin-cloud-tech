@@ -2,6 +2,7 @@ package com.fenglin.finance.client;
 
 import com.fenglin.common.core.BizException;
 import com.fenglin.common.core.CommonErrorCode;
+import com.fenglin.common.security.WorkflowPermissions;
 import com.fenglin.common.tenant.TenantContext;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
@@ -22,8 +23,8 @@ import java.util.Map;
 @Component
 public class HttpWorkflowClient implements WorkflowClient {
 
-    private static final String START_PERMISSION = "biz:workflow:instance:start";
-    private static final String DEPLOY_PERMISSION = "platform:workflow:definition:deploy";
+    private static final String START_PERMISSION = WorkflowPermissions.INSTANCE_START;
+    private static final String DEPLOY_PERMISSION = WorkflowPermissions.DEFINITION_DEPLOY;
 
     private static final Map<String, String> BPMN_RESOURCES = Map.of(
             "financeVoucherApproval", "workflow/fin_voucher_approval.bpmn20.xml",
