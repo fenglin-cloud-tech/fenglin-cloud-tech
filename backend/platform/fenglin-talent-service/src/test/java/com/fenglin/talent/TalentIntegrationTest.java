@@ -102,7 +102,8 @@ class TalentIntegrationTest {
             "biz:talent:innovation:vote", "talent:admin:innovation:incubate",
             "talent:admin:attendance:list", "talent:admin:attendance:manage", "talent:attendance:clock",
             "talent:attendance:view", "talent:admin:leave:list", "talent:admin:leave:approve",
-            "talent:leave:apply", "talent:leave:view");
+            "talent:leave:apply", "talent:leave:view",
+            "talent:admin:payroll:list", "talent:admin:payroll:manage", "talent:admin:payroll:approve");
 
     private static final String JDBC_URL;
     private static final List<AuditEvent> AUDIT_EVENTS = new CopyOnWriteArrayList<>();
@@ -184,6 +185,8 @@ class TalentIntegrationTest {
                     + "fenglin_talent.talent_innovation_proposal, fenglin_talent.talent_innovation_review, "
                     + "fenglin_talent.talent_attendance_record, fenglin_talent.talent_leave_type, "
                     + "fenglin_talent.talent_leave_balance, fenglin_talent.talent_leave_request, "
+                    + "fenglin_talent.talent_pay_item, fenglin_talent.talent_pay_period, "
+                    + "fenglin_talent.talent_payroll_record, fenglin_talent.talent_payslip, "
                     + "fenglin_talent.talent_tenant_key");
         }
     }
@@ -1152,6 +1155,85 @@ class TalentIntegrationTest {
                 USER_HR, ALL_PERMISSIONS).getBody()).get("data");
         assertThat(list.get("total").asLong()).isEqualTo(1);
         assertThat(list.get("records").get(0).get("employee_name").asText()).isEqualTo("请假员工");
+    }
+
+    // ---------- 薪酬 ----------
+
+    @Test
+    void payrollPeriodCalculationPayslipApprovalAndPaymentFlow() throws Exception {
+        long orgId = createOrg("薪酬部", "PAYROLL", null, "DEPT");
+        long employeeId = createEmployee("PAY001", "薪资员工", orgId);
+        execute("UPDATE fenglin_talent.talent_employee SET emp_status = 'ACTIVE', base_salary = 10000 "
+                + "WHERE id = " + employeeId);
+
+        JsonNode bonus = read(post("/api/talent/v1/payroll/items", USER_HR, ALL_PERMISSIONS, Map.of(
+                "item_code", "BONUS", "item_name", "绩效奖金", "item_type", "EARNING",
+                "calc_type", "FIXED", "amount", 1000)).getBody()).get("data");
+        assertThat(bonus.get("id").isTextual()).isTrue();
+        assertThat(bonus.get("amount").decimalValue()).isEqualByComparingTo("1000");
+
+        read(post("/api/talent/v1/payroll/items", USER_HR, ALL_PERMISSIONS, Map.of(
+                "item_code", "SOCIAL", "item_name", "社保个人部分", "item_type", "DEDUCTION",
+                "calc_type", "PERCENT", "amount", 0.1)).getBody());
+        ResponseEntity<String> duplicatedItem = post("/api/talent/v1/payroll/items", USER_HR, ALL_PERMISSIONS,
+                Map.of("item_code", "BONUS", "item_name", "重复项", "item_type", "EARNING", "amount", 1));
+        assertThat(duplicatedItem.getStatusCode().value()).isEqualTo(409);
+        assertThat(read(duplicatedItem.getBody()).get("code").asText()).isEqualTo("3008008");
+
+        YearMonth month = YearMonth.now();
+        String periodCode = "PAY-" + month;
+        JsonNode period = read(post("/api/talent/v1/payroll/periods", USER_HR, ALL_PERMISSIONS, Map.of(
+                "period_code", periodCode,
+                "start_date", month.atDay(1).toString(),
+                "end_date", month.atEndOfMonth().toString(),
+                "pay_date", month.atEndOfMonth().toString())).getBody()).get("data");
+        long periodId = period.get("id").asLong();
+        assertThat(period.get("period_status").asText()).isEqualTo("DRAFT");
+
+        JsonNode calculated = read(post("/api/talent/v1/payroll/periods/" + periodId + "/calculate", USER_HR,
+                ALL_PERMISSIONS, Map.of()).getBody()).get("data");
+        assertThat(calculated.get("period_status").asText()).isEqualTo("CALCULATED");
+        assertThat(calculated.get("employee_count").asInt()).isEqualTo(1);
+        assertThat(calculated.get("gross_total").decimalValue()).isEqualByComparingTo("11000");
+        assertThat(calculated.get("net_total").decimalValue()).isEqualByComparingTo("10000");
+
+        JsonNode records = read(get("/api/talent/v1/payroll/periods/" + periodId + "/records",
+                USER_HR, ALL_PERMISSIONS).getBody()).get("data");
+        assertThat(records.get("total").asLong()).isEqualTo(1);
+        assertThat(records.get("records").get(0).get("employee_name").asText()).isEqualTo("薪资员工");
+        assertThat(records.get("records").get(0).get("net_pay").decimalValue()).isEqualByComparingTo("10000");
+
+        JsonNode submitted = read(post("/api/talent/v1/payroll/periods/" + periodId + "/slip", USER_HR,
+                ALL_PERMISSIONS, Map.of()).getBody()).get("data");
+        long slipId = submitted.get("id").asLong();
+        assertThat(submitted.get("slip_status").asText()).isEqualTo("APPROVING");
+        assertThat(submitted.get("process_instance_id").asText()).startsWith("WF-");
+        assertThat(WORKFLOW_CALLS).anyMatch(call -> call.startsWith("payrollApproval:"));
+
+        ResponseEntity<String> duplicateSlip = post("/api/talent/v1/payroll/periods/" + periodId + "/slip",
+                USER_HR, ALL_PERMISSIONS, Map.of());
+        assertThat(duplicateSlip.getStatusCode().value()).isEqualTo(409);
+
+        JsonNode approved = read(post("/api/talent/v1/payroll/slips/" + slipId + "/approval", USER_HR,
+                ALL_PERMISSIONS, Map.of("approved", true, "opinion", "同意发放")).getBody()).get("data");
+        assertThat(approved.get("slip_status").asText()).isEqualTo("APPROVED");
+
+        JsonNode paid = read(post("/api/talent/v1/payroll/slips/" + slipId + "/pay", USER_HR,
+                ALL_PERMISSIONS, Map.of()).getBody()).get("data");
+        assertThat(paid.get("slip_status").asText()).isEqualTo("PAID");
+
+        JsonNode periods = read(get("/api/talent/v1/payroll/periods", USER_HR, ALL_PERMISSIONS)
+                .getBody()).get("data");
+        assertThat(periods.get("records").get(0).get("period_status").asText()).isEqualTo("CLOSED");
+
+        ResponseEntity<String> recalculate = post("/api/talent/v1/payroll/periods/" + periodId + "/calculate",
+                USER_HR, ALL_PERMISSIONS, Map.of());
+        assertThat(recalculate.getStatusCode().value()).isEqualTo(409);
+        assertThat(read(recalculate.getBody()).get("code").asText()).isEqualTo("3008005");
+
+        JsonNode slips = read(get("/api/talent/v1/payroll/slips", USER_HR, ALL_PERMISSIONS).getBody()).get("data");
+        assertThat(slips.get("total").asLong()).isEqualTo(1);
+        assertThat(AUDIT_EVENTS).anyMatch(event -> "TALENT_PAYSLIP_PAID".equals(event.eventType()));
     }
 
     // ---------- helpers ----------

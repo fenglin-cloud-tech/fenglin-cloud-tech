@@ -29,11 +29,13 @@ public class HttpWorkflowClient implements WorkflowClient {
     private static final Map<String, String> BPMN_RESOURCES = Map.of(
             "recruitRequisitionApproval", "workflow/recruit_requisition_approval.bpmn20.xml",
             "employeeLifecycle", "workflow/employee_lifecycle.bpmn20.xml",
-            "leaveApproval", "workflow/leave_approval.bpmn20.xml");
+            "leaveApproval", "workflow/leave_approval.bpmn20.xml",
+            "payrollApproval", "workflow/payroll_approval.bpmn20.xml");
     private static final Map<String, String> BPMN_NAMES = Map.of(
             "recruitRequisitionApproval", "招聘需求审批",
             "employeeLifecycle", "员工全生命周期",
-            "leaveApproval", "请假审批");
+            "leaveApproval", "请假审批",
+            "payrollApproval", "薪资发放审批");
 
     private final RestClient restClient;
     private final String serviceUrl;

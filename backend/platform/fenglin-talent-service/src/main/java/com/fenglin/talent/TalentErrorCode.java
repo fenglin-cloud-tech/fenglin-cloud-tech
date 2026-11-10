@@ -34,7 +34,12 @@ public enum TalentErrorCode implements ErrorCode {
     ATTENDANCE_CLOCK_CONFLICT("3006005", "重复打卡或缺少上班卡", 409),
     ATTENDANCE_HANDLE_INVALID("3006006", "考勤异常处理状态非法", 400),
     LEAVE_BALANCE_INSUFFICIENT("3007005", "假期额度不足", 409),
-    LEAVE_STATE_INVALID("3007006", "请假单状态不允许该操作", 409);
+    LEAVE_STATE_INVALID("3007006", "请假单状态不允许该操作", 409),
+
+    PAYROLL_PERIOD_STATE_INVALID("3008005", "薪资周期状态不允许该操作", 409),
+    PAYROLL_CALCULATION_EMPTY("3008006", "周期内没有可核算员工", 409),
+    PAYROLL_SLIP_STATE_INVALID("3008007", "发放单状态不允许该操作", 409),
+    PAYROLL_ITEM_DUPLICATED("3008008", "薪资项编码重复", 409);
 
     private final String code;
     private final String message;

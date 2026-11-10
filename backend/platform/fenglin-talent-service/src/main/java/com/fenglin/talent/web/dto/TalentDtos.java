@@ -252,6 +252,40 @@ public final class TalentDtos {
     public record LeaveApprovalRequest(Boolean approved, String opinion) {
     }
 
+    // ---------- 薪酬 ----------
+
+    public record PayItemCreateRequest(String itemCode, String itemName, String itemType, String calcType,
+                                       BigDecimal amount, Boolean taxable, Integer sortNo, String remark) {
+    }
+
+    public record PayItemView(Long id, String itemCode, String itemName, String itemType, String calcType,
+                              BigDecimal amount, boolean taxable, int sortNo, String itemStatus,
+                              int version) {
+    }
+
+    public record PayPeriodCreateRequest(String periodCode, LocalDate startDate, LocalDate endDate,
+                                         LocalDate payDate) {
+    }
+
+    public record PayPeriodView(Long id, String periodCode, LocalDate startDate, LocalDate endDate,
+                                LocalDate payDate, String periodStatus, int employeeCount,
+                                BigDecimal grossTotal, BigDecimal netTotal, int version) {
+    }
+
+    public record PayrollRecordView(Long id, Long periodId, Long employeeId, String employeeName,
+                                    BigDecimal baseSalary, BigDecimal earningTotal, BigDecimal deductionTotal,
+                                    BigDecimal grossPay, BigDecimal netPay, String recStatus) {
+    }
+
+    public record PayslipSubmitResult(Long id, String slipNo, String slipStatus, Long periodId,
+                                      String processInstanceId, int employeeCount, BigDecimal netTotal) {
+    }
+
+    public record PayslipView(Long id, String slipNo, Long periodId, String periodCode, int employeeCount,
+                              BigDecimal grossTotal, BigDecimal netTotal, String slipStatus,
+                              String processInstanceId, String approveOpinion, Instant createdAt) {
+    }
+
     // ---------- 收口补充 ----------
 
     public record EmployeeImportRow(String empNo, String name, String gender, LocalDate birthDate, String phone,

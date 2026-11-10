@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  云才薪资发放审批流程（首次提交自动部署用）。
+  节点：HR 复核 → 财务复核 → 结束。审批通过后由业务服务将发放单置为可发放。
+-->
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:flowable="http://flowable.org/bpmn"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             targetNamespace="http://fenglincloud.com/talent">
+    <process id="payrollApproval" name="薪资发放审批" isExecutable="true">
+        <startEvent id="start" name="提交薪资发放单"/>
+        <sequenceFlow id="flow1" sourceRef="start" targetRef="hrReview"/>
+        <userTask id="hrReview" name="HR 复核" flowable:candidateGroups="HR">
+            <extensionElements>
+                <flowable:formProperty id="slipNo" name="发放单号" type="string" writable="false"/>
+                <flowable:formProperty id="periodCode" name="薪资周期" type="string" writable="false"/>
+                <flowable:formProperty id="netTotal" name="实发合计" type="string" writable="false"/>
+            </extensionElements>
+        </userTask>
+        <sequenceFlow id="flow2" sourceRef="hrReview" targetRef="financeReview"/>
+        <userTask id="financeReview" name="财务复核" flowable:candidateGroups="FINANCE"/>
+        <sequenceFlow id="flow3" sourceRef="financeReview" targetRef="end"/>
+        <endEvent id="end" name="结束"/>
+    </process>
+</definitions>
