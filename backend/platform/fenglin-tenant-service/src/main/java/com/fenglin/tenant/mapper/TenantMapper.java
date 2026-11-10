@@ -109,6 +109,16 @@ public interface TenantMapper {
             """)
     List<String> listTenantGrantablePermissionCodes();
 
+    /**
+     * 平台管理员角色（PLATFORM_ADMIN）持有的平台专属权限，仅用于初始化平台审核角色。
+     */
+    @Select("""
+            SELECT code FROM hub_permission
+             WHERE deleted = 0 AND code LIKE 'platform:%'
+             ORDER BY code
+            """)
+    List<String> listPlatformPermissionCodes();
+
     @Insert("""
             INSERT INTO hub_role (id, tenant_id, code, name, role_type, data_scope, builtin,
                                   status, created_at, updated_at, deleted)

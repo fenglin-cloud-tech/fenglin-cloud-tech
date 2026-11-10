@@ -31,6 +31,7 @@ public class TenantService {
     private static final String STATUS_SUSPENDED = "SUSPENDED";
     private static final String STATUS_DISABLED = "DISABLED";
     private static final String ADMIN_ROLE_CODE = "TENANT_ADMIN";
+    private static final String PLATFORM_ADMIN_ROLE_CODE = "PLATFORM_ADMIN";
 
     private final TenantMapper tenantMapper;
     private final AuditSink auditSink;
@@ -108,6 +109,13 @@ public class TenantService {
         tenantMapper.insertAdminUser(userId, tenantId, adminUsername, adminUsername);
         tenantMapper.insertAccount(IdWorker.getId(), tenantId, userId, passwordHash);
         tenantMapper.insertUserRole(IdWorker.getId(), tenantId, userId, roleId);
+
+        // 平台管理员角色：持有 platform:* 权限，不自动绑定用户，由平台运维按需分配。
+        long platformRoleId = IdWorker.getId();
+        tenantMapper.insertBuiltinRole(platformRoleId, tenantId, PLATFORM_ADMIN_ROLE_CODE, "平台管理员");
+        for (String permissionCode : tenantMapper.listPlatformPermissionCodes()) {
+            tenantMapper.grantPermission(IdWorker.getId(), tenantId, platformRoleId, permissionCode);
+        }
     }
 
     @Transactional(readOnly = true)
