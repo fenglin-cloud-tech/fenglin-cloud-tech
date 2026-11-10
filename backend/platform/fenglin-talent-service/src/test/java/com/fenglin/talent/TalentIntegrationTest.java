@@ -251,6 +251,11 @@ class TalentIntegrationTest {
         assertThat(detail.get("masked_id_card").asText()).startsWith("1101").contains("****");
         assertThat(detail.has("phone")).isFalse();
         assertThat(detail.get("org").get("name").asText()).isEqualTo("研发中心");
+        // 雪花 ID 必须以字符串下发，避免 JS Number 精度丢失
+        assertThat(detail.get("id").isTextual()).isTrue();
+        assertThat(detail.get("org").get("id").isTextual()).isTrue();
+        // 详情必须回传 version，编辑页才能带上乐观锁版本
+        assertThat(detail.get("version").asInt()).isZero();
 
         ResponseEntity<String> duplicated = post("/api/talent/v1/employees", USER_HR, ALL_PERMISSIONS,
                 employeeBody("E1002", "李四", "13800001111", "110101199002022345", rd));
@@ -264,8 +269,13 @@ class TalentIntegrationTest {
         assertThat(list.get("records").get(0).get("org").get("id").asLong()).isEqualTo(rd);
 
         JsonNode updated = read(exchange(HttpMethod.PUT, "/api/talent/v1/employees/" + employeeId, USER_HR,
-                ALL_PERMISSIONS, Map.of("name", "张三丰", "version", 0)).getBody()).get("data");
+                ALL_PERMISSIONS, Map.of("name", "张三丰", "version", detail.get("version").asInt())).getBody())
+                .get("data");
         assertThat(updated.get("id").asLong()).isEqualTo(employeeId);
+        JsonNode afterUpdate = read(get("/api/talent/v1/employees/" + employeeId, USER_HR, ALL_PERMISSIONS)
+                .getBody()).get("data");
+        assertThat(afterUpdate.get("name").asText()).isEqualTo("张三丰");
+        assertThat(afterUpdate.get("version").asInt()).isEqualTo(1);
 
         ResponseEntity<String> stale = exchange(HttpMethod.PUT, "/api/talent/v1/employees/" + employeeId,
                 USER_HR, ALL_PERMISSIONS, Map.of("name", "并发更新", "version", 0));
@@ -278,6 +288,11 @@ class TalentIntegrationTest {
         assertThat(queryString("SELECT phone_hash FROM fenglin_talent.talent_employee WHERE id = " + employeeId))
                 .hasSize(64);
         assertThat(AUDIT_EVENTS).anyMatch(event -> "TALENT_EMPLOYEE_CREATED".equals(event.eventType()));
+
+        // 其他租户不可见：RLS 下按同 id 查询应返回 404
+        ResponseEntity<String> crossTenant = restTemplate.exchange(url("/api/talent/v1/employees/" + employeeId),
+                HttpMethod.GET, new HttpEntity<>(headers(USER_HR, ALL_PERMISSIONS, TENANT + 1)), String.class);
+        assertThat(crossTenant.getStatusCode().value()).isEqualTo(404);
     }
 
     // ---------- 岗位 / 职级 / 编制 ----------
@@ -1105,9 +1120,13 @@ class TalentIntegrationTest {
     }
 
     private HttpHeaders headers(long userId, String permissions) {
+        return headers(userId, permissions, TENANT);
+    }
+
+    private HttpHeaders headers(long userId, String permissions, long tenantId) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.set("X-Tenant-Id", String.valueOf(TENANT));
+        headers.set("X-Tenant-Id", String.valueOf(tenantId));
         headers.set("X-User-Id", String.valueOf(userId));
         headers.set("X-Client-Type", "ADMIN");
         headers.set("X-Request-Id", "talent-test-" + System.nanoTime());

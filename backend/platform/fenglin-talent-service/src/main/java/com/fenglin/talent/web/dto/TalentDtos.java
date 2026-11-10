@@ -75,7 +75,7 @@ public final class TalentDtos {
     public record EmployeeDetail(Long id, String empNo, String name, String gender, LocalDate birthDate,
                                  String maskedPhone, String maskedIdCard, String email, NameRef org, NameRef position,
                                  NameRef grade, NameRef manager, String employmentType, LocalDate hireDate,
-                                 LocalDate formalDate, String empStatus, String workLocation) {
+                                 LocalDate formalDate, String empStatus, String workLocation, Integer version) {
     }
 
     // ---------- 岗位 / 职级 / 编制 ----------

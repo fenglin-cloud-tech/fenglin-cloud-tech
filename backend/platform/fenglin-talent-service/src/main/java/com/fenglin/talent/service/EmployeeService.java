@@ -105,7 +105,7 @@ public class EmployeeService {
                 ref(Rows.lng(row, "gradeId"), Rows.str(row, "gradeName")),
                 ref(Rows.lng(row, "managerId"), Rows.str(row, "managerName")),
                 Rows.str(row, "employmentType"), Rows.date(row, "hireDate"), Rows.date(row, "formalDate"),
-                Rows.str(row, "empStatus"), Rows.str(row, "workLocation"));
+                Rows.str(row, "empStatus"), Rows.str(row, "workLocation"), Rows.intg(row, "version"));
     }
 
     @Transactional
