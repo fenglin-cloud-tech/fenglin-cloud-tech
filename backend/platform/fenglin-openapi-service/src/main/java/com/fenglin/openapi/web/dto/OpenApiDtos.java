@@ -82,4 +82,23 @@ public final class OpenApiDtos {
 
     public record PortalScopeView(String code, String name, String domain, boolean subscribed) {
     }
+
+    // ---------- 接口文档与在线联调沙箱（OPEN-01） ----------
+
+    /** 平台已发布的开放接口文档；subscribed 表示当前应用是否已订阅 required_scope。 */
+    public record PortalApiDocView(String code, String method, String path, String name, String domain,
+                                   String summary, String description, String requiredScope,
+                                   String requestSchema, String responseSchema, String sampleRequest,
+                                   String sampleResponse, boolean sandboxEnabled, boolean subscribed) {
+    }
+
+    public record SandboxCallRequest(String apiCode, String body) {
+    }
+
+    /** 沙箱结果：仅回显本次请求的签名要素与响应，不回显 AppSecret。 */
+    public record SandboxCallResponse(String apiCode, String method, String path, String appKey,
+                                      String signature, String nonce, long timestamp, String requestId,
+                                      int httpStatus, long latencyMs, String responseBody,
+                                      boolean bodyTruncated) {
+    }
 }

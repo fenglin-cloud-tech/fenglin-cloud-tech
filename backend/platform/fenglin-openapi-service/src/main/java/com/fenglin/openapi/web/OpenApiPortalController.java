@@ -7,13 +7,16 @@ import com.fenglin.common.core.PageResult;
 import com.fenglin.common.security.PermissionGuard;
 import com.fenglin.common.tenant.TenantContext;
 import com.fenglin.openapi.service.OpenApiCallLogService;
+import com.fenglin.openapi.service.OpenApiDocService;
 import com.fenglin.openapi.service.OpenApiKeyService;
 import com.fenglin.openapi.service.OpenApiQuotaService;
+import com.fenglin.openapi.service.OpenApiSandboxService;
 import com.fenglin.openapi.service.OpenAppService;
 import com.fenglin.openapi.web.dto.OpenApiDtos.AppCreateResponse;
 import com.fenglin.openapi.web.dto.OpenApiDtos.CallLogView;
 import com.fenglin.openapi.web.dto.OpenApiDtos.KeyRequest;
 import com.fenglin.openapi.web.dto.OpenApiDtos.KeyResponse;
+import com.fenglin.openapi.web.dto.OpenApiDtos.PortalApiDocView;
 import com.fenglin.openapi.web.dto.OpenApiDtos.PortalAppCreateRequest;
 import com.fenglin.openapi.web.dto.OpenApiDtos.PortalAppDetail;
 import com.fenglin.openapi.web.dto.OpenApiDtos.PortalAppView;
@@ -22,6 +25,8 @@ import com.fenglin.openapi.web.dto.OpenApiDtos.PortalKeyView;
 import com.fenglin.openapi.web.dto.OpenApiDtos.PortalQuotaView;
 import com.fenglin.openapi.web.dto.OpenApiDtos.PortalScopeRequest;
 import com.fenglin.openapi.web.dto.OpenApiDtos.PortalScopeView;
+import com.fenglin.openapi.web.dto.OpenApiDtos.SandboxCallRequest;
+import com.fenglin.openapi.web.dto.OpenApiDtos.SandboxCallResponse;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -50,20 +55,27 @@ public class OpenApiPortalController {
     private static final String KEY_MANAGE = "biz:openapi:key:manage";
     private static final String QUOTA_VIEW = "biz:openapi:quota:view";
     private static final String CALL_LOG_VIEW = "biz:openapi:calllog:view";
+    private static final String SANDBOX_CALL = "biz:openapi:sandbox:call";
 
     private final OpenAppService appService;
     private final OpenApiKeyService keyService;
     private final OpenApiQuotaService quotaService;
     private final OpenApiCallLogService callLogService;
+    private final OpenApiDocService docService;
+    private final OpenApiSandboxService sandboxService;
 
     public OpenApiPortalController(OpenAppService appService,
                                    OpenApiKeyService keyService,
                                    OpenApiQuotaService quotaService,
-                                   OpenApiCallLogService callLogService) {
+                                   OpenApiCallLogService callLogService,
+                                   OpenApiDocService docService,
+                                   OpenApiSandboxService sandboxService) {
         this.appService = appService;
         this.keyService = keyService;
         this.quotaService = quotaService;
         this.callLogService = callLogService;
+        this.docService = docService;
+        this.sandboxService = sandboxService;
     }
 
     /** HUB-API-1006 开发者门户应用列表（仅当前用户创建的应用）。 */
@@ -127,6 +139,29 @@ public class OpenApiPortalController {
         long userId = requireUserId();
         appService.updateScopes(id, userId, request.scopes());
         return ApiResponse.success(appService.detailOwned(id, userId));
+    }
+
+    /** 接口文档元数据：返回平台已发布的开放接口清单；传 app_id 时标注订阅状态。 */
+    @GetMapping("/openapi/portal/api-docs")
+    public ApiResponse<List<PortalApiDocView>> apiDocs(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(name = "domain", required = false) String domain,
+            @RequestParam(name = "app_id", required = false) Long appId) {
+        PermissionGuard.require(permissions, PORTAL_VIEW);
+        List<String> subscribed = appId == null
+                ? List.of()
+                : appService.subscribedScopes(appId, requireUserId());
+        return ApiResponse.success(docService.listPublished(domain, subscribed));
+    }
+
+    /** 在线联调沙箱：服务端用应用密钥签名后真实调用，AppSecret 不出服务端。 */
+    @PostMapping("/openapi/portal/apps/{id}/sandbox")
+    public ApiResponse<SandboxCallResponse> sandbox(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable long id,
+            @RequestBody SandboxCallRequest request) {
+        PermissionGuard.require(permissions, SANDBOX_CALL);
+        return ApiResponse.success(sandboxService.call(id, requireUserId(), request));
     }
 
     /** 密钥列表：AppSecret 仅返回掩码。 */

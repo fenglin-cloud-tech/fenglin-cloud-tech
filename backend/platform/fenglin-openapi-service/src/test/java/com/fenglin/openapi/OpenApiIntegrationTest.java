@@ -61,6 +61,7 @@ class OpenApiIntegrationTest {
     private static final String PORTAL_KEY_MANAGE = "biz:openapi:key:manage";
     private static final String PORTAL_QUOTA_VIEW = "biz:openapi:quota:view";
     private static final String PORTAL_CALL_LOG_VIEW = "biz:openapi:calllog:view";
+    private static final String PORTAL_SANDBOX = "biz:openapi:sandbox:call";
     private static final String PING_PATH = "/openapi/ping/v1/ping";
     private static final String JDBC_URL;
     private static final List<AuditEvent> AUDIT_EVENTS = new CopyOnWriteArrayList<>();
@@ -391,12 +392,98 @@ class OpenApiIntegrationTest {
         assertThat(portalDetail(TENANT_B, appId, ownerId).getStatusCode().value()).isEqualTo(404);
     }
 
+    @Test
+    void publishesApiDocsAndRunsSandbox() {
+        assertThat(get("/openapi/portal/api-docs", TENANT_A, null).getStatusCode().value()).isEqualTo(403);
+
+        JsonNode docs = read(get("/openapi/portal/api-docs", TENANT_A, PORTAL_PERMISSION).getBody()).get("data");
+        JsonNode pingDoc = null;
+        for (JsonNode item : docs) {
+            if ("openapi.ping.v1".equals(item.get("code").asText())) {
+                pingDoc = item;
+            }
+        }
+        assertThat(pingDoc).isNotNull();
+        assertThat(pingDoc.get("method").asText()).isEqualTo("GET");
+        assertThat(pingDoc.get("path").asText()).isEqualTo(PING_PATH);
+        assertThat(pingDoc.get("sandbox_enabled").asBoolean()).isTrue();
+        assertThat(pingDoc.get("request_schema").asText()).contains("object");
+        assertThat(pingDoc.get("sample_response").asText()).contains("app_id");
+
+        long ownerId = 3001L;
+        long appId = read(createPortalApp(TENANT_A, ownerId, "沙箱应用").getBody()).get("data")
+                .get("app_id").asLong();
+
+        // 应用未审核：不能联调
+        assertThat(sandbox(TENANT_A, appId, ownerId, PORTAL_SANDBOX, "openapi.ping.v1", null)
+                .getStatusCode().value()).isEqualTo(409);
+
+        assertThat(review(TENANT_A, appId, "APPROVE").getStatusCode().value()).isEqualTo(200);
+
+        // 已审核但未签发密钥：不能联调
+        assertThat(sandbox(TENANT_A, appId, ownerId, PORTAL_SANDBOX, "openapi.ping.v1", null)
+                .getStatusCode().value()).isEqualTo(409);
+
+        JsonNode key = read(portalIssueKey(TENANT_A, appId, ownerId, "CREATE").getBody()).get("data");
+        String appSecret = key.get("app_secret").asText();
+        assertThat(appSecret).startsWith("SK-");
+
+        JsonNode withApp = read(getPortal("/openapi/portal/api-docs?app_id=" + appId,
+                TENANT_A, ownerId, PORTAL_PERMISSION).getBody()).get("data");
+        JsonNode pingForApp = null;
+        for (JsonNode item : withApp) {
+            if ("openapi.ping.v1".equals(item.get("code").asText())) {
+                pingForApp = item;
+            }
+        }
+        assertThat(pingForApp).isNotNull();
+        assertThat(pingForApp.get("subscribed").asBoolean()).isTrue();
+
+        ResponseEntity<String> called = sandbox(TENANT_A, appId, ownerId, PORTAL_SANDBOX, "openapi.ping.v1", null);
+        assertThat(called.getStatusCode().value()).isEqualTo(200);
+        JsonNode result = read(called.getBody()).get("data");
+        assertThat(result.get("http_status").asInt()).isEqualTo(200);
+        assertThat(result.get("latency_ms").asLong()).isGreaterThanOrEqualTo(0);
+        assertThat(result.get("signature").asText()).hasSize(64);
+        assertThat(result.get("response_body").asText()).contains("\"app_id\"");
+        assertThat(result.get("response_body").asText()).contains(String.valueOf(appId));
+        assertThat(result.toString()).doesNotContain(appSecret);
+
+        // 非归属人、无沙箱权限、未知接口
+        assertThat(sandbox(TENANT_A, appId, 3002L, PORTAL_SANDBOX, "openapi.ping.v1", null)
+                .getStatusCode().value()).isEqualTo(403);
+        assertThat(sandbox(TENANT_A, appId, ownerId, null, "openapi.ping.v1", null)
+                .getStatusCode().value()).isEqualTo(403);
+        assertThat(sandbox(TENANT_A, appId, ownerId, PORTAL_SANDBOX, "not.exists", null)
+                .getStatusCode().value()).isEqualTo(404);
+
+        // 沙箱走真实签名链路：写入调用日志
+        JsonNode logs = read(getPortal("/openapi/portal/apps/" + appId + "/call-logs",
+                TENANT_A, ownerId, PORTAL_CALL_LOG_VIEW).getBody()).get("data");
+        assertThat(logs.get("total").asLong()).isGreaterThanOrEqualTo(1);
+        assertThat(logs.get("records").get(0).get("api_path").asText()).isEqualTo(PING_PATH);
+
+        assertThat(AUDIT_EVENTS).anyMatch(event -> "OPENAPI_SANDBOX_CALLED".equals(event.eventType())
+                && event.tenantId() == TENANT_A);
+    }
+
     // ---------- helpers ----------
 
     private long approvedApp(long tenantId, String name) {
         long appId = read(createApp(tenantId, REVIEW_PERMISSION, name).getBody()).get("data").get("app_id").asLong();
         assertThat(review(tenantId, appId, "APPROVE").getStatusCode().value()).isEqualTo(200);
         return appId;
+    }
+
+    private ResponseEntity<String> sandbox(long tenantId, long appId, long userId, String permission,
+                                           String apiCode, String body) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("api_code", apiCode);
+        if (body != null) {
+            payload.put("body", body);
+        }
+        return restTemplate.exchange(url("/openapi/portal/apps/" + appId + "/sandbox"), HttpMethod.POST,
+                new HttpEntity<>(payload, portalHeaders(tenantId, userId, permission)), String.class);
     }
 
     private ResponseEntity<String> createApp(long tenantId, String permission, String name) {

@@ -48,7 +48,7 @@ X-Signature: &lt;小写十六进制签名&gt;</pre>
     <div class="fl-dev-card">
       <h2>5. 错误处理</h2>
       <p>平台统一返回 <code>code / message / request_id</code> 信封；排查问题时请提供 request_id，便于平台按链路定位。</p>
-      <p>接口文档与联调沙箱尚未由后端提供，详见「接口文档」页的缺口说明。</p>
+      <p>接口文档与联调沙箱已由后端提供：可在「接口文档」页查看平台已发布接口的结构与示例，并用已审核应用直接试调用。</p>
     </div>
   </div>
 </template>

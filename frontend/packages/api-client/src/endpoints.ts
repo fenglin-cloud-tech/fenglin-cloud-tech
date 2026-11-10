@@ -50,9 +50,11 @@ import type {
   AiModeValidateResult,
   PortalAppView,
   PortalAppDetail,
+  PortalApiDocView,
   PortalKeyView,
   PortalQuotaView,
   PortalScopeView,
+  SandboxCallResult,
   LeadView,
   LeadDetailView,
   LeadCreateRequest,
@@ -340,6 +342,12 @@ export const openApiPortal = {
   },
   quotas(id: string | number) {
     return get<PortalQuotaView[]>(`/openapi/portal/apps/${id}/quotas`)
+  },
+  apiDocs(params: { domain?: string; app_id?: string | number } = {}) {
+    return get<PortalApiDocView[]>('/openapi/portal/api-docs', params)
+  },
+  sandbox(id: string | number, body: { api_code: string; body?: string }) {
+    return post<SandboxCallResult>(`/openapi/portal/apps/${id}/sandbox`, body)
   },
 }
 

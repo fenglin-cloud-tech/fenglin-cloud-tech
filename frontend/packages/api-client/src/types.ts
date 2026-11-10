@@ -467,6 +467,40 @@ export interface PortalScopeView {
   subscribed: boolean
 }
 
+/** 平台已发布的开放接口文档；subscribed 表示当前应用是否已订阅 required_scope。 */
+export interface PortalApiDocView {
+  code: string
+  method: string
+  path: string
+  name: string
+  domain: string
+  summary?: string
+  description?: string
+  required_scope?: string | null
+  request_schema?: string | null
+  response_schema?: string | null
+  sample_request?: string | null
+  sample_response?: string | null
+  sandbox_enabled: boolean
+  subscribed: boolean
+}
+
+/** 沙箱调用结果：只回显签名要素与响应，不含 AppSecret。 */
+export interface SandboxCallResult {
+  api_code: string
+  method: string
+  path: string
+  app_key: string
+  signature: string
+  nonce: string
+  timestamp: number
+  request_id: string
+  http_status: number
+  latency_ms: number
+  response_body: string
+  body_truncated: boolean
+}
+
 // ---------- 云客 CRM（/api/crm/v1） ----------
 
 /**

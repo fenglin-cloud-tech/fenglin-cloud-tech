@@ -55,6 +55,19 @@ public interface AppKeyMapper {
             """)
     Map<String, Object> resolve(@Param("appKey") String appKey);
 
+    /** 沙箱调用：取当前应用最新一把可用密钥（含密文），仅服务端内部使用，绝不出参。 */
+    @Select("""
+            SELECT app_key, app_secret_enc, expire_at
+              FROM hub_app_key
+             WHERE tenant_id = #{tenantId} AND app_id = #{appId}
+               AND status = 'ACTIVE' AND deleted = 0
+               AND (expire_at IS NULL OR expire_at > now())
+             ORDER BY created_at DESC, id DESC
+             LIMIT 1
+            """)
+    Map<String, Object> findActiveForSandbox(@Param("tenantId") long tenantId,
+                                             @Param("appId") long appId);
+
     /** 开发者门户密钥列表：不查询 app_secret_enc，只返回指纹用于掩码展示。 */
     @Select("""
             SELECT id, app_key, secret_fingerprint, status, expire_at, created_at
