@@ -11,6 +11,7 @@ import type {
   CreateTenantResult,
   CreateUserRequest,
   CreateUserResult,
+  CreateOrgRequest,
   DashboardData,
   DatasetQueryResult,
   DefinitionView,
@@ -26,9 +27,11 @@ import type {
   MetricCreateRequest,
   MetricView,
   MonitorStatsResult,
+  MoveOrgRequest,
   OpenApiCallLogView,
   OpenApiKeyResponse,
   OpenAppCreateResponse,
+  OrgNode,
   PageResult,
   PermissionNode,
   PreferenceView,
@@ -39,6 +42,8 @@ import type {
   TenantView,
   TokenPayload,
   UpdateTenantStatusRequest,
+  UpdateOrgRequest,
+  UpdateUserRequest,
   UploadResult,
   UserInfo,
   UserView,
@@ -134,7 +139,31 @@ export const iamApi = {
   createUser(body: CreateUserRequest) {
     return post<CreateUserResult>('/api/hub/v1/admin/users', body)
   },
-  assignRoles(userId: number, roleIds: number[]) {
+  updateUser(userId: string | number, body: UpdateUserRequest) {
+    return put<UserView>(`/api/hub/v1/admin/users/${userId}`, body)
+  },
+  orgTree() {
+    return get<OrgNode[]>('/api/hub/v1/admin/orgs/tree')
+  },
+  createOrg(body: CreateOrgRequest) {
+    return post<OrgNode>('/api/hub/v1/admin/orgs', body)
+  },
+  updateOrg(orgId: string | number, body: UpdateOrgRequest) {
+    return put<OrgNode>(`/api/hub/v1/admin/orgs/${orgId}`, body)
+  },
+  moveOrg(orgId: string | number, body: MoveOrgRequest) {
+    return put<OrgNode>(`/api/hub/v1/admin/orgs/${orgId}/move`, body)
+  },
+  deleteOrg(orgId: string | number) {
+    return request<void>(`/api/hub/v1/admin/orgs/${orgId}`, { method: 'DELETE' })
+  },
+  addOrgMember(orgId: string | number, userId: string | number) {
+    return post<unknown>(`/api/hub/v1/admin/orgs/${orgId}/members`, { user_id: userId })
+  },
+  removeOrgMember(orgId: string | number, userId: string | number) {
+    return request<void>(`/api/hub/v1/admin/orgs/${orgId}/members/${userId}`, { method: 'DELETE' })
+  },
+  assignRoles(userId: string | number, roleIds: Array<string | number>) {
     return put<UserView>(`/api/hub/v1/admin/users/${userId}/roles`, { role_ids: roleIds })
   },
   listRoles(params: { page?: number; size?: number } = {}) {

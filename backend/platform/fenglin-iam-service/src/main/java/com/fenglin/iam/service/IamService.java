@@ -8,20 +8,27 @@ import com.fenglin.common.core.CommonErrorCode;
 import com.fenglin.common.core.RequestContext;
 import com.fenglin.common.security.PasswordPolicy;
 import com.fenglin.common.tenant.TenantContext;
+import com.fenglin.iam.IamErrorCode;
 import com.fenglin.iam.mapper.AccountMapper;
 import com.fenglin.iam.mapper.MenuMapper;
+import com.fenglin.iam.mapper.OrgMapper;
 import com.fenglin.iam.mapper.PermissionMapper;
 import com.fenglin.iam.mapper.RoleMapper;
 import com.fenglin.iam.mapper.TenantMapper;
 import com.fenglin.iam.mapper.UserMapper;
+import com.fenglin.iam.support.IamCrypto;
 import com.fenglin.iam.web.dto.AssignRolesRequest;
+import com.fenglin.iam.web.dto.CreateOrgRequest;
 import com.fenglin.iam.web.dto.CreateRoleRequest;
 import com.fenglin.iam.web.dto.CreateUserRequest;
 import com.fenglin.iam.web.dto.CreateUserResult;
 import com.fenglin.iam.web.dto.GrantPermissionsRequest;
 import com.fenglin.iam.web.dto.MenuView;
+import com.fenglin.iam.web.dto.OrgTreeNode;
 import com.fenglin.iam.web.dto.PermissionNode;
 import com.fenglin.iam.web.dto.RoleView;
+import com.fenglin.iam.web.dto.UpdateOrgRequest;
+import com.fenglin.iam.web.dto.UpdateUserProfileRequest;
 import com.fenglin.iam.web.dto.UserView;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,6 +52,8 @@ public class IamService {
     private static final Set<String> ROLE_TYPES = Set.of("SYS", "BIZ", "APP");
     private static final Set<String> DATA_SCOPES =
             Set.of("ALL", "DEPT_AND_CHILD", "DEPT", "SELF", "CUSTOM");
+    private static final Set<String> ORG_STATUSES = Set.of("ACTIVE", "DISABLED");
+    private static final Set<String> USER_STATUSES = Set.of("ACTIVE", "DISABLED", "LOCKED");
 
     private final UserMapper userMapper;
     private final AccountMapper accountMapper;
@@ -52,17 +61,21 @@ public class IamService {
     private final PermissionMapper permissionMapper;
     private final MenuMapper menuMapper;
     private final TenantMapper tenantMapper;
+    private final OrgMapper orgMapper;
+    private final IamCrypto iamCrypto;
     private final AuditSink auditSink;
 
     public IamService(UserMapper userMapper, AccountMapper accountMapper, RoleMapper roleMapper,
                       PermissionMapper permissionMapper, MenuMapper menuMapper, TenantMapper tenantMapper,
-                      AuditSink auditSink) {
+                      OrgMapper orgMapper, IamCrypto iamCrypto, AuditSink auditSink) {
         this.userMapper = userMapper;
         this.accountMapper = accountMapper;
         this.roleMapper = roleMapper;
         this.permissionMapper = permissionMapper;
         this.menuMapper = menuMapper;
         this.tenantMapper = tenantMapper;
+        this.orgMapper = orgMapper;
+        this.iamCrypto = iamCrypto;
         this.auditSink = auditSink;
     }
 
@@ -108,7 +121,7 @@ public class IamService {
     public UserView getUser(long userId) {
         long tenantId = TenantContext.requireTenantId();
         Map<String, Object> row = requireUser(tenantId, userId);
-        return toUserView(row, roleMapper.listRoleCodes(tenantId, userId));
+        return toUserView(tenantId, row, roleMapper.listRoleCodes(tenantId, userId));
     }
 
     @Transactional(readOnly = true)
@@ -127,7 +140,7 @@ public class IamService {
             }
         }
         return rows.stream()
-                .map(row -> toUserView(row, roles.getOrDefault(
+                .map(row -> toUserView(tenantId, row, roles.getOrDefault(
                         ((Number) row.get("id")).longValue(), List.of())))
                 .toList();
     }
@@ -205,7 +218,201 @@ public class IamService {
             roleMapper.grantUserRole(IdWorker.getId(), tenantId, userId, item.roleId(), item.expireAt());
         }
         audit("IAM_USER_ROLES_ASSIGNED", "USER", String.valueOf(userId));
-        return toUserView(requireUser(tenantId, userId), roleMapper.listRoleCodes(tenantId, userId));
+        return toUserView(tenantId, requireUser(tenantId, userId), roleMapper.listRoleCodes(tenantId, userId));
+    }
+
+    @Transactional(readOnly = true)
+    public List<OrgTreeNode> orgTree() {
+        long tenantId = TenantContext.requireTenantId();
+        return buildOrgTree(orgMapper.list(tenantId));
+    }
+
+    @Transactional
+    public OrgTreeNode createOrg(CreateOrgRequest request) {
+        long tenantId = TenantContext.requireTenantId();
+        String name = normalize(request.name());
+        if (name == null) {
+            throw new BizException(CommonErrorCode.BAD_REQUEST, "组织名称不能为空");
+        }
+        Long parentId = request.parentId();
+        Map<String, Object> parent = parentId == null ? null : requireOrg(tenantId, parentId);
+        String orgType = normalize(request.orgType());
+        orgType = orgType == null ? "DEPT" : orgType.toUpperCase();
+        int sort = request.sort() == null ? 0 : request.sort();
+        long orgId = IdWorker.getId();
+        String pathCode = (parent == null ? "" : orgPathPrefix(parent)) + orgId + "/";
+        orgMapper.insert(orgId, tenantId, parentId, pathCode, name, orgType, request.leaderId(), sort,
+                operatorId());
+        audit("IAM_ORG_CREATED", "ORG", String.valueOf(orgId));
+        return toOrgTreeNode(requireOrg(tenantId, orgId));
+    }
+
+    @Transactional
+    public OrgTreeNode updateOrg(long orgId, UpdateOrgRequest request) {
+        long tenantId = TenantContext.requireTenantId();
+        requireOrg(tenantId, orgId);
+        String status = normalize(request.status());
+        if (status != null) {
+            status = status.toUpperCase();
+            if (!ORG_STATUSES.contains(status)) {
+                throw new BizException(CommonErrorCode.BAD_REQUEST, "status 仅支持 ACTIVE/DISABLED");
+            }
+        }
+        String name = normalize(request.name());
+        boolean changed = name != null || request.sort() != null
+                || request.leaderId() != null || status != null;
+        if (changed) {
+            int updated = orgMapper.update(tenantId, orgId, name, request.sort(), request.leaderId(),
+                    status, request.version(), operatorId());
+            if (updated == 0) {
+                if (request.version() != null) {
+                    throw new BizException(IamErrorCode.IAM_ORG_VERSION_CONFLICT);
+                }
+                throw new BizException(IamErrorCode.IAM_ORG_NOT_FOUND);
+            }
+        }
+        audit("IAM_ORG_UPDATED", "ORG", String.valueOf(orgId));
+        return toOrgTreeNode(requireOrg(tenantId, orgId));
+    }
+
+    @Transactional
+    public OrgTreeNode moveOrg(long orgId, Long parentId) {
+        long tenantId = TenantContext.requireTenantId();
+        Map<String, Object> org = requireOrg(tenantId, orgId);
+        Map<String, Object> parent = parentId == null ? null : requireActiveOrg(tenantId, parentId);
+        String oldPrefix = orgPathPrefix(org);
+        String newPrefix = parent == null ? "/" : orgPathPrefix(parent);
+        if (parentId != null && (parentId == orgId || newPrefix.startsWith(oldPrefix))) {
+            throw new BizException(IamErrorCode.IAM_ORG_MOVE_CYCLE);
+        }
+        orgMapper.updatePath(tenantId, orgId, parentId, newPrefix + orgId + "/", operatorId());
+        orgMapper.replaceDescendantPathPrefix(tenantId, orgId, oldPrefix, newPrefix, operatorId());
+        audit("IAM_ORG_MOVED", "ORG", String.valueOf(orgId));
+        return toOrgTreeNode(requireOrg(tenantId, orgId));
+    }
+
+    @Transactional
+    public void deleteOrg(long orgId) {
+        long tenantId = TenantContext.requireTenantId();
+        requireOrg(tenantId, orgId);
+        if (orgMapper.countChildren(tenantId, orgId) > 0) {
+            throw new BizException(IamErrorCode.IAM_ORG_HAS_CHILDREN);
+        }
+        if (orgMapper.countMembers(tenantId, orgId) > 0) {
+            throw new BizException(IamErrorCode.IAM_ORG_HAS_MEMBERS);
+        }
+        orgMapper.softDelete(tenantId, orgId, operatorId());
+        audit("IAM_ORG_DELETED", "ORG", String.valueOf(orgId));
+    }
+
+    @Transactional
+    public void addOrgMember(long orgId, long userId) {
+        long tenantId = TenantContext.requireTenantId();
+        requireOrg(tenantId, orgId);
+        Map<String, Object> user = requireUser(tenantId, userId);
+        Long currentPrimary = toLong(user.get("primary_org_id"));
+        boolean makePrimary = currentPrimary == null;
+        int isPrimary = makePrimary || currentPrimary == orgId ? 1 : 0;
+        orgMapper.upsertMember(IdWorker.getId(), tenantId, userId, orgId, isPrimary, operatorId());
+        if (makePrimary) {
+            orgMapper.clearOtherPrimary(tenantId, userId, orgId, operatorId());
+            userMapper.updatePrimaryOrg(tenantId, userId, orgId, operatorId());
+        }
+        audit("IAM_ORG_MEMBER_ADDED", "ORG", orgId + ":" + userId);
+    }
+
+    @Transactional
+    public void removeOrgMember(long orgId, long userId) {
+        long tenantId = TenantContext.requireTenantId();
+        requireOrg(tenantId, orgId);
+        Map<String, Object> user = requireUser(tenantId, userId);
+        Map<String, Object> member = orgMapper.findMember(tenantId, userId, orgId);
+        if (member == null || ((Number) member.get("deleted")).intValue() != 0) {
+            return;
+        }
+        boolean wasPrimary = toLong(user.get("primary_org_id")) != null
+                && toLong(user.get("primary_org_id")) == orgId;
+        orgMapper.softDeleteMember(tenantId, userId, orgId, operatorId());
+        if (wasPrimary) {
+            userMapper.updatePrimaryOrg(tenantId, userId, null, operatorId());
+            orgMapper.clearOtherPrimary(tenantId, userId, orgId, operatorId());
+        }
+        audit("IAM_ORG_MEMBER_REMOVED", "ORG", orgId + ":" + userId);
+    }
+
+    @Transactional
+    public UserView updateUserProfile(long userId, UpdateUserProfileRequest request) {
+        long tenantId = TenantContext.requireTenantId();
+        Map<String, Object> user = requireUser(tenantId, userId);
+
+        boolean nicknameSet = request.nickname() != null;
+        String nickname = nicknameSet ? normalize(request.nickname()) : null;
+
+        boolean employeeNoSet = request.employeeNo() != null;
+        String employeeNo = employeeNoSet ? normalize(request.employeeNo()) : null;
+        if (employeeNo != null && userMapper.countByEmployeeNoExcluding(tenantId, employeeNo, userId) > 0) {
+            throw new BizException(IamErrorCode.IAM_USER_EMPLOYEE_NO_DUPLICATED);
+        }
+
+        boolean mobileSet = request.mobile() != null;
+        String mobileEnc = null;
+        String mobileHash = null;
+        if (mobileSet && !request.mobile().isBlank()) {
+            String normalizedMobile = iamCrypto.normalizePhone(request.mobile());
+            mobileHash = iamCrypto.hashMobile(tenantId, normalizedMobile);
+            if (userMapper.countByMobileHashExcluding(tenantId, mobileHash, userId) > 0) {
+                throw new BizException(IamErrorCode.IAM_USER_MOBILE_DUPLICATED);
+            }
+            mobileEnc = iamCrypto.encryptMobile(tenantId, normalizedMobile);
+        }
+
+        boolean emailSet = request.email() != null;
+        String emailEnc = null;
+        String emailHash = null;
+        if (emailSet && !request.email().isBlank()) {
+            String normalizedEmail = iamCrypto.normalizeEmail(request.email());
+            emailHash = iamCrypto.hashEmail(tenantId, normalizedEmail);
+            if (userMapper.countByEmailHashExcluding(tenantId, emailHash, userId) > 0) {
+                throw new BizException(IamErrorCode.IAM_USER_EMAIL_DUPLICATED);
+            }
+            emailEnc = iamCrypto.encryptEmail(tenantId, normalizedEmail);
+        }
+
+        String status = normalize(request.status());
+        if (status != null) {
+            status = status.toUpperCase();
+            if (!USER_STATUSES.contains(status)) {
+                throw new BizException(CommonErrorCode.BAD_REQUEST, "status 仅支持 ACTIVE/DISABLED/LOCKED");
+            }
+        }
+
+        boolean primaryOrgIdSet = request.primaryOrgId() != null;
+        if (primaryOrgIdSet) {
+            requireActiveOrg(tenantId, request.primaryOrgId());
+        }
+
+        boolean changed = nicknameSet || employeeNoSet || mobileSet || emailSet
+                || primaryOrgIdSet || status != null;
+        if (changed) {
+            int updated = userMapper.updateProfile(tenantId, userId, nicknameSet, nickname,
+                    employeeNoSet, employeeNo, mobileSet, mobileEnc, mobileHash,
+                    emailSet, emailEnc, emailHash, primaryOrgIdSet, request.primaryOrgId(),
+                    status, request.version(), operatorId());
+            if (updated == 0) {
+                if (request.version() != null) {
+                    throw new BizException(IamErrorCode.IAM_USER_VERSION_CONFLICT);
+                }
+                throw new BizException(IamErrorCode.IAM_USER_NOT_FOUND);
+            }
+        }
+
+        if (primaryOrgIdSet) {
+            orgMapper.clearOtherPrimary(tenantId, userId, request.primaryOrgId(), operatorId());
+            orgMapper.upsertMember(IdWorker.getId(), tenantId, userId, request.primaryOrgId(), 1,
+                    operatorId());
+        }
+        audit("IAM_USER_UPDATED", "USER", String.valueOf(userId));
+        return toUserView(tenantId, requireUser(tenantId, userId), roleMapper.listRoleCodes(tenantId, userId));
     }
 
     @Transactional(readOnly = true)
@@ -267,9 +474,76 @@ public class IamService {
     private Map<String, Object> requireUser(long tenantId, long userId) {
         Map<String, Object> row = userMapper.findById(tenantId, userId);
         if (row == null) {
-            throw new BizException(CommonErrorCode.NOT_FOUND, "用户不存在: " + userId);
+            throw new BizException(IamErrorCode.IAM_USER_NOT_FOUND);
         }
         return row;
+    }
+
+    private Map<String, Object> requireOrg(long tenantId, long orgId) {
+        Map<String, Object> row = orgMapper.findById(tenantId, orgId);
+        if (row == null) {
+            throw new BizException(IamErrorCode.IAM_ORG_NOT_FOUND);
+        }
+        return row;
+    }
+
+    private Map<String, Object> requireActiveOrg(long tenantId, long orgId) {
+        Map<String, Object> row = requireOrg(tenantId, orgId);
+        if (!"ACTIVE".equals(row.get("status"))) {
+            throw new BizException(IamErrorCode.IAM_ORG_NOT_FOUND, "组织不存在或已停用: " + orgId);
+        }
+        return row;
+    }
+
+    private List<OrgTreeNode> buildOrgTree(List<Map<String, Object>> rows) {
+        Map<Long, OrgNode> nodes = new LinkedHashMap<>();
+        for (Map<String, Object> row : rows) {
+            OrgNode node = new OrgNode(row);
+            nodes.put(node.id, node);
+        }
+        List<OrgNode> roots = new ArrayList<>();
+        for (OrgNode node : nodes.values()) {
+            OrgNode parent = node.parentId == null ? null : nodes.get(node.parentId);
+            if (parent == null) {
+                roots.add(node);
+            } else {
+                parent.children.add(node);
+            }
+        }
+        return roots.stream().map(this::toOrgTreeNode).toList();
+    }
+
+    private OrgTreeNode toOrgTreeNode(Map<String, Object> row) {
+        return new OrgTreeNode(
+                ((Number) row.get("id")).longValue(),
+                toLong(row.get("parent_id")),
+                (String) row.get("name"),
+                (String) row.get("org_type"),
+                toLong(row.get("leader_id")),
+                ((Number) row.get("sort")).intValue(),
+                (String) row.get("status"),
+                (String) row.get("path_code"),
+                ((Number) row.get("member_count")).longValue(),
+                List.of());
+    }
+
+    private OrgTreeNode toOrgTreeNode(OrgNode node) {
+        return new OrgTreeNode(node.id, node.parentId, node.name, node.orgType, node.leaderId, node.sort,
+                node.status, node.pathCode, node.memberCount,
+                node.children.stream().map(this::toOrgTreeNode).toList());
+    }
+
+    private String orgPathPrefix(Map<String, Object> org) {
+        String pathCode = (String) org.get("path_code");
+        if (pathCode != null && !pathCode.isBlank()) {
+            return pathCode;
+        }
+        return "/" + ((Number) org.get("id")).longValue() + "/";
+    }
+
+    private Long operatorId() {
+        TenantContext.Snapshot snapshot = TenantContext.get();
+        return snapshot == null ? null : snapshot.userId();
     }
 
     private Map<String, Object> requireRole(long tenantId, long roleId) {
@@ -294,7 +568,8 @@ public class IamService {
         throw new BizException(CommonErrorCode.CONFLICT, "工号生成冲突，请重试");
     }
 
-    private UserView toUserView(Map<String, Object> row, List<String> roles) {
+    private UserView toUserView(long tenantId, Map<String, Object> row, List<String> roles) {
+        String mobile = iamCrypto.decryptMobile(tenantId, (String) row.get("mobile_enc"));
         return new UserView(
                 ((Number) row.get("id")).longValue(),
                 (String) row.get("username"),
@@ -303,7 +578,10 @@ public class IamService {
                 toLong(row.get("primary_org_id")),
                 toLong(row.get("primary_position_id")),
                 (String) row.get("status"),
-                List.copyOf(roles));
+                List.copyOf(roles),
+                (String) row.get("nickname"),
+                iamCrypto.maskPhone(mobile),
+                (String) row.get("primary_org_name"));
     }
 
     private RoleView toRoleView(long tenantId, Map<String, Object> row) {
@@ -346,6 +624,33 @@ public class IamService {
                 resourceType,
                 resourceId,
                 Instant.now()));
+    }
+
+    private static final class OrgNode {
+        private final long id;
+        private final Long parentId;
+        private final String name;
+        private final String orgType;
+        private final Long leaderId;
+        private final int sort;
+        private final String status;
+        private final String pathCode;
+        private final long memberCount;
+        private final List<OrgNode> children = new ArrayList<>();
+
+        private OrgNode(Map<String, Object> row) {
+            this.id = ((Number) row.get("id")).longValue();
+            Object parent = row.get("parent_id");
+            this.parentId = parent == null ? null : ((Number) parent).longValue();
+            this.name = (String) row.get("name");
+            this.orgType = (String) row.get("org_type");
+            Object leader = row.get("leader_id");
+            this.leaderId = leader == null ? null : ((Number) leader).longValue();
+            this.sort = ((Number) row.get("sort")).intValue();
+            this.status = (String) row.get("status");
+            this.pathCode = (String) row.get("path_code");
+            this.memberCount = ((Number) row.get("member_count")).longValue();
+        }
     }
 
     private static final class Node {

@@ -1,7 +1,7 @@
 server:
   port: 18082
-  # 网关透传的 Authorization + X-Permissions 合计超过 Tomcat 默认 8KB，调大避免 400
-  max-http-request-header-size: 16KB
+  # 网关透传的 Authorization + X-Permissions 合计超过 Tomcat 默认 8KB；管理员令牌约 17KB，调大避免 400
+  max-http-request-header-size: 64KB
 
 spring:
   application:
@@ -26,6 +26,9 @@ mybatis-plus:
 fenglin:
   audit:
     endpoint: ${FENGLIN_AUDIT_ENDPOINT:http://localhost:18087/internal/v1/audit/logs}
+  crypto:
+    # 本地/测试密钥，生产由 KMS 注入
+    data-key-base64: ${FENGLIN_CRYPTO_DATA_KEY:MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=}
 
 management:
   endpoints:

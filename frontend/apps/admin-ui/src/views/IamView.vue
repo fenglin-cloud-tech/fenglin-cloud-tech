@@ -1,14 +1,16 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { PageHeader, GapNotice } from '@fenglin/ui-admin'
 import {
   iamApi,
   type CreateRoleRequest,
   type CreateUserRequest,
   type MenuNode,
+  type OrgNode,
   type PermissionNode,
   type RoleView,
+  type UpdateUserRequest,
   type UserView,
 } from '@/api'
 import { useAuthStore } from '@/stores/auth'
@@ -55,6 +57,56 @@ const assignSaving = ref(false)
 const assignTarget = ref<UserView | null>(null)
 const assignRoleIds = ref<number[]>([])
 
+const orgs = ref<OrgNode[]>([])
+const orgLoading = ref(false)
+const orgError = ref('')
+const orgFlat = computed(() => {
+  const list: Array<{ id: string | number; label: string }> = []
+  const walk = (nodes: OrgNode[], depth: number) => {
+    nodes.forEach((node) => {
+      list.push({ id: node.id, label: `${'　'.repeat(depth)}${node.name}` })
+      if (node.children?.length) walk(node.children, depth + 1)
+    })
+  }
+  walk(orgs.value, 0)
+  return list
+})
+
+function orgName(id?: number) {
+  if (!id) return '-'
+  return orgFlat.value.find((item) => item.id === id)?.label.trim() ?? String(id)
+}
+
+const orgDialogVisible = ref(false)
+const orgDialogMode = ref<'create' | 'rename' | 'move'>('create')
+const orgDialogTitle = computed(() => {
+  if (orgDialogMode.value === 'rename') return '重命名组织'
+  if (orgDialogMode.value === 'move') return '移动组织'
+  return '新增组织'
+})
+const orgSaving = ref(false)
+const orgFormError = ref('')
+const orgTarget = ref<OrgNode | null>(null)
+const orgForm = reactive({ parent_id: 0, name: '', org_type: 'DEPT', sort: 0, leader_id: 0 })
+const orgTypeOptions = [
+  { value: 'COMPANY', label: '公司' },
+  { value: 'DEPT', label: '部门' },
+  { value: 'TEAM', label: '小组' },
+]
+
+const userEditVisible = ref(false)
+const userEditSaving = ref(false)
+const userEditError = ref('')
+const userEditTarget = ref<UserView | null>(null)
+const userEditForm = reactive({
+  nickname: '',
+  mobile: '',
+  email: '',
+  employee_no: '',
+  status: 'ACTIVE',
+  primary_org_id: 0,
+})
+
 const roleDialog = ref(false)
 const roleSaving = ref(false)
 const roleFormError = ref('')
@@ -68,6 +120,8 @@ const selectedCodes = ref<string[]>([])
 const canCreateUser = computed(() => auth.can('tenant:iam:user:create'))
 const canManageRole = computed(() => auth.can('tenant:iam:role:manage'))
 const canAssignRole = computed(() => auth.can('tenant:iam:role:assign'))
+const canManageOrg = computed(() => auth.can('tenant:iam:org:manage'))
+const canUpdateUser = computed(() => auth.can('tenant:iam:user:update'))
 
 const allPermissions = computed(() =>
   Object.entries(permissionGroups.value).flatMap(([domain, nodes]) => {
@@ -94,6 +148,18 @@ async function loadUsers() {
     userError.value = describeError(err)
   } finally {
     userLoading.value = false
+  }
+}
+
+async function loadOrgs() {
+  orgLoading.value = true
+  orgError.value = ''
+  try {
+    orgs.value = await iamApi.orgTree()
+  } catch (err) {
+    orgError.value = describeError(err)
+  } finally {
+    orgLoading.value = false
   }
 }
 
@@ -152,7 +218,7 @@ function openCreateUser() {
 
 async function submitUser() {
   if (!userForm.real_name || !userForm.username || !userForm.mobile || !userForm.primary_org_id) {
-    userFormError.value = '姓名、用户名、手机号、主组织 ID 为必填项'
+    userFormError.value = '姓名、用户名、手机号、主组织为必填项'
     return
   }
   userSaving.value = true
@@ -171,6 +237,164 @@ async function submitUser() {
     userFormError.value = describeError(err)
   } finally {
     userSaving.value = false
+  }
+}
+
+function openCreateOrg(parent: OrgNode | null) {
+  if (!canManageOrg.value) return
+  orgDialogMode.value = 'create'
+  orgTarget.value = parent
+  Object.assign(orgForm, {
+    parent_id: parent?.id ?? 0,
+    name: '',
+    org_type: 'DEPT',
+    sort: 0,
+    leader_id: 0,
+  })
+  orgFormError.value = ''
+  orgDialogVisible.value = true
+}
+
+function openRenameOrg(node: OrgNode) {
+  if (!canManageOrg.value) return
+  orgDialogMode.value = 'rename'
+  orgTarget.value = node
+  Object.assign(orgForm, { parent_id: node.parent_id ?? 0, name: node.name, org_type: node.org_type, sort: node.sort, leader_id: node.leader_id ?? 0 })
+  orgFormError.value = ''
+  orgDialogVisible.value = true
+}
+
+function openMoveOrg(node: OrgNode) {
+  if (!canManageOrg.value) return
+  orgDialogMode.value = 'move'
+  orgTarget.value = node
+  Object.assign(orgForm, { parent_id: node.parent_id ?? 0, name: node.name, org_type: node.org_type, sort: node.sort, leader_id: node.leader_id ?? 0 })
+  orgFormError.value = ''
+  orgDialogVisible.value = true
+}
+
+async function submitOrg() {
+  if (!canManageOrg.value) return
+  if (orgDialogMode.value !== 'move' && !orgForm.name.trim()) {
+    orgFormError.value = '组织名称为必填项'
+    return
+  }
+  orgSaving.value = true
+  orgFormError.value = ''
+  try {
+    if (orgDialogMode.value === 'create') {
+      await iamApi.createOrg({
+        parent_id: orgForm.parent_id || null,
+        name: orgForm.name.trim(),
+        org_type: orgForm.org_type,
+        sort: orgForm.sort,
+        leader_id: orgForm.leader_id || undefined,
+      })
+      ElMessage.success('组织已创建')
+    } else if (orgDialogMode.value === 'rename' && orgTarget.value) {
+      await iamApi.updateOrg(orgTarget.value.id, { name: orgForm.name.trim() })
+      ElMessage.success('组织已重命名')
+    } else if (orgDialogMode.value === 'move' && orgTarget.value) {
+      await iamApi.moveOrg(orgTarget.value.id, { parent_id: orgForm.parent_id || null })
+      ElMessage.success('组织已移动')
+    }
+    orgDialogVisible.value = false
+    await loadOrgs()
+  } catch (err) {
+    orgFormError.value = describeError(err)
+  } finally {
+    orgSaving.value = false
+  }
+}
+
+async function disableOrg(node: OrgNode) {
+  if (!canManageOrg.value) return
+  try {
+    await ElMessageBox.confirm(`确认停用组织「${node.name}」？`, '停用组织', { type: 'warning' })
+  } catch {
+    return
+  }
+  try {
+    await iamApi.updateOrg(node.id, { status: 'DISABLED' })
+    ElMessage.success('组织已停用')
+    await loadOrgs()
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  }
+}
+
+async function deleteOrg(node: OrgNode) {
+  if (!canManageOrg.value) return
+  try {
+    await ElMessageBox.confirm(`确认删除组织「${node.name}」？删除后不可恢复。`, '删除组织', { type: 'warning' })
+  } catch {
+    return
+  }
+  try {
+    await iamApi.deleteOrg(node.id)
+    ElMessage.success('组织已删除')
+    await loadOrgs()
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  }
+}
+
+function handleOrgCommand(command: unknown, node: OrgNode) {
+  switch (command) {
+    case 'create':
+      openCreateOrg(node)
+      break
+    case 'rename':
+      openRenameOrg(node)
+      break
+    case 'move':
+      openMoveOrg(node)
+      break
+    case 'disable':
+      void disableOrg(node)
+      break
+    case 'delete':
+      void deleteOrg(node)
+      break
+  }
+}
+
+function openEditUser(row: UserView) {
+  if (!canUpdateUser.value) return
+  userEditTarget.value = row
+  Object.assign(userEditForm, {
+    nickname: row.nickname ?? row.real_name ?? '',
+    mobile: '',
+    email: '',
+    employee_no: row.employee_no ?? '',
+    status: row.status || 'ACTIVE',
+    primary_org_id: row.primary_org_id ?? 0,
+  })
+  userEditError.value = ''
+  userEditVisible.value = true
+}
+
+async function submitEditUser() {
+  if (!canUpdateUser.value || !userEditTarget.value) return
+  const body: UpdateUserRequest = {}
+  if (userEditForm.nickname.trim()) body.nickname = userEditForm.nickname.trim()
+  if (userEditForm.mobile.trim()) body.mobile = userEditForm.mobile.trim()
+  if (userEditForm.email.trim()) body.email = userEditForm.email.trim()
+  if (userEditForm.employee_no.trim()) body.employee_no = userEditForm.employee_no.trim()
+  if (userEditForm.status) body.status = userEditForm.status
+  if (userEditForm.primary_org_id) body.primary_org_id = userEditForm.primary_org_id
+  if (userEditTarget.value.version !== undefined) body.version = userEditTarget.value.version
+  userEditSaving.value = true
+  userEditError.value = ''
+  try {
+    await iamApi.updateUser(userEditTarget.value.user_id, body)
+    ElMessage.success('用户资料已更新')
+    userEditVisible.value = false
+    await loadUsers()
+  } catch (err) {
+    userEditError.value = describeError(err)
+  } finally {
+    userEditSaving.value = false
   }
 }
 
@@ -243,70 +467,121 @@ async function submitGrant() {
   }
 }
 
+async function refreshAll() {
+  await Promise.allSettled([loadOrgs(), loadUsers()])
+}
+
 onMounted(async () => {
-  await Promise.allSettled([loadUsers(), loadRoles(), loadPermissions(), loadMenus()])
+  await Promise.allSettled([loadOrgs(), loadUsers(), loadRoles(), loadPermissions(), loadMenus()])
 })
 </script>
 
 <template>
   <div>
-    <PageHeader module="IAM · A-09~A-15" title="身份与权限" description="用户、角色、权限码与菜单；组织、岗位、数据权限、字段权限接口缺失。">
+    <PageHeader module="IAM · A-09~A-15" title="身份与权限" description="用户、角色、权限码与菜单；支持组织树维护与用户资料编辑。">
       <template #actions>
-        <el-button @click="loadUsers">刷新</el-button>
+        <el-button :loading="orgLoading || userLoading" @click="refreshAll">刷新</el-button>
       </template>
     </PageHeader>
 
     <GapNotice
       :items="[
-        'A-09 组织架构、A-11 岗位、A-13 数据权限、A-14 字段权限：现有后端未提供对应 REST 接口，本页不伪造。',
-        '创建用户要求 primary_org_id，但组织列表接口缺失，当前仅能手填组织 ID（真实后端校验）。',
+        'A-11 岗位、A-13 数据权限、A-14 字段权限：现有后端未提供对应 REST 接口，本页不伪造。',
+        '组织成员挂载接口已接入 API 客户端，但缺少成员列表接口，本页暂不提供成员管理界面。',
         '后端菜单种子仅 5 条且 parent_code 指向未创建节点，路径与 UIUX 26 页清单不一致；管理台以静态 13 页路由为准。',
-        '当前权限：创建用户=' + (canCreateUser ? '允许' : '拒绝') + '，角色管理=' + (canManageRole ? '允许' : '拒绝') + '，分配角色=' + (canAssignRole ? '允许' : '拒绝') + '。',
+        '当前权限：创建用户=' + (canCreateUser ? '允许' : '拒绝') + '，用户资料编辑=' + (canUpdateUser ? '允许' : '拒绝') + '，组织管理=' + (canManageOrg ? '允许' : '拒绝') + '，角色管理=' + (canManageRole ? '允许' : '拒绝') + '，分配角色=' + (canAssignRole ? '允许' : '拒绝') + '。',
       ]"
     />
 
     <div class="fl-card">
       <el-tabs v-model="activeTab">
         <el-tab-pane label="用户" name="users">
-          <div class="fl-toolbar">
-            <el-input v-model="userQuery.keyword" placeholder="用户名/姓名关键词" clearable style="width: 220px" @keyup.enter="loadUsers" />
-            <el-select v-model="userQuery.status" placeholder="全部状态" clearable style="width: 150px">
-              <el-option label="ACTIVE" value="ACTIVE" />
-              <el-option label="DISABLED" value="DISABLED" />
-            </el-select>
-            <el-button type="primary" plain @click="userQuery.page = 1; loadUsers()">查询</el-button>
-            <el-button v-perm="'tenant:iam:user:create'" type="primary" @click="openCreateUser">新增用户</el-button>
-          </div>
-          <el-alert v-if="userError" type="error" :closable="false" show-icon :title="userError" style="margin-bottom: 12px" />
-          <el-table :data="users" v-loading="userLoading" border stripe>
-            <el-table-column prop="user_id" label="用户 ID" width="90" />
-            <el-table-column prop="username" label="用户名" width="140" />
-            <el-table-column prop="real_name" label="姓名" width="120" />
-            <el-table-column prop="employee_no" label="工号" width="120" />
-            <el-table-column label="主组织 ID" width="110">
-              <template #default="{ row }">{{ row.primary_org_id ?? '-' }}</template>
-            </el-table-column>
-            <el-table-column label="角色" min-width="160">
-              <template #default="{ row }">
-                <el-tag v-for="role in row.roles || []" :key="role" size="small" effect="plain" style="margin-right: 4px">{{ role }}</el-tag>
-                <span v-if="!row.roles?.length" class="fl-muted">-</span>
-              </template>
-            </el-table-column>
-            <el-table-column prop="status" label="状态" width="100" />
-            <el-table-column label="操作" width="120" fixed="right">
-              <template #default="{ row }">
-                <el-button v-perm="'tenant:iam:role:assign'" link type="primary" @click="openAssign(row)">分配角色</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-          <el-pagination
-            v-model:current-page="userQuery.page"
-            v-model:page-size="userQuery.size"
-            :total="userTotal"
-            layout="total, prev, pager, next"
-            style="margin-top: 16px; justify-content: flex-end"
-            @change="loadUsers"
-          />
+          <el-row :gutter="16">
+            <el-col :span="8">
+              <el-card shadow="never" v-loading="orgLoading">
+                <template #header>
+                  <div class="org-card-header">
+                    <span>组织架构</span>
+                    <div>
+                      <el-button v-perm="'tenant:iam:org:manage'" type="primary" plain size="small" @click="openCreateOrg(null)">新增根组织</el-button>
+                      <el-button size="small" @click="loadOrgs">刷新</el-button>
+                    </div>
+                  </div>
+                </template>
+                <el-alert v-if="orgError" type="error" :closable="false" show-icon :title="orgError" style="margin-bottom: 12px" />
+                <el-tree
+                  :data="orgs"
+                  node-key="id"
+                  :props="{ label: 'name', children: 'children' }"
+                  default-expand-all
+                  highlight-current
+                  :expand-on-click-node="false"
+                >
+                  <template #default="{ data }">
+                    <div class="org-node">
+                      <span class="org-node-name">{{ data.name }}</span>
+                      <el-tag size="small" effect="plain" :type="data.status === 'DISABLED' ? 'info' : 'success'">{{ data.member_count ?? 0 }} 人</el-tag>
+                      <el-dropdown v-if="canManageOrg" trigger="click" @command="handleOrgCommand($event, data)">
+                        <el-button link type="primary" size="small">操作</el-button>
+                        <template #dropdown>
+                          <el-dropdown-menu>
+                            <el-dropdown-item command="create">新增子组织</el-dropdown-item>
+                            <el-dropdown-item command="rename">重命名</el-dropdown-item>
+                            <el-dropdown-item command="move">移动</el-dropdown-item>
+                            <el-dropdown-item command="disable" :disabled="data.status === 'DISABLED'">停用</el-dropdown-item>
+                            <el-dropdown-item command="delete" divided>删除</el-dropdown-item>
+                          </el-dropdown-menu>
+                        </template>
+                      </el-dropdown>
+                    </div>
+                  </template>
+                </el-tree>
+                <el-empty v-if="!orgLoading && orgs.length === 0" description="暂无组织节点" />
+              </el-card>
+            </el-col>
+            <el-col :span="16">
+              <div class="fl-toolbar">
+                <el-input v-model="userQuery.keyword" placeholder="用户名/姓名关键词" clearable style="width: 190px" @keyup.enter="loadUsers" />
+                <el-select v-model="userQuery.status" placeholder="全部状态" clearable style="width: 130px">
+                  <el-option label="ACTIVE" value="ACTIVE" />
+                  <el-option label="DISABLED" value="DISABLED" />
+                </el-select>
+                <el-button type="primary" plain @click="userQuery.page = 1; loadUsers()">查询</el-button>
+                <el-button v-perm="'tenant:iam:user:create'" type="primary" @click="openCreateUser">新增用户</el-button>
+              </div>
+              <el-alert v-if="userError" type="error" :closable="false" show-icon :title="userError" style="margin-bottom: 12px" />
+              <el-table :data="users" v-loading="userLoading" border stripe>
+                <el-table-column prop="user_id" label="用户 ID" width="90" />
+                <el-table-column prop="username" label="用户名" width="130" />
+                <el-table-column prop="real_name" label="姓名" width="110" />
+                <el-table-column prop="employee_no" label="工号" width="110" />
+                <el-table-column label="主组织" min-width="130" show-overflow-tooltip>
+                  <template #default="{ row }">{{ orgName(row.primary_org_id) }}</template>
+                </el-table-column>
+                <el-table-column label="角色" min-width="150">
+                  <template #default="{ row }">
+                    <el-tag v-for="role in row.roles || []" :key="role" size="small" effect="plain" style="margin-right: 4px">{{ role }}</el-tag>
+                    <span v-if="!row.roles?.length" class="fl-muted">-</span>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="status" label="状态" width="100" />
+                <el-table-column label="操作" width="170" fixed="right">
+                  <template #default="{ row }">
+                    <el-button v-perm="'tenant:iam:user:update'" link type="primary" @click="openEditUser(row)">编辑资料</el-button>
+                    <el-button v-perm="'tenant:iam:role:assign'" link type="primary" @click="openAssign(row)">分配角色</el-button>
+                  </template>
+                </el-table-column>
+              </el-table>
+              <el-pagination
+                v-model:current-page="userQuery.page"
+                v-model:page-size="userQuery.size"
+                :total="userTotal"
+                layout="total, prev, pager, next"
+                style="margin-top: 16px; justify-content: flex-end"
+                @change="loadUsers"
+              />
+            </el-col>
+          </el-row>
         </el-tab-pane>
 
         <el-tab-pane label="角色" name="roles">
@@ -364,6 +639,44 @@ onMounted(async () => {
       </el-tabs>
     </div>
 
+    <el-dialog v-model="orgDialogVisible" :title="orgDialogTitle" width="480px">
+      <el-alert v-if="orgFormError" type="error" :closable="false" show-icon :title="orgFormError" style="margin-bottom: 12px" />
+      <el-form label-width="100px">
+        <el-form-item v-if="orgDialogMode === 'create'" label="上级组织">
+          <el-select v-model="orgForm.parent_id" filterable style="width: 100%">
+            <el-option label="（根组织）" :value="0" />
+            <el-option v-for="item in orgFlat" :key="item.id" :label="item.label" :value="item.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item v-if="orgDialogMode === 'move'" label="新上级组织">
+          <el-select v-model="orgForm.parent_id" filterable style="width: 100%">
+            <el-option label="（根组织）" :value="0" />
+            <el-option v-for="item in orgFlat" :key="item.id" :label="item.label" :value="item.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item v-if="orgDialogMode !== 'move'" label="组织名称" required>
+          <el-input v-model="orgForm.name" maxlength="64" />
+        </el-form-item>
+        <template v-if="orgDialogMode === 'create'">
+          <el-form-item label="组织类型">
+            <el-select v-model="orgForm.org_type" style="width: 100%">
+              <el-option v-for="opt in orgTypeOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="排序号">
+            <el-input-number v-model="orgForm.sort" :min="0" />
+          </el-form-item>
+          <el-form-item label="负责人 ID">
+            <el-input-number v-model="orgForm.leader_id" :min="0" />
+          </el-form-item>
+        </template>
+      </el-form>
+      <template #footer>
+        <el-button @click="orgDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="orgSaving" @click="submitOrg">保存</el-button>
+      </template>
+    </el-dialog>
+
     <el-dialog v-model="userDialog" title="新增用户" width="560px">
       <el-alert v-if="userFormError" type="error" :closable="false" show-icon :title="userFormError" style="margin-bottom: 12px" />
       <el-alert v-if="createdUser" type="success" :closable="false" show-icon style="margin-bottom: 12px" title="用户已创建">
@@ -376,9 +689,10 @@ onMounted(async () => {
         <el-form-item label="手机号" required><el-input v-model="userForm.mobile" /></el-form-item>
         <el-form-item label="邮箱"><el-input v-model="userForm.email" /></el-form-item>
         <el-form-item label="工号"><el-input v-model="userForm.employee_no" placeholder="可缺省，由后端生成" /></el-form-item>
-        <el-form-item label="主组织 ID" required>
-          <el-input-number v-model="userForm.primary_org_id" :min="1" />
-          <div class="fl-muted">组织列表接口缺失，请填写已存在的组织 ID</div>
+        <el-form-item label="主组织" required>
+          <el-select v-model="userForm.primary_org_id" filterable style="width: 100%" placeholder="从组织树选择">
+            <el-option v-for="item in orgFlat" :key="item.id" :label="item.label" :value="item.id" />
+          </el-select>
         </el-form-item>
         <el-form-item label="初始密码">
           <el-input v-model="userForm.password" type="password" show-password placeholder="可缺省，由平台生成并仅返回一次" />
@@ -392,6 +706,42 @@ onMounted(async () => {
       <template #footer>
         <el-button @click="userDialog = false">{{ createdUser ? '关闭' : '取消' }}</el-button>
         <el-button v-if="!createdUser" type="primary" :loading="userSaving" @click="submitUser">提交</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="userEditVisible" title="编辑用户资料" width="520px">
+      <el-alert v-if="userEditError" type="error" :closable="false" show-icon :title="userEditError" style="margin-bottom: 12px" />
+      <div v-if="userEditTarget" class="fl-muted" style="margin-bottom: 12px">
+        用户：{{ userEditTarget.username }}（{{ userEditTarget.real_name || '-' }}）
+      </div>
+      <el-form label-width="100px">
+        <el-form-item label="昵称">
+          <el-input v-model="userEditForm.nickname" maxlength="64" />
+        </el-form-item>
+        <el-form-item label="手机号">
+          <el-input v-model="userEditForm.mobile" placeholder="留空表示不修改" />
+        </el-form-item>
+        <el-form-item label="邮箱">
+          <el-input v-model="userEditForm.email" placeholder="留空表示不修改" />
+        </el-form-item>
+        <el-form-item label="工号">
+          <el-input v-model="userEditForm.employee_no" maxlength="64" />
+        </el-form-item>
+        <el-form-item label="状态">
+          <el-select v-model="userEditForm.status" style="width: 100%">
+            <el-option label="ACTIVE" value="ACTIVE" />
+            <el-option label="DISABLED" value="DISABLED" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="主组织">
+          <el-select v-model="userEditForm.primary_org_id" filterable clearable style="width: 100%" placeholder="选择主组织">
+            <el-option v-for="item in orgFlat" :key="item.id" :label="item.label" :value="item.id" />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="userEditVisible = false">取消</el-button>
+        <el-button type="primary" :loading="userEditSaving" @click="submitEditUser">保存</el-button>
       </template>
     </el-dialog>
 
@@ -456,6 +806,25 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.org-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.org-node {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  padding-right: 8px;
+}
+.org-node-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .grant-groups {
   max-height: 55vh;
   overflow: auto;

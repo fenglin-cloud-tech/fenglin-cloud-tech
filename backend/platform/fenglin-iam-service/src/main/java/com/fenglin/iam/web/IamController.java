@@ -4,16 +4,23 @@ import com.fenglin.common.core.ApiResponse;
 import com.fenglin.common.core.PageResult;
 import com.fenglin.common.security.PermissionGuard;
 import com.fenglin.iam.service.IamService;
+import com.fenglin.iam.web.dto.AddOrgMemberRequest;
 import com.fenglin.iam.web.dto.AssignRolesRequest;
+import com.fenglin.iam.web.dto.CreateOrgRequest;
 import com.fenglin.iam.web.dto.CreateRoleRequest;
 import com.fenglin.iam.web.dto.CreateUserRequest;
 import com.fenglin.iam.web.dto.CreateUserResult;
 import com.fenglin.iam.web.dto.GrantPermissionsRequest;
 import com.fenglin.iam.web.dto.MenuView;
+import com.fenglin.iam.web.dto.MoveOrgRequest;
+import com.fenglin.iam.web.dto.OrgTreeNode;
 import com.fenglin.iam.web.dto.PermissionNode;
 import com.fenglin.iam.web.dto.RoleView;
+import com.fenglin.iam.web.dto.UpdateOrgRequest;
+import com.fenglin.iam.web.dto.UpdateUserProfileRequest;
 import com.fenglin.iam.web.dto.UserView;
 import jakarta.validation.Valid;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -35,8 +42,10 @@ import java.util.Map;
 public class IamController {
 
     private static final String CREATE_USER_PERMISSION = "tenant:iam:user:create";
+    private static final String UPDATE_USER_PERMISSION = "tenant:iam:user:update";
     private static final String MANAGE_ROLE_PERMISSION = "tenant:iam:role:manage";
     private static final String ASSIGN_ROLE_PERMISSION = "tenant:iam:role:assign";
+    private static final String MANAGE_ORG_PERMISSION = "tenant:iam:org:manage";
 
     private final IamService iamService;
 
@@ -62,6 +71,77 @@ public class IamController {
         List<UserView> records = iamService.listUsers(orgId, status, keyword, page, size);
         return ApiResponse.success(PageResult.of(records, iamService.countUsers(orgId, status, keyword),
                 Math.max(page, 1), Math.min(Math.max(size, 1), 200)));
+    }
+
+    @PutMapping("/api/hub/v1/admin/users/{id}")
+    public ApiResponse<UserView> updateUser(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable long id,
+            @Valid @RequestBody UpdateUserProfileRequest request) {
+        PermissionGuard.require(permissions, UPDATE_USER_PERMISSION);
+        return ApiResponse.success(iamService.updateUserProfile(id, request));
+    }
+
+    @GetMapping("/api/hub/v1/admin/orgs/tree")
+    public ApiResponse<List<OrgTreeNode>> orgTree(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions) {
+        PermissionGuard.require(permissions, MANAGE_ORG_PERMISSION);
+        return ApiResponse.success(iamService.orgTree());
+    }
+
+    @PostMapping("/api/hub/v1/admin/orgs")
+    public ApiResponse<OrgTreeNode> createOrg(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @Valid @RequestBody CreateOrgRequest request) {
+        PermissionGuard.require(permissions, MANAGE_ORG_PERMISSION);
+        return ApiResponse.success(iamService.createOrg(request));
+    }
+
+    @PutMapping("/api/hub/v1/admin/orgs/{id}")
+    public ApiResponse<OrgTreeNode> updateOrg(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable long id,
+            @Valid @RequestBody UpdateOrgRequest request) {
+        PermissionGuard.require(permissions, MANAGE_ORG_PERMISSION);
+        return ApiResponse.success(iamService.updateOrg(id, request));
+    }
+
+    @PutMapping("/api/hub/v1/admin/orgs/{id}/move")
+    public ApiResponse<OrgTreeNode> moveOrg(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable long id,
+            @Valid @RequestBody MoveOrgRequest request) {
+        PermissionGuard.require(permissions, MANAGE_ORG_PERMISSION);
+        return ApiResponse.success(iamService.moveOrg(id, request.parentId()));
+    }
+
+    @DeleteMapping("/api/hub/v1/admin/orgs/{id}")
+    public ApiResponse<Void> deleteOrg(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable long id) {
+        PermissionGuard.require(permissions, MANAGE_ORG_PERMISSION);
+        iamService.deleteOrg(id);
+        return ApiResponse.success();
+    }
+
+    @PostMapping("/api/hub/v1/admin/orgs/{id}/members")
+    public ApiResponse<Void> addOrgMember(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable long id,
+            @Valid @RequestBody AddOrgMemberRequest request) {
+        PermissionGuard.require(permissions, MANAGE_ORG_PERMISSION);
+        iamService.addOrgMember(id, request.userId());
+        return ApiResponse.success();
+    }
+
+    @DeleteMapping("/api/hub/v1/admin/orgs/{id}/members/{userId}")
+    public ApiResponse<Void> removeOrgMember(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable long id,
+            @PathVariable long userId) {
+        PermissionGuard.require(permissions, MANAGE_ORG_PERMISSION);
+        iamService.removeOrgMember(id, userId);
+        return ApiResponse.success();
     }
 
     @PutMapping("/api/hub/v1/admin/users/{id}/roles")

@@ -34,6 +34,10 @@
             <groupId>com.fenglin</groupId>
             <artifactId>fenglin-common-audit</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.fenglin</groupId>
+            <artifactId>fenglin-common-crypto</artifactId>
+        </dependency>
 
         <dependency>
             <groupId>com.fenglin</groupId>

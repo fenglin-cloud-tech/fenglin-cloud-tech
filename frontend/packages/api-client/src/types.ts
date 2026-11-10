@@ -44,14 +44,28 @@ export interface UpdateTenantStatusRequest {
 }
 
 export interface UserView {
-  user_id: number
+  user_id: string
   username: string
   employee_no?: string
   real_name?: string
-  primary_org_id?: number
-  primary_position_id?: number
+  nickname?: string
+  mobile?: string
+  email?: string
+  primary_org_id?: string
+  primary_position_id?: string
   status: string
   roles: string[]
+  version?: number
+}
+
+export interface UpdateUserRequest {
+  nickname?: string
+  mobile?: string
+  email?: string
+  primary_org_id?: string | number
+  status?: string
+  employee_no?: string
+  version?: number
 }
 
 export interface CreateUserRequest {
@@ -71,6 +85,39 @@ export interface CreateUserResult {
   employee_no?: string
   status: string
   initial_password?: string
+}
+
+export interface OrgNode {
+  id: string
+  parent_id?: string
+  name: string
+  org_type: string
+  leader_id?: string
+  sort: number
+  status: string
+  path_code?: string
+  member_count?: number
+  children?: OrgNode[]
+}
+
+export interface CreateOrgRequest {
+  parent_id?: string | number | null
+  name: string
+  org_type: string
+  sort?: number
+  leader_id?: string | number
+}
+
+export interface UpdateOrgRequest {
+  name?: string
+  sort?: number
+  leader_id?: string | number
+  status?: string
+  version?: number
+}
+
+export interface MoveOrgRequest {
+  parent_id?: string | number | null
 }
 
 export interface RoleView {

@@ -22,7 +22,7 @@ spring:
         - id: fenglin-iam-service
           uri: ${FENGLIN_IAM_URI:http://localhost:18082}
           predicates:
-            - Path=/api/hub/v1/admin/users/**,/api/hub/v1/admin/roles/**,/api/hub/v1/admin/permissions/**,/api/hub/v1/admin/menus/**,/api/hub/v1/admin/dicts/**,/api/hub/v1/admin/params/**,/internal/v1/iam/**
+            - Path=/api/hub/v1/admin/users/**,/api/hub/v1/admin/roles/**,/api/hub/v1/admin/permissions/**,/api/hub/v1/admin/menus/**,/api/hub/v1/admin/dicts/**,/api/hub/v1/admin/params/**,/api/hub/v1/admin/orgs/**,/internal/v1/iam/**
         - id: fenglin-tenant-service
           uri: ${FENGLIN_TENANT_URI:http://localhost:18083}
           predicates:
