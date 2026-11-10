@@ -39,7 +39,12 @@ public enum TalentErrorCode implements ErrorCode {
     PAYROLL_PERIOD_STATE_INVALID("3008005", "薪资周期状态不允许该操作", 409),
     PAYROLL_CALCULATION_EMPTY("3008006", "周期内没有可核算员工", 409),
     PAYROLL_SLIP_STATE_INVALID("3008007", "发放单状态不允许该操作", 409),
-    PAYROLL_ITEM_DUPLICATED("3008008", "薪资项编码重复", 409);
+    PAYROLL_ITEM_DUPLICATED("3008008", "薪资项编码重复", 409),
+
+    PERFORMANCE_CYCLE_STATE_INVALID("3009005", "绩效周期状态不允许该操作", 409),
+    PERFORMANCE_GOAL_STATE_INVALID("3009006", "绩效目标状态不允许该操作", 409),
+    PERFORMANCE_EVALUATION_STATE_INVALID("3009007", "绩效评估状态不允许该操作", 409),
+    PERFORMANCE_RESULT_NOT_READY("3009008", "绩效结果尚未就绪或未全部发布", 409);
 
     private final String code;
     private final String message;

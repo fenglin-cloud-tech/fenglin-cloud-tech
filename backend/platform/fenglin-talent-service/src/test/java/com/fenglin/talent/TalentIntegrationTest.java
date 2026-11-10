@@ -103,7 +103,9 @@ class TalentIntegrationTest {
             "talent:admin:attendance:list", "talent:admin:attendance:manage", "talent:attendance:clock",
             "talent:attendance:view", "talent:admin:leave:list", "talent:admin:leave:approve",
             "talent:leave:apply", "talent:leave:view",
-            "talent:admin:payroll:list", "talent:admin:payroll:manage", "talent:admin:payroll:approve");
+            "talent:admin:payroll:list", "talent:admin:payroll:manage", "talent:admin:payroll:approve",
+            "talent:admin:performance:list", "talent:admin:performance:manage",
+            "talent:admin:performance:approve");
 
     private static final String JDBC_URL;
     private static final List<AuditEvent> AUDIT_EVENTS = new CopyOnWriteArrayList<>();
@@ -187,6 +189,8 @@ class TalentIntegrationTest {
                     + "fenglin_talent.talent_leave_balance, fenglin_talent.talent_leave_request, "
                     + "fenglin_talent.talent_pay_item, fenglin_talent.talent_pay_period, "
                     + "fenglin_talent.talent_payroll_record, fenglin_talent.talent_payslip, "
+                    + "fenglin_talent.talent_perf_cycle, fenglin_talent.talent_perf_goal, "
+                    + "fenglin_talent.talent_perf_evaluation, fenglin_talent.talent_perf_result, "
                     + "fenglin_talent.talent_tenant_key");
         }
     }
@@ -1234,6 +1238,128 @@ class TalentIntegrationTest {
         JsonNode slips = read(get("/api/talent/v1/payroll/slips", USER_HR, ALL_PERMISSIONS).getBody()).get("data");
         assertThat(slips.get("total").asLong()).isEqualTo(1);
         assertThat(AUDIT_EVENTS).anyMatch(event -> "TALENT_PAYSLIP_PAID".equals(event.eventType()));
+    }
+
+    // ---------- 绩效 ----------
+
+    @Test
+    void performanceCycleGoalEvaluationResultFlow() throws Exception {
+        long orgId = createOrg("绩效部", "PERF", null, "DEPT");
+        long employeeA = createEmployee("PERF001", "绩效员工A", orgId);
+        long employeeB = createEmployee("PERF002", "绩效员工B", orgId);
+
+        JsonNode cycle = read(post("/api/talent/v1/performance/cycles", USER_HR, ALL_PERMISSIONS, Map.of(
+                "cycle_code", "PERF-2026-Q4",
+                "cycle_name", "2026 年第四季度",
+                "cycle_type", "QUARTER",
+                "start_date", "2026-10-01",
+                "end_date", "2026-12-31")).getBody()).get("data");
+        long cycleId = cycle.get("id").asLong();
+        assertThat(cycle.get("cycle_status").asText()).isEqualTo("DRAFT");
+
+        JsonNode opened = read(post("/api/talent/v1/performance/cycles/" + cycleId + "/open-goals",
+                USER_HR, ALL_PERMISSIONS, Map.of()).getBody()).get("data");
+        assertThat(opened.get("cycle_status").asText()).isEqualTo("GOAL_SETTING");
+
+        ResponseEntity<String> noGoal = post("/api/talent/v1/performance/cycles/" + cycleId
+                + "/start-evaluation", USER_HR, ALL_PERMISSIONS, Map.of());
+        assertThat(noGoal.getStatusCode().value()).isEqualTo(409);
+        assertThat(read(noGoal.getBody()).get("code").asText()).isEqualTo("3009006");
+
+        JsonNode goal = read(post("/api/talent/v1/performance/goals", USER_HR, ALL_PERMISSIONS, Map.of(
+                "cycle_id", cycleId, "employee_id", employeeA, "goal_name", "交付核心模块",
+                "weight", 60, "measure_type", "QUANT", "target_value", "按时上线")).getBody()).get("data");
+        long goalId = goal.get("id").asLong();
+        assertThat(goal.get("goal_status").asText()).isEqualTo("DRAFT");
+        assertThat(goal.get("employee_name").asText()).isEqualTo("绩效员工A");
+
+        ResponseEntity<String> overweight = post("/api/talent/v1/performance/goals", USER_HR, ALL_PERMISSIONS,
+                Map.of("cycle_id", cycleId, "employee_id", employeeA, "goal_name", "超重目标", "weight", 50));
+        assertThat(overweight.getStatusCode().value()).isEqualTo(400);
+
+        JsonNode submittedGoal = read(post("/api/talent/v1/performance/goals/" + goalId + "/submit",
+                USER_HR, ALL_PERMISSIONS, Map.of()).getBody()).get("data");
+        assertThat(submittedGoal.get("goal_status").asText()).isEqualTo("SUBMITTED");
+
+        JsonNode approvedGoal = read(post("/api/talent/v1/performance/goals/" + goalId + "/approval",
+                USER_HR, ALL_PERMISSIONS, Map.of("approved", true, "opinion", "目标合理"))
+                .getBody()).get("data");
+        assertThat(approvedGoal.get("goal_status").asText()).isEqualTo("APPROVED");
+
+        JsonNode evaluating = read(post("/api/talent/v1/performance/cycles/" + cycleId + "/start-evaluation",
+                USER_HR, ALL_PERMISSIONS, Map.of()).getBody()).get("data");
+        assertThat(evaluating.get("cycle_status").asText()).isEqualTo("EVALUATING");
+
+        JsonNode evaluationA = read(post("/api/talent/v1/performance/evaluations", USER_HR, ALL_PERMISSIONS,
+                Map.of("cycle_id", cycleId, "employee_id", employeeA, "score", 92,
+                        "summary", "核心模块按期交付")).getBody()).get("data");
+        long evaluationAId = evaluationA.get("id").asLong();
+        assertThat(evaluationA.get("eval_status").asText()).isEqualTo("DRAFT");
+        assertThat(evaluationA.get("grade").asText()).isEqualTo("S");
+
+        ResponseEntity<String> duplicatedEvaluation = post("/api/talent/v1/performance/evaluations",
+                USER_HR, ALL_PERMISSIONS, Map.of("cycle_id", cycleId, "employee_id", employeeA, "score", 80));
+        assertThat(duplicatedEvaluation.getStatusCode().value()).isEqualTo(409);
+
+        JsonNode evaluationB = read(post("/api/talent/v1/performance/evaluations", USER_HR, ALL_PERMISSIONS,
+                Map.of("cycle_id", cycleId, "employee_id", employeeB, "score", 78)).getBody()).get("data");
+        long evaluationBId = evaluationB.get("id").asLong();
+        assertThat(evaluationB.get("grade").asText()).isEqualTo("B");
+
+        JsonNode submittedA = read(post("/api/talent/v1/performance/evaluations/" + evaluationAId + "/submit",
+                USER_HR, ALL_PERMISSIONS, Map.of()).getBody()).get("data");
+        assertThat(submittedA.get("eval_status").asText()).isEqualTo("APPROVING");
+        assertThat(submittedA.get("process_instance_id").asText()).startsWith("WF-");
+        assertThat(WORKFLOW_CALLS).anyMatch(call -> call.startsWith("performanceApproval:"));
+
+        read(post("/api/talent/v1/performance/evaluations/" + evaluationBId + "/submit",
+                USER_HR, ALL_PERMISSIONS, Map.of()).getBody());
+        JsonNode approvedA = read(post("/api/talent/v1/performance/evaluations/" + evaluationAId + "/approval",
+                USER_HR, ALL_PERMISSIONS, Map.of("approved", true, "opinion", "同意"))
+                .getBody()).get("data");
+        assertThat(approvedA.get("eval_status").asText()).isEqualTo("APPROVED");
+        read(post("/api/talent/v1/performance/evaluations/" + evaluationBId + "/approval",
+                USER_HR, ALL_PERMISSIONS, Map.of("approved", true, "opinion", "同意")).getBody());
+
+        ResponseEntity<String> closeBeforePublish = post("/api/talent/v1/performance/cycles/" + cycleId
+                + "/close", USER_HR, ALL_PERMISSIONS, Map.of());
+        assertThat(closeBeforePublish.getStatusCode().value()).isEqualTo(409);
+        assertThat(read(closeBeforePublish.getBody()).get("code").asText()).isEqualTo("3009008");
+
+        JsonNode calculated = read(post("/api/talent/v1/performance/cycles/" + cycleId + "/results/calculate",
+                USER_HR, ALL_PERMISSIONS, Map.of()).getBody()).get("data");
+        assertThat(calculated.get("total").asLong()).isEqualTo(2);
+        JsonNode first = calculated.get("records").get(0);
+        assertThat(first.get("employee_name").asText()).isEqualTo("绩效员工A");
+        assertThat(first.get("rank_no").asInt()).isEqualTo(1);
+        assertThat(first.get("grade").asText()).isEqualTo("S");
+        assertThat(first.get("bonus_coefficient").decimalValue()).isEqualByComparingTo("1.50");
+        assertThat(first.get("result_status").asText()).isEqualTo("CALCULATED");
+        JsonNode second = calculated.get("records").get(1);
+        assertThat(second.get("employee_name").asText()).isEqualTo("绩效员工B");
+        assertThat(second.get("rank_no").asInt()).isEqualTo(2);
+        assertThat(second.get("grade").asText()).isEqualTo("B");
+
+        JsonNode cycleDetail = read(get("/api/talent/v1/performance/cycles/" + cycleId,
+                USER_HR, ALL_PERMISSIONS).getBody()).get("data");
+        assertThat(cycleDetail.get("evaluation_count").asInt()).isEqualTo(2);
+        assertThat(cycleDetail.get("avg_score").decimalValue()).isEqualByComparingTo("85.00");
+
+        JsonNode published = read(post("/api/talent/v1/performance/cycles/" + cycleId + "/results/publish",
+                USER_HR, ALL_PERMISSIONS, Map.of()).getBody()).get("data");
+        assertThat(published.get("records").get(0).get("result_status").asText()).isEqualTo("PUBLISHED");
+        assertThat(published.get("records").get(0).hasNonNull("published_at")).isTrue();
+
+        JsonNode closed = read(post("/api/talent/v1/performance/cycles/" + cycleId + "/close",
+                USER_HR, ALL_PERMISSIONS, Map.of()).getBody()).get("data");
+        assertThat(closed.get("cycle_status").asText()).isEqualTo("CLOSED");
+
+        ResponseEntity<String> recalculate = post("/api/talent/v1/performance/cycles/" + cycleId
+                + "/results/calculate", USER_HR, ALL_PERMISSIONS, Map.of());
+        assertThat(recalculate.getStatusCode().value()).isEqualTo(409);
+        assertThat(read(recalculate.getBody()).get("code").asText()).isEqualTo("3009005");
+
+        assertThat(AUDIT_EVENTS).anyMatch(event -> "TALENT_PERF_RESULT_PUBLISHED".equals(event.eventType()));
     }
 
     // ---------- helpers ----------

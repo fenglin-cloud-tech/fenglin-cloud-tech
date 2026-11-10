@@ -286,6 +286,45 @@ public final class TalentDtos {
                               String processInstanceId, String approveOpinion, Instant createdAt) {
     }
 
+    // ---------- 绩效 ----------
+
+    public record PerfCycleCreateRequest(String cycleCode, String cycleName, String cycleType,
+                                         LocalDate startDate, LocalDate endDate) {
+    }
+
+    public record PerfCycleView(Long id, String cycleCode, String cycleName, String cycleType,
+                                LocalDate startDate, LocalDate endDate, String cycleStatus,
+                                int evaluationCount, BigDecimal avgScore, int version) {
+    }
+
+    public record PerfGoalCreateRequest(Long cycleId, Long employeeId, String goalName, String goalDesc,
+                                        BigDecimal weight, String measureType, String targetValue) {
+    }
+
+    public record PerfGoalView(Long id, Long cycleId, Long employeeId, String employeeName, String goalName,
+                               String goalDesc, BigDecimal weight, String measureType, String targetValue,
+                               String goalStatus, String approveOpinion, Instant createdAt) {
+    }
+
+    public record PerfEvaluationCreateRequest(Long cycleId, Long employeeId, Long evaluatorId, String reviewType,
+                                              BigDecimal score, String summary) {
+    }
+
+    public record PerfEvaluationView(Long id, Long cycleId, Long employeeId, String employeeName,
+                                     Long evaluatorId, String reviewType, BigDecimal score, String grade,
+                                     String evalStatus, String processInstanceId, String approveOpinion,
+                                     Instant createdAt) {
+    }
+
+    public record PerfEvaluationSubmitResult(Long id, String evalStatus, Long cycleId, String processInstanceId,
+                                             BigDecimal score, String grade) {
+    }
+
+    public record PerfResultView(Long id, Long cycleId, Long employeeId, String employeeName,
+                                 BigDecimal finalScore, String grade, int rankNo, BigDecimal bonusCoefficient,
+                                 String resultStatus, Instant publishedAt) {
+    }
+
     // ---------- 收口补充 ----------
 
     public record EmployeeImportRow(String empNo, String name, String gender, LocalDate birthDate, String phone,

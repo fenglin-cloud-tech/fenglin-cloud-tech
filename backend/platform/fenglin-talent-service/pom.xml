@@ -69,8 +69,9 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
-                    <argLine>-Xmx1024m -XX:MaxMetaspaceSize=384m -XX:ReservedCodeCacheSize=128m
-                        -Djdk.net.URLClassPath.disableClassPathURLCheck=true</argLine>
+                    <argLine>-Xmx768m -XX:MaxMetaspaceSize=320m -XX:ReservedCodeCacheSize=128m
+                        -Djdk.net.URLClassPath.disableClassPathURLCheck=true
+                        -Djdk.attach.allowAttachSelf=true</argLine>
                 </configuration>
             </plugin>
         </plugins>

@@ -34,6 +34,7 @@ fenglin:
       lifecycle: ${FENGLIN_TALENT_LIFECYCLE_PROCESS_KEY:employeeLifecycle}
       leave: ${FENGLIN_TALENT_LEAVE_PROCESS_KEY:leaveApproval}
       payroll: ${FENGLIN_TALENT_PAYROLL_PROCESS_KEY:payrollApproval}
+      performance: ${FENGLIN_TALENT_PERFORMANCE_PROCESS_KEY:performanceApproval}
     workflow-timeout-ms: 3000
     # 考勤判定基准（本地默认 09:00 - 18:00，可按租户部署覆盖）
     attendance:

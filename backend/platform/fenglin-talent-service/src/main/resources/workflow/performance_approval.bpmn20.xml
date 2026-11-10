@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  云才绩效评估审批流程（首次提交自动部署用）。
+  节点：直属上级评估 → HR 复核 → 结束。审批通过后由业务服务将评估计入绩效结果。
+-->
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:flowable="http://flowable.org/bpmn"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             targetNamespace="http://fenglincloud.com/talent">
+    <process id="performanceApproval" name="绩效评估审批" isExecutable="true">
+        <startEvent id="start" name="提交绩效评估"/>
+        <sequenceFlow id="flow1" sourceRef="start" targetRef="managerReview"/>
+        <userTask id="managerReview" name="直属上级评估" flowable:candidateGroups="MANAGER">
+            <extensionElements>
+                <flowable:formProperty id="cycleCode" name="绩效周期" type="string" writable="false"/>
+                <flowable:formProperty id="employeeName" name="被评估人" type="string" writable="false"/>
+                <flowable:formProperty id="score" name="评估分数" type="string" writable="false"/>
+                <flowable:formProperty id="grade" name="评估等级" type="string" writable="false"/>
+            </extensionElements>
+        </userTask>
+        <sequenceFlow id="flow2" sourceRef="managerReview" targetRef="hrReview"/>
+        <userTask id="hrReview" name="HR 复核" flowable:candidateGroups="HR"/>
+        <sequenceFlow id="flow3" sourceRef="hrReview" targetRef="end"/>
+        <endEvent id="end" name="结束"/>
+    </process>
+</definitions>
