@@ -45,6 +45,10 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
+# ---------- 本地运行产物 ----------
+.run/
+*.log
+
 # ---------- 本地配置 / 密钥 ----------
 .env
 .env.*
