@@ -28,6 +28,8 @@ import java.util.UUID;
 @Component
 public class AuthGlobalFilter implements GlobalFilter, Ordered {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(AuthGlobalFilter.class);
+
     public static final String PRINCIPAL_ATTRIBUTE = "fenglin.gateway.principal";
     public static final String HEADER_TENANT_ID = "X-Tenant-Id";
     public static final String HEADER_USER_ID = "X-User-Id";
@@ -148,6 +150,12 @@ public class AuthGlobalFilter implements GlobalFilter, Ordered {
 
     private Mono<Void> forward(ServerWebExchange exchange, GatewayFilterChain chain,
                                GatewayPrincipal principal) {
+        if (log.isDebugEnabled()) {
+            String injected = String.join(",", principal.permissions());
+            log.debug("inject X-Permissions tenant={} user={} count={} bytes={}",
+                    principal.tenantId(), principal.userId(), principal.permissions().size(),
+                    injected.length());
+        }
         ServerHttpRequest mutated = exchange.getRequest().mutate().headers(headers -> {
             headers.set(HEADER_TENANT_ID, String.valueOf(principal.tenantId()));
             headers.set(HEADER_USER_ID, String.valueOf(principal.userId()));
@@ -158,6 +166,16 @@ public class AuthGlobalFilter implements GlobalFilter, Ordered {
             }
         }).build();
 
+        if (log.isDebugEnabled()) {
+            int total = 0;
+            for (var entry : mutated.getHeaders().entrySet()) {
+                total += entry.getKey().length() + 2;
+                for (String value : entry.getValue()) {
+                    total += value.length() + 2;
+                }
+            }
+            log.debug("downstream headers total bytes={}", total);
+        }
         exchange.getAttributes().put(PRINCIPAL_ATTRIBUTE, principal);
         return chain.filter(exchange.mutate().request(mutated).build());
     }

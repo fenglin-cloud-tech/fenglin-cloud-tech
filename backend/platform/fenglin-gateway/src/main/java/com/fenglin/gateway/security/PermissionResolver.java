@@ -57,6 +57,10 @@ public class PermissionResolver {
                 .maximumSize(properties.getPermissionCache().getMaxSize())
                 .build();
         this.degraded = redis == null || !properties.getPermissionCache().isRedisEnabled();
+        log.info("权限解析器初始化 source={} redis={} l1={} l2={} degraded={}",
+                properties.getPermissionCache().getSource(), redis != null,
+                properties.getPermissionCache().getL1Ttl(),
+                properties.getPermissionCache().getL2Ttl(), degraded);
     }
 
     /** 旧令牌带 permissions claim 且未切到 resolver 模式时，直接使用 claim，行为与瘦身前一致。 */
