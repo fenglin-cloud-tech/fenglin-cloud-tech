@@ -75,6 +75,19 @@ public class FinanceCarbonController {
         return ApiResponse.success(carbonService.createActivity(request));
     }
 
+    @GetMapping("/carbon/activities/my")
+    public ApiResponse<List<CarbonActivityView>> myActivities(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(value = "periodCode", required = false) String periodCode,
+            @RequestParam(value = "scope", required = false) String scope,
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false) Integer size) {
+        PermissionGuard.require(permissions, CARBON_SUBMIT);
+        return ApiResponse.success(carbonService.listMine(periodCode, scope, status,
+                FinanceContext.size(size), FinanceContext.offset(page, size)));
+    }
+
     @GetMapping("/carbon/activities")
     public ApiResponse<List<CarbonActivityView>> listActivities(
             @RequestHeader(value = "X-Permissions", required = false) String permissions,

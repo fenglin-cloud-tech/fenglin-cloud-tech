@@ -14,17 +14,13 @@ const error = ref('')
 const saving = ref(false)
 const dialogVisible = ref(false)
 
-const myTimesheets = computed(() =>
-  timesheets.value.filter((item) => String(item.employee_id) === String(auth.userId)),
-)
+const myTimesheets = computed(() => timesheets.value)
 
 const totalHours = computed(() =>
   myTimesheets.value.reduce((sum, item) => sum + (Number(item.hours) || 0), 0).toFixed(2),
 )
 
 const gapItems = [
-  '后端没有“我的工时”聚合接口：只能按项目逐个查询 /projects/{id}/timesheets，本页取前 30 个项目并在浏览器按当前用户 ID 过滤。',
-  '缺按员工 + 日期区间查询工时的接口，跨项目汇总与分页均在浏览器完成，项目较多时不是完整结果。',
   '员工端只能填报与查看，审批 /projects/timesheets/approve 需要 biz:finance:timesheet:approve，不在本页提供。',
   '项目下拉依赖 biz:finance:project:view；若员工账号未授予该权限，页面只显示接口真实 403 提示。',
 ]
@@ -61,16 +57,7 @@ async function loadAll() {
   error.value = ''
   try {
     projects.value = await financeApi.projects.list({ page: 1, size: 100 })
-    const targets = projects.value.slice(0, 30)
-    const pages = await Promise.all(
-      targets.map((project) =>
-        financeApi.projects
-          .timesheets(project.id, { page: 1, size: 100 })
-          .then((rows) => rows.map((row) => ({ ...row, project_id: project.id })))
-          .catch(() => [] as FinanceTimesheet[]),
-      ),
-    )
-    timesheets.value = pages.flat()
+    timesheets.value = await financeApi.projects.myTimesheets({ page: 1, size: 100 })
   } catch (err) {
     error.value = describeError(err)
   } finally {

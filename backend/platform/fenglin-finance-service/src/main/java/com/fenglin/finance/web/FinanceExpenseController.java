@@ -68,6 +68,17 @@ public class FinanceExpenseController {
                 FinanceContext.offset(page, size)));
     }
 
+    @GetMapping("/expenses/my")
+    public ApiResponse<List<ExpenseView>> myList(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false) Integer size) {
+        PermissionGuard.require(permissions, SUBMIT);
+        return ApiResponse.success(expenseService.listMine(status, FinanceContext.size(size),
+                FinanceContext.offset(page, size)));
+    }
+
     @GetMapping("/expenses/{id}")
     public ApiResponse<ExpenseView> detail(
             @RequestHeader(value = "X-Permissions", required = false) String permissions,

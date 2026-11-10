@@ -886,6 +886,9 @@ export const financeApi = {
     list(params: { status?: string; page?: number; size?: number } = {}) {
       return get<FinanceExpense[]>(`${BASE}/expenses`, params)
     },
+    my(params: { status?: string; page?: number; size?: number } = {}) {
+      return get<FinanceExpense[]>(`${BASE}/expenses/my`, params)
+    },
     detail(id: FinanceId) {
       return get<FinanceExpense>(`${BASE}/expenses/${id}`)
     },
@@ -1080,6 +1083,9 @@ export const financeApi = {
     timesheets(id: FinanceId, params: { status?: string; page?: number; size?: number } = {}) {
       return get<FinanceTimesheet[]>(`${BASE}/projects/${id}/timesheets`, params)
     },
+    myTimesheets(params: { status?: string; page?: number; size?: number } = {}) {
+      return get<FinanceTimesheet[]>(`${BASE}/projects/timesheets/my`, params)
+    },
     createTimesheet(
       id: FinanceId,
       body: {
@@ -1261,6 +1267,15 @@ export const financeApi = {
       size?: number
     } = {}) {
       return get<FinanceCarbonActivity[]>(`${BASE}/carbon/activities`, params)
+    },
+    myActivities(params: {
+      periodCode?: string
+      scope?: string
+      status?: string
+      page?: number
+      size?: number
+    } = {}) {
+      return get<FinanceCarbonActivity[]>(`${BASE}/carbon/activities/my`, params)
     },
     createActivity(body: {
       org_id?: FinanceId | null

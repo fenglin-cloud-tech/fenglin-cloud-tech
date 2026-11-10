@@ -130,6 +130,30 @@ public interface CarbonMapper {
                                              @Param("status") String status,
                                              @Param("limit") int limit, @Param("offset") int offset);
 
+    /**
+     * 员工自助：只返回本人填报的碳活动数据，tenant_id + created_by 双重收敛。
+     */
+    @Select("""
+            SELECT id AS "id", activity_no AS "activityNo", org_id AS "orgId", dept_id AS "deptId",
+                   activity_type AS "activityType", scope AS "scope", activity_date::text AS "activityDate",
+                   period_code AS "periodCode", amount AS "amount", unit AS "unit", factor_id AS "factorId",
+                   data_source AS "dataSource", status AS "status"
+            FROM fin_carbon_activity
+            WHERE tenant_id = #{tenantId} AND created_by = #{userId} AND deleted = 0
+              AND (CAST(#{periodCode,jdbcType=VARCHAR} AS text) IS NULL OR period_code = #{periodCode})
+              AND (CAST(#{scope,jdbcType=VARCHAR} AS text) IS NULL OR scope = #{scope})
+              AND (CAST(#{status,jdbcType=VARCHAR} AS text) IS NULL OR status = #{status})
+            ORDER BY activity_date DESC, id DESC
+            LIMIT #{limit} OFFSET #{offset}
+            """)
+    List<Map<String, Object>> listActivitiesByCreator(@Param("tenantId") long tenantId,
+                                                      @Param("userId") long userId,
+                                                      @Param("periodCode") String periodCode,
+                                                      @Param("scope") String scope,
+                                                      @Param("status") String status,
+                                                      @Param("limit") int limit,
+                                                      @Param("offset") int offset);
+
     @Update("""
             UPDATE fin_carbon_activity
             SET status = 'VERIFIED', verified_by = #{userId}, verified_at = now(), version = version + 1

@@ -242,14 +242,32 @@ public class ExpenseService {
         long tenantId = FinanceContext.tenantId();
         List<ExpenseView> views = new ArrayList<>();
         for (Map<String, Object> row : expenseMapper.listClaims(tenantId, status, limit, offset)) {
-            views.add(new ExpenseView(Rows.lngVal(row, "id"), Rows.str(row, "claimNo"),
-                    Rows.str(row, "claimDate"), Rows.lngVal(row, "applicantId"),
-                    Rows.str(row, "applicantName"), null, Rows.str(row, "claimType"), null,
-                    Rows.dec(row, "totalAmount"), null, Rows.lng(row, "budgetId"),
-                    Rows.dec(row, "budgetOccupied"), null, Rows.str(row, "status"),
-                    Rows.lng(row, "payableId"), Rows.lng(row, "voucherId"), null, null, List.of()));
+            views.add(claimView(row));
         }
         return views;
+    }
+
+    /**
+     * 员工自助：强制按当前登录用户收敛，前端不再需要按 applicant_id 过滤。
+     */
+    public List<ExpenseView> listMine(String status, int limit, int offset) {
+        long tenantId = FinanceContext.tenantId();
+        long userId = FinanceContext.userId();
+        List<ExpenseView> views = new ArrayList<>();
+        for (Map<String, Object> row : expenseMapper.listClaimsByApplicant(tenantId, userId, status,
+                limit, offset)) {
+            views.add(claimView(row));
+        }
+        return views;
+    }
+
+    private ExpenseView claimView(Map<String, Object> row) {
+        return new ExpenseView(Rows.lngVal(row, "id"), Rows.str(row, "claimNo"),
+                Rows.str(row, "claimDate"), Rows.lngVal(row, "applicantId"),
+                Rows.str(row, "applicantName"), null, Rows.str(row, "claimType"), null,
+                Rows.dec(row, "totalAmount"), null, Rows.lng(row, "budgetId"),
+                Rows.dec(row, "budgetOccupied"), null, Rows.str(row, "status"),
+                Rows.lng(row, "payableId"), Rows.lng(row, "voucherId"), null, null, List.of());
     }
 
     // ---------- 预算 ----------

@@ -223,6 +223,26 @@ public interface ProjectMapper {
                                              @Param("status") String status,
                                              @Param("limit") int limit, @Param("offset") int offset);
 
+    /**
+     * 员工自助：跨项目返回本人工时，tenant_id + employee_id 双重收敛。
+     */
+    @Select("""
+            SELECT id AS "id", timesheet_no AS "timesheetNo", employee_id AS "employeeId",
+                   employee_name AS "employeeName", project_id AS "projectId", work_date::text AS "workDate",
+                   hours AS "hours", cost_rate AS "costRate", cost_amount AS "costAmount",
+                   status AS "status", reject_reason AS "rejectReason"
+            FROM fin_timesheet
+            WHERE tenant_id = #{tenantId} AND employee_id = #{employeeId} AND deleted = 0
+              AND (CAST(#{status,jdbcType=VARCHAR} AS text) IS NULL OR status = #{status})
+            ORDER BY work_date DESC, id DESC
+            LIMIT #{limit} OFFSET #{offset}
+            """)
+    List<Map<String, Object>> listTimesheetsByEmployee(@Param("tenantId") long tenantId,
+                                                       @Param("employeeId") long employeeId,
+                                                       @Param("status") String status,
+                                                       @Param("limit") int limit,
+                                                       @Param("offset") int offset);
+
     @Update("""
             UPDATE fin_timesheet SET status = 'APPROVED', approver_id = #{userId}, approved_at = now(),
                 version = version + 1

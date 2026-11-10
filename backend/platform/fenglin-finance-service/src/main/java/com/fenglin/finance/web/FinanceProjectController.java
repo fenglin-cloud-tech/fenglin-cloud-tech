@@ -150,6 +150,17 @@ public class FinanceProjectController {
                 FinanceContext.offset(page, size)));
     }
 
+    @GetMapping("/timesheets/my")
+    public ApiResponse<List<TimesheetView>> myTimesheets(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false) Integer size) {
+        PermissionGuard.require(permissions, TIMESHEET_SUBMIT);
+        return ApiResponse.success(projectService.listMyTimesheets(status,
+                FinanceContext.size(size), FinanceContext.offset(page, size)));
+    }
+
     @PostMapping("/timesheets/approve")
     public ApiResponse<TimesheetApproveResult> approveTimesheets(
             @RequestHeader(value = "X-Permissions", required = false) String permissions,

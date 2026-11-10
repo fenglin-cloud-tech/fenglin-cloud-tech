@@ -255,6 +255,20 @@ public class ProjectService {
         return views;
     }
 
+    /**
+     * 员工自助：跨项目返回本人工时，强制按当前登录用户收敛。
+     */
+    public List<TimesheetView> listMyTimesheets(String status, int limit, int offset) {
+        long tenantId = FinanceContext.tenantId();
+        long userId = FinanceContext.userId();
+        List<TimesheetView> views = new ArrayList<>();
+        for (Map<String, Object> row : projectMapper.listTimesheetsByEmployee(tenantId, userId, status,
+                limit, offset)) {
+            views.add(timesheetView(row));
+        }
+        return views;
+    }
+
     @Transactional
     public TimesheetApproveResult approveTimesheets(TimesheetApproveRequest request) {
         long tenantId = FinanceContext.tenantId();

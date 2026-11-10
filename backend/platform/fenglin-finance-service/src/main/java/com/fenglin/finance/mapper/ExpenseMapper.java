@@ -80,6 +80,30 @@ public interface ExpenseMapper {
                                          @Param("status") String status,
                                          @Param("limit") int limit, @Param("offset") int offset);
 
+    /**
+     * 员工自助：只返回申请人本人的报销单，tenant_id + applicant_id 双重收敛。
+     */
+    @Select("""
+            SELECT id AS "id", claim_no AS "claimNo", claim_date::text AS "claimDate",
+                   applicant_id AS "applicantId", applicant_name AS "applicantName", dept_id AS "deptId",
+                   claim_type AS "claimType", currency_code AS "currencyCode", total_amount AS "totalAmount",
+                   tax_amount AS "taxAmount", budget_id AS "budgetId", budget_occupied AS "budgetOccupied",
+                   project_id AS "projectId", status AS "status", payable_id AS "payableId",
+                   voucher_id AS "voucherId",
+                   (extract(epoch FROM submitted_at) * 1000)::bigint AS "submittedAt",
+                   (extract(epoch FROM paid_at) * 1000)::bigint AS "paidAt"
+            FROM fin_expense_claim
+            WHERE tenant_id = #{tenantId} AND applicant_id = #{applicantId} AND deleted = 0
+              AND (CAST(#{status,jdbcType=VARCHAR} AS text) IS NULL OR status = #{status})
+            ORDER BY claim_date DESC, id DESC
+            LIMIT #{limit} OFFSET #{offset}
+            """)
+    List<Map<String, Object>> listClaimsByApplicant(@Param("tenantId") long tenantId,
+                                                    @Param("applicantId") long applicantId,
+                                                    @Param("status") String status,
+                                                    @Param("limit") int limit,
+                                                    @Param("offset") int offset);
+
     @Select("""
             SELECT id AS "id", line_no AS "lineNo", expense_date::text AS "expenseDate",
                    expense_category AS "expenseCategory", subject_code AS "subjectCode",

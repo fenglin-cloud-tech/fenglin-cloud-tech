@@ -109,6 +109,21 @@ public class CarbonService {
         return views;
     }
 
+    /**
+     * 员工自助：强制按当前登录用户收敛，只返回本人填报的活动数据。
+     */
+    public List<CarbonActivityView> listMine(String periodCode, String scope, String status,
+                                             int limit, int offset) {
+        long tenantId = FinanceContext.tenantId();
+        long userId = FinanceContext.userId();
+        List<CarbonActivityView> views = new ArrayList<>();
+        for (Map<String, Object> row : carbonMapper.listActivitiesByCreator(tenantId, userId,
+                periodCode, scope, status, limit, offset)) {
+            views.add(activityView(row));
+        }
+        return views;
+    }
+
     @Transactional
     public CarbonActivityView verify(long id) {
         long tenantId = FinanceContext.tenantId();

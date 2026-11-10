@@ -15,8 +15,7 @@ const dialogVisible = ref(false)
 const periodCode = ref('')
 
 const gapItems = [
-  '碳活动接口没有提交人/创建人字段，也没有 employee_id 查询参数，员工端无法按本人过滤；本页展示租户内的活动记录。',
-  '缺“我的碳填报”或“按提交人查询”的接口，也没有撤销/编辑已填报活动的接口。',
+  '缺“撤销/编辑已填报活动”的接口，提交后只能等待核验。',
   '排放因子列表 /carbon/factors 需要 biz:finance:carbon:calculate，员工端不提供因子下拉，由后端按 scope + activity_type 自动匹配因子。',
   '缺证据附件上传接口，evidence_file_id 无法从员工端填写。',
 ]
@@ -54,10 +53,10 @@ async function loadActivities() {
   loading.value = true
   error.value = ''
   try {
-    activities.value = await financeApi.carbon.activities({
+    activities.value = await financeApi.carbon.myActivities({
       periodCode: periodCode.value || undefined,
       page: 1,
-      size: 100,
+      size: 50,
     })
   } catch (err) {
     error.value = describeError(err)

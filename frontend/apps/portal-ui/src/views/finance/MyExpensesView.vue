@@ -13,13 +13,9 @@ const error = ref('')
 const saving = ref(false)
 const dialogVisible = ref(false)
 
-const myExpenses = computed(() =>
-  expenses.value.filter((item) => String(item.applicant_id) === String(auth.userId)),
-)
+const myExpenses = computed(() => expenses.value)
 
 const gapItems = [
-  '后端报销列表 /expenses 按租户返回，没有 applicant_id 查询参数，也没有员工自助接口；本页拉取后在浏览器按当前登录用户 ID 过滤。',
-  '缺“按当前用户查询报销”的接口：分页在服务端完成（默认 50 条），本人记录可能落在其他页，本页固定取前 200 条后过滤。',
   '缺发票/附件上传接口：明细只能填写金额与备注，invoice_id / attachment_id 无法从员工端选择。',
 ]
 
@@ -96,7 +92,7 @@ async function loadExpenses() {
   loading.value = true
   error.value = ''
   try {
-    expenses.value = await financeApi.expenses.list({ page: 1, size: 200 })
+    expenses.value = await financeApi.expenses.my({ page: 1, size: 50 })
   } catch (err) {
     error.value = describeError(err)
   } finally {
