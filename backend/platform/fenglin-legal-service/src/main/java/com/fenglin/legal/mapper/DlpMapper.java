@@ -265,6 +265,59 @@ public interface DlpMapper {
                           @Param("status") String status, @Param("actionTaken") String actionTaken,
                           @Param("releaseId") Long releaseId, @Param("userId") long userId);
 
+    // ---------- 放行申请查询（复用 legal_dlp_event，event_type=RELEASE_APPLY） ----------
+    @Select("""
+            <script>
+            SELECT id, event_no, channel_code, user_id, org_id, terminal_id, data_level, file_name,
+                   file_fingerprint, matched_snippet, action_taken, release_id, risk_score, status,
+                   occurred_at, source, created_at
+            FROM legal_dlp_event
+            WHERE tenant_id = #{tenantId} AND event_type = 'RELEASE_APPLY' AND deleted = 0
+              <if test="applicantId != null">AND user_id = #{applicantId}</if>
+              <if test="status != null and status != ''">AND status = #{status}</if>
+              <if test="from != null and from != ''">AND occurred_at &gt;= #{from}::timestamptz</if>
+              <if test="to != null and to != ''">AND occurred_at &lt;= #{to}::timestamptz</if>
+            ORDER BY occurred_at DESC, id DESC LIMIT #{size} OFFSET #{offset}
+            </script>
+            """)
+    List<Map<String, Object>> listReleases(@Param("tenantId") long tenantId,
+                                           @Param("applicantId") Long applicantId,
+                                           @Param("status") String status,
+                                           @Param("from") String from, @Param("to") String to,
+                                           @Param("offset") int offset, @Param("size") int size);
+
+    @Select("""
+            <script>
+            SELECT count(1) FROM legal_dlp_event
+            WHERE tenant_id = #{tenantId} AND event_type = 'RELEASE_APPLY' AND deleted = 0
+              <if test="applicantId != null">AND user_id = #{applicantId}</if>
+              <if test="status != null and status != ''">AND status = #{status}</if>
+              <if test="from != null and from != ''">AND occurred_at &gt;= #{from}::timestamptz</if>
+              <if test="to != null and to != ''">AND occurred_at &lt;= #{to}::timestamptz</if>
+            </script>
+            """)
+    long countReleases(@Param("tenantId") long tenantId, @Param("applicantId") Long applicantId,
+                       @Param("status") String status, @Param("from") String from, @Param("to") String to);
+
+    @Select("""
+            SELECT id, event_no, channel_code, user_id, org_id, terminal_id, data_level, file_name,
+                   file_fingerprint, matched_snippet, matched_rule_ids::text AS matched_rule_ids,
+                   action_taken, release_id, risk_score, status, occurred_at, source, created_at
+            FROM legal_dlp_event
+            WHERE tenant_id = #{tenantId} AND id = #{id} AND event_type = 'RELEASE_APPLY' AND deleted = 0
+            """)
+    Map<String, Object> findRelease(@Param("tenantId") long tenantId, @Param("id") long id);
+
+    @Select("""
+            SELECT action, operator_id, result, occurred_at, detail::text AS detail
+            FROM legal_dlp_audit_log
+            WHERE tenant_id = #{tenantId} AND target_type = 'DLP_RELEASE' AND target_id = #{releaseId}
+              AND action = 'RELEASE' AND deleted = 0
+            ORDER BY occurred_at, seq_no
+            """)
+    List<Map<String, Object>> listReleaseProgress(@Param("tenantId") long tenantId,
+                                                  @Param("releaseId") long releaseId);
+
     @Select("SELECT prev_hash, block_hash, seq_no FROM legal_dlp_audit_log WHERE tenant_id = #{tenantId} "
             + "AND chain_id = #{chainId} ORDER BY seq_no DESC LIMIT 1")
     Map<String, Object> lastAudit(@Param("tenantId") long tenantId, @Param("chainId") String chainId);

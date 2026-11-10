@@ -2,6 +2,7 @@ package com.fenglin.legal.service;
 
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.fenglin.common.core.BizException;
+import com.fenglin.common.core.CommonErrorCode;
 import com.fenglin.common.core.PageResult;
 import com.fenglin.common.security.PermissionGuard;
 import com.fenglin.legal.LegalErrorCode;
@@ -268,6 +269,60 @@ public class DlpService {
                 action, userId);
         audit.high("dlp.release.approve", "DLP_RELEASE", releaseId);
         return Map.of("status", action, "valid_until", validUntil.toString());
+    }
+
+    public PageResult<Map<String, Object>> listReleases(String permissions, Integer page, Integer size,
+                                                       Long applicantId, String status, String from, String to) {
+        boolean approver = PermissionGuard.has(permissions, "legal:dlp:release:approve");
+        if (!approver) {
+            PermissionGuard.requireAny(permissions, "legal:dlp:release:approve", "legal:dlp:release:apply");
+        }
+        long tenantId = LegalContext.tenantId();
+        // 没有放行审批权限时强制收敛到本人，忽略前端传入的 applicant_id。
+        Long scopedApplicant = applicantId;
+        if (!approver) {
+            scopedApplicant = LegalContext.userId();
+        }
+        int limit = LegalContext.size(size);
+        return PageResult.of(
+                mapper.listReleases(tenantId, scopedApplicant, LegalContext.text(status),
+                        LegalContext.text(from), LegalContext.text(to), LegalContext.offset(page, size), limit),
+                mapper.countReleases(tenantId, scopedApplicant, LegalContext.text(status),
+                        LegalContext.text(from), LegalContext.text(to)),
+                LegalContext.page(page), limit);
+    }
+
+    public Map<String, Object> releaseDetail(String permissions, long releaseId) {
+        Map<String, Object> release = loadRelease(permissions, releaseId);
+        Map<String, Object> result = new LinkedHashMap<>(LegalMaps.parse(release, "matched_rule_ids"));
+        result.put("progress", mapper.listReleaseProgress(LegalContext.tenantId(), releaseId));
+        return result;
+    }
+
+    public Map<String, Object> releaseProgress(String permissions, long releaseId) {
+        Map<String, Object> release = loadRelease(permissions, releaseId);
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("id", releaseId);
+        result.put("event_no", release.get("event_no"));
+        result.put("status", release.get("status"));
+        result.put("applied_at", release.get("occurred_at"));
+        result.put("timeline", mapper.listReleaseProgress(LegalContext.tenantId(), releaseId));
+        return result;
+    }
+
+    private Map<String, Object> loadRelease(String permissions, long releaseId) {
+        boolean approver = PermissionGuard.has(permissions, "legal:dlp:release:approve");
+        if (!approver) {
+            PermissionGuard.requireAny(permissions, "legal:dlp:release:approve", "legal:dlp:release:apply");
+        }
+        Map<String, Object> release = mapper.findRelease(LegalContext.tenantId(), releaseId);
+        if (release == null) {
+            throw new BizException(LegalErrorCode.RESOURCE_NOT_FOUND);
+        }
+        if (!approver && Rows.lngVal(release, "user_id") != LegalContext.userId()) {
+            throw new BizException(CommonErrorCode.FORBIDDEN, "仅能查看本人的放行申请");
+        }
+        return release;
     }
 
     // ---------- 事件 ----------

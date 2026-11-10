@@ -152,6 +152,32 @@ public class LegalDlpController {
         return ApiResponse.success(service.approveRelease(permissions, id, body, idem));
     }
 
+    @GetMapping("/dlp/releases")
+    public ApiResponse<PageResult<Map<String, Object>>> listReleases(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false) Integer size,
+            @RequestParam(value = "applicant_id", required = false) Long applicantId,
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "from", required = false) String from,
+            @RequestParam(value = "to", required = false) String to) {
+        return ApiResponse.success(service.listReleases(permissions, page, size, applicantId, status, from, to));
+    }
+
+    @GetMapping("/dlp/releases/{id}")
+    public ApiResponse<Map<String, Object>> releaseDetail(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id) {
+        return ApiResponse.success(service.releaseDetail(permissions, id));
+    }
+
+    @GetMapping("/dlp/releases/{id}/progress")
+    public ApiResponse<Map<String, Object>> releaseProgress(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id) {
+        return ApiResponse.success(service.releaseProgress(permissions, id));
+    }
+
     // ---------- 水印 ----------
     @PostMapping("/admin/dlp/watermarks")
     public ApiResponse<Map<String, Object>> createWatermark(

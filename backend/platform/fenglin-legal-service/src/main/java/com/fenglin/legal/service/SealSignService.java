@@ -145,12 +145,21 @@ public class SealSignService {
 
     public PageResult<Map<String, Object>> listSealApplications(String permissions, Integer page, Integer size,
                                                                String status) {
-        PermissionGuard.require(permissions, "legal:seal:view");
+        boolean fullScope = PermissionGuard.has(permissions, "legal:seal:view");
+        if (!fullScope) {
+            PermissionGuard.requireAny(permissions, "legal:seal:view", "legal:seal:apply");
+        }
+        // 仅有用印申请权限的员工只能看到本人提交的申请。
+        Long scopedApplicant = null;
+        if (!fullScope) {
+            scopedApplicant = LegalContext.userId();
+        }
         long tenantId = LegalContext.tenantId();
         int limit = LegalContext.size(size);
-        return PageResult.of(mapper.listSealApplications(tenantId, LegalContext.text(status),
+        return PageResult.of(mapper.listSealApplications(tenantId, LegalContext.text(status), scopedApplicant,
                         LegalContext.offset(page, size), limit),
-                mapper.countSealApplications(tenantId, LegalContext.text(status)), LegalContext.page(page), limit);
+                mapper.countSealApplications(tenantId, LegalContext.text(status), scopedApplicant),
+                LegalContext.page(page), limit);
     }
 
     public Map<String, Object> approveSeal(String permissions, long applicationId, Map<String, Object> body,
@@ -353,6 +362,7 @@ public class SealSignService {
         if (record == null) {
             throw new BizException(LegalErrorCode.RESOURCE_NOT_FOUND);
         }
+        ensureSelfSigner(permissions, signRecordId, record);
         if (!"PENDING".equals(Rows.str(record, "status"))) {
             throw new BizException(LegalErrorCode.CONTRACT_STATE_INVALID);
         }
@@ -396,6 +406,7 @@ public class SealSignService {
         if (record == null) {
             throw new BizException(LegalErrorCode.RESOURCE_NOT_FOUND);
         }
+        ensureSelfSigner(permissions, signRecordId, record);
         mapper.updateSignRecordStatus(tenantId, signRecordId, "REJECTED", Rows.bool(record, "real_name_verified"),
                 Rows.bool(record, "will_confirmed"), Rows.str(record, "auth_mode"), Rows.str(record, "tsa_token"),
                 null, null, null, LegalContext.userId());
@@ -406,11 +417,37 @@ public class SealSignService {
     }
 
     public PageResult<Map<String, Object>> listSignTasks(String permissions, Integer page, Integer size) {
-        PermissionGuard.require(permissions, "legal:sign:view");
+        boolean fullScope = PermissionGuard.has(permissions, "legal:sign:view");
+        if (!fullScope) {
+            PermissionGuard.requireAny(permissions, "legal:sign:view", "legal:sign:self:execute");
+        }
+        // 仅有本人签署权限的员工只能看到签署人为自己的任务。
+        Long signerUserId = null;
+        if (!fullScope) {
+            signerUserId = LegalContext.userId();
+        }
         long tenantId = LegalContext.tenantId();
         int limit = LegalContext.size(size);
-        return PageResult.of(mapper.listSignTasks(tenantId, LegalContext.offset(page, size), limit),
-                mapper.countSignTasks(tenantId), LegalContext.page(page), limit);
+        return PageResult.of(mapper.listSignTasks(tenantId, signerUserId, LegalContext.offset(page, size), limit),
+                mapper.countSignTasks(tenantId, signerUserId), LegalContext.page(page), limit);
+    }
+
+    /**
+     * 本人签署执行只允许操作签署方为当前用户的内部签署任务，避免持 self:execute 的员工执行他人任务。
+     */
+    private void ensureSelfSigner(String permissions, long signRecordId, Map<String, Object> record) {
+        if (PermissionGuard.has(permissions, "legal:sign:view")) {
+            return;
+        }
+        Map<String, Object> scope = mapper.findSignRecordScope(LegalContext.tenantId(), signRecordId);
+        if (scope == null) {
+            throw new BizException(LegalErrorCode.RESOURCE_NOT_FOUND);
+        }
+        if (!"INTERNAL".equals(Rows.str(scope, "party_type"))
+                || Rows.lngVal(scope, "party_id") != LegalContext.userId()) {
+            throw new BizException(com.fenglin.common.core.CommonErrorCode.FORBIDDEN,
+                    "仅能签署签署人为本人的任务");
+        }
     }
 
     public PageResult<Map<String, Object>> listSignRecords(String permissions, Integer page, Integer size,

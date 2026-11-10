@@ -2,6 +2,7 @@ package com.fenglin.legal.service;
 
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.fenglin.common.core.BizException;
+import com.fenglin.common.core.CommonErrorCode;
 import com.fenglin.common.core.PageResult;
 import com.fenglin.common.security.PermissionGuard;
 import com.fenglin.legal.LegalErrorCode;
@@ -170,6 +171,11 @@ public class ContractService {
         String contractNo = "CT" + Year.now().getValue()
                 + String.format("%06d", commons.nextContractNo() % 1_000_000);
         BigDecimal amount = decimal(body.get("amount"));
+        Long ownerId = LegalContext.longValue(body.get("owner_id"));
+        if (!PermissionGuard.has(permissions, "legal:contract:view")) {
+            // 无全量查看权限的员工只能创建归属于自己的合同，避免出现创建后本人列表不可见的记录。
+            ownerId = userId;
+        }
         String contentRef = LegalContext.string(body.get("content_ref"));
         String contentHash = hashChain.sha256(contractNo, name, String.valueOf(amount), String.valueOf(variables));
         contractMapper.insertContract(contractId, tenantId, contractNo, name, category, templateId,
@@ -177,7 +183,7 @@ public class ContractService {
                 LegalContext.longValue(body.get("party_b_id")), amount,
                 defaultIfNull(LegalContext.string(body.get("currency")), "CNY"),
                 date(body.get("start_date")), date(body.get("end_date")),
-                LegalContext.longValue(body.get("owner_id")), LegalContext.longValue(body.get("org_id")),
+                ownerId, LegalContext.longValue(body.get("org_id")),
                 defaultIfNull(LegalContext.string(body.get("risk_level")), "LOW"), userId);
         contractMapper.insertContractVersion(versionId, tenantId, contractId, 1, contentRef, contentHash,
                 LegalMaps.json(variables), "起草创建", "DRAFT", userId);
@@ -186,15 +192,25 @@ public class ContractService {
         return contractDetail(tenantId, contractId);
     }
 
-    public PageResult<Map<String, Object>> listContracts(Integer page, Integer size, String status, String category,
-                                                          Long ownerId, Long orgId, String keyword) {
+    public PageResult<Map<String, Object>> listContracts(String permissions, Integer page, Integer size,
+                                                         String status, String category,
+                                                         Long ownerId, Long orgId, String keyword) {
+        boolean fullScope = PermissionGuard.has(permissions, "legal:contract:view");
+        if (!fullScope) {
+            PermissionGuard.require(permissions, "legal:contract:view:self");
+        }
+        // 只有本人查看权限时强制按 owner 收敛，忽略前端传入的 owner_id。
+        Long scopedOwner = ownerId;
+        if (!fullScope) {
+            scopedOwner = LegalContext.userId();
+        }
         long tenantId = LegalContext.tenantId();
         int offset = LegalContext.offset(page, size);
         int limit = LegalContext.size(size);
         List<Map<String, Object>> rows = contractMapper.listContracts(tenantId, LegalContext.text(status),
-                LegalContext.text(category), ownerId, orgId, LegalContext.text(keyword), offset, limit);
+                LegalContext.text(category), scopedOwner, orgId, LegalContext.text(keyword), offset, limit);
         return PageResult.of(rows, contractMapper.countContracts(tenantId, LegalContext.text(status),
-                LegalContext.text(category), ownerId, orgId, LegalContext.text(keyword)),
+                LegalContext.text(category), scopedOwner, orgId, LegalContext.text(keyword)),
                 LegalContext.page(page), limit);
     }
 
@@ -216,11 +232,30 @@ public class ContractService {
         return result;
     }
 
+    public Map<String, Object> contractDetail(String permissions, long contractId) {
+        Map<String, Object> result = contractDetail(LegalContext.tenantId(), contractId);
+        ensureContractScope(permissions, result);
+        return result;
+    }
+
+    /**
+     * 本人视角（无 legal:contract:view）只能读写 owner_id 为自己的合同。
+     */
+    private void ensureContractScope(String permissions, Map<String, Object> contract) {
+        if (PermissionGuard.has(permissions, "legal:contract:view")) {
+            return;
+        }
+        if (Rows.lngVal(contract, "owner_id") != LegalContext.userId()) {
+            throw new BizException(CommonErrorCode.FORBIDDEN, "仅能访问本人负责的合同");
+        }
+    }
+
     public Map<String, Object> updateContract(String permissions, long contractId, Map<String, Object> body) {
         PermissionGuard.require(permissions, "legal:contract:edit");
         long tenantId = LegalContext.tenantId();
         long userId = LegalContext.userId();
         Map<String, Object> contract = requireEditableContract(tenantId, contractId);
+        ensureContractScope(permissions, contract);
         contractMapper.updateContract(contractId, tenantId,
                 defaultIfNull(LegalContext.string(body.get("name")), Rows.str(contract, "name")),
                 defaultIfNull(LegalContext.string(body.get("category")), Rows.str(contract, "category")),
@@ -247,6 +282,7 @@ public class ContractService {
         if (!"DRAFT".equals(Rows.str(contract, "status"))) {
             throw new BizException(LegalErrorCode.CONTRACT_STATE_INVALID, "仅草稿合同允许删除");
         }
+        ensureContractScope(permissions, contract);
         contractMapper.softDeleteDraft(tenantId, contractId, LegalContext.userId());
         audit.high("contract.delete", "CONTRACT", contractId);
         return Map.of("id", contractId, "deleted", true);
@@ -257,6 +293,7 @@ public class ContractService {
         long tenantId = LegalContext.tenantId();
         long userId = LegalContext.userId();
         Map<String, Object> contract = requireEditableContract(tenantId, contractId);
+        ensureContractScope(permissions, contract);
         int versionNo = contractMapper.nextContractVersionNo(tenantId, contractId);
         String contentRef = LegalContext.string(body.get("content_ref"));
         String contentHash = LegalContext.text(LegalContext.string(body.get("content_hash")));
@@ -278,6 +315,7 @@ public class ContractService {
         long tenantId = LegalContext.tenantId();
         long userId = LegalContext.userId();
         Map<String, Object> contract = requireEditableContract(tenantId, contractId);
+        ensureContractScope(permissions, contract);
         Long versionId = LegalContext.longValue(body.get("version_id"));
         if (versionId == null) {
             versionId = Rows.lng(contract, "current_version_id");
@@ -323,6 +361,7 @@ public class ContractService {
         if (contract == null) {
             throw new BizException(LegalErrorCode.RESOURCE_NOT_FOUND);
         }
+        ensureContractScope(permissions, contract);
         String status = Rows.str(contract, "status");
         if (!"DRAFT".equals(status) && !"APPROVED".equals(status)) {
             throw new BizException(LegalErrorCode.CONTRACT_STATE_INVALID);

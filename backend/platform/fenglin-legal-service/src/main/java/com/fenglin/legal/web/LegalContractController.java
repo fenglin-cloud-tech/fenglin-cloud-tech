@@ -83,8 +83,8 @@ public class LegalContractController {
             @RequestParam(value = "owner_id", required = false) Long ownerId,
             @RequestParam(value = "org_id", required = false) Long orgId,
             @RequestParam(value = "keyword", required = false) String keyword) {
-        PermissionGuard.require(permissions, "legal:contract:view");
-        return ApiResponse.success(contractService.listContracts(page, size, status, category, ownerId, orgId, keyword));
+        PermissionGuard.requireAny(permissions, "legal:contract:view", "legal:contract:view:self");
+        return ApiResponse.success(contractService.listContracts(permissions, page, size, status, category, ownerId, orgId, keyword));
     }
 
     @GetMapping("/contracts/search")
@@ -94,17 +94,16 @@ public class LegalContractController {
             @RequestParam(value = "status", required = false) String status,
             @RequestParam(value = "page", required = false) Integer page,
             @RequestParam(value = "size", required = false) Integer size) {
-        PermissionGuard.require(permissions, "legal:contract:view");
-        return ApiResponse.success(contractService.listContracts(page, size, status, null, null, null, keyword));
+        PermissionGuard.requireAny(permissions, "legal:contract:view", "legal:contract:view:self");
+        return ApiResponse.success(contractService.listContracts(permissions, page, size, status, null, null, null, keyword));
     }
 
     @GetMapping("/contracts/{id}")
     public ApiResponse<Map<String, Object>> contractDetail(
             @RequestHeader(value = "X-Permissions", required = false) String permissions,
             @PathVariable("id") long id) {
-        PermissionGuard.require(permissions, "legal:contract:view");
-        return ApiResponse.success(contractService.contractDetail(
-                com.fenglin.legal.support.LegalContext.tenantId(), id));
+        PermissionGuard.requireAny(permissions, "legal:contract:view", "legal:contract:view:self");
+        return ApiResponse.success(contractService.contractDetail(permissions, id));
     }
 
     @PutMapping("/contracts/{id}")

@@ -91,20 +91,24 @@ public interface SealSignMapper {
                    position_desc, applicant_id, status, approval_proc_id, expected_at, created_at
             FROM legal_seal_application WHERE tenant_id = #{tenantId} AND deleted = 0
             <if test="status != null and status != ''"> AND status = #{status}</if>
+            <if test="applicantId != null"> AND applicant_id = #{applicantId}</if>
             ORDER BY created_at DESC LIMIT #{limit} OFFSET #{offset}
             </script>
             """)
     List<Map<String, Object>> listSealApplications(@Param("tenantId") long tenantId,
                                                    @Param("status") String status,
+                                                   @Param("applicantId") Long applicantId,
                                                    @Param("offset") long offset, @Param("limit") int limit);
 
     @Select("""
             <script>
             SELECT count(1) FROM legal_seal_application WHERE tenant_id = #{tenantId} AND deleted = 0
             <if test="status != null and status != ''"> AND status = #{status}</if>
+            <if test="applicantId != null"> AND applicant_id = #{applicantId}</if>
             </script>
             """)
-    long countSealApplications(@Param("tenantId") long tenantId, @Param("status") String status);
+    long countSealApplications(@Param("tenantId") long tenantId, @Param("status") String status,
+                               @Param("applicantId") Long applicantId);
 
     @Update("UPDATE legal_seal_application SET status = #{status}, updated_by = #{userId}, "
             + "updated_at = now(), version = version + 1 WHERE tenant_id = #{tenantId} AND id = #{id}")
@@ -271,6 +275,7 @@ public interface SealSignMapper {
                                @Param("userId") long userId);
 
     @Select("""
+            <script>
             SELECT r.id, r.sign_task_no, r.contract_id, c.contract_no, c.name AS contract_name,
                    r.contract_version_id, r.signatory_id, s.signer_name, r.provider_code, r.status,
                    r.real_name_verified, r.will_confirmed, r.signed_at
@@ -278,13 +283,36 @@ public interface SealSignMapper {
             JOIN legal_contract c ON c.id = r.contract_id AND c.tenant_id = r.tenant_id
             LEFT JOIN legal_signatory s ON s.id = r.signatory_id AND s.tenant_id = r.tenant_id
             WHERE r.tenant_id = #{tenantId}
+              <if test="signerUserId != null">
+                AND s.party_type = 'INTERNAL' AND s.party_id = #{signerUserId}
+              </if>
             ORDER BY r.id DESC LIMIT #{size} OFFSET #{offset}
+            </script>
             """)
     List<Map<String, Object>> listSignTasks(@Param("tenantId") long tenantId,
+                                            @Param("signerUserId") Long signerUserId,
                                             @Param("offset") int offset, @Param("size") int size);
 
-    @Select("SELECT count(1) FROM legal_sign_record WHERE tenant_id = #{tenantId}")
-    long countSignTasks(@Param("tenantId") long tenantId);
+    @Select("""
+            <script>
+            SELECT count(1)
+            FROM legal_sign_record r
+            LEFT JOIN legal_signatory s ON s.id = r.signatory_id AND s.tenant_id = r.tenant_id
+            WHERE r.tenant_id = #{tenantId}
+              <if test="signerUserId != null">
+                AND s.party_type = 'INTERNAL' AND s.party_id = #{signerUserId}
+              </if>
+            </script>
+            """)
+    long countSignTasks(@Param("tenantId") long tenantId, @Param("signerUserId") Long signerUserId);
+
+    @Select("""
+            SELECT r.id, r.contract_id, r.status, r.signatory_id, s.party_type, s.party_id
+            FROM legal_sign_record r
+            LEFT JOIN legal_signatory s ON s.id = r.signatory_id AND s.tenant_id = r.tenant_id
+            WHERE r.tenant_id = #{tenantId} AND r.id = #{id}
+            """)
+    Map<String, Object> findSignRecordScope(@Param("tenantId") long tenantId, @Param("id") long id);
 
     @Select("SELECT block_hash FROM legal_sign_record WHERE tenant_id = #{tenantId} AND chain_id = #{chainId} "
             + "ORDER BY id DESC LIMIT 1")
