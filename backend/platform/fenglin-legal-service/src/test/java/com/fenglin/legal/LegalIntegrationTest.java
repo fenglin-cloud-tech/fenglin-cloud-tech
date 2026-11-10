@@ -341,15 +341,31 @@ class LegalIntegrationTest {
         JsonNode saved = ok(put("/api/legal/v1/admin/config/reminder", TENANT, USER, ALL,
                 Map.of("offset_days", 45, "channels", List.of("INBOX", "EMAIL"))));
         assertThat(saved.path("data").path("saved").asBoolean()).isTrue();
+        JsonNode reminder = ok(get("/api/legal/v1/admin/config/reminder", TENANT, USER, ALL));
+        assertThat(reminder.path("data").path("configured").asBoolean()).isTrue();
+        assertThat(reminder.path("data").path("offset_days").asInt()).isEqualTo(45);
+        assertThat(reminder.path("data").path("channels")).hasSize(2);
         assertThat(ok(put("/api/legal/v1/admin/config/contract-fields", TENANT, USER, ALL,
                 Map.of("fields", List.of(Map.of("field", "amount", "visible", true)))))
                 .path("data").path("field_count").asInt()).isEqualTo(1);
+        JsonNode fields = ok(get("/api/legal/v1/admin/config/contract-fields", TENANT, USER, ALL));
+        assertThat(fields.path("data").path("configured").asBoolean()).isTrue();
+        assertThat(fields.path("data").path("fields").get(0).path("field").asText()).isEqualTo("amount");
         assertThat(ok(put("/api/legal/v1/admin/config/dictionary", TENANT, USER, ALL,
                 Map.of("type", "legal_contract_category", "items", List.of(Map.of("code", "PURCHASE")))))
                 .path("data").path("item_count").asInt()).isEqualTo(1);
+        JsonNode dictionary = ok(get("/api/legal/v1/admin/config/dictionary?type=legal_contract_category",
+                TENANT, USER, ALL));
+        assertThat(dictionary.path("data").path("configured").asBoolean()).isTrue();
+        assertThat(dictionary.path("data").path("items").get(0).path("code").asText()).isEqualTo("PURCHASE");
         assertThat(ok(post("/api/legal/v1/admin/config/ca-providers", TENANT, USER, ALL, null,
                 Map.of("provider_code", "CA-TEST", "secret_ref", "kms://legal/ca-test")))
                 .path("data").path("connectivity").asText()).isEqualTo("OK");
+        JsonNode caProviders = ok(get("/api/legal/v1/admin/config/ca-providers", TENANT, USER, ALL));
+        assertThat(caProviders.path("data")).hasSize(1);
+        assertThat(caProviders.path("data").get(0).path("provider_code").asText()).isEqualTo("CA-TEST");
+        assertThat(ok(get("/api/legal/v1/admin/config/ca-providers", OTHER_TENANT, USER, ALL))
+                .path("data")).isEmpty();
         assertThat(post("/api/legal/v1/admin/config/ca-providers", TENANT, USER, ALL, null,
                 Map.of("provider_code", "CA-BAD", "secret_ref", "plain-secret"))
                 .getStatusCode().is2xxSuccessful()).isFalse();

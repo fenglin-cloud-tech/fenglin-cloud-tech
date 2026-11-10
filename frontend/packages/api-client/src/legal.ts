@@ -289,11 +289,20 @@ export const legalApi = {
   },
 
   config: {
+    reminder() {
+      return get<LegalRecord>(`${BASE}/admin/config/reminder`)
+    },
     saveReminder(body: LegalRecord) {
       return put<LegalRecord>(`${BASE}/admin/config/reminder`, body)
     },
+    contractFields() {
+      return get<LegalRecord>(`${BASE}/admin/config/contract-fields`)
+    },
     saveContractFields(body: LegalRecord) {
       return put<LegalRecord>(`${BASE}/admin/config/contract-fields`, body)
+    },
+    dictionary(type: string) {
+      return get<LegalRecord>(`${BASE}/admin/config/dictionary`, { type })
     },
     saveDictionary(body: LegalRecord) {
       return put<LegalRecord>(`${BASE}/admin/config/dictionary`, body)

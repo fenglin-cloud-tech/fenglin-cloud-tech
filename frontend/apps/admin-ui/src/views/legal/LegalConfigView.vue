@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { GapNotice, PageHeader } from '@fenglin/ui-admin'
+import { PageHeader } from '@fenglin/ui-admin'
 import { legalApi, type LegalRecord } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 
@@ -22,11 +22,8 @@ const saving = ref(false)
 const caProviders = ref<LegalRecord[]>([])
 const caError = ref('')
 
-const gapItems = [
-  '重要：后端 LegalAdminService 未提供配置持久化表，reminder / contract-fields / dictionary / ca-providers 四个接口只回显 saved=true，刷新后配置不会保留。',
-  'CA 服务商列表接口恒返回空数组；保存要求 secret_ref 以 kms:// 开头，明文密钥会被后端拒绝。',
-  '配置类权限点为 tenant:legal:reminder:config、tenant:legal:field:config、tenant:legal:dict:config、tenant:legal:ca:config，均已在 hub_permission 中登记。',
-]
+const loading = ref(false)
+const loadError = ref('')
 
 function parseJson(text: string, expectArray = true): unknown | undefined {
   try {
@@ -46,7 +43,7 @@ async function saveReminder() {
   saving.value = true
   try {
     await legalApi.config.saveReminder({ offset_days: reminderForm.offset_days, channels: reminderForm.channels })
-    ElMessage.warning('后端已回显 saved=true；当前无配置表，刷新后不保留')
+    ElMessage.success('已保存')
   } catch (err) {
     ElMessage.error(describeError(err))
   } finally {
@@ -60,7 +57,7 @@ async function saveFields() {
   saving.value = true
   try {
     await legalApi.config.saveContractFields({ fields })
-    ElMessage.warning('后端已回显 saved=true；当前无配置表，刷新后不保留')
+    ElMessage.success('已保存')
   } catch (err) {
     ElMessage.error(describeError(err))
   } finally {
@@ -74,7 +71,7 @@ async function saveDictionary() {
   saving.value = true
   try {
     await legalApi.config.saveDictionary({ type: dictForm.type, items })
-    ElMessage.warning('后端已回显 saved=true；当前无配置表，刷新后不保留')
+    ElMessage.success('已保存')
   } catch (err) {
     ElMessage.error(describeError(err))
   } finally {
@@ -98,12 +95,29 @@ async function saveCa() {
       secret_ref: caForm.secret_ref,
       endpoint: caForm.endpoint || undefined,
     })
-    ElMessage.warning('后端已回显 saved=true；当前无配置表，刷新后不保留')
+    ElMessage.success('已保存')
+    await loadCaProviders()
   } catch (err) {
     ElMessage.error(describeError(err))
   } finally {
     saving.value = false
   }
+}
+
+async function loadReminder() {
+  const data = await legalApi.config.reminder()
+  reminderForm.offset_days = Number(data.offset_days ?? 30)
+  reminderForm.channels = Array.isArray(data.channels) ? data.channels : ['INBOX', 'EMAIL']
+}
+
+async function loadFields() {
+  const data = await legalApi.config.contractFields()
+  fieldForm.fieldsText = JSON.stringify(data.fields ?? [], null, 2)
+}
+
+async function loadDictionary() {
+  const data = await legalApi.config.dictionary(dictForm.type)
+  dictForm.itemsText = JSON.stringify(data.items ?? [], null, 2)
 }
 
 async function loadCaProviders() {
@@ -116,7 +130,20 @@ async function loadCaProviders() {
   }
 }
 
-onMounted(loadCaProviders)
+async function loadConfigs() {
+  loading.value = true
+  loadError.value = ''
+  try {
+    await Promise.all([loadReminder(), loadFields(), loadDictionary()])
+  } catch (err) {
+    loadError.value = describeError(err)
+  } finally {
+    loading.value = false
+  }
+  await loadCaProviders()
+}
+
+onMounted(loadConfigs)
 </script>
 
 <template>
@@ -124,24 +151,11 @@ onMounted(loadCaProviders)
     <PageHeader
       module="云法 Legal"
       title="法务配置"
-      description="提醒、合同字段、字典与 CA 服务商配置；接口位于 /api/legal/v1/admin/config/*。"
-    >
-      <template #actions>
-        <el-tag type="warning" effect="dark">后端未持久化</el-tag>
-      </template>
-    </PageHeader>
-
-    <el-alert
-      type="warning"
-      show-icon
-      :closable="false"
-      title="本页配置不会落库"
-      description="后端 LegalAdminService 仅有回显实现（saved=true），无配置持久化表；页面保留用于校验权限与接口契约，刷新后配置丢失。"
-      style="margin-bottom: 12px"
+      description="提醒、合同字段、字典与 CA 服务商配置；接口位于 /api/legal/v1/admin/config/*，按租户持久化。"
     />
-    <GapNotice :items="gapItems" />
+    <el-alert v-if="loadError" type="error" :closable="false" show-icon :title="loadError" style="margin-bottom: 12px" />
 
-    <el-tabs v-model="tab">
+    <el-tabs v-model="tab" v-loading="loading">
       <el-tab-pane label="到期提醒" name="reminder">
         <el-card shadow="never">
           <el-form label-width="120px" style="max-width: 560px">
@@ -203,7 +217,7 @@ onMounted(loadCaProviders)
             <el-table-column prop="name" label="名称" min-width="160" />
             <el-table-column prop="status" label="状态" width="100" />
           </el-table>
-          <el-empty v-if="caProviders.length === 0" description="后端 listCaProviders 恒返回空数组" :image-size="60" />
+          <el-empty v-if="caProviders.length === 0" description="暂无 CA 服务商" :image-size="60" />
         </el-card>
       </el-tab-pane>
     </el-tabs>

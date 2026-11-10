@@ -1,8 +1,13 @@
 package com.fenglin.legal.service;
 
+import com.baomidou.mybatisplus.core.toolkit.IdWorker;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fenglin.common.core.BizException;
 import com.fenglin.common.security.PermissionGuard;
 import com.fenglin.legal.LegalErrorCode;
+import com.fenglin.legal.mapper.LegalConfigMapper;
 import com.fenglin.legal.mapper.ReportMapper;
 import com.fenglin.legal.support.LegalContext;
 import com.fenglin.legal.support.LegalMaps;
@@ -15,21 +20,30 @@ import java.time.YearMonth;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * 云法管理端报表与配置。
  *
- * <p>兜底说明：07 数据库设计未提供合同字段权限/DLP 提醒/字典/CA 服务商配置持久化表，
- * 配置类接口按请求回显确认（saved=true），不落库；后续若补充配置表可直接替换实现。</p>
+ * <p>配置类接口（到期提醒 / 合同字段 / 字典 / CA 服务商）持久化到 legal_reminder_config、
+ * legal_contract_field_config、legal_dict_config、legal_ca_provider，按租户隔离。</p>
  */
 @Service
 @Transactional(readOnly = true)
 public class LegalAdminService {
 
-    private final ReportMapper reportMapper;
+    private static final Set<String> REMINDER_CHANNELS = Set.of("INBOX", "EMAIL", "IM");
+    private static final List<String> DEFAULT_CHANNELS = List.of("INBOX", "EMAIL");
 
-    public LegalAdminService(ReportMapper reportMapper) {
+    private final ReportMapper reportMapper;
+    private final LegalConfigMapper configMapper;
+    private final ObjectMapper objectMapper;
+
+    public LegalAdminService(ReportMapper reportMapper, LegalConfigMapper configMapper,
+                             ObjectMapper objectMapper) {
         this.reportMapper = reportMapper;
+        this.configMapper = configMapper;
+        this.objectMapper = objectMapper;
     }
 
     public Map<String, Object> contractReport(String permissions, String dim) {
@@ -98,41 +112,174 @@ public class LegalAdminService {
         return result;
     }
 
-    // ---------- 配置（无配置表兜底：回显确认） ----------
+    // ---------- 配置（持久化） ----------
+
+    public Map<String, Object> reminderConfig(String permissions) {
+        PermissionGuard.require(permissions, "tenant:legal:reminder:config");
+        Map<String, Object> row = configMapper.findReminderConfig(LegalContext.tenantId());
+        if (row == null) {
+            Map<String, Object> defaults = new LinkedHashMap<>();
+            defaults.put("configured", false);
+            defaults.put("offset_days", 30);
+            defaults.put("channels", DEFAULT_CHANNELS);
+            return defaults;
+        }
+        Map<String, Object> result = LegalMaps.parse(row, "channels");
+        result.put("configured", true);
+        return result;
+    }
+
+    @Transactional
     public Map<String, Object> saveReminderConfig(String permissions, Map<String, Object> body) {
         PermissionGuard.require(permissions, "tenant:legal:reminder:config");
-        return Map.of("saved", true, "offset_days", LegalMaps.json(body.get("offset_days")),
-                "channels", LegalMaps.json(body.get("channels")));
+        Map<String, Object> payload = body == null ? Map.of() : body;
+        Long offsetValue = LegalContext.longValue(payload.get("offset_days"));
+        int offsetDays = offsetValue == null ? 30 : offsetValue.intValue();
+        if (offsetDays < 1 || offsetDays > 365) {
+            throw new BizException(LegalErrorCode.PARAM_INVALID, "提醒提前天数需在 1~365 之间");
+        }
+        List<String> channels = payload.get("channels") == null
+                ? DEFAULT_CHANNELS : channels(payload.get("channels"));
+        configMapper.upsertReminderConfig(IdWorker.getId(), LegalContext.tenantId(), offsetDays,
+                json(channels), LegalContext.userId());
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("saved", true);
+        result.put("configured", true);
+        result.put("offset_days", offsetDays);
+        result.put("channels", channels);
+        return result;
     }
 
+    public Map<String, Object> contractFieldConfig(String permissions) {
+        PermissionGuard.require(permissions, "tenant:legal:field:config");
+        Map<String, Object> row = configMapper.findContractFieldConfig(LegalContext.tenantId());
+        if (row == null) {
+            Map<String, Object> defaults = new LinkedHashMap<>();
+            defaults.put("configured", false);
+            defaults.put("field_count", 0);
+            defaults.put("fields", List.of());
+            return defaults;
+        }
+        Map<String, Object> result = LegalMaps.parse(row, "fields");
+        result.put("configured", true);
+        result.put("field_count", sizeOf(result.get("fields")));
+        return result;
+    }
+
+    @Transactional
     public Map<String, Object> saveContractFieldConfig(String permissions, Map<String, Object> body) {
         PermissionGuard.require(permissions, "tenant:legal:field:config");
-        return Map.of("saved", true, "field_count", sizeOf(body.get("fields")));
+        List<?> fields = requireList(body == null ? null : body.get("fields"), "fields");
+        configMapper.upsertContractFieldConfig(IdWorker.getId(), LegalContext.tenantId(),
+                json(fields), LegalContext.userId());
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("saved", true);
+        result.put("configured", true);
+        result.put("field_count", fields.size());
+        result.put("fields", fields);
+        return result;
     }
 
+    public Map<String, Object> dictionary(String permissions, String type) {
+        PermissionGuard.require(permissions, "tenant:legal:dict:config");
+        String dictType = LegalContext.requireText(type);
+        Map<String, Object> row = configMapper.findDictionary(LegalContext.tenantId(), dictType);
+        if (row == null) {
+            Map<String, Object> defaults = new LinkedHashMap<>();
+            defaults.put("configured", false);
+            defaults.put("type", dictType);
+            defaults.put("item_count", 0);
+            defaults.put("items", List.of());
+            return defaults;
+        }
+        Map<String, Object> result = LegalMaps.parse(row, "items");
+        result.put("configured", true);
+        result.put("item_count", sizeOf(result.get("items")));
+        return result;
+    }
+
+    @Transactional
     public Map<String, Object> saveDictionary(String permissions, Map<String, Object> body) {
         PermissionGuard.require(permissions, "tenant:legal:dict:config");
-        return Map.of("saved", true, "type", LegalContext.requireText(LegalContext.string(body.get("type"))),
-                "item_count", sizeOf(body.get("items")));
+        Map<String, Object> payload = body == null ? Map.of() : body;
+        String type = LegalContext.requireText(LegalContext.string(payload.get("type")));
+        List<?> items = requireList(payload.get("items"), "items");
+        configMapper.upsertDictionary(IdWorker.getId(), LegalContext.tenantId(), type, json(items),
+                LegalContext.userId());
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("saved", true);
+        result.put("configured", true);
+        result.put("type", type);
+        result.put("item_count", items.size());
+        result.put("items", items);
+        return result;
     }
 
+    @Transactional
     public Map<String, Object> saveCaProvider(String permissions, Map<String, Object> body) {
         PermissionGuard.require(permissions, "tenant:legal:ca:config");
-        String secretRef = LegalContext.string(body.get("secret_ref"));
-        if (secretRef != null && !secretRef.startsWith("kms://")) {
+        Map<String, Object> payload = body == null ? Map.of() : body;
+        String providerCode = LegalContext.requireText(LegalContext.string(payload.get("provider_code")));
+        String secretRef = LegalContext.requireText(LegalContext.string(payload.get("secret_ref")));
+        if (!secretRef.startsWith("kms://")) {
             throw new BizException(LegalErrorCode.PARAM_INVALID, "密钥须经 secretRef 引用 KMS，禁止明文");
         }
-        return Map.of("saved", true, "provider_code", LegalContext.requireText(LegalContext.string(body.get("provider_code"))),
-                "connectivity", "OK");
+        String name = LegalContext.text(LegalContext.string(payload.get("name")));
+        String endpoint = LegalContext.text(LegalContext.string(payload.get("endpoint")));
+        String status = "DISABLED".equalsIgnoreCase(LegalContext.string(payload.get("status")))
+                ? "DISABLED" : "ENABLED";
+        configMapper.upsertCaProvider(IdWorker.getId(), LegalContext.tenantId(), providerCode,
+                name == null ? providerCode : name, endpoint, secretRef, status, LegalContext.userId());
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("saved", true);
+        result.put("provider_code", providerCode);
+        result.put("status", status);
+        result.put("connectivity", "OK");
+        return result;
     }
 
     public List<Map<String, Object>> listCaProviders(String permissions) {
         PermissionGuard.require(permissions, "tenant:legal:ca:config");
-        return List.of();
+        return configMapper.listCaProviders(LegalContext.tenantId());
+    }
+
+    private List<String> channels(Object value) {
+        List<?> raw = requireList(value, "channels");
+        List<String> channels = raw.stream()
+                .map(item -> LegalContext.requireText(LegalContext.string(item)).toUpperCase())
+                .distinct()
+                .toList();
+        for (String channel : channels) {
+            if (!REMINDER_CHANNELS.contains(channel)) {
+                throw new BizException(LegalErrorCode.PARAM_INVALID, "通知渠道仅支持 INBOX/EMAIL/IM");
+            }
+        }
+        return channels;
+    }
+
+    private List<?> requireList(Object value, String field) {
+        if (value instanceof List<?> list) {
+            return list;
+        }
+        throw new BizException(LegalErrorCode.PARAM_INVALID, field + " 需为 JSON 数组");
+    }
+
+    private String json(Object value) {
+        try {
+            return objectMapper.writeValueAsString(value);
+        } catch (JsonProcessingException ex) {
+            throw new BizException(LegalErrorCode.PARAM_INVALID, "配置序列化失败");
+        }
     }
 
     private static int sizeOf(Object value) {
-        return value instanceof List<?> list ? list.size() : 0;
+        if (value instanceof List<?> list) {
+            return list.size();
+        }
+        if (value instanceof JsonNode node && node.isArray()) {
+            return node.size();
+        }
+        return 0;
     }
 
     private static BigDecimal rate(long numerator, long denominator) {

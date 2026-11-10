@@ -47,6 +47,12 @@ public class LegalAdminController {
         return ApiResponse.success(service.signComplianceReport(permissions));
     }
 
+    @GetMapping("/config/reminder")
+    public ApiResponse<Map<String, Object>> reminderConfig(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions) {
+        return ApiResponse.success(service.reminderConfig(permissions));
+    }
+
     @PutMapping("/config/reminder")
     public ApiResponse<Map<String, Object>> saveReminderConfig(
             @RequestHeader(value = "X-Permissions", required = false) String permissions,
@@ -54,11 +60,24 @@ public class LegalAdminController {
         return ApiResponse.success(service.saveReminderConfig(permissions, body));
     }
 
+    @GetMapping("/config/contract-fields")
+    public ApiResponse<Map<String, Object>> contractFieldConfig(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions) {
+        return ApiResponse.success(service.contractFieldConfig(permissions));
+    }
+
     @PutMapping("/config/contract-fields")
     public ApiResponse<Map<String, Object>> saveContractFieldConfig(
             @RequestHeader(value = "X-Permissions", required = false) String permissions,
             @RequestBody Map<String, Object> body) {
         return ApiResponse.success(service.saveContractFieldConfig(permissions, body));
+    }
+
+    @GetMapping("/config/dictionary")
+    public ApiResponse<Map<String, Object>> dictionary(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(value = "type", required = false) String type) {
+        return ApiResponse.success(service.dictionary(permissions, type));
     }
 
     @PutMapping("/config/dictionary")
