@@ -74,11 +74,12 @@ public class RecruitService {
     private final TalentAudit audit;
     private final WorkflowClient workflowClient;
     private final ObjectMapper objectMapper;
+    private final EmployeeBindingService employeeBindingService;
     private final String recruitProcessKey;
 
     public RecruitService(RecruitMapper recruitMapper, AdminMapper adminMapper, EmployeeMapper employeeMapper,
                           TalentCrypto crypto, TalentAudit audit, WorkflowClient workflowClient,
-                          ObjectMapper objectMapper,
+                          ObjectMapper objectMapper, EmployeeBindingService employeeBindingService,
                           @Value("${fenglin.talent.approval-process-key.recruit}") String recruitProcessKey) {
         this.recruitMapper = recruitMapper;
         this.adminMapper = adminMapper;
@@ -87,6 +88,7 @@ public class RecruitService {
         this.audit = audit;
         this.workflowClient = workflowClient;
         this.objectMapper = objectMapper;
+        this.employeeBindingService = employeeBindingService;
         this.recruitProcessKey = recruitProcessKey;
     }
 
@@ -375,8 +377,11 @@ public class RecruitService {
     @Transactional(readOnly = true)
     public List<MyInterviewItem> myInterviews() {
         long tenantId = TalentContext.tenantId();
-        long userId = TalentContext.userId();
-        return recruitMapper.listMyInterviews(tenantId, userId).stream()
+        Long interviewerId = employeeBindingService.currentEmployeeIdOrNull();
+        if (interviewerId == null) {
+            return List.of();
+        }
+        return recruitMapper.listMyInterviews(tenantId, interviewerId).stream()
                 .map(row -> new MyInterviewItem(Rows.lngVal(row, "id"), Rows.str(row, "candidateName"),
                         Rows.str(row, "positionName"), Rows.intVal(row, "roundNo"),
                         Rows.instant(row, "scheduledAt"), Rows.str(row, "mode"), Rows.str(row, "intStatus")))

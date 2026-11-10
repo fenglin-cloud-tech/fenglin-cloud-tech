@@ -43,7 +43,7 @@ const exportForm = reactive({ from: '', to: '', event_type: '', format: 'CSV' })
 const exportLoading = ref(false)
 const exportError = ref('')
 const exportTask = ref<AuditExportTaskView | null>(null)
-const taskId = ref<number | undefined>(undefined)
+const taskId = ref<string | undefined>(undefined)
 const taskQueryLoading = ref(false)
 
 const alertRules = ref<AlertRuleView[]>([])
@@ -151,7 +151,7 @@ async function loadAlertRules() {
 
 function addAlertRule() {
   alertRules.value.push({
-    id: 0,
+    id: '',
     code: '',
     event_type: '',
     threshold: 10,

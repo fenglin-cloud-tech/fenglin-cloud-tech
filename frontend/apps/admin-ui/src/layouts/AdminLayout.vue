@@ -92,7 +92,7 @@ const restrictedCount = computed(
 async function handleTenantChange(value: string) {
   const id = Number(value)
   tenantStore.selectTenant(id)
-  const target = tenantStore.tenants.find((item) => item.id === id)
+  const target = tenantStore.tenants.find((item) => item.id === value)
   ElMessage.warning(
     `已切换管理视角：${target?.name ?? id}。后端未提供租户令牌换发接口，接口数据仍按登录令牌租户隔离。`,
   )

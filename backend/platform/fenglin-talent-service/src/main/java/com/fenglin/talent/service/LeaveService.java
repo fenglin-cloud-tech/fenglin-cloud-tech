@@ -39,15 +39,17 @@ public class LeaveService {
     private final EmployeeMapper employeeMapper;
     private final TalentAudit audit;
     private final WorkflowClient workflowClient;
+    private final EmployeeBindingService employeeBindingService;
     private final String leaveProcessKey;
 
     public LeaveService(LeaveMapper leaveMapper, EmployeeMapper employeeMapper, TalentAudit audit,
-                        WorkflowClient workflowClient,
+                        WorkflowClient workflowClient, EmployeeBindingService employeeBindingService,
                         @Value("${fenglin.talent.approval-process-key.leave}") String leaveProcessKey) {
         this.leaveMapper = leaveMapper;
         this.employeeMapper = employeeMapper;
         this.audit = audit;
         this.workflowClient = workflowClient;
+        this.employeeBindingService = employeeBindingService;
         this.leaveProcessKey = leaveProcessKey;
     }
 
@@ -65,14 +67,18 @@ public class LeaveService {
     @Transactional
     public List<LeaveBalanceView> balances(Long employeeId, Integer year) {
         long tenantId = TalentContext.tenantId();
-        long targetEmployee = employeeId == null ? TalentContext.userId() : employeeId;
+        Long targetEmployee = employeeId == null ? employeeBindingService.currentEmployeeIdOrNull() : employeeId;
+        if (targetEmployee == null) {
+            return List.of();
+        }
         if (employeeId != null && employeeMapper.findEmployee(tenantId, employeeId) == null) {
             throw new BizException(TalentErrorCode.RESOURCE_NOT_FOUND, "员工不存在");
         }
         int balanceYear = year == null ? java.time.LocalDate.now().getYear() : year;
         ensureDefaults(tenantId, TalentContext.userId());
+        long resolvedEmployee = targetEmployee;
         return leaveMapper.listTypes(tenantId).stream()
-                .map(type -> balanceView(tenantId, targetEmployee, type, balanceYear))
+                .map(type -> balanceView(tenantId, resolvedEmployee, type, balanceYear))
                 .toList();
     }
 
@@ -90,7 +96,8 @@ public class LeaveService {
         if (request.endDate().isBefore(request.startDate())) {
             throw new BizException(TalentErrorCode.PARAM_INVALID, "结束日期不能早于开始日期");
         }
-        long employeeId = request.employeeId() == null ? userId : request.employeeId();
+        long employeeId = request.employeeId() == null
+                ? employeeBindingService.requireCurrentEmployeeId() : request.employeeId();
         if (request.employeeId() != null && employeeMapper.findEmployee(tenantId, employeeId) == null) {
             throw new BizException(TalentErrorCode.RESOURCE_NOT_FOUND, "员工不存在");
         }
@@ -169,8 +176,9 @@ public class LeaveService {
     public LeaveRequestResult cancel(long id) {
         long tenantId = TalentContext.tenantId();
         long userId = TalentContext.userId();
+        long employeeId = employeeBindingService.requireCurrentEmployeeId();
         Map<String, Object> current = requireRequest(tenantId, id);
-        if (Rows.lngVal(current, "employeeId") != userId) {
+        if (Rows.lngVal(current, "employeeId") != employeeId) {
             throw new BizException(TalentErrorCode.NO_PERMISSION, "只能撤销本人的请假单");
         }
         String status = Rows.str(current, "lrStatus");
@@ -178,10 +186,10 @@ public class LeaveService {
             throw new BizException(TalentErrorCode.LEAVE_STATE_INVALID, "当前状态不可撤销");
         }
         if ("APPROVED".equals(status)) {
-            long employeeId = Rows.lngVal(current, "employeeId");
+            long requestEmployeeId = Rows.lngVal(current, "employeeId");
             long typeId = Rows.lngVal(current, "leaveTypeId");
             int year = Rows.date(current, "startDate").getYear();
-            Map<String, Object> balance = leaveMapper.findBalance(tenantId, employeeId, typeId, year);
+            Map<String, Object> balance = leaveMapper.findBalance(tenantId, requestEmployeeId, typeId, year);
             if (balance != null) {
                 BigDecimal used = Rows.dec(balance, "usedDays").subtract(Rows.dec(current, "days"));
                 if (used.compareTo(ZERO) < 0) {
@@ -212,7 +220,11 @@ public class LeaveService {
 
     @Transactional(readOnly = true)
     public PageResult<LeaveRequestView> myRequests(String status, Integer page, Integer size) {
-        return list(TalentContext.userId(), status, page, size);
+        Long employeeId = employeeBindingService.currentEmployeeIdOrNull();
+        if (employeeId == null) {
+            return PageResult.of(List.of(), 0, TalentContext.page(page), TalentContext.size(size));
+        }
+        return list(employeeId, status, page, size);
     }
 
     // ---------- 内部 ----------

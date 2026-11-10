@@ -2,12 +2,12 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { GapNotice, PageHeader } from '@fenglin/ui-admin'
-import { rndApi, type RndProduct, type RndRequirement } from '@fenglin/api-client'
+import { rndApi, type RndId, type RndProduct, type RndRequirement } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 
 const products = ref<RndProduct[]>([])
 const requirements = ref<RndRequirement[]>([])
-const selectedProductId = ref<number | ''>('')
+const selectedProductId = ref<RndId | ''>('')
 const statusFilter = ref('')
 const loading = ref(false)
 const error = ref('')
@@ -87,7 +87,7 @@ async function loadRequirements() {
   error.value = ''
   try {
     requirements.value = await rndApi.requirements.list({
-      productId: Number(selectedProductId.value),
+      productId: selectedProductId.value,
       page: 1,
       size: 200,
     })
@@ -108,11 +108,11 @@ async function submitCreate() {
   createError.value = ''
   try {
     await rndApi.requirements.create({
-      product_id: Number(selectedProductId.value),
+      product_id: selectedProductId.value,
       title: form.title.trim(),
       req_type: form.req_type,
       priority: form.priority,
-      assignee_id: form.assignee_id ? Number(form.assignee_id) : undefined,
+      assignee_id: form.assignee_id ? form.assignee_id : undefined,
       estimate_hours: form.estimate_hours || undefined,
       acceptance_criteria: form.acceptance_criteria.trim() || undefined,
       plan_start_at: form.plan_start_at || undefined,

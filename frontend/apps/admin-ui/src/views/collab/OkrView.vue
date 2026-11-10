@@ -2,7 +2,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { GapNotice, PageHeader } from '@fenglin/ui-admin'
-import { collabApi, type CollabObjective, type CollabPeriod } from '@fenglin/api-client'
+import { collabApi, type CollabId, type CollabObjective, type CollabPeriod } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 
 const activeTab = ref('periods')
@@ -70,7 +70,7 @@ const alignForm = reactive({
 const graphLoading = ref(false)
 const graphError = ref('')
 const graphQuery = reactive({ period_id: '' })
-const graphNodes = ref<Array<{ id: string; title: string; obj_type: string; owner_id?: number }>>([])
+const graphNodes = ref<Array<{ id: string; title: string; obj_type: string; owner_id?: CollabId }>>([])
 const graphEdges = ref<Array<{ child_id: string; parent_id: string; align_type: string }>>([])
 
 const objTypeOptions = [
@@ -124,10 +124,10 @@ async function loadObjectives() {
   objLoading.value = true
   objError.value = ''
   try {
-    let ownerId: number | undefined
+    let ownerId: string | undefined
     if (objQuery.owner_id.trim()) {
-      ownerId = Number(objQuery.owner_id.trim())
-      if (!Number.isFinite(ownerId)) {
+      ownerId = objQuery.owner_id.trim()
+      if (!/^\d+$/.test(ownerId)) {
         objError.value = '负责人 ID 必须是数字'
         objLoading.value = false
         return

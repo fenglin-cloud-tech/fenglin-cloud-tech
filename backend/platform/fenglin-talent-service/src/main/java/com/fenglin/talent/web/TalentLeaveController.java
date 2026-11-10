@@ -32,6 +32,7 @@ public class TalentLeaveController {
     private static final String APPROVE = "talent:admin:leave:approve";
     private static final String APPLY = "talent:leave:apply";
     private static final String VIEW = "talent:leave:view";
+    private static final String SELF_VIEW = "talent:self:leave:view";
 
     private final LeaveService leaveService;
 
@@ -80,7 +81,7 @@ public class TalentLeaveController {
             @RequestParam(value = "status", required = false) String status,
             @RequestParam(value = "page", required = false) Integer page,
             @RequestParam(value = "size", required = false) Integer size) {
-        PermissionGuard.require(permissions, VIEW);
+        PermissionGuard.requireAny(permissions, VIEW, SELF_VIEW);
         return ApiResponse.success(leaveService.myRequests(status, page, size));
     }
 

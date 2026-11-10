@@ -2,13 +2,13 @@
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { GapNotice, PageHeader } from '@fenglin/ui-admin'
-import { rndApi, type RndMember, type RndProduct, type RndStatus } from '@fenglin/api-client'
+import { rndApi, type RndId, type RndMember, type RndProduct, type RndStatus } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 
 const products = ref<RndProduct[]>([])
 const members = ref<RndMember[]>([])
 const statuses = ref<RndStatus[]>([])
-const selectedProductId = ref<number | ''>('')
+const selectedProductId = ref<RndId | ''>('')
 const loading = ref(false)
 const error = ref('')
 
@@ -58,7 +58,7 @@ async function loadProductDetail() {
     statuses.value = []
     return
   }
-  const id = Number(selectedProductId.value)
+  const id = selectedProductId.value
   try {
     const [memberList, statusList] = await Promise.all([
       rndApi.products.members(id),
@@ -85,7 +85,7 @@ async function submitProduct() {
       product_code: productForm.product_code.trim(),
       name: productForm.name.trim(),
       product_line: productForm.product_line.trim() || undefined,
-      owner_id: productForm.owner_id ? Number(productForm.owner_id) : undefined,
+      owner_id: productForm.owner_id ? productForm.owner_id : undefined,
       visibility: productForm.visibility,
       sprint_cycle_days: Number(productForm.sprint_cycle_days),
       description: productForm.description.trim() || undefined,
@@ -109,8 +109,8 @@ async function submitMember() {
   memberSaving.value = true
   memberError.value = ''
   try {
-    await rndApi.products.addMember(Number(selectedProductId.value), {
-      user_id: Number(memberForm.user_id),
+    await rndApi.products.addMember(selectedProductId.value, {
+      user_id: memberForm.user_id,
       role_code: memberForm.role_code,
       data_scope: memberForm.data_scope,
     })
@@ -129,7 +129,7 @@ async function removeMember(member: RndMember) {
   if (!selectedProductId.value) return
   try {
     await ElMessageBox.confirm(`确认移除成员 #${member.user_id}？`, '移除成员', { type: 'warning' })
-    await rndApi.products.deleteMember(Number(selectedProductId.value), member.id)
+    await rndApi.products.deleteMember(selectedProductId.value, member.id)
     ElMessage.success('成员已移除')
     await loadProductDetail()
   } catch (err) {

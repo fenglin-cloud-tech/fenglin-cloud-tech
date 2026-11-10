@@ -63,6 +63,12 @@ public interface EmployeeMapper {
             """)
     Map<String, Object> findEmployee(@Param("tenantId") long tenantId, @Param("id") long id);
 
+    @Select("""
+            SELECT count(*) FROM talent_employee
+             WHERE tenant_id = #{tenantId} AND id = #{id} AND deleted = 0
+            """)
+    long countById(@Param("tenantId") long tenantId, @Param("id") long id);
+
     @Select(BASE_SELECT + """
             WHERE e.tenant_id = #{tenantId} AND e.deleted = 0
               AND (#{orgId,jdbcType=BIGINT} IS NULL OR e.org_id = #{orgId})

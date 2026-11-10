@@ -5,6 +5,7 @@ import { GapNotice, PageHeader } from '@fenglin/ui-admin'
 import {
   rndApi,
   type RndExecution,
+  type RndId,
   type RndProduct,
   type RndTestCase,
   type RndTestPlan,
@@ -13,7 +14,7 @@ import { describeError } from '@/utils/error'
 
 const products = ref<RndProduct[]>([])
 const cases = ref<RndTestCase[]>([])
-const selectedProductId = ref<number | ''>('')
+const selectedProductId = ref<RndId | ''>('')
 const reviewFilter = ref('')
 const loading = ref(false)
 const error = ref('')
@@ -77,7 +78,7 @@ async function loadCases() {
   error.value = ''
   try {
     cases.value = await rndApi.test.cases.list({
-      productId: Number(selectedProductId.value),
+      productId: selectedProductId.value,
       reviewStatus: reviewFilter.value || undefined,
       page: 1,
       size: 200,
@@ -99,7 +100,7 @@ async function submitCase() {
   caseError.value = ''
   try {
     await rndApi.test.cases.create({
-      product_id: Number(selectedProductId.value),
+      product_id: selectedProductId.value,
       title: caseForm.title.trim(),
       module: caseForm.module.trim() || undefined,
       level: caseForm.level,
@@ -134,7 +135,7 @@ async function loadPlan() {
     return
   }
   try {
-    plan.value = await rndApi.test.plans.get(Number(planId.value))
+    plan.value = await rndApi.test.plans.get(planId.value)
   } catch (err) {
     ElMessage.error(describeError(err))
   }
@@ -149,7 +150,7 @@ async function submitPlan() {
   planError.value = ''
   try {
     const created = await rndApi.test.plans.create({
-      product_id: Number(selectedProductId.value),
+      product_id: selectedProductId.value,
       name: planForm.name.trim(),
       start_date: planForm.start_date || undefined,
       end_date: planForm.end_date || undefined,
@@ -185,7 +186,7 @@ async function recordItem() {
   }
   try {
     execution.value = await rndApi.test.executions.recordItem(execution.value.id, {
-      case_id: Number(itemForm.case_id),
+      case_id: itemForm.case_id,
       result: itemForm.result,
       remark: itemForm.remark.trim() || undefined,
     })

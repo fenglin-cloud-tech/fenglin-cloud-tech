@@ -12,5 +12,7 @@ public record UpdateUserProfileRequest(
         Long primaryOrgId,
         String status,
         @Size(max = 32) String employeeNo,
-        Integer version) {
+        Integer version,
+        Long employeeId,
+        Boolean unbindEmployeeId) {
 }

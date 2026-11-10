@@ -16,5 +16,6 @@ public record UserView(
         List<String> roles,
         String nickname,
         String mobileMasked,
-        String primaryOrgName) {
+        String primaryOrgName,
+        @JsonSerialize(using = ToStringSerializer.class) Long employeeId) {
 }

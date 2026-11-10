@@ -9,6 +9,7 @@ import com.fenglin.common.core.RequestContext;
 import com.fenglin.common.security.PasswordPolicy;
 import com.fenglin.common.tenant.TenantContext;
 import com.fenglin.iam.IamErrorCode;
+import com.fenglin.iam.client.TalentEmployeeClient;
 import com.fenglin.iam.mapper.AccountMapper;
 import com.fenglin.iam.mapper.MenuMapper;
 import com.fenglin.iam.mapper.OrgMapper;
@@ -30,6 +31,7 @@ import com.fenglin.iam.web.dto.RoleView;
 import com.fenglin.iam.web.dto.UpdateOrgRequest;
 import com.fenglin.iam.web.dto.UpdateUserProfileRequest;
 import com.fenglin.iam.web.dto.UserView;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -63,11 +65,13 @@ public class IamService {
     private final TenantMapper tenantMapper;
     private final OrgMapper orgMapper;
     private final IamCrypto iamCrypto;
+    private final TalentEmployeeClient talentEmployeeClient;
     private final AuditSink auditSink;
 
     public IamService(UserMapper userMapper, AccountMapper accountMapper, RoleMapper roleMapper,
                       PermissionMapper permissionMapper, MenuMapper menuMapper, TenantMapper tenantMapper,
-                      OrgMapper orgMapper, IamCrypto iamCrypto, AuditSink auditSink) {
+                      OrgMapper orgMapper, IamCrypto iamCrypto, TalentEmployeeClient talentEmployeeClient,
+                      AuditSink auditSink) {
         this.userMapper = userMapper;
         this.accountMapper = accountMapper;
         this.roleMapper = roleMapper;
@@ -76,6 +80,7 @@ public class IamService {
         this.tenantMapper = tenantMapper;
         this.orgMapper = orgMapper;
         this.iamCrypto = iamCrypto;
+        this.talentEmployeeClient = talentEmployeeClient;
         this.auditSink = auditSink;
     }
 
@@ -391,13 +396,39 @@ public class IamService {
             requireActiveOrg(tenantId, request.primaryOrgId());
         }
 
+        boolean unbindEmployee = Boolean.TRUE.equals(request.unbindEmployeeId());
+        boolean bindEmployee = request.employeeId() != null;
+        if (unbindEmployee && bindEmployee) {
+            throw new BizException(CommonErrorCode.BAD_REQUEST, "employee_id 与 unbind_employee_id 不能同时传入");
+        }
+        boolean employeeIdSet = unbindEmployee || bindEmployee;
+        Long employeeId = null;
+        if (bindEmployee) {
+            if (request.employeeId() <= 0) {
+                throw new BizException(CommonErrorCode.BAD_REQUEST, "employee_id 必须为正整数");
+            }
+            if (!talentEmployeeClient.exists(tenantId, request.employeeId())) {
+                throw new BizException(IamErrorCode.IAM_EMPLOYEE_NOT_FOUND);
+            }
+            if (userMapper.countByEmployeeIdExcluding(tenantId, request.employeeId(), userId) > 0) {
+                throw new BizException(IamErrorCode.IAM_USER_EMPLOYEE_BOUND);
+            }
+            employeeId = request.employeeId();
+        }
+
         boolean changed = nicknameSet || employeeNoSet || mobileSet || emailSet
-                || primaryOrgIdSet || status != null;
+                || primaryOrgIdSet || employeeIdSet || status != null;
         if (changed) {
-            int updated = userMapper.updateProfile(tenantId, userId, nicknameSet, nickname,
-                    employeeNoSet, employeeNo, mobileSet, mobileEnc, mobileHash,
-                    emailSet, emailEnc, emailHash, primaryOrgIdSet, request.primaryOrgId(),
-                    status, request.version(), operatorId());
+            int updated;
+            try {
+                updated = userMapper.updateProfile(tenantId, userId, nicknameSet, nickname,
+                        employeeNoSet, employeeNo, mobileSet, mobileEnc, mobileHash,
+                        emailSet, emailEnc, emailHash, primaryOrgIdSet, request.primaryOrgId(),
+                        employeeIdSet, employeeId, status, request.version(), operatorId());
+            } catch (DuplicateKeyException ex) {
+                // 唯一索引兜底并发绑定：另一个请求刚刚占用了同一员工
+                throw new BizException(IamErrorCode.IAM_USER_EMPLOYEE_BOUND);
+            }
             if (updated == 0) {
                 if (request.version() != null) {
                     throw new BizException(IamErrorCode.IAM_USER_VERSION_CONFLICT);
@@ -581,7 +612,16 @@ public class IamService {
                 List.copyOf(roles),
                 (String) row.get("nickname"),
                 iamCrypto.maskPhone(mobile),
-                (String) row.get("primary_org_name"));
+                (String) row.get("primary_org_name"),
+                toLong(row.get("employee_id")));
+    }
+
+    /** 内部接口：返回账号绑定的员工 ID，未绑定返回 null。 */
+    @Transactional(readOnly = true)
+    public Long getEmployeeId(long userId) {
+        long tenantId = TenantContext.requireTenantId();
+        Map<String, Object> row = requireUser(tenantId, userId);
+        return toLong(row.get("employee_id"));
     }
 
     private RoleView toRoleView(long tenantId, Map<String, Object> row) {

@@ -5,6 +5,7 @@ import { GapNotice, PageHeader } from '@fenglin/ui-admin'
 import {
   rndApi,
   type RndDeployment,
+  type RndId,
   type RndProduct,
   type RndRelease,
 } from '@fenglin/api-client'
@@ -13,7 +14,7 @@ import { describeError } from '@/utils/error'
 const products = ref<RndProduct[]>([])
 const releases = ref<RndRelease[]>([])
 const deployments = ref<RndDeployment[]>([])
-const selectedProductId = ref<number | ''>('')
+const selectedProductId = ref<RndId | ''>('')
 const envFilter = ref('')
 const loading = ref(false)
 const error = ref('')
@@ -82,7 +83,7 @@ async function loadReleases() {
   error.value = ''
   try {
     releases.value = await rndApi.releases.list({
-      productId: Number(selectedProductId.value),
+      productId: selectedProductId.value,
       env: envFilter.value || undefined,
       page: 1,
       size: 100,
@@ -113,10 +114,10 @@ async function submitCreate() {
   createError.value = ''
   try {
     await rndApi.releases.create({
-      product_id: Number(selectedProductId.value),
+      product_id: selectedProductId.value,
       release_version: form.release_version.trim(),
       env: form.env,
-      build_id: form.build_id ? Number(form.build_id) : undefined,
+      build_id: form.build_id ? form.build_id : undefined,
       window_start: form.window_start || undefined,
       window_end: form.window_end || undefined,
     })

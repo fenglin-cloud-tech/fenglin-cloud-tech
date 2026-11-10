@@ -13,6 +13,7 @@ public enum TalentErrorCode implements ErrorCode {
     STATE_CONFLICT("3000004", "人才状态冲突（并发/重复）", 409),
 
     PII_DUPLICATED("3001001", "手机号或身份证号已存在", 409),
+    EMPLOYEE_NOT_BOUND("3001007", "当前账号未绑定员工，无法访问员工自助数据", 403),
     ORG_STRUCTURE_INVALID("3001005", "组织编码非法或移动形成环", 400),
     ORG_NOT_EMPTY("3001006", "组织下存在在职员工/下级组织/在招需求", 409),
     HEADCOUNT_EXCEEDED("3001020", "招聘需求人数超出编制余额", 409),

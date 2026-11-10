@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { GapNotice, PageHeader } from '@fenglin/ui-admin'
-import { rndApi, type RndContribution, type RndProduct } from '@fenglin/api-client'
+import { rndApi, type RndContribution, type RndId, type RndProduct } from '@fenglin/api-client'
 import { useAuthStore } from '@/stores/auth'
 import { describeError } from '@/utils/error'
 
 const auth = useAuthStore()
 const products = ref<RndProduct[]>([])
 const contributions = ref<RndContribution[]>([])
-const selectedProductId = ref<number | ''>('')
+const selectedProductId = ref<RndId | ''>('')
 const periodType = ref('MONTH')
 const periodKey = ref(new Date().toISOString().slice(0, 7))
 const loading = ref(false)
@@ -43,11 +43,12 @@ async function loadContributions() {
     contributions.value = []
     return
   }
+  const productId = selectedProductId.value
   loading.value = true
   error.value = ''
   try {
     contributions.value = await rndApi.metrics.contributions({
-      productId: Number(selectedProductId.value),
+      productId,
       periodType: periodType.value || undefined,
       periodKey: periodKey.value || undefined,
     })

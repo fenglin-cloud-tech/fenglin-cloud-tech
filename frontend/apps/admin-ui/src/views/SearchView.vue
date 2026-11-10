@@ -15,7 +15,7 @@ const taskForm = reactive({ index_name: '', task_type: 'FULL' })
 const taskCreating = ref(false)
 const taskError = ref('')
 const task = ref<IndexTaskView | null>(null)
-const taskId = ref<number | undefined>(undefined)
+const taskId = ref<string | undefined>(undefined)
 const taskQuerying = ref(false)
 
 const analytics = ref<AnalyticsResponse | null>(null)

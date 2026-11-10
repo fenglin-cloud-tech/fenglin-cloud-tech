@@ -17,7 +17,9 @@ public enum IamErrorCode implements ErrorCode {
     IAM_USER_MOBILE_DUPLICATED("0003012", "手机号已被使用", 409),
     IAM_USER_EMPLOYEE_NO_DUPLICATED("0003013", "工号已存在", 409),
     IAM_USER_EMAIL_DUPLICATED("0003014", "邮箱已被使用", 409),
-    IAM_USER_VERSION_CONFLICT("0003015", "用户信息已被修改，请刷新后重试", 409);
+    IAM_USER_VERSION_CONFLICT("0003015", "用户信息已被修改，请刷新后重试", 409),
+    IAM_EMPLOYEE_NOT_FOUND("0003016", "员工不存在或不属于当前租户", 404),
+    IAM_USER_EMPLOYEE_BOUND("0003017", "该员工已绑定其他账号", 409);
 
     private final String code;
     private final String message;

@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fenglin.common.audit.AuditEvent;
 import com.fenglin.common.audit.AuditSink;
 import com.fenglin.common.test.EmbeddedPostgresSupport;
+import com.fenglin.talent.client.IamBindingClient;
 import com.fenglin.talent.client.WorkflowClient;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeEach;
@@ -25,6 +26,7 @@ import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.web.client.RestClient;
 
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
@@ -149,6 +151,18 @@ class TalentIntegrationTest {
             return (permissions, requestId, processKey, businessKey, businessType, title, formData) -> {
                 WORKFLOW_CALLS.add(processKey + ":" + businessKey);
                 return "WF-" + businessKey;
+            };
+        }
+
+        /** PLAT-08：本测试不启动 IAM，按"账号与员工同 ID 绑定"返回，保持自助链路可测。 */
+        @Bean
+        @Primary
+        IamBindingClient stubIamBindingClient() {
+            return new IamBindingClient(RestClient.builder(), "http://localhost:1") {
+                @Override
+                public Long findEmployeeId(long tenantId, long userId) {
+                    return userId;
+                }
             };
         }
     }

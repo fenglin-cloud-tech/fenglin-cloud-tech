@@ -19,7 +19,7 @@ export interface CollabConversation {
   title: string
   member_count: number
   status: string
-  owner_id?: number
+  owner_id?: CollabId
   last_message_summary?: string
   last_message_at?: string
   unread_count: number
@@ -58,7 +58,7 @@ export interface CollabDoc {
   secret_level: string
   current_version: number
   status: string
-  owner_id: number
+  owner_id: CollabId
   my_permission: string
   content?: string
   watermark_enabled: boolean
@@ -100,7 +100,7 @@ export interface CollabCalendar {
   calendar_id: CollabId
   name: string
   cal_type: string
-  owner_id?: number
+  owner_id?: CollabId
   color?: string
   visible_scope?: string
 }
@@ -147,7 +147,7 @@ export interface CollabSlotSuggestion {
 export interface CollabMeeting {
   meeting_id: CollabId
   title: string
-  organizer_id: number
+  organizer_id: CollabId
   room_id?: number
   start_at: string
   end_at: string
@@ -214,7 +214,7 @@ export interface CollabKr {
 export interface CollabObjective {
   objective_id: CollabId
   period_id: CollabId
-  owner_id: number
+  owner_id: CollabId
   obj_type: string
   title: string
   visibility: string
@@ -435,7 +435,7 @@ export const collabApi = {
       all_day?: boolean
       rrule?: string
       reminder_minutes?: number[]
-      attendee_ids?: number[]
+      attendee_ids?: CollabId[]
       room_id?: string
     }) {
       return post<CollabEvent>('/api/collab/v1/events', body)
@@ -456,10 +456,10 @@ export const collabApi = {
     cancelEvent(eventId: CollabId) {
       return post<void>(`/api/collab/v1/events/${eventId}/cancel`)
     },
-    freeBusy(body: { user_ids: number[]; start_time?: string; end_time?: string }) {
+    freeBusy(body: { user_ids: CollabId[]; start_time?: string; end_time?: string }) {
       return post<CollabFreeBusy>('/api/collab/v1/events/free-busy', body)
     },
-    suggestSlots(body: { user_ids?: number[]; duration_minutes?: number; search_days?: number } = {}) {
+    suggestSlots(body: { user_ids?: CollabId[]; duration_minutes?: number; search_days?: number } = {}) {
       return post<CollabSlotSuggestion>('/api/collab/v1/events/suggest-slots', body)
     },
   },
@@ -524,7 +524,7 @@ export const collabApi = {
     closePeriod(periodId: CollabId) {
       return post<void>(`/api/collab/v1/okr/periods/${periodId}/close`)
     },
-    objectives(params: { periodId?: CollabId; ownerId?: number } = {}) {
+    objectives(params: { periodId?: CollabId; ownerId?: CollabId } = {}) {
       return get<CollabObjective[]>('/api/collab/v1/okr/objectives', params)
     },
     createObjective(body: {
@@ -557,7 +557,7 @@ export const collabApi = {
     },
     alignmentGraph(params: { periodId?: CollabId } = {}) {
       return get<{
-        nodes: Array<{ id: string; title: string; obj_type: string; owner_id?: number }>
+        nodes: Array<{ id: string; title: string; obj_type: string; owner_id?: CollabId }>
         edges: Array<{ child_id: string; parent_id: string; align_type: string }>
       }>('/api/collab/v1/okr/alignment-graph', params)
     },

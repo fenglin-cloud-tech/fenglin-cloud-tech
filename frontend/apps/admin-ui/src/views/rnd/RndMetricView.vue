@@ -7,6 +7,7 @@ import {
   type RndAlert,
   type RndContribution,
   type RndDora,
+  type RndId,
   type RndInsight,
   type RndMetricConfig,
   type RndMetricValue,
@@ -21,7 +22,7 @@ const dora = ref<RndDora | null>(null)
 const insight = ref<RndInsight | null>(null)
 const configs = ref<RndMetricConfig[]>([])
 const alerts = ref<RndAlert[]>([])
-const selectedProductId = ref<number | ''>('')
+const selectedProductId = ref<RndId | ''>('')
 const periodType = ref('MONTH')
 const periodKey = ref(new Date().toISOString().slice(0, 7))
 const activeTab = ref('metrics')
@@ -61,7 +62,7 @@ async function loadMetrics() {
   loading.value = true
   error.value = ''
   const params = {
-    productId: Number(selectedProductId.value),
+    productId: selectedProductId.value,
     periodType: periodType.value || undefined,
     periodKey: periodKey.value || undefined,
   }
@@ -103,7 +104,7 @@ async function compute() {
   }
   try {
     const result = await rndApi.metrics.compute({
-      product_id: Number(selectedProductId.value),
+      product_id: selectedProductId.value,
       period_type: periodType.value || undefined,
       period_key: periodKey.value || undefined,
     })
@@ -121,7 +122,7 @@ async function evaluateAlerts() {
   }
   try {
     const triggered = await rndApi.metrics.evaluateAlerts({
-      productId: Number(selectedProductId.value),
+      productId: selectedProductId.value,
       periodType: periodType.value || undefined,
       periodKey: periodKey.value || undefined,
     })
@@ -143,7 +144,7 @@ async function submitAlert() {
     await rndApi.metrics.createAlert({
       metric_code: alertForm.metric_code.trim(),
       scope_type: alertForm.scope_type,
-      scope_id: selectedProductId.value ? Number(selectedProductId.value) : undefined,
+      scope_id: selectedProductId.value ? selectedProductId.value : undefined,
       threshold: alertForm.threshold,
       compare_op: alertForm.compare_op,
       notify_channel: alertForm.notify_channel,

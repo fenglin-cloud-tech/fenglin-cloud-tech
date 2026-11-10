@@ -118,7 +118,7 @@ export const tenantApi = {
   list(params: { status?: string; keyword?: string; page?: number; size?: number }) {
     return get<PageResult<TenantView>>('/api/hub/v1/admin/tenants', params)
   },
-  get(id: number) {
+  get(id: string | number) {
     return get<TenantView>(`/api/hub/v1/admin/tenants/${id}`)
   },
   current() {
@@ -127,7 +127,7 @@ export const tenantApi = {
   create(body: CreateTenantRequest) {
     return post<CreateTenantResult>('/api/hub/v1/admin/tenants', body)
   },
-  updateStatus(id: number, body: UpdateTenantStatusRequest) {
+  updateStatus(id: string | number, body: UpdateTenantStatusRequest) {
     return post<TenantView>(`/api/hub/v1/admin/tenants/${id}/status`, body)
   },
 }
@@ -172,7 +172,7 @@ export const iamApi = {
   createRole(body: CreateRoleRequest) {
     return post<RoleView>('/api/hub/v1/admin/roles', body)
   },
-  grantPermissions(roleId: number, permissionCodes: string[]) {
+  grantPermissions(roleId: string | number, permissionCodes: string[]) {
     return put<RoleView>(`/api/hub/v1/admin/roles/${roleId}/permissions`, { permission_codes: permissionCodes })
   },
   permissionTree() {
@@ -205,7 +205,7 @@ export const messageApi = {
   list(params: { status?: string; channel?: string; page?: number; size?: number }) {
     return get<MessageListResult>('/api/hub/v1/messages', params)
   },
-  read(id: number) {
+  read(id: string | number) {
     return post<unknown>(`/api/hub/v1/messages/${id}:read`)
   },
   preferences() {
@@ -238,13 +238,13 @@ export const fileApi = {
     if (meta.md5) form.append('md5', meta.md5)
     return postForm<UploadResult>('/api/hub/v1/files', form)
   },
-  preview(id: number) {
+  preview(id: string | number) {
     return get<PreviewResult>(`/api/hub/v1/files/${id}/preview`)
   },
-  download(id: number, version?: number) {
+  download(id: string | number, version?: number) {
     return get<DownloadResult>(`/api/hub/v1/files/${id}/download`, { version })
   },
-  versions(id: number) {
+  versions(id: string | number) {
     return get<VersionListResult>(`/api/hub/v1/files/${id}/versions`)
   },
 }
@@ -264,19 +264,19 @@ export const auditApi = {
   }) {
     return get<PageResult<AuditLogView>>('/api/hub/v1/admin/audits', params)
   },
-  get(id: number) {
+  get(id: string | number) {
     return get<AuditLogView>(`/api/hub/v1/admin/audits/${id}`)
   },
-  verifyChain(params: { tenant_id?: number; from?: string; to?: string } = {}) {
+  verifyChain(params: { tenant_id?: string | number; from?: string; to?: string } = {}) {
     return get<ChainVerifyResult>('/api/hub/v1/admin/audits/chain/verify', params)
   },
   export(body: { from?: string; to?: string; event_type?: string; format?: string }) {
     return post<AuditExportTaskView>('/api/hub/v1/admin/audit/logs:export', body)
   },
-  exportTask(taskId: number) {
+  exportTask(taskId: string | number) {
     return get<AuditExportTaskView>(`/api/hub/v1/admin/audit/export-tasks/${taskId}`)
   },
-  downloadExport(taskId: number) {
+  downloadExport(taskId: string | number) {
     return download(`/api/hub/v1/admin/audit/export-tasks/${taskId}/download`, `audit-${taskId}.csv`)
   },
   myRecords(params: { from?: string; to?: string; page?: number; size?: number }) {
@@ -294,7 +294,7 @@ export const searchApi = {
   createIndexTask(body: { index_name: string; task_type: string }) {
     return post<IndexTaskView>('/api/hub/v1/admin/search/index-tasks', body)
   },
-  getIndexTask(taskId: number) {
+  getIndexTask(taskId: string | number) {
     return get<IndexTaskView>(`/api/hub/v1/admin/search/index-tasks/${taskId}`)
   },
   analytics(params: { type?: string; from?: string; to?: string }) {
@@ -383,7 +383,7 @@ export const openApiPortal = {
 /** 云客 CRM（全部经网关 /api/crm/v1，权限由网关注入 X-Permissions）。 */
 export const crmApi = {
   leads: {
-    list(params: { status?: string; owner_id?: number; keyword?: string; page?: number; size?: number }) {
+    list(params: { status?: string; owner_id?: string | number; keyword?: string; page?: number; size?: number }) {
       return get<PageResult<LeadView>>('/api/crm/v1/leads', params)
     },
     detail(id: CrmId) {
@@ -402,7 +402,7 @@ export const crmApi = {
   customers: {
     list(params: {
       keyword?: string
-      owner_id?: number
+      owner_id?: string | number
       segment?: string
       status?: string
       page?: number
@@ -437,7 +437,7 @@ export const crmApi = {
       stage?: string
       status?: string
       customer_id?: CrmId
-      owner_id?: number
+      owner_id?: string | number
       page?: number
       size?: number
     }) {
@@ -465,7 +465,7 @@ export const crmApi = {
   quotations: {
     list(params: {
       status?: string
-      owner_id?: number
+      owner_id?: string | number
       customer_id?: CrmId
       keyword?: string
       page?: number
@@ -492,7 +492,7 @@ export const crmApi = {
   contracts: {
     list(params: {
       status?: string
-      owner_id?: number
+      owner_id?: string | number
       customer_id?: CrmId
       keyword?: string
       page?: number
@@ -526,7 +526,7 @@ export const crmApi = {
     overdue(params: { customer_id?: CrmId; page?: number; size?: number }) {
       return get<PageResult<OverduePlanView>>('/api/crm/v1/payment-plans/overdue', params)
     },
-    reminders(params: { owner_id?: number; upcoming_days?: number; page?: number; size?: number }) {
+    reminders(params: { owner_id?: string | number; upcoming_days?: number; page?: number; size?: number }) {
       return get<PageResult<PaymentReminderView>>('/api/crm/v1/payment-plans/reminders', params)
     },
     markCollection(planId: CrmId, body: CollectionFlagRequest) {
@@ -581,15 +581,15 @@ export const lowcodeApi = {
   }) {
     return post<LowcodeAppView>('/api/hub/v1/admin/lowcode/apps', body)
   },
-  publish(id: number) {
-    return post<{ app_id: number; env: string; status: string; process_instance_id?: string; version_no: number }>(
+  publish(id: string | number) {
+    return post<{ app_id: string; env: string; status: string; process_instance_id?: string; version_no: number }>(
       `/api/hub/v1/admin/lowcode/apps/${id}:publish`,
     )
   },
-  versions(id: number) {
+  versions(id: string | number) {
     return get<LowcodeVersionView[]>(`/api/hub/v1/admin/lowcode/apps/${id}/versions`)
   },
-  rollback(id: number, versionNo: number) {
+  rollback(id: string | number, versionNo: number) {
     return post<LowcodeAppView>(`/api/hub/v1/admin/lowcode/apps/${id}:rollback`, { version_no: versionNo })
   },
 }

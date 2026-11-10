@@ -2,12 +2,12 @@
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { GapNotice, PageHeader } from '@fenglin/ui-admin'
-import { rndApi, type RndDefect, type RndProduct } from '@fenglin/api-client'
+import { rndApi, type RndDefect, type RndId, type RndProduct } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 
 const products = ref<RndProduct[]>([])
 const defects = ref<RndDefect[]>([])
-const selectedProductId = ref<number | ''>('')
+const selectedProductId = ref<RndId | ''>('')
 const statusFilter = ref('')
 const severityFilter = ref('')
 const loading = ref(false)
@@ -89,7 +89,7 @@ async function loadDefects() {
   error.value = ''
   try {
     defects.value = await rndApi.defects.list({
-      productId: Number(selectedProductId.value),
+      productId: selectedProductId.value,
       status: statusFilter.value || undefined,
       severity: severityFilter.value || undefined,
       page: 1,
@@ -112,13 +112,13 @@ async function submitCreate() {
   createError.value = ''
   try {
     await rndApi.defects.create({
-      product_id: Number(selectedProductId.value),
+      product_id: selectedProductId.value,
       title: form.title.trim(),
       severity: form.severity,
       priority: form.priority,
       env: form.env,
       found_stage: form.found_stage,
-      assignee_id: form.assignee_id ? Number(form.assignee_id) : undefined,
+      assignee_id: form.assignee_id ? form.assignee_id : undefined,
       reproduce_steps: form.reproduce_steps.trim() || undefined,
     })
     ElMessage.success('缺陷已创建')

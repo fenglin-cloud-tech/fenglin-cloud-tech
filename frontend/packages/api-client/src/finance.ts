@@ -893,7 +893,8 @@ export const financeApi = {
       return get<FinanceExpense>(`${BASE}/expenses/${id}`)
     },
     create(body: {
-      applicant_id: FinanceId
+      // 雪花 ID 以字符串下发，后端 Long 兼容字符串入参
+      applicant_id: string | number
       applicant_name: string
       dept_id?: FinanceId | null
       claim_type: string
@@ -1089,7 +1090,7 @@ export const financeApi = {
     createTimesheet(
       id: FinanceId,
       body: {
-        employee_id: FinanceId
+        employee_id: string | number
         employee_name: string
         milestone_id?: FinanceId | null
         work_date: string

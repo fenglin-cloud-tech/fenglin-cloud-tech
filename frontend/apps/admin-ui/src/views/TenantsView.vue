@@ -2,7 +2,7 @@
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { PageHeader, GapNotice } from '@fenglin/ui-admin'
-import { tenantApi, type CreateTenantRequest, type TenantView } from '@/api'
+import { tenantApi, type CreateTenantRequest, type CreateTenantResult, type TenantView } from '@/api'
 import { useAuthStore } from '@/stores/auth'
 import { useTenantStore } from '@/stores/tenant'
 import { describeError } from '@/utils/error'
@@ -19,7 +19,7 @@ const query = reactive({ status: '', keyword: '', page: 1, size: 10 })
 const createVisible = ref(false)
 const creating = ref(false)
 const createError = ref('')
-const created = ref<{ tenant_id: number; code: string; status: string; initial_password?: string } | null>(null)
+const created = ref<CreateTenantResult | null>(null)
 const form = reactive<CreateTenantRequest>({
   name: '',
   code: '',

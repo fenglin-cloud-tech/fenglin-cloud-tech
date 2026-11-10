@@ -10,7 +10,7 @@ export interface LoginRequest {
 }
 
 export interface TenantView {
-  id: number
+  id: string
   code: string
   name: string
   status: string
@@ -32,7 +32,7 @@ export interface CreateTenantRequest {
 }
 
 export interface CreateTenantResult {
-  tenant_id: number
+  tenant_id: string
   code: string
   status: string
   initial_password?: string
@@ -53,6 +53,7 @@ export interface UserView {
   email?: string
   primary_org_id?: string
   primary_position_id?: string
+  employee_id?: string
   status: string
   roles: string[]
   version?: number
@@ -65,6 +66,8 @@ export interface UpdateUserRequest {
   primary_org_id?: string | number
   status?: string
   employee_no?: string
+  employee_id?: string | number
+  unbind_employee_id?: boolean
   version?: number
 }
 
@@ -74,14 +77,14 @@ export interface CreateUserRequest {
   employee_no?: string
   mobile: string
   email?: string
-  primary_org_id: number
-  primary_position_id?: number
-  role_ids?: number[]
+  primary_org_id: string | number
+  primary_position_id?: string | number
+  role_ids?: (string | number)[]
   password?: string
 }
 
 export interface CreateUserResult {
-  user_id: number
+  user_id: string
   employee_no?: string
   status: string
   initial_password?: string
@@ -121,7 +124,7 @@ export interface MoveOrgRequest {
 }
 
 export interface RoleView {
-  role_id: number
+  role_id: string
   code: string
   name: string
   role_type: string
@@ -148,7 +151,7 @@ export interface PermissionNode {
 }
 
 export interface DefinitionView {
-  definition_id: number
+  definition_id: string
   process_key: string
   name: string
   category?: string
@@ -197,7 +200,7 @@ export interface TemplateRequest {
 }
 
 export interface MessageView {
-  message_id: number
+  message_id: string
   message_no: string
   channel: string
   template_code?: string
@@ -241,7 +244,7 @@ export interface FilePolicyRequest {
 }
 
 export interface UploadResult {
-  file_id: number
+  file_id: string
   file_no: string
   status: string
   object_key: string
@@ -259,17 +262,17 @@ export interface DownloadResult {
 }
 
 export interface VersionListResult {
-  records: Array<{ ver_no: number; size: number; md5: string; created_by?: number; created_at?: string }>
+  records: Array<{ ver_no: number; size: number; md5: string; created_by?: string; created_at?: string }>
 }
 
 export interface AuditLogView {
-  log_id: number
-  tenant_id: number
+  log_id: string
+  tenant_id: string
   log_no: string
   event_type: string
   module: string
   action: string
-  operator_id?: number
+  operator_id?: string
   operator_name?: string
   target_type?: string
   target_id?: string
@@ -283,7 +286,7 @@ export interface AuditLogView {
 }
 
 export interface AuditExportTaskView {
-  task_id: number
+  task_id: string
   task_no: string
   format: string
   event_type?: string
@@ -296,7 +299,7 @@ export interface AuditExportTaskView {
 }
 
 export interface AlertRuleView {
-  id: number
+  id: string
   code: string
   event_type: string
   threshold: number
@@ -314,16 +317,16 @@ export interface AlertRuleItem {
 }
 
 export interface ChainVerifyResult {
-  tenant_id: number
+  tenant_id: string
   checked: number
   valid: boolean
   broken_seq?: number
-  broken_log_id?: number
+  broken_log_id?: string
   message?: string
 }
 
 export interface IndexTaskView {
-  task_id: number
+  task_id: string
   index_name: string
   task_type: string
   status: string
@@ -350,8 +353,8 @@ export interface OpenApiKeyResponse {
 }
 
 export interface OpenApiCallLogView {
-  id: number
-  app_id: number
+  id: string
+  app_id: string
   app_key: string
   api_path: string
   method: string
@@ -363,7 +366,7 @@ export interface OpenApiCallLogView {
 }
 
 export interface MetricView {
-  id: number
+  id: string
   code: string
   name: string
   metric_type: string
@@ -392,12 +395,12 @@ export interface DatasetQueryResult {
 }
 
 export interface DashboardData {
-  charts: Array<{ chart_id: number; columns: string[]; rows: Array<Array<unknown>>; degraded: boolean; error_code?: string }>
+  charts: Array<{ chart_id: string; columns: string[]; rows: Array<Array<unknown>>; degraded: boolean; error_code?: string }>
   degraded: boolean
 }
 
 export interface LowcodeAppView {
-  id: number
+  id: string
   code: string
   name: string
   app_type: string
@@ -410,7 +413,7 @@ export interface LowcodeAppView {
 }
 
 export interface LowcodeVersionView {
-  id: number
+  id: string
   version_no: number
   status: string
   process_instance_id?: string
@@ -419,7 +422,7 @@ export interface LowcodeVersionView {
 }
 
 export interface AiModelView {
-  id: number
+  id: string
   code: string
   provider_type: string
   model_type: string
@@ -429,7 +432,7 @@ export interface AiModelView {
 }
 
 export interface AiPromptView {
-  id: number
+  id: string
   code: string
   prompt_version: number
   name: string
@@ -569,7 +572,7 @@ export interface LeadView {
   score: number
   grade?: string
   status: string
-  owner_id?: number
+  owner_id?: string | number
   dept_id?: number
   last_activity_at?: string
   converted_customer_id?: CrmId
@@ -589,14 +592,14 @@ export interface LeadCreateRequest {
   industry?: string
   region_code?: string
   source?: string
-  owner_id?: number
+  owner_id?: string | number
   grade?: string
   remark?: string
 }
 
 export interface LeadAssignRequest {
-  owner_id?: number
-  dept_id?: number
+  owner_id?: string | number
+  dept_id?: string | number
   reason?: string
 }
 
@@ -628,7 +631,7 @@ export interface CustomerView {
   region_code?: string
   grade?: string
   segment?: string
-  owner_id?: number
+  owner_id?: string | number
   csm_id?: number
   dept_id?: number
   mobile_masked?: string
@@ -667,7 +670,7 @@ export interface CustomerCreateRequest {
   region_code?: string
   grade?: string
   segment?: string
-  owner_id?: number
+  owner_id?: string | number
   csm_id?: number
   mobile?: string
   annual_revenue?: number
@@ -677,7 +680,7 @@ export interface CustomerCreateRequest {
 }
 
 export interface CustomerOwnerRequest {
-  owner_id?: number
+  owner_id?: string | number
   reason?: string
 }
 
@@ -703,7 +706,7 @@ export interface OpportunityView {
   amount?: number
   weighted_amount?: number
   expected_close_date?: string
-  owner_id?: number
+  owner_id?: string | number
   status: string
   next_step?: string
   lost_reason?: string
@@ -719,7 +722,7 @@ export interface OpportunityCreateRequest {
   source?: string
   next_step?: string
   win_rate?: number
-  owner_id?: number
+  owner_id?: string | number
 }
 
 export interface StageChangeRequest {
@@ -801,7 +804,7 @@ export interface QuotationListItemView {
   version_no: number
   total_amount?: number
   status: string
-  owner_id?: number
+  owner_id?: string | number
   created_at?: string
 }
 
@@ -866,7 +869,7 @@ export interface ContractListItemView {
   start_date?: string
   end_date?: string
   status: string
-  owner_id?: number
+  owner_id?: string | number
   created_at?: string
 }
 
@@ -973,7 +976,7 @@ export interface ActivityView {
   result?: string
   next_plan?: string
   occurred_at?: string
-  owner_id?: number
+  owner_id?: string | number
 }
 
 export interface ActivityCreateRequest {

@@ -101,7 +101,7 @@ async function loadPeriods() {
     periods.value = await collabApi.okr.periods()
     if (!periodId.value) {
       const preferred = periods.value.find((item) => item.status === 'OPEN') ?? periods.value[0]
-      periodId.value = preferred?.period_id ?? ''
+      periodId.value = String(preferred?.period_id ?? '')
     }
     await loadObjectives()
   } catch (err) {
@@ -171,7 +171,7 @@ async function submitObjective() {
 }
 
 function openKr(row: CollabObjective) {
-  krObjectiveId.value = row.objective_id
+  krObjectiveId.value = String(row.objective_id)
   krObjectiveTitle.value = row.title
   Object.assign(krForm, {
     title: '',

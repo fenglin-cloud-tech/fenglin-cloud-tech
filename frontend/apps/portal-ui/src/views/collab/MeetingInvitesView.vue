@@ -88,7 +88,7 @@ async function loadDetail() {
 }
 
 async function openDetail(row: CollabMeeting) {
-  detailMeetingId.value = row.meeting_id
+  detailMeetingId.value = String(row.meeting_id)
   detail.value = null
   detailVisible.value = true
   await loadDetail()

@@ -11,7 +11,8 @@ export const useAuthStore = defineStore('portal-auth', {
     isLoggedIn: () => Boolean(getAccessToken()),
     permissions: (state) => state.user?.permissions ?? [],
     displayName: (state) => state.user?.real_name || state.user?.name || state.user?.username || '未登录',
-    userId: (state) => state.user?.user_id ?? (state.user?.sub ? Number(state.user.sub) : undefined),
+    // 雪花 ID 以字符串下发，直接透传避免 Number() 精度丢失
+    userId: (state) => state.user?.user_id ?? state.user?.sub,
   },
   actions: {
     async login(payload: { tenant_code: string; username: string; password: string }) {

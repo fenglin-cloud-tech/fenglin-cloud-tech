@@ -37,14 +37,17 @@ public class AttendanceService {
 
     private final AttendanceMapper attendanceMapper;
     private final TalentAudit audit;
+    private final EmployeeBindingService employeeBindingService;
     private final LocalTime workStart;
     private final LocalTime workEnd;
 
     public AttendanceService(AttendanceMapper attendanceMapper, TalentAudit audit,
+                             EmployeeBindingService employeeBindingService,
                              @Value("${fenglin.talent.attendance.work-start:09:00}") String workStart,
                              @Value("${fenglin.talent.attendance.work-end:18:00}") String workEnd) {
         this.attendanceMapper = attendanceMapper;
         this.audit = audit;
+        this.employeeBindingService = employeeBindingService;
         this.workStart = LocalTime.parse(workStart);
         this.workEnd = LocalTime.parse(workEnd);
     }
@@ -52,7 +55,7 @@ public class AttendanceService {
     @Transactional
     public AttendanceRecordView clock(AttendanceClockRequest request) {
         long tenantId = TalentContext.tenantId();
-        long employeeId = TalentContext.userId();
+        long employeeId = employeeBindingService.requireCurrentEmployeeId();
         String type = request == null || request.clockType() == null ? "" : request.clockType().toUpperCase();
         if (!"IN".equals(type) && !"OUT".equals(type)) {
             throw new BizException(TalentErrorCode.PARAM_INVALID, "打卡类型必须为 IN 或 OUT");
@@ -149,7 +152,11 @@ public class AttendanceService {
 
     @Transactional(readOnly = true)
     public AttendanceSummaryView mySummary(YearMonth month) {
-        return summary(TalentContext.userId(), month);
+        Long employeeId = employeeBindingService.currentEmployeeIdOrNull();
+        if (employeeId == null) {
+            return toSummary(null);
+        }
+        return summary(employeeId, month);
     }
 
     private AttendanceSummaryView toSummary(Map<String, Object> row) {

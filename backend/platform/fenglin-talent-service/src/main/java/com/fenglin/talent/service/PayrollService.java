@@ -56,15 +56,17 @@ public class PayrollService {
     private final TalentAudit audit;
     private final WorkflowClient workflowClient;
     private final ObjectMapper objectMapper;
+    private final EmployeeBindingService employeeBindingService;
     private final String payrollProcessKey;
 
     public PayrollService(PayrollMapper payrollMapper, TalentAudit audit, WorkflowClient workflowClient,
-                          ObjectMapper objectMapper,
+                          ObjectMapper objectMapper, EmployeeBindingService employeeBindingService,
                           @Value("${fenglin.talent.approval-process-key.payroll}") String payrollProcessKey) {
         this.payrollMapper = payrollMapper;
         this.audit = audit;
         this.workflowClient = workflowClient;
         this.objectMapper = objectMapper;
+        this.employeeBindingService = employeeBindingService;
         this.payrollProcessKey = payrollProcessKey;
     }
 
@@ -224,9 +226,12 @@ public class PayrollService {
     @Transactional(readOnly = true)
     public PageResult<MyPayslipView> mySlips(Long periodId, Integer page, Integer size, String permissions) {
         long tenantId = TalentContext.tenantId();
-        long employeeId = TalentContext.userId();
         int pageNo = TalentContext.page(page);
         int pageSize = TalentContext.size(size);
+        Long employeeId = employeeBindingService.currentEmployeeIdOrNull();
+        if (employeeId == null) {
+            return PageResult.of(List.of(), 0, pageNo, pageSize);
+        }
         boolean visible = amountVisible(permissions);
         List<MyPayslipView> records = payrollMapper
                 .listMySlipRecords(tenantId, employeeId, periodId, pageSize, (pageNo - 1) * pageSize)
@@ -238,7 +243,10 @@ public class PayrollService {
     @Transactional(readOnly = true)
     public List<MyPayslipPeriodView> mySlipPeriods() {
         long tenantId = TalentContext.tenantId();
-        long employeeId = TalentContext.userId();
+        Long employeeId = employeeBindingService.currentEmployeeIdOrNull();
+        if (employeeId == null) {
+            return List.of();
+        }
         return payrollMapper.listMySlipPeriods(tenantId, employeeId).stream()
                 .map(row -> new MyPayslipPeriodView(Rows.lngVal(row, "id"), Rows.str(row, "periodCode"),
                         Rows.date(row, "startDate"), Rows.date(row, "endDate"), Rows.date(row, "payDate")))

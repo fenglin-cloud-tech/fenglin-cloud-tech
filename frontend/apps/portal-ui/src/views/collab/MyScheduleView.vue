@@ -59,11 +59,11 @@ function fmt(value?: string) {
   return value ? new Date(value).toLocaleString() : '-'
 }
 
-function parseIdList(text: string): number[] {
+function parseIdList(text: string): string[] {
   return text
     .split(/[,，\s]+/)
-    .map((item) => Number(item.trim()))
-    .filter((value) => Number.isInteger(value) && value > 0)
+    .map((item) => item.trim())
+    .filter((value) => /^\d+$/.test(value))
 }
 
 async function loadCalendars() {
@@ -71,7 +71,7 @@ async function loadCalendars() {
   try {
     calendars.value = await collabApi.calendar.calendars()
     if (!calendarId.value && calendars.value.length) {
-      calendarId.value = calendars.value[0].calendar_id
+      calendarId.value = String(calendars.value[0].calendar_id)
     }
   } catch (err) {
     error.value = describeError(err)

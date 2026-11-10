@@ -6,6 +6,6 @@ import org.springframework.context.annotation.Import;
 
 @AutoConfiguration
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
-@Import({ApiExceptionHandler.class, OpenApiConfig.class})
+@Import({ApiExceptionHandler.class, OpenApiConfig.class, LongIdJacksonConfig.class})
 public class WebAutoConfiguration {
 }

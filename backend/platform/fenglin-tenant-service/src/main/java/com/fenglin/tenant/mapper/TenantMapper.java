@@ -143,6 +143,23 @@ public interface TenantMapper {
                           @Param("code") String code,
                           @Param("name") String name);
 
+    /** PLAT-08：新租户固定内置的普通员工角色，数据范围仅本人。 */
+    @Insert("""
+            INSERT INTO hub_role (id, tenant_id, code, name, role_type, data_scope, builtin,
+                                  status, created_at, updated_at, deleted)
+            VALUES (#{id}, #{tenantId}, 'EMPLOYEE', '普通员工', 'BIZ', 'SELF', 1,
+                    'ENABLED', now(), now(), 0)
+            """)
+    int insertEmployeeRole(@Param("id") long id, @Param("tenantId") long tenantId);
+
+    /** 只含自助类权限（talent:self:*），不包含任何管理权限包。 */
+    @Select("""
+            SELECT code FROM hub_permission
+             WHERE deleted = 0 AND code LIKE 'talent:self:%'
+             ORDER BY code
+            """)
+    List<String> listSelfServicePermissionCodes();
+
     @Insert("""
             INSERT INTO hub_role_permission (id, tenant_id, role_id, permission_code, created_at, updated_at, deleted)
             VALUES (#{id}, #{tenantId}, #{roleId}, #{permissionCode}, now(), now(), 0)

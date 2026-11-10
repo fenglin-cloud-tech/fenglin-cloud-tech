@@ -32,7 +32,7 @@ export const serviceApi = {
       priority?: string
       source?: string
       catalog_item_id?: number | null
-      requester_id?: number | null
+      requester_id?: string | number | null
       impact?: string
       urgency?: string
       contact?: string
@@ -173,7 +173,7 @@ export const serviceApi = {
     },
   },
   assets: {
-    list(params: { status?: string; ownerId?: number; assetType?: string; page?: number; size?: number } = {}) {
+    list(params: { status?: string; ownerId?: string | number; assetType?: string; page?: number; size?: number } = {}) {
       return get<ServicePage>(`${BASE}/assets`, params)
     },
     get(id: number) {

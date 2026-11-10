@@ -6,6 +6,7 @@ import {
   iamApi,
   type CreateRoleRequest,
   type CreateUserRequest,
+  type CreateUserResult,
   type MenuNode,
   type OrgNode,
   type PermissionNode,
@@ -40,7 +41,7 @@ const menuError = ref('')
 const userDialog = ref(false)
 const userSaving = ref(false)
 const userFormError = ref('')
-const createdUser = ref<{ user_id: number; employee_no?: string; status: string; initial_password?: string } | null>(null)
+const createdUser = ref<CreateUserResult | null>(null)
 const userForm = reactive<CreateUserRequest>({
   real_name: '',
   username: '',
@@ -55,7 +56,7 @@ const userForm = reactive<CreateUserRequest>({
 const assignVisible = ref(false)
 const assignSaving = ref(false)
 const assignTarget = ref<UserView | null>(null)
-const assignRoleIds = ref<number[]>([])
+const assignRoleIds = ref<Array<string | number>>([])
 
 const orgs = ref<OrgNode[]>([])
 const orgLoading = ref(false)

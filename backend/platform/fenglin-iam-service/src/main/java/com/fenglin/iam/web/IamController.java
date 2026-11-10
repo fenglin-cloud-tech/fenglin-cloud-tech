@@ -10,6 +10,7 @@ import com.fenglin.iam.web.dto.CreateOrgRequest;
 import com.fenglin.iam.web.dto.CreateRoleRequest;
 import com.fenglin.iam.web.dto.CreateUserRequest;
 import com.fenglin.iam.web.dto.CreateUserResult;
+import com.fenglin.iam.web.dto.EmployeeBindingView;
 import com.fenglin.iam.web.dto.GrantPermissionsRequest;
 import com.fenglin.iam.web.dto.MenuView;
 import com.fenglin.iam.web.dto.MoveOrgRequest;
@@ -199,5 +200,11 @@ public class IamController {
     @GetMapping("/internal/v1/iam/users/{id}")
     public ApiResponse<UserView> internalGetUser(@PathVariable long id) {
         return ApiResponse.success(iamService.getUser(id));
+    }
+
+    /** PLAT-08 内部接口：业务域按账号解析绑定的员工 ID（未绑定返回空字段） */
+    @GetMapping("/internal/v1/iam/users/{id}/employee-id")
+    public ApiResponse<EmployeeBindingView> internalEmployeeBinding(@PathVariable long id) {
+        return ApiResponse.success(new EmployeeBindingView(iamService.getEmployeeId(id)));
     }
 }

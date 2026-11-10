@@ -2,14 +2,14 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { GapNotice, PageHeader } from '@fenglin/ui-admin'
-import { rndApi, type RndDefect, type RndProduct } from '@fenglin/api-client'
+import { rndApi, type RndDefect, type RndId, type RndProduct } from '@fenglin/api-client'
 import { useAuthStore } from '@/stores/auth'
 import { describeError } from '@/utils/error'
 
 const auth = useAuthStore()
 const products = ref<RndProduct[]>([])
 const defects = ref<RndDefect[]>([])
-const selectedProductId = ref<number | ''>('')
+const selectedProductId = ref<RndId | ''>('')
 const scope = ref<'reported' | 'assigned' | 'all'>('reported')
 const loading = ref(false)
 const error = ref('')
@@ -74,10 +74,11 @@ async function loadDefects() {
     defects.value = []
     return
   }
+  const productId = selectedProductId.value
   loading.value = true
   error.value = ''
   try {
-    defects.value = await rndApi.defects.list({ productId: Number(selectedProductId.value), page: 1, size: 200 })
+    defects.value = await rndApi.defects.list({ productId, page: 1, size: 200 })
   } catch (err) {
     defects.value = []
     error.value = describeError(err)
@@ -93,9 +94,10 @@ async function submitCreate() {
   }
   createSaving.value = true
   createError.value = ''
+  const productId = selectedProductId.value
   try {
     await rndApi.defects.create({
-      product_id: Number(selectedProductId.value),
+      product_id: productId,
       title: form.title.trim(),
       severity: form.severity,
       priority: form.priority,

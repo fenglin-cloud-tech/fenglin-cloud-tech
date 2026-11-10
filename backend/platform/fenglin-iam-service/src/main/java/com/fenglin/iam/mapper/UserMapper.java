@@ -14,7 +14,8 @@ public interface UserMapper {
 
     @Select("""
             SELECT u.id, u.tenant_id, u.employee_no, u.username, u.nickname, u.real_name,
-                   u.mobile_enc, u.primary_org_id, u.primary_position_id, u.status, u.created_at,
+                   u.mobile_enc, u.primary_org_id, u.primary_position_id, u.employee_id,
+                   u.status, u.created_at,
                    (SELECT o.name FROM hub_org o
                      WHERE o.tenant_id = u.tenant_id AND o.id = u.primary_org_id AND o.deleted = 0)
                        AS primary_org_name
@@ -26,7 +27,8 @@ public interface UserMapper {
     @Select("""
             <script>
             SELECT u.id, u.tenant_id, u.employee_no, u.username, u.nickname, u.real_name,
-                   u.mobile_enc, u.primary_org_id, u.primary_position_id, u.status, u.created_at,
+                   u.mobile_enc, u.primary_org_id, u.primary_position_id, u.employee_id,
+                   u.status, u.created_at,
                    (SELECT o.name FROM hub_org o
                      WHERE o.tenant_id = u.tenant_id AND o.id = u.primary_org_id AND o.deleted = 0)
                        AS primary_org_name
@@ -106,6 +108,15 @@ public interface UserMapper {
                                    @Param("emailHash") String emailHash,
                                    @Param("userId") long userId);
 
+    @Select("""
+            SELECT count(*) FROM hub_user
+             WHERE tenant_id = #{tenantId} AND employee_id = #{employeeId}
+               AND deleted = 0 AND id <> #{userId}
+            """)
+    long countByEmployeeIdExcluding(@Param("tenantId") long tenantId,
+                                    @Param("employeeId") long employeeId,
+                                    @Param("userId") long userId);
+
     @Update("""
             <script>
             UPDATE hub_user
@@ -117,6 +128,7 @@ public interface UserMapper {
               <if test="emailSet">email_enc = #{emailEnc,jdbcType=VARCHAR},
                                  email_hash = #{emailHash,jdbcType=VARCHAR},</if>
               <if test="primaryOrgIdSet">primary_org_id = #{primaryOrgId,jdbcType=BIGINT},</if>
+              <if test="employeeIdSet">employee_id = #{employeeId,jdbcType=BIGINT},</if>
               <if test="status != null">status = #{status},</if>
               updated_by = #{operatorId,jdbcType=BIGINT},
               updated_at = now(),
@@ -140,6 +152,8 @@ public interface UserMapper {
                       @Param("emailHash") String emailHash,
                       @Param("primaryOrgIdSet") boolean primaryOrgIdSet,
                       @Param("primaryOrgId") Long primaryOrgId,
+                      @Param("employeeIdSet") boolean employeeIdSet,
+                      @Param("employeeId") Long employeeId,
                       @Param("status") String status,
                       @Param("version") Integer version,
                       @Param("operatorId") Long operatorId);

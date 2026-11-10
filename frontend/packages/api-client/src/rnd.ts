@@ -1,6 +1,6 @@
 import { get, post, put, request } from './http'
 
-export type RndId = number
+export type RndId = string
 
 /**
  * 云研（R&D / devops）接口。后端 Jackson 使用 SNAKE_CASE，BigDecimal 金额/工时均为字符串。

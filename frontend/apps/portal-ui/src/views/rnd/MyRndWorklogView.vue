@@ -46,7 +46,7 @@ async function submit() {
   formError.value = ''
   try {
     await rndApi.worklogs.create({
-      task_id: Number(form.task_id),
+      task_id: form.task_id,
       work_date: form.work_date,
       hours: form.hours,
       remark: form.remark.trim() || undefined,

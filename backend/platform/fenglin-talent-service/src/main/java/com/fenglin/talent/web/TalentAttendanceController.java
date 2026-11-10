@@ -31,6 +31,7 @@ public class TalentAttendanceController {
     private static final String ADMIN_MANAGE = "talent:admin:attendance:manage";
     private static final String CLOCK = "talent:attendance:clock";
     private static final String VIEW = "talent:attendance:view";
+    private static final String SELF_VIEW = "talent:self:attendance:view";
 
     private final AttendanceService attendanceService;
 
@@ -91,7 +92,7 @@ public class TalentAttendanceController {
     public ApiResponse<AttendanceSummaryView> my(
             @RequestHeader(value = "X-Permissions", required = false) String permissions,
             @RequestParam(value = "month", required = false) String month) {
-        PermissionGuard.require(permissions, VIEW);
+        PermissionGuard.requireAny(permissions, VIEW, SELF_VIEW);
         return ApiResponse.success(attendanceService.mySummary(parseMonth(month)));
     }
 

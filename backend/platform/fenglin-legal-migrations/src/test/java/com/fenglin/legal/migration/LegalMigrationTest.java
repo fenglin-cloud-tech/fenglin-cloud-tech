@@ -41,9 +41,9 @@ class LegalMigrationTest {
 
     @Test
     void createsAllBusinessTables() throws Exception {
-        // 文档 27 张业务表 + 租户盐表 + 幂等记录表 = 29
+        // 文档业务表 + 租户盐表 + 幂等记录表 = 33
         assertThat(count("SELECT count(1) FROM pg_tables WHERE schemaname = 'fenglin_legal' "
-                + "AND tablename LIKE 'legal\\_%' ESCAPE '\\'")).isEqualTo(29);
+                + "AND tablename LIKE 'legal\\_%' ESCAPE '\\'")).isEqualTo(33);
         assertThat(count("SELECT count(1) FROM pg_tables WHERE schemaname = 'fenglin_legal' "
                 + "AND tablename IN ('legal_contract', 'legal_contract_version', 'legal_contract_clause', "
                 + "'legal_signatory', 'legal_approval_record', 'legal_seal_record', 'legal_sign_record', "
@@ -55,15 +55,15 @@ class LegalMigrationTest {
     void enablesRlsOnEveryTable() throws Exception {
         assertThat(count("SELECT count(1) FROM pg_tables t JOIN pg_class c ON c.relname = t.tablename "
                 + "WHERE t.schemaname = 'fenglin_legal' AND t.tablename LIKE 'legal\\_%' ESCAPE '\\' "
-                + "AND c.relrowsecurity = true")).isEqualTo(29);
+                + "AND c.relrowsecurity = true")).isEqualTo(33);
         assertThat(count("SELECT count(1) FROM pg_policies WHERE schemaname = 'fenglin_legal' "
-                + "AND policyname LIKE 'p\\_legal\\_%\\_tenant' ESCAPE '\\'")).isEqualTo(29);
+                + "AND policyname LIKE 'p\\_legal\\_%\\_tenant' ESCAPE '\\'")).isEqualTo(33);
     }
 
     @Test
     void createsUpdatedAtAndImmutableTriggers() throws Exception {
         assertThat(count("SELECT count(1) FROM pg_trigger WHERE tgname LIKE 'trg\\_legal\\_%\\_updated' ESCAPE '\\' "
-                + "AND NOT tgisinternal")).isEqualTo(29);
+                + "AND NOT tgisinternal")).isEqualTo(33);
         assertThat(count("SELECT count(1) FROM pg_trigger "
                 + "WHERE tgname LIKE 'trg\\_legal\\_%\\_immutable\\_del' ESCAPE '\\' AND NOT tgisinternal"))
                 .isEqualTo(11);

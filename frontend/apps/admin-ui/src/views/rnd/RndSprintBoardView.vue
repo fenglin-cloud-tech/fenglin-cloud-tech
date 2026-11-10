@@ -2,12 +2,12 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { GapNotice, PageHeader } from '@fenglin/ui-admin'
-import { rndApi, type RndBoard, type RndBurndown, type RndProduct, type RndSprint } from '@fenglin/api-client'
+import { rndApi, type RndBoard, type RndBurndown, type RndId, type RndProduct, type RndSprint } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 
 const products = ref<RndProduct[]>([])
 const sprints = ref<RndSprint[]>([])
-const selectedProductId = ref<number | ''>('')
+const selectedProductId = ref<RndId | ''>('')
 const burndown = ref<RndBurndown | null>(null)
 const board = ref<RndBoard | null>(null)
 const boardId = ref('')
@@ -50,7 +50,7 @@ async function loadSprints() {
   loading.value = true
   error.value = ''
   try {
-    sprints.value = await rndApi.sprints.list({ productId: Number(selectedProductId.value) })
+    sprints.value = await rndApi.sprints.list({ productId: selectedProductId.value })
   } catch (err) {
     sprints.value = []
     error.value = describeError(err)
@@ -68,7 +68,7 @@ async function submitCreate() {
   createError.value = ''
   try {
     await rndApi.sprints.create({
-      product_id: Number(selectedProductId.value),
+      product_id: selectedProductId.value,
       name: form.name.trim(),
       goal: form.goal.trim() || undefined,
       start_date: form.start_date || undefined,
@@ -97,7 +97,7 @@ async function sprintAction(row: RndSprint, action: 'start' | 'complete') {
   }
 }
 
-async function loadBurndown(id: number) {
+async function loadBurndown(id: RndId) {
   try {
     burndown.value = await rndApi.sprints.burndown(id)
   } catch (err) {
@@ -111,7 +111,7 @@ async function loadBoard() {
     return
   }
   try {
-    board.value = await rndApi.boards.get(Number(boardId.value))
+    board.value = await rndApi.boards.get(boardId.value)
   } catch (err) {
     ElMessage.error(describeError(err))
   }
@@ -134,7 +134,7 @@ async function submitBoard() {
         status_codes: codes.split(',').map((code) => code.trim()).filter(Boolean),
       }))
     const created = await rndApi.boards.create({
-      product_id: Number(selectedProductId.value),
+      product_id: selectedProductId.value,
       name: boardForm.name.trim(),
       board_type: boardForm.board_type,
       columns,

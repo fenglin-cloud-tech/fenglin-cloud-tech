@@ -5,6 +5,7 @@ import { GapNotice, PageHeader } from '@fenglin/ui-admin'
 import {
   rndApi,
   type RndCommit,
+  type RndId,
   type RndPipeline,
   type RndProduct,
   type RndRepo,
@@ -17,9 +18,9 @@ const repos = ref<RndRepo[]>([])
 const pipelines = ref<RndPipeline[]>([])
 const commits = ref<RndCommit[]>([])
 const runs = ref<RndRun[]>([])
-const selectedProductId = ref<number | ''>('')
-const selectedRepoId = ref<number | ''>('')
-const selectedPipelineId = ref<number | ''>('')
+const selectedProductId = ref<RndId | ''>('')
+const selectedRepoId = ref<RndId | ''>('')
+const selectedPipelineId = ref<RndId | ''>('')
 const activeTab = ref('repos')
 const loading = ref(false)
 const error = ref('')
@@ -58,7 +59,7 @@ async function loadRepos() {
   loading.value = true
   error.value = ''
   try {
-    repos.value = await rndApi.code.repos.list(Number(selectedProductId.value))
+    repos.value = await rndApi.code.repos.list(selectedProductId.value)
     if (!selectedRepoId.value && repos.value.length) {
       selectedRepoId.value = repos.value[0].id
       await loadCommits()
@@ -77,7 +78,7 @@ async function loadPipelines() {
     return
   }
   try {
-    pipelines.value = await rndApi.pipelines.list(Number(selectedProductId.value))
+    pipelines.value = await rndApi.pipelines.list(selectedProductId.value)
     if (!selectedPipelineId.value && pipelines.value.length) {
       selectedPipelineId.value = pipelines.value[0].id
       await loadRuns()
@@ -95,7 +96,7 @@ async function loadCommits() {
   }
   loading.value = true
   try {
-    commits.value = await rndApi.code.commits.list({ repoId: Number(selectedRepoId.value), page: 1, size: 100 })
+    commits.value = await rndApi.code.commits.list({ repoId: selectedRepoId.value, page: 1, size: 100 })
   } catch (err) {
     commits.value = []
     error.value = describeError(err)
@@ -110,7 +111,7 @@ async function loadRuns() {
     return
   }
   try {
-    runs.value = await rndApi.pipelines.listRuns(Number(selectedPipelineId.value), 30)
+    runs.value = await rndApi.pipelines.listRuns(selectedPipelineId.value, 30)
   } catch (err) {
     runs.value = []
     error.value = describeError(err)
@@ -126,7 +127,7 @@ async function submitRepo() {
   repoError.value = ''
   try {
     await rndApi.code.repos.create({
-      product_id: Number(selectedProductId.value),
+      product_id: selectedProductId.value,
       repo_name: repoForm.repo_name.trim(),
       vcs_type: repoForm.vcs_type,
       repo_url: repoForm.repo_url.trim() || undefined,
@@ -178,7 +179,7 @@ async function submitPipeline() {
   pipelineError.value = ''
   try {
     await rndApi.pipelines.create({
-      product_id: Number(selectedProductId.value),
+      product_id: selectedProductId.value,
       name: pipelineForm.name.trim(),
       ci_type: pipelineForm.ci_type,
       trigger_mode: pipelineForm.trigger_mode,

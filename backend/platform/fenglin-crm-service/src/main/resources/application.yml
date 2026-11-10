@@ -1,4 +1,6 @@
 server:
+  # gateway injects large permission headers (PLAT-10 stopgap)
+  max-http-request-header-size: 64KB
   port: ${FENGLIN_CRM_PORT:18095}
 
 spring:

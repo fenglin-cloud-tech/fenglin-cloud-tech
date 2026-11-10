@@ -31,7 +31,7 @@ const assignVisible = ref(false)
 const assigning = ref(false)
 const assignError = ref('')
 const assignTarget = ref<LeadView | null>(null)
-const assignForm = reactive({ owner_id: undefined as number | undefined, dept_id: undefined as number | undefined, reason: '' })
+const assignForm = reactive({ owner_id: undefined as string | number | undefined, dept_id: undefined as string | number | undefined, reason: '' })
 
 const convertVisible = ref(false)
 const converting = ref(false)

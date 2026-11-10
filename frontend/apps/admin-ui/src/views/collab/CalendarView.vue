@@ -100,11 +100,11 @@ function defaultRange(): string[] {
   return [toLocalInput(start), toLocalInput(end)]
 }
 
-function parseIdList(text: string): number[] {
+function parseIdList(text: string): string[] {
   return text
     .split(/[,，\s]+/)
-    .map((item) => Number(item.trim()))
-    .filter((value) => Number.isInteger(value) && value > 0)
+    .map((item) => item.trim())
+    .filter((value) => /^\d+$/.test(value))
 }
 
 function toLocalInput(date: Date): string {

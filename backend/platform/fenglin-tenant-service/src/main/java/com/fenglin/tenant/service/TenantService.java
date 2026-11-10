@@ -110,6 +110,13 @@ public class TenantService {
         tenantMapper.insertAccount(IdWorker.getId(), tenantId, userId, passwordHash);
         tenantMapper.insertUserRole(IdWorker.getId(), tenantId, userId, roleId);
 
+        // PLAT-08：普通员工固定角色，只挂自助类权限；不自动分配，由管理员按员工账号授予。
+        long employeeRoleId = IdWorker.getId();
+        tenantMapper.insertEmployeeRole(employeeRoleId, tenantId);
+        for (String permissionCode : tenantMapper.listSelfServicePermissionCodes()) {
+            tenantMapper.grantPermission(IdWorker.getId(), tenantId, employeeRoleId, permissionCode);
+        }
+
         // 平台管理员角色：持有 platform:* 权限，不自动绑定用户，由平台运维按需分配。
         long platformRoleId = IdWorker.getId();
         tenantMapper.insertBuiltinRole(platformRoleId, tenantId, PLATFORM_ADMIN_ROLE_CODE, "平台管理员");

@@ -56,11 +56,14 @@ public class TrainingService {
     private final TrainingMapper trainingMapper;
     private final TalentAudit audit;
     private final ObjectMapper objectMapper;
+    private final EmployeeBindingService employeeBindingService;
 
-    public TrainingService(TrainingMapper trainingMapper, TalentAudit audit, ObjectMapper objectMapper) {
+    public TrainingService(TrainingMapper trainingMapper, TalentAudit audit, ObjectMapper objectMapper,
+                           EmployeeBindingService employeeBindingService) {
         this.trainingMapper = trainingMapper;
         this.audit = audit;
         this.objectMapper = objectMapper;
+        this.employeeBindingService = employeeBindingService;
     }
 
     // ---------- 课程 ----------
@@ -283,7 +286,10 @@ public class TrainingService {
     @Transactional(readOnly = true)
     public List<CertificateView> myCertificates(Long employeeId) {
         long tenantId = TalentContext.tenantId();
-        long target = employeeId == null ? TalentContext.userId() : employeeId;
+        Long target = employeeId == null ? employeeBindingService.currentEmployeeIdOrNull() : employeeId;
+        if (target == null) {
+            return List.of();
+        }
         return trainingMapper.listCertificates(tenantId, target).stream()
                 .map(row -> new CertificateView(Rows.lngVal(row, "id"), Rows.str(row, "certNo"),
                         Rows.str(row, "certName"), Rows.date(row, "issueDate"), Rows.date(row, "expireDate")))

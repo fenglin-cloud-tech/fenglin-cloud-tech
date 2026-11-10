@@ -2,13 +2,13 @@
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { GapNotice, PageHeader } from '@fenglin/ui-admin'
-import { rndApi, type RndProduct, type RndTask, type RndWorklog } from '@fenglin/api-client'
+import { rndApi, type RndId, type RndProduct, type RndTask, type RndWorklog } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 
 const products = ref<RndProduct[]>([])
 const tasks = ref<RndTask[]>([])
 const worklogs = ref<RndWorklog[]>([])
-const selectedProductId = ref<number | ''>('')
+const selectedProductId = ref<RndId | ''>('')
 const statusFilter = ref('')
 const loading = ref(false)
 const error = ref('')
@@ -78,7 +78,7 @@ async function loadTasks() {
   error.value = ''
   try {
     tasks.value = await rndApi.tasks.list({
-      productId: Number(selectedProductId.value),
+      productId: selectedProductId.value,
       status: statusFilter.value || undefined,
       page: 1,
       size: 200,
@@ -109,11 +109,11 @@ async function submitTask() {
   createError.value = ''
   try {
     await rndApi.tasks.create({
-      product_id: Number(selectedProductId.value),
+      product_id: selectedProductId.value,
       title: form.title.trim(),
       task_type: form.task_type,
       priority: form.priority,
-      assignee_id: form.assignee_id ? Number(form.assignee_id) : undefined,
+      assignee_id: form.assignee_id ? form.assignee_id : undefined,
       estimate_hours: form.estimate_hours || undefined,
       due_date: form.due_date || undefined,
     })
@@ -147,7 +147,7 @@ async function submitWorklog() {
   logError.value = ''
   try {
     await rndApi.worklogs.create({
-      task_id: Number(logForm.task_id),
+      task_id: logForm.task_id,
       work_date: logForm.work_date,
       hours: logForm.hours,
       remark: logForm.remark.trim() || undefined,
@@ -164,7 +164,7 @@ async function submitWorklog() {
   }
 }
 
-function taskTitle(id?: number | null) {
+function taskTitle(id?: RndId | null) {
   if (!id) return '-'
   return tasks.value.find((item) => item.id === id)?.title ?? String(id)
 }

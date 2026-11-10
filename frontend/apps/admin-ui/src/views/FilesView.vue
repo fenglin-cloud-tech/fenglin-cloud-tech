@@ -24,7 +24,7 @@ const uploadError = ref('')
 const uploadResult = ref<UploadResult | null>(null)
 const uploadMeta = reactive({ biz_type: '', biz_id: '', sec_level: 1 })
 
-const fileId = ref<number | undefined>(undefined)
+const fileId = ref<string | undefined>(undefined)
 const previewing = ref(false)
 const previewError = ref('')
 const preview = ref<PreviewResult | null>(null)

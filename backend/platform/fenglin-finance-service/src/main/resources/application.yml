@@ -1,4 +1,6 @@
 server:
+  # gateway injects large permission headers (PLAT-10 stopgap)
+  max-http-request-header-size: 64KB
   port: ${FENGLIN_FINANCE_PORT:18098}
 
 spring:
