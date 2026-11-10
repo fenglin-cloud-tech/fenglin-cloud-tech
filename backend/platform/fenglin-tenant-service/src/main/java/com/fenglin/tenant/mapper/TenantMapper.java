@@ -110,11 +110,24 @@ public interface TenantMapper {
     List<String> listTenantGrantablePermissionCodes();
 
     /**
-     * 平台管理员角色（PLATFORM_ADMIN）持有的平台专属权限，仅用于初始化平台审核角色。
+     * 平台管理员角色（PLATFORM_ADMIN）应持有的平台专属权限。
+     * 只含代码中真实校验的 9 条，口径与 V1_0_49__align_platform_admin_permissions.sql 一致：
+     * platform:billing:manage（能力未实现）与 platform:workflow:engine:manage（废弃，实际用 tenant:workflow:*）不授予。
      */
     @Select("""
             SELECT code FROM hub_permission
-             WHERE deleted = 0 AND code LIKE 'platform:%'
+             WHERE deleted = 0
+               AND code IN (
+                   'platform:ai:model:manage',
+                   'platform:audit:alert:manage',
+                   'platform:audit:export',
+                   'platform:openapi:app:review',
+                   'platform:openapi:calllog:view',
+                   'platform:openapi:key:manage',
+                   'platform:openapi:quota:manage',
+                   'platform:search:index:manage',
+                   'platform:tenant:manage'
+               )
              ORDER BY code
             """)
     List<String> listPlatformPermissionCodes();
@@ -169,4 +182,61 @@ public interface TenantMapper {
                        @Param("tenantId") long tenantId,
                        @Param("userId") long userId,
                        @Param("roleId") long roleId);
+
+    // ---------- 平台管理员分配/回收 ----------
+
+    @Select("""
+            SELECT id FROM hub_role
+             WHERE tenant_id = #{tenantId} AND code = 'PLATFORM_ADMIN' AND deleted = 0
+            """)
+    Long findPlatformAdminRoleId(@Param("tenantId") long tenantId);
+
+    @Select("""
+            SELECT id, username, status FROM hub_user
+             WHERE tenant_id = #{tenantId} AND id = #{userId} AND deleted = 0
+            """)
+    Map<String, Object> findTenantUser(@Param("tenantId") long tenantId, @Param("userId") long userId);
+
+    @Select("""
+            SELECT id, deleted FROM hub_user_role
+             WHERE tenant_id = #{tenantId} AND user_id = #{userId} AND role_id = #{roleId}
+             ORDER BY deleted ASC
+             LIMIT 1
+            """)
+    Map<String, Object> findUserRole(@Param("tenantId") long tenantId,
+                                     @Param("userId") long userId,
+                                     @Param("roleId") long roleId);
+
+    @Update("""
+            UPDATE hub_user_role SET deleted = 0, granted_at = now(), updated_at = now()
+             WHERE id = #{id}
+            """)
+    int restoreUserRole(@Param("id") long id);
+
+    @Update("""
+            UPDATE hub_user_role SET deleted = 1, updated_at = now()
+             WHERE tenant_id = #{tenantId} AND user_id = #{userId}
+               AND role_id = #{roleId} AND deleted = 0
+            """)
+    int revokeUserRole(@Param("tenantId") long tenantId,
+                       @Param("userId") long userId,
+                       @Param("roleId") long roleId);
+
+    @Select("""
+            SELECT count(DISTINCT ur.user_id)
+              FROM hub_user_role ur
+              JOIN hub_role r ON r.id = ur.role_id AND r.deleted = 0
+             WHERE ur.tenant_id = #{tenantId} AND r.code = 'PLATFORM_ADMIN' AND ur.deleted = 0
+            """)
+    long countPlatformAdmins(@Param("tenantId") long tenantId);
+
+    @Select("""
+            SELECT ur.role_id
+              FROM hub_user_role ur
+              JOIN hub_role r ON r.id = ur.role_id AND r.deleted = 0
+             WHERE ur.tenant_id = #{tenantId} AND ur.user_id = #{userId}
+               AND r.code = 'PLATFORM_ADMIN' AND ur.deleted = 0
+             LIMIT 1
+            """)
+    Long findPlatformAdminRoleOfUser(@Param("tenantId") long tenantId, @Param("userId") long userId);
 }

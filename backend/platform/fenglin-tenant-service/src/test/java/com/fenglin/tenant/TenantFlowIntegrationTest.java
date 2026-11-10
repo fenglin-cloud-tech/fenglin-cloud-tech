@@ -221,6 +221,116 @@ class TenantFlowIntegrationTest {
         }
     }
 
+    @Test
+    void grantAndRevokePlatformAdminClosesLoop() throws Exception {
+        long tenantId = createTenant("平台管理员租户");
+        long ownerId = userIdOf(tenantId, "owner");
+        long secondId = insertUser(tenantId, "ops", 880000000000001001L);
+        Map<String, String> headers = Map.of(
+                "X-Permissions", WRITE_PERMISSION,
+                "X-Tenant-Id", String.valueOf(tenantId));
+
+        HttpResult before = get("/api/hub/v1/admin/platform-admins/" + ownerId, headers);
+        assertThat(before.status()).isEqualTo(200);
+        assertThat(before.body().get("data").get("platform_admin").asBoolean()).isFalse();
+
+        HttpResult granted = post("/api/hub/v1/admin/platform-admins",
+                Map.of("user_id", ownerId), headers);
+        assertThat(granted.status()).isEqualTo(200);
+        assertThat(granted.body().get("data").get("platform_admin").asBoolean()).isTrue();
+
+        HttpResult afterGrant = get("/api/hub/v1/admin/platform-admins/" + ownerId, headers);
+        assertThat(afterGrant.body().get("data").get("platform_admin").asBoolean()).isTrue();
+
+        // 重复授权幂等：仍为 200，库中只有一条有效绑定
+        assertThat(post("/api/hub/v1/admin/platform-admins", Map.of("user_id", ownerId), headers)
+                .status()).isEqualTo(200);
+        assertThat(countUserRole(tenantId, ownerId)).isEqualTo(1);
+
+        // 唯一管理员不可撤销
+        HttpResult lastAdmin = delete("/api/hub/v1/admin/platform-admins/" + ownerId, headers);
+        assertThat(lastAdmin.status()).isEqualTo(409);
+
+        // 授予第二名后可撤销第一名
+        assertThat(post("/api/hub/v1/admin/platform-admins", Map.of("user_id", secondId), headers)
+                .status()).isEqualTo(200);
+        HttpResult revoked = delete("/api/hub/v1/admin/platform-admins/" + ownerId, headers);
+        assertThat(revoked.status()).isEqualTo(200);
+        assertThat(revoked.body().get("data").get("platform_admin").asBoolean()).isFalse();
+
+        // 撤销后校验失效，第二名仍有效
+        assertThat(get("/api/hub/v1/admin/platform-admins/" + ownerId, headers)
+                .body().get("data").get("platform_admin").asBoolean()).isFalse();
+        assertThat(get("/api/hub/v1/admin/platform-admins/" + secondId, headers)
+                .body().get("data").get("platform_admin").asBoolean()).isTrue();
+        assertThat(countUserRole(tenantId, ownerId)).isZero();
+
+        // 只剩第二名时再撤销仍被拒绝
+        assertThat(delete("/api/hub/v1/admin/platform-admins/" + secondId, headers).status())
+                .isEqualTo(409);
+    }
+
+    @Test
+    void platformAdminAssignmentRequiresPlatformPermission() throws Exception {
+        long tenantId = createTenant("鉴权租户");
+        long ownerId = userIdOf(tenantId, "owner");
+
+        HttpResult forbidden = post("/api/hub/v1/admin/platform-admins",
+                Map.of("user_id", ownerId), Map.of("X-Tenant-Id", String.valueOf(tenantId)));
+        assertThat(forbidden.status()).isEqualTo(403);
+
+        HttpResult forbiddenGet = get("/api/hub/v1/admin/platform-admins/" + ownerId,
+                Map.of("X-Tenant-Id", String.valueOf(tenantId)));
+        assertThat(forbiddenGet.status()).isEqualTo(403);
+    }
+
+    @Test
+    void platformAdminGrantRejectsUnknownUser() {
+        long tenantId = createTenant("未知用户租户");
+        Map<String, String> headers = Map.of(
+                "X-Permissions", WRITE_PERMISSION,
+                "X-Tenant-Id", String.valueOf(tenantId));
+        HttpResult missing = post("/api/hub/v1/admin/platform-admins",
+                Map.of("user_id", 880000000000009999L), headers);
+        assertThat(missing.status()).isEqualTo(404);
+    }
+
+    private long userIdOf(long tenantId, String username) throws Exception {
+        try (Connection connection = ownerConnection(); Statement statement = connection.createStatement();
+             ResultSet rs = statement.executeQuery(
+                     "SELECT id FROM fenglin_hub.hub_user WHERE tenant_id = " + tenantId
+                             + " AND username = '" + username + "'")) {
+            assertThat(rs.next()).isTrue();
+            return rs.getLong(1);
+        }
+    }
+
+    private long insertUser(long tenantId, String username, long userId) throws Exception {
+        try (Connection connection = ownerConnection(); Statement statement = connection.createStatement()) {
+            statement.executeUpdate("""
+                    INSERT INTO fenglin_hub.hub_user
+                        (id, tenant_id, uuid, username, real_name, user_type, status,
+                         mfa_enabled, created_at, updated_at, deleted)
+                    VALUES (%d, %d, gen_random_uuid(), '%s', '%s', 'INTERNAL', 'ACTIVE',
+                            0, now(), now(), 0)
+                    """.formatted(userId, tenantId, username, username));
+        }
+        return userId;
+    }
+
+    private int countUserRole(long tenantId, long userId) throws Exception {
+        try (Connection connection = ownerConnection(); Statement statement = connection.createStatement();
+             ResultSet rs = statement.executeQuery("""
+                     SELECT count(*) FROM fenglin_hub.hub_user_role ur
+                       JOIN fenglin_hub.hub_role r ON r.id = ur.role_id
+                      WHERE ur.tenant_id = %d AND ur.user_id = %d
+                        AND r.code = 'PLATFORM_ADMIN' AND ur.deleted = 0
+                     """.formatted(tenantId, userId))) {
+            assertThat(rs.next()).isTrue();
+            return rs.getInt(1);
+        }
+    }
+
     private long createTenant(String name) {
         Map<String, Object> body = new HashMap<>();
         body.put("name", name);
@@ -236,6 +346,10 @@ class TenantFlowIntegrationTest {
 
     private HttpResult get(String path, Map<String, String> headers) {
         return exchange(HttpMethod.GET, path, null, headers);
+    }
+
+    private HttpResult delete(String path, Map<String, String> headers) {
+        return exchange(HttpMethod.DELETE, path, null, headers);
     }
 
     private HttpResult exchange(HttpMethod method, String path, Object body, Map<String, String> headers) {
