@@ -12,12 +12,17 @@ import {
   Document,
   Flag,
   Grid,
+  Money,
+  Promotion,
+  Reading,
   Share,
   Stamp,
   Tickets,
   TrendCharts,
+  User,
   UserFilled,
   VideoCamera,
+  Clock,
 } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
 
@@ -45,9 +50,19 @@ const collabItems = [
   { path: '/notifications', title: '通知中心', icon: Bell, perm: 'biz:collab:workbench:personal' },
 ]
 
+const talentItems = [
+  { path: '/my-profile', title: '我的档案', icon: User, perm: 'talent:employee:view' },
+  { path: '/my-attendance', title: '我的考勤与请假', icon: Clock, perm: 'talent:attendance:view' },
+  { path: '/my-payslip', title: '我的薪酬单', icon: Money, perm: '' },
+  { path: '/my-performance', title: '我的绩效', icon: TrendCharts, perm: '' },
+  { path: '/my-training', title: '培训与课程', icon: Reading, perm: 'talent:course:list' },
+  { path: '/internal-opportunities', title: '内部机会', icon: Promotion, perm: 'biz:talent:flow:market' },
+]
+
 // 菜单按后端权限点收敛：未授权项不展示，避免前端伪造可访问入口。
 const visibleNavItems = computed(() => navItems.filter((item) => !item.perm || auth.can(item.perm)))
 const visibleCollabItems = computed(() => collabItems.filter((item) => auth.can(item.perm)))
+const visibleTalentItems = computed(() => talentItems.filter((item) => !item.perm || auth.can(item.perm)))
 
 const activeMenu = computed(() => route.path)
 const currentTitle = computed(() => String(route.meta.title ?? '员工门户'))
@@ -80,6 +95,16 @@ async function handleLogout() {
             <span>云协协作</span>
           </template>
           <el-menu-item v-for="item in visibleCollabItems" :key="item.path" :index="item.path">
+            <el-icon><component :is="item.icon" /></el-icon>
+            <span>{{ item.title }}</span>
+          </el-menu-item>
+        </el-sub-menu>
+        <el-sub-menu v-if="visibleTalentItems.length" index="talent">
+          <template #title>
+            <el-icon><User /></el-icon>
+            <span>云才人才</span>
+          </template>
+          <el-menu-item v-for="item in visibleTalentItems" :key="item.path" :index="item.path">
             <el-icon><component :is="item.icon" /></el-icon>
             <span>{{ item.title }}</span>
           </el-menu-item>

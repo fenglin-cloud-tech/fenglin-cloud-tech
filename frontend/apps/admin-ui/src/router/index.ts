@@ -47,6 +47,8 @@ const routes: RouteRecordRaw[] = [
       { path: 'talent/lifecycle', name: 'talent-lifecycle', component: () => import('@/views/talent/TalentLifecycleView.vue'), meta: { title: '入转调离' } },
       { path: 'talent/attendance', name: 'talent-attendance', component: () => import('@/views/talent/TalentAttendanceView.vue'), meta: { title: '考勤与假期' } },
       { path: 'talent/payroll', name: 'talent-payroll', component: () => import('@/views/talent/TalentPayrollView.vue'), meta: { title: '薪酬管理' } },
+      { path: 'talent/performance', name: 'talent-performance', component: () => import('@/views/talent/TalentPerformanceView.vue'), meta: { title: '绩效管理' } },
+      { path: 'talent/training', name: 'talent-training', component: () => import('@/views/talent/TalentTrainingView.vue'), meta: { title: '培训管理' } },
       { path: '403', name: 'forbidden', component: () => import('@/views/ForbiddenView.vue'), meta: { title: '无访问权限' } },
     ],
   },

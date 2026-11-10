@@ -268,4 +268,20 @@ export const adminMenu: AdminMenuItem[] = [
     module: '云才 Talent',
     icon: 'Money',
   },
+  {
+    path: '/talent/performance',
+    name: 'talent-performance',
+    title: '绩效管理',
+    module: '云才 Talent',
+    icon: 'TrendCharts',
+    requiredPermission: 'talent:admin:performance:list',
+  },
+  {
+    path: '/talent/training',
+    name: 'talent-training',
+    title: '培训管理',
+    module: '云才 Talent',
+    icon: 'Reading',
+    requiredPermission: 'talent:course:list',
+  },
 ]

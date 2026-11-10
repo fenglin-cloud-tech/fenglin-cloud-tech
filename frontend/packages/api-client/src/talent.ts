@@ -126,6 +126,258 @@ export interface TalentHeadcountReport {
   avg_tenure_months?: number
 }
 
+// ---------- 考勤 / 假期 ----------
+
+export interface TalentAttendanceRecord {
+  id: TalentId
+  employee_id: TalentId
+  work_date: string
+  clock_in_at?: string
+  clock_out_at?: string
+  source?: string
+  att_status: string
+  work_minutes: number
+  late_minutes: number
+  early_minutes: number
+  exception_note?: string
+  version?: number
+}
+
+export interface TalentAttendanceSummary {
+  normal_days: number
+  late_days: number
+  early_days: number
+  late_early_days: number
+  missing_days: number
+  absent_days: number
+  work_minutes: number
+  late_minutes: number
+  early_minutes: number
+}
+
+export interface TalentLeaveType {
+  id: TalentId
+  type_code: string
+  type_name: string
+  annual_quota_days?: number
+  paid: boolean
+}
+
+export interface TalentLeaveBalance {
+  id: TalentId
+  leave_type_id: TalentId
+  type_code: string
+  type_name: string
+  year: number
+  total_days: number
+  used_days: number
+  available_days: number
+  version?: number
+}
+
+export interface TalentLeaveRequest {
+  id: TalentId
+  request_no: string
+  employee_id: TalentId
+  employee_name: string
+  leave_type_name: string
+  start_date: string
+  end_date: string
+  days: number
+  lr_status: string
+  approve_opinion?: string
+  created_at?: string
+}
+
+export interface TalentLeaveRequestResult {
+  id: TalentId
+  request_no: string
+  lr_status: string
+  process_instance_id?: string
+  used_days?: number
+}
+
+// ---------- 薪酬 ----------
+
+export interface TalentPayPeriod {
+  id: TalentId
+  period_code: string
+  start_date: string
+  end_date: string
+  pay_date?: string
+  period_status: string
+  employee_count: number
+  gross_total?: number
+  net_total?: number
+  version?: number
+}
+
+export interface TalentPayrollRecord {
+  id: TalentId
+  period_id: TalentId
+  employee_id: TalentId
+  employee_name: string
+  base_salary?: number
+  earning_total?: number
+  deduction_total?: number
+  gross_pay?: number
+  net_pay?: number
+  rec_status: string
+}
+
+// ---------- 绩效 ----------
+
+export interface TalentPerfCycle {
+  id: TalentId
+  cycle_code: string
+  cycle_name: string
+  cycle_type: string
+  start_date: string
+  end_date: string
+  cycle_status: string
+  evaluation_count: number
+  avg_score?: number
+  version?: number
+}
+
+export interface TalentPerfGoal {
+  id: TalentId
+  cycle_id: TalentId
+  employee_id: TalentId
+  employee_name: string
+  goal_name: string
+  goal_desc?: string
+  weight?: number
+  measure_type: string
+  target_value?: string
+  goal_status: string
+  approve_opinion?: string
+  created_at?: string
+}
+
+export interface TalentPerfEvaluation {
+  id: TalentId
+  cycle_id: TalentId
+  employee_id: TalentId
+  employee_name: string
+  evaluator_id?: TalentId
+  review_type: string
+  score?: number
+  grade?: string
+  eval_status: string
+  process_instance_id?: string
+  approve_opinion?: string
+  created_at?: string
+}
+
+export interface TalentPerfEvaluationSubmitResult {
+  id: TalentId
+  eval_status: string
+  cycle_id: TalentId
+  process_instance_id?: string
+  score?: number
+  grade?: string
+}
+
+export interface TalentPerfResult {
+  id: TalentId
+  cycle_id: TalentId
+  employee_id: TalentId
+  employee_name: string
+  final_score?: number
+  grade?: string
+  rank_no: number
+  bonus_coefficient?: number
+  result_status: string
+  published_at?: string
+}
+
+// ---------- 培训 ----------
+
+export interface TalentCourse {
+  id: TalentId
+  course_code: string
+  title: string
+  category?: string
+  mode?: string
+  duration_hours?: number
+  credit?: number
+  course_status: string
+}
+
+export interface TalentCourseCreateResult {
+  id: TalentId
+  course_status: string
+}
+
+export interface TalentCourseStatusResult {
+  id: TalentId
+  course_status: string
+}
+
+export interface TalentSessionCreateResult {
+  id: TalentId
+  session_status: string
+}
+
+export interface TalentEnrollmentResult {
+  id: TalentId
+  enroll_status: string
+  waitlist?: boolean
+  waitlist_no?: number
+}
+
+export interface TalentLearningProgressResult {
+  id: TalentId
+  progress: number
+  learn_status: string
+}
+
+export interface TalentCertificate {
+  id: TalentId
+  cert_no: string
+  cert_name: string
+  issue_date?: string
+  expire_date?: string
+}
+
+// ---------- 内部机会（活水） ----------
+
+export interface TalentMarketItem {
+  demand_id: TalentId
+  demand_no: string
+  org_name: string
+  position_name: string
+  skills?: unknown
+  headcount: number
+  expected_date?: string
+  match_score?: number
+}
+
+export interface TalentFlowApplyResult {
+  id: TalentId
+  flow_status: string
+}
+
+export interface TalentFlowApplication {
+  id: TalentId
+  demand_no: string
+  employee_name: string
+  apply_type: string
+  flow_status: string
+  created_at?: string
+}
+
+export interface TalentEmployeeSkill {
+  skill_id: TalentId
+  skill_name: string
+  self_level?: number
+  cert_level?: number
+  years?: number
+  last_used_at?: string
+  verified_by?: TalentId
+}
+
 export const talentApi = {
   orgs: {
     tree(params: { rootId?: TalentId; depth?: number; includeDisabled?: boolean } = {}) {
@@ -380,6 +632,218 @@ export const talentApi = {
   reports: {
     headcount(params: { orgId?: TalentId; includeSubOrg?: boolean } = {}) {
       return get<TalentHeadcountReport>('/api/talent/v1/reports/headcount', params)
+    },
+  },
+
+  attendance: {
+    clock(body: { clock_type?: string; source?: string } = {}) {
+      return post<TalentAttendanceRecord>('/api/talent/v1/attendance/clock', body)
+    },
+    records(params: {
+      employeeId?: TalentId
+      from?: string
+      to?: string
+      status?: string
+      page?: number
+      size?: number
+    } = {}) {
+      return get<PageResult<TalentAttendanceRecord>>('/api/talent/v1/attendance/records', params)
+    },
+    summary(params: { month?: string; employeeId?: TalentId } = {}) {
+      return get<TalentAttendanceSummary>('/api/talent/v1/attendance/summary', params)
+    },
+    my(params: { month?: string } = {}) {
+      return get<TalentAttendanceSummary>('/api/talent/v1/attendance/my', params)
+    },
+  },
+
+  leave: {
+    types() {
+      return get<TalentLeaveType[]>('/api/talent/v1/leave/types')
+    },
+    balances(params: { employeeId?: TalentId; year?: number } = {}) {
+      return get<TalentLeaveBalance[]>('/api/talent/v1/leave/balances', params)
+    },
+    myRequests(params: { status?: string; page?: number; size?: number } = {}) {
+      return get<PageResult<TalentLeaveRequest>>('/api/talent/v1/leave/requests/my', params)
+    },
+    create(body: {
+      employee_id?: TalentId
+      leave_type_id: TalentId
+      start_date: string
+      end_date: string
+      days?: number
+      reason?: string
+      idempotency_key?: string
+    }) {
+      return post<TalentLeaveRequestResult>('/api/talent/v1/leave/requests', body)
+    },
+    cancel(id: TalentId) {
+      return post<TalentLeaveRequestResult>(`/api/talent/v1/leave/requests/${id}/cancel`)
+    },
+  },
+
+  payroll: {
+    periods(params: { page?: number; size?: number } = {}) {
+      return get<PageResult<TalentPayPeriod>>('/api/talent/v1/payroll/periods', params)
+    },
+    records(periodId: TalentId, params: { page?: number; size?: number } = {}) {
+      return get<PageResult<TalentPayrollRecord>>(`/api/talent/v1/payroll/periods/${periodId}/records`, params)
+    },
+  },
+
+  performance: {
+    cycles(params: { page?: number; size?: number } = {}) {
+      return get<PageResult<TalentPerfCycle>>('/api/talent/v1/performance/cycles', params)
+    },
+    createCycle(body: {
+      cycle_code: string
+      cycle_name: string
+      cycle_type?: string
+      start_date: string
+      end_date: string
+    }) {
+      return post<TalentPerfCycle>('/api/talent/v1/performance/cycles', body)
+    },
+    openGoals(id: TalentId) {
+      return post<TalentPerfCycle>(`/api/talent/v1/performance/cycles/${id}/open-goals`)
+    },
+    startEvaluation(id: TalentId) {
+      return post<TalentPerfCycle>(`/api/talent/v1/performance/cycles/${id}/start-evaluation`)
+    },
+    closeCycle(id: TalentId) {
+      return post<TalentPerfCycle>(`/api/talent/v1/performance/cycles/${id}/close`)
+    },
+    goals(cycleId: TalentId, params: { page?: number; size?: number } = {}) {
+      return get<PageResult<TalentPerfGoal>>(`/api/talent/v1/performance/cycles/${cycleId}/goals`, params)
+    },
+    createGoal(body: {
+      cycle_id: TalentId
+      employee_id: TalentId
+      goal_name: string
+      goal_desc?: string
+      weight?: number
+      measure_type?: string
+      target_value?: string
+    }) {
+      return post<TalentPerfGoal>('/api/talent/v1/performance/goals', body)
+    },
+    submitGoal(id: TalentId) {
+      return post<TalentPerfGoal>(`/api/talent/v1/performance/goals/${id}/submit`)
+    },
+    approveGoal(id: TalentId, body: { approved: boolean; opinion?: string }) {
+      return post<TalentPerfGoal>(`/api/talent/v1/performance/goals/${id}/approval`, body)
+    },
+    evaluations(cycleId: TalentId, params: { page?: number; size?: number } = {}) {
+      return get<PageResult<TalentPerfEvaluation>>(
+        `/api/talent/v1/performance/cycles/${cycleId}/evaluations`,
+        params,
+      )
+    },
+    createEvaluation(body: {
+      cycle_id: TalentId
+      employee_id: TalentId
+      evaluator_id?: TalentId
+      review_type?: string
+      score: number
+      summary?: string
+    }) {
+      return post<TalentPerfEvaluation>('/api/talent/v1/performance/evaluations', body)
+    },
+    submitEvaluation(id: TalentId) {
+      return post<TalentPerfEvaluationSubmitResult>(`/api/talent/v1/performance/evaluations/${id}/submit`)
+    },
+    approveEvaluation(id: TalentId, body: { approved: boolean; opinion?: string }) {
+      return post<TalentPerfEvaluation>(`/api/talent/v1/performance/evaluations/${id}/approval`, body)
+    },
+    results(cycleId: TalentId, params: { page?: number; size?: number } = {}) {
+      return get<PageResult<TalentPerfResult>>(`/api/talent/v1/performance/cycles/${cycleId}/results`, params)
+    },
+    calculateResults(cycleId: TalentId, params: { page?: number; size?: number } = {}) {
+      return post<PageResult<TalentPerfResult>>(
+        `/api/talent/v1/performance/cycles/${cycleId}/results/calculate`,
+        params,
+      )
+    },
+    publishResults(cycleId: TalentId, params: { page?: number; size?: number } = {}) {
+      return post<PageResult<TalentPerfResult>>(
+        `/api/talent/v1/performance/cycles/${cycleId}/results/publish`,
+        params,
+      )
+    },
+  },
+
+  training: {
+    courses(params: {
+      category?: string
+      mode?: string
+      courseStatus?: string
+      keyword?: string
+      page?: number
+      size?: number
+    } = {}) {
+      return get<PageResult<TalentCourse>>('/api/talent/v1/training/courses', params)
+    },
+    createCourse(body: {
+      course_code: string
+      title: string
+      category?: string
+      description?: string
+      lecturer?: string
+      mode: string
+      duration_hours?: number
+      credit?: number
+      target_audience?: unknown
+    }) {
+      return post<TalentCourseCreateResult>('/api/talent/v1/training/courses', body)
+    },
+    publishCourse(id: TalentId) {
+      return post<TalentCourseStatusResult>(`/api/talent/v1/training/courses/${id}/publish`)
+    },
+    offlineCourse(id: TalentId) {
+      return post<TalentCourseStatusResult>(`/api/talent/v1/training/courses/${id}/offline`)
+    },
+    createSession(courseId: TalentId, body: {
+      start_at: string
+      end_at: string
+      capacity: number
+      enroll_deadline?: string
+      venue?: string
+    }) {
+      return post<TalentSessionCreateResult>(`/api/talent/v1/training/courses/${courseId}/sessions`, body)
+    },
+    enroll(body: { course_id: TalentId; session_id: TalentId; employee_id?: TalentId }) {
+      return post<TalentEnrollmentResult>('/api/talent/v1/training/enrollments', body)
+    },
+    reportProgress(id: TalentId, body: { progress: number; study_seconds?: number; position?: string }) {
+      return post<TalentLearningProgressResult>(`/api/talent/v1/training/learning/${id}/progress`, body)
+    },
+    certificates(params: { employeeId?: TalentId } = {}) {
+      return get<TalentCertificate[]>('/api/talent/v1/training/certificates', params)
+    },
+  },
+
+  flow: {
+    market(params: { keyword?: string; orgId?: TalentId; skills?: string; page?: number; size?: number } = {}) {
+      return get<PageResult<TalentMarketItem>>('/api/talent/v1/flow/market', params)
+    },
+    apply(body: { demand_id: TalentId; apply_type?: string; reason?: string; employee_id?: TalentId }) {
+      return post<TalentFlowApplyResult>('/api/talent/v1/flow/applications', body)
+    },
+    applications(params: {
+      employeeId?: TalentId
+      demandId?: TalentId
+      flowStatus?: string
+      page?: number
+      size?: number
+    } = {}) {
+      return get<PageResult<TalentFlowApplication>>('/api/talent/v1/flow/applications', params)
+    },
+  },
+
+  skills: {
+    employeeSkills(id: TalentId) {
+      return get<TalentEmployeeSkill[]>(`/api/talent/v1/skills/employees/${id}`)
     },
   },
 }
