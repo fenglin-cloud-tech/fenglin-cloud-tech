@@ -9,58 +9,87 @@ import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
 import com.nimbusds.jose.crypto.RSASSASigner;
 import com.nimbusds.jose.crypto.RSASSAVerifier;
+import com.nimbusds.jose.jwk.JWK;
 import com.nimbusds.jose.jwk.JWKSet;
-import com.nimbusds.jose.jwk.KeyUse;
 import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.security.KeyPair;
-import java.security.KeyPairGenerator;
-import java.security.NoSuchAlgorithmException;
-import java.security.interfaces.RSAPrivateKey;
-import java.security.interfaces.RSAPublicKey;
 import java.text.ParseException;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
  * RS256 签名与 JWKS 发布。
- * P1 本地开发使用启动时生成的 RSA 密钥；生产接入 KMS/密钥文件（P1 待办）。
+ *
+ * <p>支持同时挂多把公钥：活跃 kid 负责签发，其余 kid 在兼容期内继续验签；
+ * JWKS 发布全部公钥，网关/其他服务按 kid 取键。密钥来源由 {@link JwtKeySource} 决定。
  */
 @Component
 public class JwtKeyProvider {
 
-    private final RSAKey rsaKey;
+    private static final Logger log = LoggerFactory.getLogger(JwtKeyProvider.class);
 
-    public JwtKeyProvider(AuthProperties properties) {
-        try {
-            KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
-            generator.initialize(2048);
-            KeyPair keyPair = generator.generateKeyPair();
-            this.rsaKey = new RSAKey.Builder((RSAPublicKey) keyPair.getPublic())
-                    .privateKey((RSAPrivateKey) keyPair.getPrivate())
-                    .keyID(properties.getKeyId())
-                    .keyUse(KeyUse.SIGNATURE)
-                    .algorithm(JWSAlgorithm.RS256)
-                    .build();
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("无法初始化 RSA 签名密钥", e);
+    private final List<RSAKey> keys;
+    private final Map<String, RSAKey> keysByKid;
+    private final RSAKey activeKey;
+
+    public JwtKeyProvider(JwtKeySource keySource, AuthProperties properties) {
+        JWKSet set = keySource.load();
+        List<RSAKey> loaded = new ArrayList<>();
+        for (JWK jwk : set.getKeys()) {
+            if (jwk instanceof RSAKey rsa) {
+                loaded.add(rsa);
+            }
         }
+        if (loaded.isEmpty()) {
+            throw new IllegalStateException("未配置任何 RSA 签名密钥");
+        }
+        String activeKid = properties.getKey() != null && notBlank(properties.getKey().getActiveKid())
+                ? properties.getKey().getActiveKid()
+                : properties.getKeyId();
+        RSAKey chosen = loaded.stream()
+                .filter(k -> activeKid.equals(k.getKeyID()))
+                .findFirst()
+                .orElseGet(() -> loaded.stream()
+                        .filter(RSAKey::isPrivate)
+                        .findFirst()
+                        .orElseThrow(() -> new IllegalStateException("未找到可用私钥，activeKid=" + activeKid)));
+        if (!chosen.isPrivate()) {
+            throw new IllegalStateException("活跃密钥必须是私钥，kid=" + chosen.getKeyID());
+        }
+        if (!activeKid.equals(chosen.getKeyID())) {
+            log.warn("activeKid={} 未命中，回退到私钥 kid={}", activeKid, chosen.getKeyID());
+        }
+        this.activeKey = chosen;
+        this.keys = List.copyOf(loaded);
+        Map<String, RSAKey> indexed = new HashMap<>();
+        for (RSAKey key : loaded) {
+            if (notBlank(key.getKeyID())) {
+                indexed.put(key.getKeyID(), key);
+            }
+        }
+        this.keysByKid = Map.copyOf(indexed);
+        log.info("JWT 签名密钥就绪：activeKid={}，已挂载 kids={}", activeKey.getKeyID(), keysByKid.keySet());
     }
 
     public String keyId() {
-        return rsaKey.getKeyID();
+        return activeKey.getKeyID();
     }
 
     public String sign(JWTClaimsSet claims) {
         try {
             SignedJWT jwt = new SignedJWT(new JWSHeader.Builder(JWSAlgorithm.RS256)
-                    .keyID(rsaKey.getKeyID())
+                    .keyID(activeKey.getKeyID())
                     .type(JOSEObjectType.JWT)
                     .build(), claims);
-            jwt.sign(new RSASSASigner(rsaKey));
+            jwt.sign(new RSASSASigner(activeKey));
             return jwt.serialize();
         } catch (JOSEException e) {
             throw new IllegalStateException("JWT 签名失败", e);
@@ -83,16 +112,34 @@ public class JwtKeyProvider {
     public JWTClaimsSet verifySignature(String token) {
         try {
             SignedJWT jwt = SignedJWT.parse(token);
-            if (!jwt.verify(new RSASSAVerifier(rsaKey.toRSAPublicKey()))) {
+            String kid = jwt.getHeader().getKeyID();
+            RSAKey key = kid == null ? null : keysByKid.get(kid);
+            boolean verified = key != null
+                    ? verifyWith(jwt, key)
+                    : keys.stream().anyMatch(candidate -> verifyWith(jwt, candidate));
+            if (!verified) {
                 throw new BizException(CommonErrorCode.UNAUTHORIZED, "令牌签名不合法");
             }
             return jwt.getJWTClaimsSet();
-        } catch (ParseException | JOSEException e) {
+        } catch (ParseException e) {
             throw new BizException(CommonErrorCode.UNAUTHORIZED, "令牌无法解析");
         }
     }
 
     public Map<String, Object> jwks() {
-        return new JWKSet(rsaKey.toPublicJWK()).toJSONObject();
+        List<JWK> publicKeys = keys.stream().map(key -> (JWK) key.toPublicJWK()).toList();
+        return new JWKSet(publicKeys).toJSONObject();
+    }
+
+    private boolean verifyWith(SignedJWT jwt, RSAKey key) {
+        try {
+            return jwt.verify(new RSASSAVerifier(key.toRSAPublicKey()));
+        } catch (JOSEException e) {
+            return false;
+        }
+    }
+
+    private boolean notBlank(String value) {
+        return value != null && !value.isBlank();
     }
 }

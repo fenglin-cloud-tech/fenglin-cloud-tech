@@ -29,6 +29,14 @@ fenglin:
   auth:
     issuer: ${FENGLIN_AUTH_ISSUER:https://hub.fenglincloud.com}
     key-id: ${FENGLIN_AUTH_KEY_ID:hub-dev-1}
+    # PLAT-15：密钥来源可插拔。生产优先用 Secret 注入 JWK/PEM；开发态默认落本地密钥文件，重启不掉线
+    key:
+      provider: ${FENGLIN_AUTH_KEY_PROVIDER:default}
+      source: ${FENGLIN_AUTH_KEY_SOURCE:auto}
+      file: ${FENGLIN_AUTH_KEY_FILE:.keys/jwt-signing-key.json}
+      active-kid: ${FENGLIN_AUTH_ACTIVE_KID:${FENGLIN_AUTH_KEY_ID:hub-dev-1}}
+      jwk-set: ${FENGLIN_AUTH_JWK_SET:}
+      private-key-pem: ${FENGLIN_AUTH_PRIVATE_KEY_PEM:}
     access-token-ttl: PT2H
     refresh-token-ttl: P7D
     max-fail-count: 5

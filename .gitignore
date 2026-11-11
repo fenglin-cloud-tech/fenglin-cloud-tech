@@ -50,6 +50,8 @@ pnpm-debug.log*
 *.log
 
 # ---------- 本地配置 / 密钥 ----------
+# PLAT-15：开发态 JWT 签名密钥落盘目录，私钥不得入库
+.keys/
 .env
 .env.*
 *.local

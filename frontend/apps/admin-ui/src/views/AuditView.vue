@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { PageHeader, GapNotice } from '@fenglin/ui-admin'
 import { toIsoOrUndefined } from '@fenglin/shared'
@@ -38,6 +38,26 @@ const chainForm = reactive({ tenant_id: undefined as number | undefined, from: '
 const chainLoading = ref(false)
 const chainError = ref('')
 const chainResult = ref<ChainVerifyResult | null>(null)
+
+/** 三态结果转展示文案：UNVERIFIABLE 明确说明是基线前的不可验证区间，并非被篡改。 */
+const chainView = computed(() => {
+  const r = chainResult.value
+  if (!r) return null
+  const base = `租户 ${r.tenant_id} · 校验 ${r.checked} 条 / 审计日志 ${r.audit_log_count} 条`
+  if (r.status === 'UNVERIFIABLE') {
+    return {
+      icon: 'warning' as const,
+      title: '存在不可验证区间（非篡改）',
+      subTitle: `${base} · 基线之前存在不可验证区间，非篡改：基线前 ${r.unchained_count} 条审计日志未入链（历史基线重建所致），基线 log_id=${r.baseline_log_id} 起链路可验证`,
+    }
+  }
+  if (r.status === 'FAIL') {
+    const brokenSeq = r.broken_seq ? ` · 断点序号 ${r.broken_seq}` : ''
+    const gap = r.gap_from_log_id ? ` · 缺口 ${r.gap_from_log_id} → ${r.gap_to_log_id}` : ''
+    return { icon: 'error' as const, title: '哈希链校验失败', subTitle: `${base}${brokenSeq}${gap}` }
+  }
+  return { icon: 'success' as const, title: '哈希链完整', subTitle: base }
+})
 
 const exportForm = reactive({ from: '', to: '', event_type: '', format: 'CSV' })
 const exportLoading = ref(false)
@@ -214,6 +234,7 @@ onMounted(loadLogs)
     <GapNotice
       :items="[
         '审计哈希链按“租户 + 月分区”计算；计算失败会阻断审计落库并返回 5xx（链完整性优先）。',
+        '哈希链校验为三态：UNVERIFIABLE 表示仅基线之前存在不可验证区间（历史基线重建所致），非篡改；基线之后仍逐条复算。',
         '导出仅支持 CSV，event_type 缺省或 ALL 表示全量；导出任务下载为鉴权下载，前端以 Blob 方式拉取。',
         '告警规则为全量替换（items 即最终规则集），请求体不含 enabled 字段，后端返回含 enabled。',
         'A-21 告警通知渠道与接收角色依赖消息中台配置，审计服务仅保存规则。',
@@ -275,10 +296,10 @@ onMounted(loadLogs)
           </el-form>
           <el-alert v-if="chainError" type="error" :closable="false" show-icon :title="chainError" style="margin-bottom: 12px" />
           <el-result
-            v-if="chainResult"
-            :icon="chainResult.valid ? 'success' : 'error'"
-            :title="chainResult.valid ? '哈希链完整' : '哈希链校验失败'"
-            :sub-title="`租户 ${chainResult.tenant_id} · 校验 ${chainResult.checked} 条${chainResult.broken_seq ? ` · 断点序号 ${chainResult.broken_seq}` : ''}`"
+            v-if="chainView"
+            :icon="chainView.icon"
+            :title="chainView.title"
+            :sub-title="chainView.subTitle"
           />
           <el-empty v-else description="选择范围后开始校验" />
         </el-tab-pane>

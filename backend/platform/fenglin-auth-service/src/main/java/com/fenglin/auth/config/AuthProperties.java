@@ -3,13 +3,15 @@ package com.fenglin.auth.config;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 
 @ConfigurationProperties(prefix = "fenglin.auth")
 public class AuthProperties {
 
     /** OIDC issuer，需与网关/前端配置一致 */
     private String issuer = "https://hub.fenglincloud.com";
-    /** JWKS kid；P1 本地开发使用启动时生成的 RSA 密钥，生产由 KMS/密钥文件提供 */
+    /** 兼容旧配置的默认 kid，未显式配置 key.active-kid 时使用 */
     private String keyId = "hub-dev-1";
     private Duration accessTokenTtl = Duration.ofHours(2);
     private Duration refreshTokenTtl = Duration.ofDays(7);
@@ -24,9 +26,15 @@ public class AuthProperties {
     private Duration refreshGrace = Duration.ofSeconds(10);
     /** PLAT-10 灰度开关：true 时 access token 继续携带 permissions（回滚路径），默认 false 走网关 resolver */
     private final Jwt jwt = new Jwt();
+    /** PLAT-15 签名密钥来源与轮换配置 */
+    private final Key key = new Key();
 
     public Jwt getJwt() {
         return jwt;
+    }
+
+    public Key getKey() {
+        return key;
     }
 
     public String getIssuer() {
@@ -118,6 +126,79 @@ public class AuthProperties {
 
         public void setIncludePermissions(boolean includePermissions) {
             this.includePermissions = includePermissions;
+        }
+    }
+
+    /**
+     * PLAT-15：签名密钥来源与轮换。
+     *
+     * <p>{@code provider} 决定用哪个 JwtKeySource 实现（默认 default）；
+     * {@code source} 决定默认实现从哪读：auto / jwk / pem / file。
+     * {@code activeKid} 指定签发使用的 kid，其余 kid 仅用于验签。
+     */
+    public static class Key {
+        private String provider = "default";
+        private String source = "auto";
+        private String file = ".keys/jwt-signing-key.json";
+        private String activeKid;
+        private String jwkSet = "";
+        private String privateKeyPem = "";
+        private List<String> publicKeysPem = new ArrayList<>();
+
+        public String getProvider() {
+            return provider;
+        }
+
+        public void setProvider(String provider) {
+            this.provider = provider;
+        }
+
+        public String getSource() {
+            return source;
+        }
+
+        public void setSource(String source) {
+            this.source = source;
+        }
+
+        public String getFile() {
+            return file;
+        }
+
+        public void setFile(String file) {
+            this.file = file;
+        }
+
+        public String getActiveKid() {
+            return activeKid;
+        }
+
+        public void setActiveKid(String activeKid) {
+            this.activeKid = activeKid;
+        }
+
+        public String getJwkSet() {
+            return jwkSet;
+        }
+
+        public void setJwkSet(String jwkSet) {
+            this.jwkSet = jwkSet;
+        }
+
+        public String getPrivateKeyPem() {
+            return privateKeyPem;
+        }
+
+        public void setPrivateKeyPem(String privateKeyPem) {
+            this.privateKeyPem = privateKeyPem;
+        }
+
+        public List<String> getPublicKeysPem() {
+            return publicKeysPem;
+        }
+
+        public void setPublicKeysPem(List<String> publicKeysPem) {
+            this.publicKeysPem = publicKeysPem;
         }
     }
 }

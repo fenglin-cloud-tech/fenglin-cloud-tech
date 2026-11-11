@@ -2,6 +2,7 @@ import type { TokenPayload, UserInfo } from '@fenglin/shared'
 
 const ACCESS_KEY = 'fl.access_token'
 const REFRESH_KEY = 'fl.refresh_token'
+const ID_KEY = 'fl.id_token'
 const USER_KEY = 'fl.user_info'
 const TENANT_KEY = 'fl.selected_tenant'
 
@@ -13,14 +14,21 @@ export function getRefreshToken(): string | null {
   return localStorage.getItem(REFRESH_KEY)
 }
 
+export function getIdToken(): string | null {
+  return localStorage.getItem(ID_KEY)
+}
+
 export function saveTokens(payload: TokenPayload): void {
   localStorage.setItem(ACCESS_KEY, payload.access_token)
   if (payload.refresh_token) localStorage.setItem(REFRESH_KEY, payload.refresh_token)
+  // 服务端登出需要 id_token_hint，否则会话与刷新令牌不会被吊销
+  if (payload.id_token) localStorage.setItem(ID_KEY, payload.id_token)
 }
 
 export function clearTokens(): void {
   localStorage.removeItem(ACCESS_KEY)
   localStorage.removeItem(REFRESH_KEY)
+  localStorage.removeItem(ID_KEY)
   localStorage.removeItem(USER_KEY)
 }
 

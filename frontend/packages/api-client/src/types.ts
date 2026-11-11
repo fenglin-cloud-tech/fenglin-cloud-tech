@@ -319,9 +319,16 @@ export interface AlertRuleItem {
 export interface ChainVerifyResult {
   tenant_id: string
   checked: number
+  audit_log_count: number
+  unchained_count: number
   valid: boolean
+  /** PASS=完整；UNVERIFIABLE=仅基线前存在不可验证区间（非篡改）；FAIL=基线后缺口/断链/哈希不符 */
+  status: 'PASS' | 'UNVERIFIABLE' | 'FAIL'
   broken_seq?: number
   broken_log_id?: string
+  gap_from_log_id?: string
+  gap_to_log_id?: string
+  baseline_log_id?: string
   message?: string
 }
 

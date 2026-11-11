@@ -109,8 +109,11 @@ export const authApi = {
   userinfo() {
     return get<UserInfo>('/api/hub/v1/sso/userinfo')
   },
-  logout() {
-    return post<unknown>('/api/hub/v1/sso/logout', { all_sessions: false }).catch(() => undefined)
+  logout(idTokenHint?: string) {
+    return post<unknown>('/api/hub/v1/sso/logout', {
+      id_token_hint: idTokenHint,
+      all_sessions: false,
+    }).catch(() => undefined)
   },
 }
 

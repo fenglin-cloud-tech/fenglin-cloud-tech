@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import type { TokenPayload, UserInfo } from '@fenglin/shared'
-import { clearTokens, getAccessToken, getCachedUserInfo, hasPermission, saveTokens, saveUserInfo } from '@fenglin/auth'
+import { clearTokens, getAccessToken, getCachedUserInfo, getIdToken, hasPermission, saveTokens, saveUserInfo } from '@fenglin/auth'
 import { authApi } from '@fenglin/api-client'
 
 export const useAuthStore = defineStore('dev-auth', {
@@ -32,7 +32,7 @@ export const useAuthStore = defineStore('dev-auth', {
       this.user = null
     },
     async logout() {
-      await authApi.logout()
+      await authApi.logout(getIdToken() ?? undefined)
       this.reset()
     },
   },
