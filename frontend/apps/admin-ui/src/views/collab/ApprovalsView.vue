@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { GapNotice, PageHeader } from '@fenglin/ui-admin'
+import { ApprovalFormFields, GapNotice, PageHeader } from '@fenglin/ui-admin'
 import {
   collabApi,
   type CollabApprovalInstance,
@@ -14,8 +14,6 @@ const activeTab = ref('tasks')
 
 const gapItems = [
   '我的待办/我的申请后端返回 Map，字段未强类型化，页面按键动态渲染。',
-  '表单没有动态表单引擎，form_data 以 JSON 文本提交（结构由模板 form_schema 约定）。',
-  '审批模板只有查询和新建，没有编辑/停用/删除接口。',
   '没有已办/抄送列表接口。',
 ]
 
@@ -90,12 +88,33 @@ const templateForm = reactive({
   dept_scope: '',
 })
 
+const templateEditingId = ref('')
+const templateDialogTitle = computed(() => (templateEditingId.value ? '编辑审批模板' : '新建审批模板'))
+
 const submitVisible = ref(false)
 const submitSaving = ref(false)
 const submitError = ref('')
 const submitResult = ref('')
 const submitForm = reactive({ template_id: '', approver_id: '', form_data: '{}' })
 const idempotencyKey = ref('')
+const submitValues = ref<Record<string, unknown>>({})
+const submitFieldsRef = ref<{ validate: () => string | null } | null>(null)
+const submitTemplates = computed(() => templateRows.value.filter((item) => item.enabled))
+const selectedTemplate = computed(() =>
+  templateRows.value.find((item) => String(item.template_id) === submitForm.template_id),
+)
+const schemaFields = computed<unknown[]>(() => {
+  const fields = selectedTemplate.value?.form_schema?.fields
+  return Array.isArray(fields) ? fields : []
+})
+
+// 切换模板时清空已填写的动态表单，避免上一模板的键值混入
+watch(
+  () => submitForm.template_id,
+  () => {
+    submitValues.value = {}
+  },
+)
 
 function genIdempotencyKey(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
@@ -132,9 +151,15 @@ async function loadTemplates() {
   templateLoading.value = true
   templateError.value = ''
   try {
-    templateRows.value = await collabApi.approvals.templates()
-  } catch (err) {
-    templateError.value = describeError(err)
+    // 管理端列表含停用模板；无 manage 权限时回退到发起侧可见的启用模板
+    templateRows.value = await collabApi.admin.listApprovalTemplates()
+  } catch {
+    try {
+      templateRows.value = await collabApi.approvals.templates()
+    } catch (err) {
+      templateRows.value = []
+      templateError.value = describeError(err)
+    }
   } finally {
     templateLoading.value = false
   }
@@ -253,23 +278,57 @@ async function cancelInstance(row: CollabApprovalRow) {
   }
 }
 
-function openTemplate() {
+function openTemplate(row?: CollabApprovalTemplate) {
+  templateEditingId.value = row ? String(row.template_id) : ''
   Object.assign(templateForm, {
-    code: '',
-    name: '',
-    category: '',
-    process_key: '',
-    enabled: true,
-    form_schema: '{}',
+    code: row?.code ?? '',
+    name: row?.name ?? '',
+    category: row?.category ?? '',
+    process_key: row?.process_key ?? '',
+    enabled: row ? row.enabled : true,
+    form_schema: row?.form_schema ? JSON.stringify(row.form_schema, null, 2) : '{}',
     dept_scope: '',
   })
   templateFormError.value = ''
   templateVisible.value = true
 }
 
+async function toggleTemplateEnabled(row: CollabApprovalTemplate) {
+  try {
+    await collabApi.admin.setApprovalTemplateEnabled(row.template_id, !row.enabled)
+    ElMessage.success(row.enabled ? '模板已停用' : '模板已启用')
+    await loadTemplates()
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  }
+}
+
+async function removeTemplate(row: CollabApprovalTemplate) {
+  try {
+    await ElMessageBox.confirm(`确认删除审批模板「${row.name}」？删除后不能再用于发起审批。`, '删除模板', {
+      type: 'warning',
+      confirmButtonText: '确认删除',
+      cancelButtonText: '返回',
+    })
+  } catch {
+    return
+  }
+  try {
+    await collabApi.admin.deleteApprovalTemplate(row.template_id)
+    ElMessage.success('模板已删除')
+    await loadTemplates()
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  }
+}
+
 async function submitTemplate() {
-  if (!templateForm.code.trim() || !templateForm.name.trim()) {
-    templateFormError.value = '模板编码与名称为必填项'
+  if (!templateForm.name.trim()) {
+    templateFormError.value = '模板名称为必填项'
+    return
+  }
+  if (!templateEditingId.value && !templateForm.code.trim()) {
+    templateFormError.value = '模板编码为必填项'
     return
   }
   let formSchema: Record<string, unknown> | undefined
@@ -303,16 +362,21 @@ async function submitTemplate() {
   templateSaving.value = true
   templateFormError.value = ''
   try {
-    await collabApi.admin.createApprovalTemplate({
-      code: templateForm.code.trim(),
+    const payload = {
       name: templateForm.name.trim(),
       category: templateForm.category.trim() || undefined,
       form_schema: formSchema,
       process_key: templateForm.process_key.trim() || undefined,
       enabled: templateForm.enabled,
       dept_scope: deptScope,
-    })
-    ElMessage.success('模板已创建')
+    }
+    if (templateEditingId.value) {
+      await collabApi.admin.updateApprovalTemplate(templateEditingId.value, payload)
+      ElMessage.success('模板已更新')
+    } else {
+      await collabApi.admin.createApprovalTemplate({ ...payload, code: templateForm.code.trim() })
+      ElMessage.success('模板已创建')
+    }
     templateVisible.value = false
     await loadTemplates()
   } catch (err) {
@@ -324,6 +388,8 @@ async function submitTemplate() {
 
 function openSubmit() {
   Object.assign(submitForm, { template_id: '', approver_id: '', form_data: '{}' })
+  submitValues.value = {}
+  submitFieldsRef.value = null
   idempotencyKey.value = genIdempotencyKey()
   submitResult.value = ''
   submitError.value = ''
@@ -336,18 +402,27 @@ async function submitApproval() {
     return
   }
   let formData: Record<string, unknown> | undefined
-  const formText = submitForm.form_data.trim()
-  if (formText) {
-    try {
-      const parsed: unknown = JSON.parse(formText)
-      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-        submitError.value = 'form_data 必须是 JSON 对象'
+  if (schemaFields.value.length > 0) {
+    const invalid = submitFieldsRef.value?.validate()
+    if (invalid) {
+      submitError.value = invalid
+      return
+    }
+    formData = { ...submitValues.value }
+  } else {
+    const formText = submitForm.form_data.trim()
+    if (formText) {
+      try {
+        const parsed: unknown = JSON.parse(formText)
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+          submitError.value = 'form_data 必须是 JSON 对象'
+          return
+        }
+        formData = parsed as Record<string, unknown>
+      } catch {
+        submitError.value = 'form_data 不是合法的 JSON'
         return
       }
-      formData = parsed as Record<string, unknown>
-    } catch {
-      submitError.value = 'form_data 不是合法的 JSON'
-      return
     }
   }
   let approverId: number | undefined
@@ -386,7 +461,7 @@ onMounted(() => {
 
 <template>
   <div>
-    <PageHeader module="云协 Collab" title="审批中心" description="待办处理、我的申请与审批模板；表单以 JSON 文本提交。">
+    <PageHeader module="云协 Collab" title="审批中心" description="待办处理、我的申请与审批模板；发起审批按模板 form_schema 渲染动态表单。">
       <template #actions>
         <el-button v-perm="'biz:collab:approval:submit'" type="primary" @click="openSubmit">发起审批</el-button>
         <el-button :loading="taskLoading || instLoading || templateLoading" @click="refreshActive">刷新</el-button>
@@ -483,6 +558,20 @@ onMounted(() => {
               <el-tag :type="row.enabled ? 'success' : 'info'" size="small">{{ row.enabled ? '是' : '否' }}</el-tag>
             </template>
           </el-table-column>
+          <el-table-column label="操作" width="220" fixed="right">
+            <template #default="{ row }">
+              <el-button v-perm="'tenant:collab:approval:template:manage'" link type="primary" @click="openTemplate(row)">编辑</el-button>
+              <el-button
+                v-perm="'tenant:collab:approval:template:manage'"
+                link
+                :type="row.enabled ? 'warning' : 'success'"
+                @click="toggleTemplateEnabled(row)"
+              >
+                {{ row.enabled ? '停用' : '启用' }}
+              </el-button>
+              <el-button v-perm="'tenant:collab:approval:template:manage'" link type="danger" @click="removeTemplate(row)">删除</el-button>
+            </template>
+          </el-table-column>
         </el-table>
       </el-tab-pane>
     </el-tabs>
@@ -557,11 +646,11 @@ onMounted(() => {
       </template>
     </el-dialog>
 
-    <el-dialog v-model="templateVisible" title="新建审批模板" width="560px">
+    <el-dialog v-model="templateVisible" :title="templateDialogTitle" width="560px">
       <el-alert v-if="templateFormError" type="error" :closable="false" show-icon :title="templateFormError" style="margin-bottom: 12px" />
       <el-form label-width="100px">
-        <el-form-item label="模板编码" required>
-          <el-input v-model="templateForm.code" maxlength="64" />
+        <el-form-item label="模板编码" :required="!templateEditingId">
+          <el-input v-model="templateForm.code" maxlength="64" :disabled="!!templateEditingId" />
         </el-form-item>
         <el-form-item label="模板名称" required>
           <el-input v-model="templateForm.name" maxlength="128" />
@@ -576,7 +665,13 @@ onMounted(() => {
           <el-switch v-model="templateForm.enabled" />
         </el-form-item>
         <el-form-item label="表单 Schema">
-          <el-input v-model="templateForm.form_schema" type="textarea" :rows="4" placeholder="JSON 对象" />
+          <el-input
+            v-model="templateForm.form_schema"
+            type="textarea"
+            :rows="6"
+            placeholder='{"fields":[{"key":"amount","label":"金额","type":"number","required":true},{"key":"reason","label":"事由","type":"textarea","required":true}]}'
+          />
+          <div class="schema-hint">字段类型支持 text / textarea / number / date / select（options 为选项数组）</div>
         </el-form-item>
         <el-form-item label="部门范围">
           <el-input v-model="templateForm.dept_scope" placeholder="逗号分隔的数字，如 1,2,3" />
@@ -609,18 +704,25 @@ onMounted(() => {
         <el-form-item label="审批模板" required>
           <el-select v-model="submitForm.template_id" filterable placeholder="选择模板" style="width: 100%">
             <el-option
-              v-for="item in templateRows"
+              v-for="item in submitTemplates"
               :key="item.template_id"
               :label="`${item.name}（${item.code}）`"
               :value="item.template_id"
             />
           </el-select>
+          <div v-if="!submitTemplates.length" class="schema-hint">当前没有启用的审批模板，请先在「模板」页启用</div>
         </el-form-item>
         <el-form-item label="指定审批人">
           <el-input v-model="submitForm.approver_id" placeholder="选填，数字 ID" />
         </el-form-item>
-        <el-form-item label="表单数据">
-          <el-input v-model="submitForm.form_data" type="textarea" :rows="5" placeholder="JSON 对象，结构由模板 form_schema 约定" />
+        <ApprovalFormFields
+          v-if="schemaFields.length > 0"
+          ref="submitFieldsRef"
+          v-model="submitValues"
+          :schema="selectedTemplate?.form_schema"
+        />
+        <el-form-item v-else label="表单数据">
+          <el-input v-model="submitForm.form_data" type="textarea" :rows="5" placeholder="该模板未定义 form_schema.fields，按 JSON 对象提交" />
         </el-form-item>
         <el-form-item label="幂等键">
           <el-input v-model="idempotencyKey" readonly />
@@ -645,5 +747,12 @@ onMounted(() => {
 .block-title {
   margin: 20px 0 10px;
   font-size: 14px;
+}
+
+.schema-hint {
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--el-text-color-secondary);
 }
 </style>

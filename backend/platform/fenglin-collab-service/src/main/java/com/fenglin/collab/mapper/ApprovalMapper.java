@@ -39,7 +39,7 @@ public interface ApprovalMapper {
 
     @Select("""
             SELECT CAST(id AS varchar) AS "templateId", code AS "code", name AS "name", category AS "category",
-                   process_key AS "processKey", enabled AS "enabled"
+                   CAST(form_schema AS varchar) AS "formSchema", process_key AS "processKey", enabled AS "enabled"
             FROM collab_approval_template
             WHERE tenant_id = #{tenantId} AND code = #{code} AND deleted = 0
             """)
@@ -47,12 +47,61 @@ public interface ApprovalMapper {
 
     @Select("""
             SELECT CAST(id AS varchar) AS "templateId", code AS "code", name AS "name", category AS "category",
-                   process_key AS "processKey", enabled AS "enabled"
+                   CAST(form_schema AS varchar) AS "formSchema", process_key AS "processKey", enabled AS "enabled"
             FROM collab_approval_template
             WHERE tenant_id = #{tenantId} AND deleted = 0 AND enabled = 1
             ORDER BY category, code
             """)
     List<Map<String, Object>> listTemplates(@Param("tenantId") long tenantId);
+
+    /** COL-01b：管理端模板列表，含已停用（已删除不返回）。 */
+    @Select("""
+            SELECT CAST(id AS varchar) AS "templateId", code AS "code", name AS "name", category AS "category",
+                   CAST(form_schema AS varchar) AS "formSchema", process_key AS "processKey", enabled AS "enabled"
+            FROM collab_approval_template
+            WHERE tenant_id = #{tenantId} AND deleted = 0
+            ORDER BY enabled DESC, category, code
+            """)
+    List<Map<String, Object>> listAdminTemplates(@Param("tenantId") long tenantId);
+
+    /** COL-01b：编辑模板（code 不可改）。 */
+    @Update("""
+            UPDATE collab_approval_template
+            SET name = #{name}, category = #{category}, form_schema = CAST(#{formSchema} AS jsonb),
+                process_key = #{processKey}, enabled = #{enabled}, dept_scope = CAST(#{deptScope} AS bigint[]),
+                updated_by = #{userId}, updated_at = now(), version = version + 1
+            WHERE tenant_id = #{tenantId} AND id = CAST(#{templateId} AS uuid) AND deleted = 0
+            """)
+    int updateTemplate(@Param("tenantId") long tenantId, @Param("templateId") String templateId,
+                       @Param("name") String name, @Param("category") String category,
+                       @Param("formSchema") String formSchema, @Param("processKey") String processKey,
+                       @Param("enabled") int enabled, @Param("deptScope") String deptScope,
+                       @Param("userId") long userId);
+
+    /** COL-01b：启用/停用。 */
+    @Update("""
+            UPDATE collab_approval_template
+            SET enabled = #{enabled}, updated_by = #{userId}, updated_at = now(), version = version + 1
+            WHERE tenant_id = #{tenantId} AND id = CAST(#{templateId} AS uuid) AND deleted = 0
+            """)
+    int setTemplateEnabled(@Param("tenantId") long tenantId, @Param("templateId") String templateId,
+                           @Param("enabled") int enabled, @Param("userId") long userId);
+
+    /** COL-01b：软删除。 */
+    @Update("""
+            UPDATE collab_approval_template
+            SET deleted = 1, updated_by = #{userId}, updated_at = now(), version = version + 1
+            WHERE tenant_id = #{tenantId} AND id = CAST(#{templateId} AS uuid) AND deleted = 0
+            """)
+    int softDeleteTemplate(@Param("tenantId") long tenantId, @Param("templateId") String templateId,
+                           @Param("userId") long userId);
+
+    @Select("""
+            SELECT count(1) FROM collab_approval_instance
+            WHERE tenant_id = #{tenantId} AND template_id = CAST(#{templateId} AS uuid)
+              AND status = 'RUNNING' AND deleted = 0
+            """)
+    long countRunningInstances(@Param("tenantId") long tenantId, @Param("templateId") String templateId);
 
     @Select("""
             SELECT 'APV' || to_char(now(), 'YYYYMM') || lpad(nextval('collab_apv_no_seq')::text, 6, '0') AS "instanceNo"

@@ -267,7 +267,12 @@ public final class CollabDtos {
     }
 
     public record TemplateView(String templateId, String code, String name, String category, String processKey,
-                               boolean enabled) {
+                               boolean enabled, Map<String, Object> formSchema) {
+    }
+
+    /** COL-01b：模板编辑。code 不可修改；未传的字段沿用原值。 */
+    public record TemplateUpdateRequest(String name, String category, Map<String, Object> formSchema,
+                                        String processKey, Boolean enabled, List<Long> deptScope) {
     }
 
     public record InstanceCreateRequest(String templateId, Map<String, Object> formData, Long approverId,

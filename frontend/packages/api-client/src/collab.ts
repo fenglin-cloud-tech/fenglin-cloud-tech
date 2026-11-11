@@ -243,6 +243,7 @@ export interface CollabApprovalTemplate {
   category: string
   process_key?: string
   enabled: boolean
+  form_schema?: Record<string, unknown>
 }
 
 export interface CollabApprovalTask {
@@ -725,6 +726,27 @@ export const collabApi = {
       dept_scope?: number[]
     }) {
       return post<CollabApprovalTemplate>('/api/collab/v1/admin/approvals/templates', body)
+    },
+    listApprovalTemplates() {
+      return get<CollabApprovalTemplate[]>('/api/collab/v1/admin/approvals/templates')
+    },
+    updateApprovalTemplate(templateId: CollabId, body: {
+      name?: string
+      category?: string
+      form_schema?: Record<string, unknown>
+      process_key?: string
+      enabled?: boolean
+      dept_scope?: number[]
+    }) {
+      return put<CollabApprovalTemplate>(`/api/collab/v1/admin/approvals/templates/${templateId}`, body)
+    },
+    setApprovalTemplateEnabled(templateId: CollabId, enabled: boolean) {
+      return post<CollabApprovalTemplate>(
+        `/api/collab/v1/admin/approvals/templates/${templateId}/enabled?enabled=${enabled ? 'true' : 'false'}`,
+      )
+    },
+    deleteApprovalTemplate(templateId: CollabId) {
+      return request<void>(`/api/collab/v1/admin/approvals/templates/${templateId}`, { method: 'DELETE' })
     },
   },
 }

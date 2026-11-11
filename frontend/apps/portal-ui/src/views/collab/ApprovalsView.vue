@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { GapNotice, PageHeader } from '@fenglin/ui-admin'
+import { ApprovalFormFields, GapNotice, PageHeader } from '@fenglin/ui-admin'
 import {
   collabApi,
   type CollabApprovalInstance,
@@ -14,7 +14,6 @@ const activeTab = ref('tasks')
 
 const gapItems = [
   '我的待办/我的申请返回 Map，字段未强类型化，页面按返回键动态渲染。',
-  '没有动态表单引擎，form_data 以 JSON 文本提交，结构由模板 form_schema 约定。',
   '已办列表已提供（/approvals/tasks/done，含审批意见明文）；撤回后的实例在“我的申请”中保留 CANCELLED 状态可查。',
   '抄送列表尚未提供：需要新增 collab_approval_cc 表与提交时写入抄送人，属表结构变更，未在本批实施。',
 ]
@@ -95,6 +94,23 @@ const submitError = ref('')
 const submitResult = ref('')
 const submitForm = reactive({ template_id: '', approver_id: '', form_data: '{}' })
 const idempotencyKey = ref('')
+const submitValues = ref<Record<string, unknown>>({})
+const submitFieldsRef = ref<{ validate: () => string | null } | null>(null)
+const selectedTemplate = computed(() =>
+  templateRows.value.find((item) => String(item.template_id) === submitForm.template_id),
+)
+const schemaFields = computed<unknown[]>(() => {
+  const fields = selectedTemplate.value?.form_schema?.fields
+  return Array.isArray(fields) ? fields : []
+})
+
+// 切换模板时清空已填写的动态表单，避免上一模板的键值混入
+watch(
+  () => submitForm.template_id,
+  () => {
+    submitValues.value = {}
+  },
+)
 
 function genIdempotencyKey(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`
@@ -274,6 +290,8 @@ async function cancelInstance(row: CollabApprovalRow) {
 
 function openSubmit() {
   Object.assign(submitForm, { template_id: '', approver_id: '', form_data: '{}' })
+  submitValues.value = {}
+  submitFieldsRef.value = null
   idempotencyKey.value = genIdempotencyKey()
   submitResult.value = ''
   submitError.value = ''
@@ -287,18 +305,27 @@ async function submitApproval() {
     return
   }
   let formData: Record<string, unknown> | undefined
-  const formText = submitForm.form_data.trim()
-  if (formText) {
-    try {
-      const parsed: unknown = JSON.parse(formText)
-      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-        submitError.value = 'form_data 必须是 JSON 对象'
+  if (schemaFields.value.length > 0) {
+    const invalid = submitFieldsRef.value?.validate()
+    if (invalid) {
+      submitError.value = invalid
+      return
+    }
+    formData = { ...submitValues.value }
+  } else {
+    const formText = submitForm.form_data.trim()
+    if (formText) {
+      try {
+        const parsed: unknown = JSON.parse(formText)
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+          submitError.value = 'form_data 必须是 JSON 对象'
+          return
+        }
+        formData = parsed as Record<string, unknown>
+      } catch {
+        submitError.value = 'form_data 不是合法的 JSON'
         return
       }
-      formData = parsed as Record<string, unknown>
-    } catch {
-      submitError.value = 'form_data 不是合法的 JSON'
-      return
     }
   }
   let approverId: number | undefined
@@ -338,7 +365,7 @@ onMounted(() => {
 
 <template>
   <div>
-    <PageHeader title="审批" description="处理待办、查看我的申请；表单以 JSON 文本提交。">
+    <PageHeader title="审批" description="处理待办、查看我的申请；发起审批按模板 form_schema 渲染动态表单。">
       <template #actions>
         <el-button v-perm="'biz:collab:approval:submit'" type="primary" @click="openSubmit">发起审批</el-button>
         <el-button :loading="taskLoading || instLoading || templateLoading" @click="refreshActive">刷新</el-button>
@@ -558,8 +585,14 @@ onMounted(() => {
         <el-form-item label="指定审批人">
           <el-input v-model="submitForm.approver_id" placeholder="选填，数字 ID" />
         </el-form-item>
-        <el-form-item label="表单数据">
-          <el-input v-model="submitForm.form_data" type="textarea" :rows="5" placeholder="JSON 对象，结构由模板 form_schema 约定" />
+        <ApprovalFormFields
+          v-if="schemaFields.length > 0"
+          ref="submitFieldsRef"
+          v-model="submitValues"
+          :schema="selectedTemplate?.form_schema"
+        />
+        <el-form-item v-else label="表单数据">
+          <el-input v-model="submitForm.form_data" type="textarea" :rows="5" placeholder="该模板未定义 form_schema.fields，按 JSON 对象提交" />
         </el-form-item>
         <el-form-item label="幂等键">
           <el-input v-model="idempotencyKey" readonly />

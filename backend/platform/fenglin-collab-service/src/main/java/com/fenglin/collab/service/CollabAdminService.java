@@ -18,6 +18,7 @@ import com.fenglin.collab.web.dto.CollabDtos.RoomView;
 import com.fenglin.collab.web.dto.CollabDtos.SensitiveWordPolicyRequest;
 import com.fenglin.collab.web.dto.CollabDtos.SensitiveWordPolicyView;
 import com.fenglin.collab.web.dto.CollabDtos.TemplateCreateRequest;
+import com.fenglin.collab.web.dto.CollabDtos.TemplateUpdateRequest;
 import com.fenglin.collab.web.dto.CollabDtos.TemplateView;
 import com.fenglin.common.core.BizException;
 import org.springframework.stereotype.Service;
@@ -132,5 +133,24 @@ public class CollabAdminService {
     @Transactional
     public TemplateView createApprovalTemplate(TemplateCreateRequest request) {
         return approvalService.createTemplate(request);
+    }
+
+    public List<TemplateView> listApprovalTemplates() {
+        return approvalService.adminTemplates();
+    }
+
+    @Transactional
+    public TemplateView updateApprovalTemplate(String templateId, TemplateUpdateRequest request) {
+        return approvalService.updateTemplate(templateId, request);
+    }
+
+    @Transactional
+    public TemplateView setApprovalTemplateEnabled(String templateId, boolean enabled) {
+        return approvalService.setTemplateEnabled(templateId, enabled);
+    }
+
+    @Transactional
+    public void deleteApprovalTemplate(String templateId) {
+        approvalService.deleteTemplate(templateId);
     }
 }

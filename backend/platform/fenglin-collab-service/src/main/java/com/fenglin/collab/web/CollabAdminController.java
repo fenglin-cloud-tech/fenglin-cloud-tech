@@ -16,10 +16,13 @@ import com.fenglin.collab.web.dto.CollabDtos.RoomView;
 import com.fenglin.collab.web.dto.CollabDtos.SensitiveWordPolicyRequest;
 import com.fenglin.collab.web.dto.CollabDtos.SensitiveWordPolicyView;
 import com.fenglin.collab.web.dto.CollabDtos.TemplateCreateRequest;
+import com.fenglin.collab.web.dto.CollabDtos.TemplateUpdateRequest;
 import com.fenglin.collab.web.dto.CollabDtos.TemplateView;
 import com.fenglin.common.core.ApiResponse;
 import com.fenglin.common.security.PermissionGuard;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -27,6 +30,8 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 /**
  * 云协管理端（接口文档 API-IM-050/051、API-DOC-050、API-CAL-050、API-MTG-050、
@@ -125,6 +130,44 @@ public class CollabAdminController {
             @RequestBody TemplateCreateRequest request) {
         PermissionGuard.require(permissions, APV_TEMPLATE);
         return ApiResponse.success(adminService.createApprovalTemplate(request));
+    }
+
+    /** COL-01b：管理端模板列表（含已停用）。 */
+    @GetMapping("/approvals/templates")
+    public ApiResponse<List<TemplateView>> listApprovalTemplates(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions) {
+        PermissionGuard.require(permissions, APV_TEMPLATE);
+        return ApiResponse.success(adminService.listApprovalTemplates());
+    }
+
+    /** COL-01b：编辑模板（code 不可改）。 */
+    @PutMapping("/approvals/templates/{templateId}")
+    public ApiResponse<TemplateView> updateApprovalTemplate(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("templateId") String templateId,
+            @RequestBody TemplateUpdateRequest request) {
+        PermissionGuard.require(permissions, APV_TEMPLATE);
+        return ApiResponse.success(adminService.updateApprovalTemplate(templateId, request));
+    }
+
+    /** COL-01b：启用/停用模板。 */
+    @PostMapping("/approvals/templates/{templateId}/enabled")
+    public ApiResponse<TemplateView> setApprovalTemplateEnabled(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("templateId") String templateId,
+            @RequestParam("enabled") boolean enabled) {
+        PermissionGuard.require(permissions, APV_TEMPLATE);
+        return ApiResponse.success(adminService.setApprovalTemplateEnabled(templateId, enabled));
+    }
+
+    /** COL-01b：删除模板（软删；有运行中实例时 409）。 */
+    @DeleteMapping("/approvals/templates/{templateId}")
+    public ApiResponse<Void> deleteApprovalTemplate(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("templateId") String templateId) {
+        PermissionGuard.require(permissions, APV_TEMPLATE);
+        adminService.deleteApprovalTemplate(templateId);
+        return ApiResponse.success(null);
     }
 
     @GetMapping("/ona/config")

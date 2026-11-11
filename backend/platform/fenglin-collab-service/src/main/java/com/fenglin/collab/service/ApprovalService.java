@@ -17,6 +17,7 @@ import com.fenglin.collab.web.dto.CollabDtos.InstanceView;
 import com.fenglin.collab.web.dto.CollabDtos.TaskResult;
 import com.fenglin.collab.web.dto.CollabDtos.TaskView;
 import com.fenglin.collab.web.dto.CollabDtos.TemplateCreateRequest;
+import com.fenglin.collab.web.dto.CollabDtos.TemplateUpdateRequest;
 import com.fenglin.collab.web.dto.CollabDtos.TemplateView;
 import com.fenglin.collab.web.dto.CollabDtos.TransferRequest;
 import com.fenglin.common.core.BizException;
@@ -70,9 +71,7 @@ public class ApprovalService {
         }
         Map<String, Object> existing = approvalMapper.findTemplateByCode(tenantId, request.code());
         if (existing != null) {
-            return new TemplateView(Rows.str(existing, "templateId"), Rows.str(existing, "code"),
-                    Rows.str(existing, "name"), Rows.str(existing, "category"),
-                    Rows.str(existing, "processKey"), Rows.intVal(existing, "enabled") == 1);
+            return toTemplateView(existing);
         }
         String templateId = UUID.randomUUID().toString();
         String schema = "{}";
@@ -83,26 +82,165 @@ public class ApprovalService {
                 throw new BizException(CollabErrorCode.PARAM_INVALID, "表单结构非法");
             }
         }
-        String deptScope = request.deptScope() == null || request.deptScope().isEmpty() ? null
-                : "{" + request.deptScope().stream().map(String::valueOf)
-                .reduce((a, b) -> a + "," + b).orElse("") + "}";
+        String deptScope = toDeptScope(request.deptScope());
+        boolean enabled = request.enabled() == null || request.enabled();
         approvalMapper.insertTemplate(templateId, tenantId, request.code(), request.name(),
                 request.category() == null ? "GENERAL" : request.category(), schema,
                 request.processKey() == null ? "collab_approval" : request.processKey(),
-                request.enabled() == null || request.enabled() ? 1 : 0, deptScope, userId);
+                enabled ? 1 : 0, deptScope, userId);
         audit.publish("COLLAB_APPROVAL_TEMPLATE_CREATED", "CREATE", "collab_approval_template", templateId, "LOW");
         return new TemplateView(templateId, request.code(), request.name(),
                 request.category() == null ? "GENERAL" : request.category(),
-                request.processKey() == null ? "collab_approval" : request.processKey(), true);
+                request.processKey() == null ? "collab_approval" : request.processKey(), enabled,
+                request.formSchema());
+    }
+
+    /** COL-01b：管理端模板列表（含已停用）。只读事务满足 RLS 拦截器要求。 */
+    @Transactional(readOnly = true)
+    public List<TemplateView> adminTemplates() {
+        return approvalMapper.listAdminTemplates(CollabContext.tenantId()).stream()
+                .map(this::toTemplateView)
+                .toList();
+    }
+
+    /** COL-01b：编辑模板。code 不可修改，未传字段沿用原值。 */
+    @Transactional
+    public TemplateView updateTemplate(String templateId, TemplateUpdateRequest request) {
+        long tenantId = CollabContext.tenantId();
+        long userId = CollabContext.userId();
+        Map<String, Object> current = approvalMapper.findTemplate(tenantId, templateId);
+        if (current == null) {
+            throw new BizException(CollabErrorCode.APV_TEMPLATE_NOT_FOUND);
+        }
+        String name = request == null || request.name() == null || request.name().isBlank()
+                ? Rows.str(current, "name") : request.name().trim();
+        String category = request == null || request.category() == null || request.category().isBlank()
+                ? Rows.str(current, "category") : request.category().trim();
+        String processKey = request == null || request.processKey() == null || request.processKey().isBlank()
+                ? Rows.str(current, "processKey") : request.processKey().trim();
+        int enabled = request == null || request.enabled() == null
+                ? Rows.intVal(current, "enabled") : (request.enabled() ? 1 : 0);
+        String schema;
+        Map<String, Object> schemaView;
+        if (request != null && request.formSchema() != null) {
+            try {
+                schema = objectMapper.writeValueAsString(request.formSchema());
+            } catch (JsonProcessingException ex) {
+                throw new BizException(CollabErrorCode.PARAM_INVALID, "表单结构非法");
+            }
+            schemaView = request.formSchema();
+        } else {
+            schema = Rows.str(current, "formSchema") == null ? "{}" : Rows.str(current, "formSchema");
+            schemaView = parseSchema(schema);
+        }
+        String deptScope = request == null ? null : toDeptScope(request.deptScope());
+        if (approvalMapper.updateTemplate(tenantId, templateId, name, category, schema, processKey,
+                enabled, deptScope, userId) == 0) {
+            throw new BizException(CollabErrorCode.APV_TEMPLATE_NOT_FOUND);
+        }
+        audit.publish("COLLAB_APPROVAL_TEMPLATE_UPDATED", "UPDATE", "collab_approval_template", templateId, "LOW");
+        return new TemplateView(templateId, Rows.str(current, "code"), name, category, processKey,
+                enabled == 1, schemaView);
+    }
+
+    /** COL-01b：启用/停用模板。 */
+    @Transactional
+    public TemplateView setTemplateEnabled(String templateId, boolean enabled) {
+        long tenantId = CollabContext.tenantId();
+        long userId = CollabContext.userId();
+        if (approvalMapper.setTemplateEnabled(tenantId, templateId, enabled ? 1 : 0, userId) == 0) {
+            throw new BizException(CollabErrorCode.APV_TEMPLATE_NOT_FOUND);
+        }
+        audit.publish("COLLAB_APPROVAL_TEMPLATE_STATUS", "UPDATE", "collab_approval_template", templateId, "LOW");
+        return toTemplateView(approvalMapper.findTemplate(tenantId, templateId));
+    }
+
+    /** COL-01b：软删除模板；存在运行中实例时拒绝，避免在途审批失去模板。 */
+    @Transactional
+    public void deleteTemplate(String templateId) {
+        long tenantId = CollabContext.tenantId();
+        long userId = CollabContext.userId();
+        if (approvalMapper.findTemplate(tenantId, templateId) == null) {
+            throw new BizException(CollabErrorCode.APV_TEMPLATE_NOT_FOUND);
+        }
+        if (approvalMapper.countRunningInstances(tenantId, templateId) > 0) {
+            throw new BizException(CollabErrorCode.STATE_CONFLICT, "该模板仍有运行中的审批实例，请先撤销或停用");
+        }
+        if (approvalMapper.softDeleteTemplate(tenantId, templateId, userId) == 0) {
+            throw new BizException(CollabErrorCode.APV_TEMPLATE_NOT_FOUND);
+        }
+        audit.publish("COLLAB_APPROVAL_TEMPLATE_DELETED", "DELETE", "collab_approval_template", templateId, "MEDIUM");
+    }
+
+    private TemplateView toTemplateView(Map<String, Object> row) {
+        if (row == null) {
+            return null;
+        }
+        return new TemplateView(Rows.str(row, "templateId"), Rows.str(row, "code"), Rows.str(row, "name"),
+                Rows.str(row, "category"), Rows.str(row, "processKey"), Rows.intVal(row, "enabled") == 1,
+                parseSchema(Rows.str(row, "formSchema")));
+    }
+
+    private Map<String, Object> parseSchema(String json) {
+        if (json == null || json.isBlank()) {
+            return Map.of();
+        }
+        try {
+            return objectMapper.readValue(json, new TypeReference<Map<String, Object>>() { });
+        } catch (JsonProcessingException ex) {
+            return Map.of();
+        }
+    }
+
+    /**
+     * COL-01a：按模板 form_schema 校验动态表单。
+     * 约定结构：{"fields":[{"key":"amount","label":"金额","type":"number","required":true}, ...]}；
+     * 未定义 fields 的旧模板按无约束处理。
+     */
+    private void validateForm(Map<String, Object> template, Map<String, Object> formData) {
+        Map<String, Object> schema = parseSchema(Rows.str(template, "formSchema"));
+        Object rawFields = schema.get("fields");
+        if (!(rawFields instanceof List<?> fields)) {
+            return;
+        }
+        for (Object item : fields) {
+            if (!(item instanceof Map<?, ?> field)) {
+                continue;
+            }
+            Object rawKey = field.get("key");
+            if (rawKey == null || String.valueOf(rawKey).isBlank()) {
+                continue;
+            }
+            String name = String.valueOf(rawKey);
+            Object label = field.get("label");
+            String display = label == null ? name : String.valueOf(label);
+            Object value = formData.get(name);
+            boolean blank = value == null || (value instanceof String text && text.isBlank());
+            if (Boolean.TRUE.equals(field.get("required")) && blank) {
+                throw new BizException(CollabErrorCode.PARAM_INVALID, "缺少必填项：" + display);
+            }
+            if (!blank && "number".equals(String.valueOf(field.get("type")))) {
+                try {
+                    new java.math.BigDecimal(String.valueOf(value).trim());
+                } catch (NumberFormatException ex) {
+                    throw new BizException(CollabErrorCode.PARAM_INVALID, "字段应为数字：" + display);
+                }
+            }
+        }
+    }
+
+    private String toDeptScope(List<Long> deptScope) {
+        if (deptScope == null || deptScope.isEmpty()) {
+            return null;
+        }
+        return "{" + deptScope.stream().map(String::valueOf).reduce((a, b) -> a + "," + b).orElse("") + "}";
     }
 
     @Transactional(readOnly = true)
     public List<TemplateView> templates() {
         long tenantId = CollabContext.tenantId();
         return approvalMapper.listTemplates(tenantId).stream()
-                .map(row -> new TemplateView(Rows.str(row, "templateId"), Rows.str(row, "code"),
-                        Rows.str(row, "name"), Rows.str(row, "category"), Rows.str(row, "processKey"),
-                        Rows.intVal(row, "enabled") == 1))
+                .map(this::toTemplateView)
                 .toList();
     }
 
@@ -124,6 +262,7 @@ public class ApprovalService {
             }
         }
         Map<String, Object> formData = request.formData() == null ? Map.of() : request.formData();
+        validateForm(template, formData);
         String formJson;
         try {
             formJson = objectMapper.writeValueAsString(formData);
