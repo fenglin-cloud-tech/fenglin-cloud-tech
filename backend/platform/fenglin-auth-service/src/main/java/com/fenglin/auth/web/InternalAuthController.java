@@ -3,8 +3,11 @@ package com.fenglin.auth.web;
 import com.fenglin.auth.service.AuthService;
 import com.fenglin.auth.web.dto.PrincipalPermissionPayload;
 import com.fenglin.common.core.ApiResponse;
+import com.fenglin.common.tenant.TenantHeaders;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -33,6 +36,16 @@ public class InternalAuthController {
     @GetMapping("/sessions/{sessionId}/status")
     public ApiResponse<Map<String, Boolean>> sessionStatus(@PathVariable String sessionId) {
         return ApiResponse.success(Map.of("online", authService.isSessionOnline(sessionId)));
+    }
+
+    /**
+     * IAM 管理员重置口令后调用：吊销该用户全部会话与刷新令牌（复用登出链路）。
+     */
+    @PostMapping("/users/{userId}/sessions:revoke")
+    public ApiResponse<Map<String, Integer>> revokeUserSessions(
+            @RequestHeader(TenantHeaders.TENANT_ID) long tenantId,
+            @PathVariable long userId) {
+        return ApiResponse.success(Map.of("closed_sessions", authService.revokeAllSessions(tenantId, userId)));
     }
 
     /**

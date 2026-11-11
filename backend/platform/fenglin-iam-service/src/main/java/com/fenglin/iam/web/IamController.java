@@ -16,6 +16,8 @@ import com.fenglin.iam.web.dto.MenuView;
 import com.fenglin.iam.web.dto.MoveOrgRequest;
 import com.fenglin.iam.web.dto.OrgTreeNode;
 import com.fenglin.iam.web.dto.PermissionNode;
+import com.fenglin.iam.web.dto.ResetPasswordRequest;
+import com.fenglin.iam.web.dto.ResetPasswordResult;
 import com.fenglin.iam.web.dto.RoleView;
 import com.fenglin.iam.web.dto.UpdateOrgRequest;
 import com.fenglin.iam.web.dto.UpdateUserProfileRequest;
@@ -81,6 +83,18 @@ public class IamController {
             @Valid @RequestBody UpdateUserProfileRequest request) {
         PermissionGuard.require(permissions, UPDATE_USER_PERMISSION);
         return ApiResponse.success(iamService.updateUserProfile(id, request));
+    }
+
+    /**
+     * 管理员重置口令：body 可传 password（强度校验），不传则服务端生成并只在响应返回一次。
+     */
+    @PostMapping("/api/hub/v1/admin/users/{id}/reset-password")
+    public ApiResponse<ResetPasswordResult> resetPassword(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable long id,
+            @RequestBody(required = false) ResetPasswordRequest request) {
+        PermissionGuard.require(permissions, UPDATE_USER_PERMISSION);
+        return ApiResponse.success(iamService.resetPassword(id, request));
     }
 
     @GetMapping("/api/hub/v1/admin/orgs/tree")

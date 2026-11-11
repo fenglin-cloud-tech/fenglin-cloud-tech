@@ -4,11 +4,13 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fenglin.common.security.PasswordPolicy;
 import com.fenglin.common.test.EmbeddedPostgresSupport;
+import com.fenglin.iam.client.AuthSessionClient;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.HttpEntity;
@@ -29,6 +31,9 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
 /**
  * IAM 用户/角色/权限/菜单集成测试：内嵌真实 PostgreSQL + 完整迁移，应用以 fl_app 执行（RLS 生效）。
@@ -76,6 +81,9 @@ class IamFlowIntegrationTest {
     @Autowired
     private ObjectMapper objectMapper;
 
+    @MockBean
+    private AuthSessionClient authSessionClient;
+
     @BeforeEach
     void resetData() throws Exception {
         restTemplate.getRestTemplate().setRequestFactory(new JdkClientHttpRequestFactory());
@@ -107,6 +115,11 @@ class IamFlowIntegrationTest {
             statement.execute("""
                     INSERT INTO fenglin_hub.hub_user_role (id, tenant_id, user_id, role_id, deleted)
                     VALUES (2201, 1101, 2001, 2101, 0), (2401, 1102, 2002, 2301, 0)
+                    """);
+            statement.execute("""
+                    UPDATE fenglin_hub.hub_account
+                       SET fail_count = 3, locked_until = now() + interval '10 minutes'
+                     WHERE tenant_id = 1101 AND user_id = 2001
                     """);
         }
     }
@@ -276,6 +289,80 @@ class IamFlowIntegrationTest {
             ResultSet rs = statement.executeQuery("SELECT count(*) FROM fenglin_hub.hub_user");
             assertThat(rs.next()).isTrue();
             assertThat(rs.getInt(1)).isZero();
+        }
+    }
+
+    @Test
+    void resetPasswordGeneratesStrongPasswordAndClearsLockState() throws Exception {
+        HttpResult result = post("/api/hub/v1/admin/users/" + USER_ADMIN_A + "/reset-password",
+                Map.of(), resetPasswordHeaders());
+        assertThat(result.status()).isEqualTo(200);
+        String generated = result.body().get("data").get("new_password").asText();
+        assertThat(generated).hasSize(16);
+        Map<String, Object> account = accountOf(USER_ADMIN_A);
+        assertThat(PasswordPolicy.matches(generated, (String) account.get("password_hash"))).isTrue();
+        assertThat(account.get("fail_count")).isEqualTo(0);
+        assertThat(account.get("locked_until")).isNull();
+        assertThat(permissionVersionOf(USER_ADMIN_A)).isZero();
+        verify(authSessionClient).revokeAllSessions(TENANT_A, USER_ADMIN_A);
+    }
+
+    @Test
+    void resetPasswordAcceptsExplicitStrongPasswordWithoutEcho() throws Exception {
+        HttpResult result = post("/api/hub/v1/admin/users/" + USER_ADMIN_A + "/reset-password",
+                Map.of("password", "Reset@2026Strong"), resetPasswordHeaders());
+        assertThat(result.status()).isEqualTo(200);
+        assertThat(result.body().get("data").has("new_password")).isFalse();
+        assertThat(PasswordPolicy.matches("Reset@2026Strong",
+                (String) accountOf(USER_ADMIN_A).get("password_hash"))).isTrue();
+        verify(authSessionClient).revokeAllSessions(TENANT_A, USER_ADMIN_A);
+    }
+
+    @Test
+    void resetPasswordRejectsWeakPassword() throws Exception {
+        HttpResult result = post("/api/hub/v1/admin/users/" + USER_ADMIN_A + "/reset-password",
+                Map.of("password", "short"), resetPasswordHeaders());
+        assertThat(result.status()).isEqualTo(400);
+        assertThat(result.body().get("code").asText()).isEqualTo("FL-COMMON-0400");
+        assertThat(PasswordPolicy.matches("Fenglin@2026Dev",
+                (String) accountOf(USER_ADMIN_A).get("password_hash"))).isTrue();
+        verify(authSessionClient, never()).revokeAllSessions(anyLong(), anyLong());
+    }
+
+    @Test
+    void resetPasswordRequiresUpdatePermission() {
+        HttpResult result = post("/api/hub/v1/admin/users/" + USER_ADMIN_A + "/reset-password",
+                Map.of(), Map.of("X-Tenant-Id", String.valueOf(TENANT_A)));
+        assertThat(result.status()).isEqualTo(403);
+        verify(authSessionClient, never()).revokeAllSessions(anyLong(), anyLong());
+    }
+
+    @Test
+    void resetPasswordReturnsNotFoundForOtherTenantOrUnknownUser() {
+        HttpResult crossTenant = post("/api/hub/v1/admin/users/2002/reset-password",
+                Map.of(), resetPasswordHeaders());
+        assertThat(crossTenant.status()).isEqualTo(404);
+        HttpResult unknown = post("/api/hub/v1/admin/users/9999/reset-password",
+                Map.of(), resetPasswordHeaders());
+        assertThat(unknown.status()).isEqualTo(404);
+        verify(authSessionClient, never()).revokeAllSessions(anyLong(), anyLong());
+    }
+
+    private Map<String, String> resetPasswordHeaders() {
+        return Map.of("X-Tenant-Id", String.valueOf(TENANT_A),
+                "X-Permissions", "tenant:iam:user:update");
+    }
+
+    private Map<String, Object> accountOf(long userId) throws Exception {
+        try (Connection connection = ownerConnection(); Statement statement = connection.createStatement();
+             ResultSet rs = statement.executeQuery("SELECT password_hash, fail_count, locked_until "
+                     + "FROM fenglin_hub.hub_account WHERE user_id = " + userId)) {
+            assertThat(rs.next()).isTrue();
+            Map<String, Object> account = new HashMap<>();
+            account.put("password_hash", rs.getString(1));
+            account.put("fail_count", rs.getInt(2));
+            account.put("locked_until", rs.getTimestamp(3));
+            return account;
         }
     }
 

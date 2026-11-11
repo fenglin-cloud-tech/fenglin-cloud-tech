@@ -9,6 +9,7 @@ import com.fenglin.common.core.RequestContext;
 import com.fenglin.common.security.PasswordPolicy;
 import com.fenglin.common.tenant.TenantContext;
 import com.fenglin.iam.IamErrorCode;
+import com.fenglin.iam.client.AuthSessionClient;
 import com.fenglin.iam.client.TalentEmployeeClient;
 import com.fenglin.iam.mapper.AccountMapper;
 import com.fenglin.iam.mapper.MenuMapper;
@@ -27,6 +28,8 @@ import com.fenglin.iam.web.dto.GrantPermissionsRequest;
 import com.fenglin.iam.web.dto.MenuView;
 import com.fenglin.iam.web.dto.OrgTreeNode;
 import com.fenglin.iam.web.dto.PermissionNode;
+import com.fenglin.iam.web.dto.ResetPasswordRequest;
+import com.fenglin.iam.web.dto.ResetPasswordResult;
 import com.fenglin.iam.web.dto.RoleView;
 import com.fenglin.iam.web.dto.UpdateOrgRequest;
 import com.fenglin.iam.web.dto.UpdateUserProfileRequest;
@@ -66,12 +69,13 @@ public class IamService {
     private final OrgMapper orgMapper;
     private final IamCrypto iamCrypto;
     private final TalentEmployeeClient talentEmployeeClient;
+    private final AuthSessionClient authSessionClient;
     private final AuditSink auditSink;
 
     public IamService(UserMapper userMapper, AccountMapper accountMapper, RoleMapper roleMapper,
                       PermissionMapper permissionMapper, MenuMapper menuMapper, TenantMapper tenantMapper,
                       OrgMapper orgMapper, IamCrypto iamCrypto, TalentEmployeeClient talentEmployeeClient,
-                      AuditSink auditSink) {
+                      AuthSessionClient authSessionClient, AuditSink auditSink) {
         this.userMapper = userMapper;
         this.accountMapper = accountMapper;
         this.roleMapper = roleMapper;
@@ -81,6 +85,7 @@ public class IamService {
         this.orgMapper = orgMapper;
         this.iamCrypto = iamCrypto;
         this.talentEmployeeClient = talentEmployeeClient;
+        this.authSessionClient = authSessionClient;
         this.auditSink = auditSink;
     }
 
@@ -450,6 +455,31 @@ public class IamService {
         }
         audit("IAM_USER_UPDATED", "USER", String.valueOf(userId));
         return toUserView(tenantId, requireUser(tenantId, userId), roleMapper.listRoleCodes(tenantId, userId));
+    }
+
+    /**
+     * 管理员重置口令：可指定新口令（走强度校验），不传则由服务端生成 16 位随机强口令并只在响应返回一次。
+     * 复用 auth 的会话吊销链路；permission_version 不因改密变化。
+     */
+    @Transactional
+    public ResetPasswordResult resetPassword(long userId, ResetPasswordRequest request) {
+        long tenantId = TenantContext.requireTenantId();
+        requireUser(tenantId, userId);
+
+        String rawPassword = normalize(request == null ? null : request.password());
+        String generated = null;
+        if (rawPassword == null) {
+            generated = PasswordPolicy.generate();
+            rawPassword = generated;
+        }
+        String passwordHash = PasswordPolicy.encode(rawPassword);
+
+        authSessionClient.revokeAllSessions(tenantId, userId);
+        if (accountMapper.resetPassword(tenantId, userId, passwordHash) == 0) {
+            throw new BizException(IamErrorCode.IAM_USER_NOT_FOUND);
+        }
+        audit("IAM_USER_PASSWORD_RESET", "USER", String.valueOf(userId));
+        return new ResetPasswordResult(userId, generated);
     }
 
     @Transactional(readOnly = true)

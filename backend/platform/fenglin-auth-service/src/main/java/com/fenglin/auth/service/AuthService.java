@@ -263,6 +263,17 @@ public class AuthService {
         return new LogoutPayload(updated);
     }
 
+    /**
+     * 供 IAM 管理员重置口令后调用：复用登出链路吊销该用户全部会话与刷新令牌。
+     */
+    @Transactional
+    public int revokeAllSessions(long tenantId, long userId) {
+        int closed = loginSessionMapper.closeAllByUser(tenantId, userId, SESSION_LOGOUT);
+        refreshTokenMapper.revokeAllByUser(tenantId, userId);
+        audit(tenantId, userId, null, "SESSIONS_REVOKED", "PASSWORD_RESET");
+        return closed;
+    }
+
     @Transactional(readOnly = true)
     public UserInfoPayload userinfo(String accessToken) {
         JWTClaimsSet claims = keyProvider.verify(accessToken, JwtTokenService.USE_ACCESS);
