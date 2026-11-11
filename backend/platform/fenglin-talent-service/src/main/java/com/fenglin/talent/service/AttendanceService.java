@@ -150,6 +150,21 @@ public class AttendanceService {
         return toSummary(attendanceMapper.summary(tenantId, employeeId, month.atDay(1), month.atEndOfMonth()));
     }
 
+    /**
+     * 员工自助逐日明细：只按当前登录账号绑定的员工过滤，不接受外部传入 employeeId。
+     */
+    @Transactional(readOnly = true)
+    public PageResult<AttendanceRecordView> myRecords(LocalDate from, LocalDate to, String status,
+                                                      Integer page, Integer size) {
+        Long employeeId = employeeBindingService.currentEmployeeIdOrNull();
+        int pageNo = TalentContext.page(page);
+        int pageSize = TalentContext.size(size);
+        if (employeeId == null) {
+            return PageResult.of(List.of(), 0, pageNo, pageSize);
+        }
+        return list(employeeId, from, to, status, pageNo, pageSize);
+    }
+
     @Transactional(readOnly = true)
     public AttendanceSummaryView mySummary(YearMonth month) {
         Long employeeId = employeeBindingService.currentEmployeeIdOrNull();

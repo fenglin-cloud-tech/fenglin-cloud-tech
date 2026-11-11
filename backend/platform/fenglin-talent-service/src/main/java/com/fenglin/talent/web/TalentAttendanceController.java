@@ -88,6 +88,18 @@ public class TalentAttendanceController {
         return ApiResponse.success(attendanceService.summary(employeeId, parseMonth(month)));
     }
 
+    @GetMapping("/my/records")
+    public ApiResponse<PageResult<AttendanceRecordView>> myRecords(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(value = "from", required = false) LocalDate from,
+            @RequestParam(value = "to", required = false) LocalDate to,
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false) Integer size) {
+        PermissionGuard.requireAny(permissions, VIEW, SELF_VIEW);
+        return ApiResponse.success(attendanceService.myRecords(from, to, status, page, size));
+    }
+
     @GetMapping("/my")
     public ApiResponse<AttendanceSummaryView> my(
             @RequestHeader(value = "X-Permissions", required = false) String permissions,
