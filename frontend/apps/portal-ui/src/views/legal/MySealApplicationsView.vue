@@ -15,6 +15,8 @@ const status = ref('')
 
 const createVisible = ref(false)
 const saving = ref(false)
+const seals = ref<LegalRecord[]>([])
+const sealsLoading = ref(false)
 const form = reactive({
   contract_id: undefined as number | undefined,
   seal_id: undefined as number | undefined,
@@ -24,9 +26,26 @@ const form = reactive({
 
 const gapItems = [
   '本页调用 /seal-applications；无 legal:seal:view 时后端强制 applicant 为当前用户，只有 legal:seal:apply 也能看到本人申请。',
-  '印章列表接口需要 tenant:legal:seal:view（管理权限），员工端通常不授予，因此本页不提供印章下拉，需向法务获取印章ID后填写。',
-  '申请要求合同状态为 APPROVED（用印中不可重复申请），印章必须 ACTIVE；后端会真实校验并返回错误。',
+  '印章下拉来自 /seals/available，仅返回 ACTIVE 印章；有 legal:seal:apply 即可读取，无需管理权限。',
+  '申请要求合同状态为 APPROVED（用印中不可重复申请）；后端会真实校验并返回错误。',
 ]
+
+async function loadSeals() {
+  sealsLoading.value = true
+  try {
+    seals.value = await legalApi.seals.available()
+  } catch (err) {
+    seals.value = []
+    error.value = describeError(err)
+  } finally {
+    sealsLoading.value = false
+  }
+}
+
+function openCreate() {
+  createVisible.value = true
+  loadSeals()
+}
 
 async function load() {
   loading.value = true
@@ -81,7 +100,7 @@ onMounted(load)
         <el-select v-model="status" placeholder="全部状态" clearable style="width: 130px" @change="load">
           <el-option v-for="(text, code) in sealAppStatus" :key="code" :label="text" :value="code" />
         </el-select>
-        <el-button type="primary" @click="createVisible = true">发起用印</el-button>
+        <el-button type="primary" @click="openCreate">发起用印</el-button>
         <el-button :loading="loading" @click="load">刷新</el-button>
       </template>
     </PageHeader>
@@ -116,11 +135,20 @@ onMounted(load)
     <el-dialog v-model="createVisible" title="发起用印申请" width="520px">
       <el-form label-width="100px">
         <el-form-item label="合同ID" required><el-input-number v-model="form.contract_id" :min="1" style="width: 100%" /></el-form-item>
-        <el-form-item label="印章ID" required><el-input-number v-model="form.seal_id" :min="1" style="width: 100%" /></el-form-item>
+        <el-form-item label="印章" required>
+          <el-select v-model="form.seal_id" :loading="sealsLoading" placeholder="选择可用印章" style="width: 100%">
+            <el-option
+              v-for="seal in seals"
+              :key="String(seal.id)"
+              :label="`${seal.name}（${seal.seal_type || seal.seal_no}）`"
+              :value="Number(seal.id)"
+            />
+          </el-select>
+        </el-form-item>
         <el-form-item label="份数"><el-input-number v-model="form.copies" :min="1" :max="99" style="width: 100%" /></el-form-item>
         <el-form-item label="用途"><el-input v-model="form.purpose" type="textarea" :rows="3" /></el-form-item>
       </el-form>
-      <el-alert type="info" :closable="false" show-icon title="印章ID需向法务获取；提交后进入审批流，可在本页查看状态。" />
+      <el-alert type="info" :closable="false" show-icon title="仅可选择状态为 ACTIVE 的印章；提交后进入审批流，可在本页查看状态。" />
       <template #footer>
         <el-button @click="createVisible = false">取消</el-button>
         <el-button type="primary" :loading="saving" @click="create">提交</el-button>

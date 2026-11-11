@@ -337,4 +337,98 @@ public interface PerformanceMapper {
             """)
     int publishResults(@Param("tenantId") long tenantId, @Param("cycleId") long cycleId,
                        @Param("userId") long userId);
+
+    // ---------- 员工自助（按 employeeId 收敛） ----------
+
+    @Select("""
+            <script>
+            SELECT c.id AS "id", c.cycle_code AS "cycleCode", c.cycle_name AS "cycleName",
+                   c.cycle_type AS "cycleType", to_char(c.start_date, 'YYYY-MM-DD') AS "startDate",
+                   to_char(c.end_date, 'YYYY-MM-DD') AS "endDate", c.cycle_status AS "cycleStatus",
+                   c.evaluation_count AS "evaluationCount", c.avg_score AS "avgScore", c.version AS "version"
+            FROM fenglin_talent.talent_perf_cycle c
+            WHERE c.tenant_id = #{tenantId} AND c.deleted = 0
+              AND (EXISTS (SELECT 1 FROM fenglin_talent.talent_perf_goal g
+                            WHERE g.tenant_id = c.tenant_id AND g.cycle_id = c.id
+                              AND g.employee_id = #{employeeId} AND g.deleted = 0)
+                OR EXISTS (SELECT 1 FROM fenglin_talent.talent_perf_evaluation v
+                            WHERE v.tenant_id = c.tenant_id AND v.cycle_id = c.id
+                              AND v.employee_id = #{employeeId} AND v.deleted = 0)
+                OR EXISTS (SELECT 1 FROM fenglin_talent.talent_perf_result r
+                            WHERE r.tenant_id = c.tenant_id AND r.cycle_id = c.id
+                              AND r.employee_id = #{employeeId} AND r.result_status = 'PUBLISHED'
+                              AND r.deleted = 0))
+            ORDER BY c.cycle_code DESC
+            LIMIT #{limit} OFFSET #{offset}
+            </script>
+            """)
+    List<Map<String, Object>> listCyclesByEmployee(@Param("tenantId") long tenantId,
+                                                   @Param("employeeId") long employeeId,
+                                                   @Param("limit") int limit, @Param("offset") int offset);
+
+    @Select("""
+            SELECT count(1) FROM fenglin_talent.talent_perf_cycle c
+            WHERE c.tenant_id = #{tenantId} AND c.deleted = 0
+              AND (EXISTS (SELECT 1 FROM fenglin_talent.talent_perf_goal g
+                            WHERE g.tenant_id = c.tenant_id AND g.cycle_id = c.id
+                              AND g.employee_id = #{employeeId} AND g.deleted = 0)
+                OR EXISTS (SELECT 1 FROM fenglin_talent.talent_perf_evaluation v
+                            WHERE v.tenant_id = c.tenant_id AND v.cycle_id = c.id
+                              AND v.employee_id = #{employeeId} AND v.deleted = 0)
+                OR EXISTS (SELECT 1 FROM fenglin_talent.talent_perf_result r
+                            WHERE r.tenant_id = c.tenant_id AND r.cycle_id = c.id
+                              AND r.employee_id = #{employeeId} AND r.result_status = 'PUBLISHED'
+                              AND r.deleted = 0))
+            """)
+    long countCyclesByEmployee(@Param("tenantId") long tenantId, @Param("employeeId") long employeeId);
+
+    @Select("""
+            SELECT g.id AS "id", g.cycle_id AS "cycleId", g.employee_id AS "employeeId",
+                   e.name AS "employeeName", g.goal_name AS "goalName", g.goal_desc AS "goalDesc",
+                   g.weight AS "weight", g.measure_type AS "measureType", g.target_value AS "targetValue",
+                   g.goal_status AS "goalStatus", g.approve_opinion AS "approveOpinion",
+                   extract(epoch FROM g.created_at) * 1000 AS "createdAt"
+            FROM fenglin_talent.talent_perf_goal g
+            LEFT JOIN fenglin_talent.talent_employee e ON e.id = g.employee_id AND e.tenant_id = g.tenant_id
+                AND e.deleted = 0
+            WHERE g.tenant_id = #{tenantId} AND g.cycle_id = #{cycleId} AND g.employee_id = #{employeeId}
+              AND g.deleted = 0
+            ORDER BY g.id
+            """)
+    List<Map<String, Object>> listGoalsByEmployee(@Param("tenantId") long tenantId,
+                                                  @Param("cycleId") long cycleId,
+                                                  @Param("employeeId") long employeeId);
+
+    @Select("""
+            SELECT v.id AS "id", v.cycle_id AS "cycleId", v.employee_id AS "employeeId",
+                   e.name AS "employeeName", v.evaluator_id AS "evaluatorId", v.review_type AS "reviewType",
+                   v.score AS "score", v.grade AS "grade", v.eval_status AS "evalStatus",
+                   v.process_instance_id AS "processInstanceId", v.approve_opinion AS "approveOpinion",
+                   extract(epoch FROM v.created_at) * 1000 AS "createdAt"
+            FROM fenglin_talent.talent_perf_evaluation v
+            LEFT JOIN fenglin_talent.talent_employee e ON e.id = v.employee_id AND e.tenant_id = v.tenant_id
+                AND e.deleted = 0
+            WHERE v.tenant_id = #{tenantId} AND v.cycle_id = #{cycleId} AND v.employee_id = #{employeeId}
+              AND v.deleted = 0
+            ORDER BY v.id
+            """)
+    List<Map<String, Object>> listEvaluationsByEmployee(@Param("tenantId") long tenantId,
+                                                        @Param("cycleId") long cycleId,
+                                                        @Param("employeeId") long employeeId);
+
+    @Select("""
+            SELECT r.id AS "id", r.cycle_id AS "cycleId", r.employee_id AS "employeeId",
+                   e.name AS "employeeName", r.final_score AS "finalScore", r.grade AS "grade",
+                   r.rank_no AS "rankNo", r.bonus_coefficient AS "bonusCoefficient",
+                   r.result_status AS "resultStatus", extract(epoch FROM r.published_at) * 1000 AS "publishedAt"
+            FROM fenglin_talent.talent_perf_result r
+            LEFT JOIN fenglin_talent.talent_employee e ON e.id = r.employee_id AND e.tenant_id = r.tenant_id
+                AND e.deleted = 0
+            WHERE r.tenant_id = #{tenantId} AND r.cycle_id = #{cycleId} AND r.employee_id = #{employeeId}
+              AND r.result_status = 'PUBLISHED' AND r.deleted = 0
+            ORDER BY r.id
+            """)
+    List<Map<String, Object>> listPublishedResultsByEmployee(@Param("tenantId") long tenantId,
+                                                             @Param("cycleId") long cycleId,
+                                                             @Param("employeeId") long employeeId);
 }

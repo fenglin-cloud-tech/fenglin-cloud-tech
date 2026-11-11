@@ -2,6 +2,7 @@ package com.fenglin.service.service;
 
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.fenglin.common.core.BizException;
+import com.fenglin.common.core.PageResult;
 import com.fenglin.service.ServiceErrorCode;
 import com.fenglin.service.client.WorkflowClient;
 import com.fenglin.service.mapper.CommonsMapper;
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.sql.Timestamp;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -72,6 +74,19 @@ public class ProblemChangeService {
         return problem;
     }
 
+    public PageResult<Map<String, Object>> problems(String status, String keyword, Integer page, Integer size) {
+        long tenantId = ServiceContext.tenantId();
+        int limit = ServiceContext.size(size);
+        int offset = ServiceContext.offset(page, size);
+        String normalized = ServiceContext.text(status);
+        String kw = ServiceContext.text(keyword);
+        List<Map<String, Object>> rows = configMapper.listProblems(tenantId,
+                normalized == null ? null : normalized.toUpperCase(), kw, limit, offset);
+        long total = configMapper.countProblems(tenantId,
+                normalized == null ? null : normalized.toUpperCase(), kw);
+        return PageResult.of(rows, total, ServiceContext.page(page), limit);
+    }
+
     @Transactional
     public Map<String, Object> updateProblem(long id, Map<String, Object> body) {
         long tenantId = ServiceContext.tenantId();
@@ -120,6 +135,19 @@ public class ProblemChangeService {
             throw new BizException(ServiceErrorCode.RESOURCE_NOT_FOUND);
         }
         return change;
+    }
+
+    public PageResult<Map<String, Object>> changes(String status, String keyword, Integer page, Integer size) {
+        long tenantId = ServiceContext.tenantId();
+        int limit = ServiceContext.size(size);
+        int offset = ServiceContext.offset(page, size);
+        String normalized = ServiceContext.text(status);
+        String kw = ServiceContext.text(keyword);
+        List<Map<String, Object>> rows = configMapper.listChanges(tenantId,
+                normalized == null ? null : normalized.toUpperCase(), kw, limit, offset);
+        long total = configMapper.countChanges(tenantId,
+                normalized == null ? null : normalized.toUpperCase(), kw);
+        return PageResult.of(rows, total, ServiceContext.page(page), limit);
     }
 
     @Transactional

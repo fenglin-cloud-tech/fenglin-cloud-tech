@@ -31,7 +31,7 @@ const csatForm = reactive({ ticket_id: undefined as number | undefined, score: 5
 
 const gapItems = [
   '自助查询接口 /my/tickets 后端校验 biz:service:self:view（员工自助视角），与后台工单视图 service:ticket:view 分离。',
-  '缺少员工自助“关闭/重开工单”接口：流转 /tickets/{id}/transition 需要 service:ticket:handle，员工端不提供。',
+  '关闭/重开走员工自助接口 /tickets/{id}/self-close、/self-reopen，服务端校验工单提交人本人；处理人视角的完整流转仍在后台。',
   '满意度提交要求 service:csat:submit；无该权限时不显示评分入口。',
 ]
 
@@ -73,6 +73,32 @@ async function addComment() {
     ElMessage.error(describeError(err))
   } finally {
     commentSaving.value = false
+  }
+}
+
+async function closeTicket(row: ServiceRecord) {
+  try {
+    await serviceApi.tickets.selfClose(Number(row.id), '提交人确认关闭')
+    ElMessage.success('工单已关闭')
+    await load()
+    if (detail.value && Number(detail.value.id) === Number(row.id)) {
+      detail.value = await serviceApi.tickets.get(Number(row.id))
+    }
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  }
+}
+
+async function reopenTicket(row: ServiceRecord) {
+  try {
+    await serviceApi.tickets.selfReopen(Number(row.id), '提交人重新打开')
+    ElMessage.success('工单已重开')
+    await load()
+    if (detail.value && Number(detail.value.id) === Number(row.id)) {
+      detail.value = await serviceApi.tickets.get(Number(row.id))
+    }
+  } catch (err) {
+    ElMessage.error(describeError(err))
   }
 }
 
@@ -161,9 +187,11 @@ onMounted(load)
         <el-table-column prop="status" label="状态" width="110" />
         <el-table-column prop="assignee_id" label="处理人" width="100" />
         <el-table-column prop="created_at" label="提交时间" width="170" />
-        <el-table-column label="操作" width="170">
+        <el-table-column label="操作" width="230">
           <template #default="{ row }">
             <el-button link type="primary" @click="openTicket(row)">详情</el-button>
+            <el-button v-if="row.status === 'RESOLVED'" link type="success" @click="closeTicket(row)">关闭</el-button>
+            <el-button v-if="['RESOLVED', 'CLOSED'].includes(String(row.status))" link type="warning" @click="reopenTicket(row)">重开</el-button>
             <el-button v-if="canCsat(row)" link type="success" @click="openCsat(row)">评价</el-button>
           </template>
         </el-table-column>
@@ -208,9 +236,9 @@ onMounted(load)
           <div>{{ item.content }}</div>
         </div>
         <el-empty v-if="comments.length === 0" description="暂无评论" :image-size="60" />
-        <el-input v-model="commentText" type="textarea" :rows="3" placeholder="补充说明（后端要求 service:ticket:handle）" />
+        <el-input v-model="commentText" type="textarea" :rows="3" placeholder="补充说明（仅本人可见的公开回复）" />
         <div style="margin-top: 8px; text-align: right">
-          <el-button v-perm="'service:ticket:handle'" type="primary" :loading="commentSaving" @click="addComment">提交评论</el-button>
+          <el-button type="primary" :loading="commentSaving" @click="addComment">提交评论</el-button>
         </div>
       </template>
     </el-drawer>

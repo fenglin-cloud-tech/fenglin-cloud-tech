@@ -91,6 +91,17 @@ public class CollabApprovalController {
         return ApiResponse.success(approvalService.myTasks());
     }
 
+    /** COL-01：我的已办（按 APPROVE/REJECT/TRANSFER 过滤），撤回后的实例状态仍可在“我发起的”里查到。 */
+    @GetMapping("/tasks/done")
+    public ApiResponse<Map<String, Object>> doneTasks(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(value = "action", required = false) String action,
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false) Integer size) {
+        PermissionGuard.require(permissions, READ);
+        return ApiResponse.success(approvalService.doneTasks(action, page, size));
+    }
+
     @PostMapping("/tasks/{taskId}/approve")
     public ApiResponse<TaskResult> approve(
             @RequestHeader(value = "X-Permissions", required = false) String permissions,

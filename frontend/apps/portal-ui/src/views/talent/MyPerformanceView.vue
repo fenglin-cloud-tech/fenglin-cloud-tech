@@ -9,10 +9,8 @@ import {
   type TalentPerfGoal,
   type TalentPerfResult,
 } from '@fenglin/api-client'
-import { useAuthStore } from '@/stores/auth'
 import { describeError } from '@/utils/error'
 
-const auth = useAuthStore()
 const cycles = ref<TalentPerfCycle[]>([])
 const selectedCycleId = ref<TalentId | ''>('')
 const goals = ref<TalentPerfGoal[]>([])
@@ -22,9 +20,8 @@ const loading = ref(false)
 const error = ref('')
 
 const gapItems = [
-  '后端暂无员工自助绩效接口（没有 /performance/my）：周期、目标、评估与结果均为管理端接口，需要 talent:admin:performance:list。',
-  '页面按登录用户 ID 在目标/评估/结果列表中过滤本人数据；普通员工账号会返回真实 403，管理员账号可看到真实数据。',
-  '目标权重合计、审批流转由管理端维护；员工端只读展示，不提供提交目标或自评入口。',
+  '绩效结果仅展示已发布记录；未发布的结果在管理端，发布前员工不可见。',
+  '目标制定与自评提交仍在管理端办理；员工端只读展示本人目标、评估与结果。',
 ]
 
 const cycleStatusLabels: Record<string, string> = {
@@ -65,14 +62,10 @@ function statusTag(value?: string) {
 }
 
 async function loadCycles() {
-  if (!auth.userId) {
-    error.value = '当前令牌未返回用户 ID，无法定位本人绩效'
-    return
-  }
   loading.value = true
   error.value = ''
   try {
-    const page = await talentApi.performance.cycles({ page: 1, size: 50 })
+    const page = await talentApi.performance.myCycles({ page: 1, size: 50 })
     cycles.value = page.records
     if (!selectedCycleId.value && page.records.length) {
       selectedCycleId.value = page.records[0].id
@@ -86,7 +79,7 @@ async function loadCycles() {
 }
 
 async function loadDetail() {
-  if (!selectedCycleId.value || !auth.userId) {
+  if (!selectedCycleId.value) {
     goals.value = []
     evaluations.value = []
     results.value = []
@@ -95,16 +88,10 @@ async function loadDetail() {
   loading.value = true
   error.value = ''
   try {
-    const cycleId = selectedCycleId.value
-    const [goalPage, evaluationPage, resultPage] = await Promise.all([
-      talentApi.performance.goals(cycleId, { page: 1, size: 200 }),
-      talentApi.performance.evaluations(cycleId, { page: 1, size: 200 }),
-      talentApi.performance.results(cycleId, { page: 1, size: 200 }),
-    ])
-    const mine = (employeeId: TalentId) => String(employeeId) === String(auth.userId)
-    goals.value = goalPage.records.filter((item) => mine(item.employee_id))
-    evaluations.value = evaluationPage.records.filter((item) => mine(item.employee_id))
-    results.value = resultPage.records.filter((item) => mine(item.employee_id))
+    const my = await talentApi.performance.my({ cycle_id: selectedCycleId.value })
+    goals.value = my.goals ?? []
+    evaluations.value = my.evaluations ?? []
+    results.value = my.results ?? []
   } catch (err) {
     error.value = describeError(err)
   } finally {

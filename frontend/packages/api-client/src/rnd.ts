@@ -245,6 +245,19 @@ export interface RndPipeline {
   created_at?: string
 }
 
+export interface RndBuild {
+  id: RndId
+  run_id: RndId
+  build_no: string
+  status: string
+  commit_sha?: string
+  artifact_name?: string
+  artifact_version?: string
+  quality_gate?: string
+  started_at?: string
+  finished_at?: string
+}
+
 export interface RndRun {
   id: RndId
   pipeline_id: RndId
@@ -745,6 +758,11 @@ export const rndApi = {
       },
     ) {
       return post<RndRun>(`${BASE}/runs/${id}/finish`, body)
+    },
+  },
+  builds: {
+    list(params: { product_id?: RndId; limit?: number } = {}) {
+      return get<RndBuild[]>(`${BASE}/builds`, params)
     },
   },
   releases: {

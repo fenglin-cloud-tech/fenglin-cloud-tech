@@ -84,6 +84,7 @@ export interface TalentEmployeeDetail {
   formal_date?: string
   emp_status: string
   work_location?: string
+  version?: number
 }
 
 export interface TalentRequisition {
@@ -317,6 +318,54 @@ export interface TalentPerfResult {
   bonus_coefficient?: number
   result_status: string
   published_at?: string
+}
+
+export interface TalentPerfMy {
+  employee_id: TalentId
+  cycle?: TalentPerfCycle | null
+  goals: TalentPerfGoal[]
+  evaluations: TalentPerfEvaluation[]
+  results: TalentPerfResult[]
+}
+
+// ---------- 入转调离单据 ----------
+
+export interface TalentOnboardingView {
+  id: TalentId
+  employee_id: TalentId
+  employee_name?: string
+  offer_id?: TalentId
+  onboard_date?: string
+  ob_status: string
+  checklist?: string
+  mentor_id?: TalentId
+  created_at?: string
+}
+
+export interface TalentTransferView {
+  id: TalentId
+  employee_id: TalentId
+  employee_name?: string
+  transfer_type: string
+  before_json?: string
+  after_json?: string
+  effective_date?: string
+  reason?: string
+  tf_status: string
+  created_at?: string
+}
+
+export interface TalentResignationView {
+  id: TalentId
+  employee_id: TalentId
+  employee_name?: string
+  resign_type: string
+  apply_date?: string
+  last_work_date?: string
+  reason_category?: string
+  handover_status?: string
+  rs_status: string
+  created_at?: string
 }
 
 // ---------- 培训 ----------
@@ -602,6 +651,15 @@ export const talentApi = {
   },
 
   lifecycle: {
+    onboardings(params: { status?: string; page?: number; size?: number } = {}) {
+      return get<PageResult<TalentOnboardingView>>('/api/talent/v1/onboarding', params)
+    },
+    transfers(params: { status?: string; page?: number; size?: number } = {}) {
+      return get<PageResult<TalentTransferView>>('/api/talent/v1/transfers', params)
+    },
+    resignations(params: { status?: string; page?: number; size?: number } = {}) {
+      return get<PageResult<TalentResignationView>>('/api/talent/v1/resignations', params)
+    },
     createOnboarding(body: {
       offer_id?: TalentId
       employee_id?: TalentId
@@ -729,6 +787,12 @@ export const talentApi = {
   performance: {
     cycles(params: { page?: number; size?: number } = {}) {
       return get<PageResult<TalentPerfCycle>>('/api/talent/v1/performance/cycles', params)
+    },
+    myCycles(params: { page?: number; size?: number } = {}) {
+      return get<PageResult<TalentPerfCycle>>('/api/talent/v1/performance/my/cycles', params)
+    },
+    my(params: { cycle_id?: TalentId } = {}) {
+      return get<TalentPerfMy>('/api/talent/v1/performance/my', params)
     },
     createCycle(body: {
       cycle_code: string

@@ -4,6 +4,7 @@ import { ElMessage } from 'element-plus'
 import { GapNotice, PageHeader } from '@fenglin/ui-admin'
 import {
   rndApi,
+  type RndBuild,
   type RndDeployment,
   type RndId,
   type RndProduct,
@@ -25,16 +26,41 @@ const createError = ref('')
 const form = reactive({
   release_version: '',
   env: 'TEST',
-  build_id: '',
+  build_id: '' as RndId | '',
   window_start: '',
   window_end: '',
 })
 
+const builds = ref<RndBuild[]>([])
+const buildsLoading = ref(false)
+
 const gapItems = [
-  '后端没有构建列表接口，发布单只能手工填写 build_id（构建来自流水线运行）。',
+  '构建下拉来自 /builds（按产品过滤），只做选择不做构建触发；构建产物由流水线运行回调落库。',
   '发布审批会调用工作流 rndReleaseApproval，工作流服务不可用时提交/审批返回真实错误。',
   '部署与回滚接口只记录部署结果，不校验目标环境实际健康状态。',
 ]
+
+async function loadBuilds() {
+  if (!selectedProductId.value) {
+    builds.value = []
+    return
+  }
+  buildsLoading.value = true
+  try {
+    builds.value = await rndApi.builds.list({ product_id: selectedProductId.value, limit: 100 })
+  } catch (err) {
+    builds.value = []
+    createError.value = describeError(err)
+  } finally {
+    buildsLoading.value = false
+  }
+}
+
+function openCreate() {
+  createVisible.value = true
+  form.build_id = ''
+  loadBuilds()
+}
 
 const statusLabels: Record<string, string> = {
   draft: '草稿',
@@ -163,7 +189,7 @@ onMounted(loadProducts)
         <el-select v-model="envFilter" placeholder="全部环境" clearable style="width: 130px" @change="loadReleases">
           <el-option v-for="(label, code) in envLabels" :key="code" :label="label" :value="code" />
         </el-select>
-        <el-button v-perm="'biz:devops:release:create'" type="primary" @click="createVisible = true">新建发布单</el-button>
+        <el-button v-perm="'biz:devops:release:create'" type="primary" @click="openCreate">新建发布单</el-button>
         <el-button :loading="loading" @click="loadReleases">刷新</el-button>
       </template>
     </PageHeader>
@@ -221,7 +247,16 @@ onMounted(loadProducts)
             <el-option v-for="(label, code) in envLabels" :key="code" :label="label" :value="code" />
           </el-select>
         </el-form-item>
-        <el-form-item label="构建ID"><el-input v-model="form.build_id" placeholder="选填，来自流水线运行" /></el-form-item>
+        <el-form-item label="构建">
+          <el-select v-model="form.build_id" :loading="buildsLoading" clearable placeholder="选填，选择本产品构建" style="width: 100%">
+            <el-option
+              v-for="build in builds"
+              :key="String(build.id)"
+              :label="`${build.build_no}（${build.status}${build.artifact_version ? ' · ' + build.artifact_version : ''}）`"
+              :value="build.id"
+            />
+          </el-select>
+        </el-form-item>
         <el-form-item label="窗口开始">
           <el-date-picker v-model="form.window_start" type="datetime" value-format="YYYY-MM-DDTHH:mm:ss" style="width: 100%" />
         </el-form-item>

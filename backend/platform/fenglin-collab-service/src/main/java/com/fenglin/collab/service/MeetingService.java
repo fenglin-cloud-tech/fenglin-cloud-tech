@@ -13,6 +13,7 @@ import com.fenglin.collab.web.dto.CollabDtos.ActionResult;
 import com.fenglin.collab.web.dto.CollabDtos.ActionView;
 import com.fenglin.collab.web.dto.CollabDtos.CheckinResult;
 import com.fenglin.collab.web.dto.CollabDtos.CheckinStats;
+import com.fenglin.collab.web.dto.CollabDtos.InviteView;
 import com.fenglin.collab.web.dto.CollabDtos.MeetingCreateRequest;
 import com.fenglin.collab.web.dto.CollabDtos.MeetingDetailView;
 import com.fenglin.collab.web.dto.CollabDtos.MeetingView;
@@ -148,15 +149,59 @@ public class MeetingService {
     }
 
     @Transactional(readOnly = true)
-    public PageResult<MeetingView> list(Integer page, Integer size) {
+    public PageResult<MeetingView> list(Integer page, Integer size, String status,
+                                        OffsetDateTime from, OffsetDateTime to, boolean invitedOnly) {
         long tenantId = CollabContext.tenantId();
         long userId = CollabContext.userId();
         int safePage = CollabContext.page(page);
         int safeSize = CollabContext.size(size);
+        String normalized = status == null || status.isBlank() ? null : status.toUpperCase();
         List<MeetingView> records = meetingMapper
-                .listMeetings(tenantId, userId, (safePage - 1) * safeSize, safeSize).stream()
+                .listMeetings(tenantId, userId, invitedOnly, normalized, from, to,
+                        (safePage - 1) * safeSize, safeSize).stream()
                 .map(this::toMeetingView).toList();
-        return PageResult.of(records, meetingMapper.countMeetings(tenantId, userId), safePage, safeSize);
+        return PageResult.of(records,
+                meetingMapper.countMeetings(tenantId, userId, invitedOnly, normalized, from, to),
+                safePage, safeSize);
+    }
+
+    /** 我受邀的会议（排除本人组织），带自己的参会响应。 */
+    @Transactional(readOnly = true)
+    public PageResult<InviteView> invites(String response, Integer page, Integer size) {
+        long tenantId = CollabContext.tenantId();
+        long userId = CollabContext.userId();
+        int safePage = CollabContext.page(page);
+        int safeSize = CollabContext.size(size);
+        String normalized = response == null || response.isBlank() ? null : response.toUpperCase();
+        List<InviteView> records = meetingMapper
+                .listInvites(tenantId, userId, normalized, (safePage - 1) * safeSize, safeSize).stream()
+                .map(row -> new InviteView(Rows.str(row, "meetingId"), Rows.str(row, "title"),
+                        Rows.lngVal(row, "organizerId"), Rows.instant(row, "startAt"),
+                        Rows.instant(row, "endAt"), Rows.str(row, "meetingMode"), Rows.str(row, "status"),
+                        Rows.str(row, "response")))
+                .toList();
+        return PageResult.of(records, meetingMapper.countInvites(tenantId, userId, normalized),
+                safePage, safeSize);
+    }
+
+    /** 接受/拒绝邀请：只改本人参会响应，且仅限我确实被邀请的会议。 */
+    @Transactional
+    public InviteView respondInvite(String meetingId, String response) {
+        long tenantId = CollabContext.tenantId();
+        long userId = CollabContext.userId();
+        String normalized = response == null ? "" : response.toUpperCase();
+        if (!Set.of("ACCEPTED", "DECLINED", "TENTATIVE").contains(normalized)) {
+            throw new BizException(CollabErrorCode.PARAM_INVALID, "参会响应必须为 ACCEPTED/DECLINED/TENTATIVE");
+        }
+        Map<String, Object> meeting = requireMeeting(tenantId, meetingId);
+        int updated = meetingMapper.updateInviteResponse(tenantId, meetingId, userId, normalized);
+        if (updated == 0) {
+            throw new BizException(CollabErrorCode.NO_PERMISSION, "仅被邀请人可响应邀请");
+        }
+        audit.publish("COLLAB_MEETING_INVITE_RESPONDED", "UPDATE", "collab_meeting", meetingId, "LOW");
+        return new InviteView(meetingId, Rows.str(meeting, "title"), Rows.lngVal(meeting, "organizerId"),
+                Rows.instant(meeting, "startAt"), Rows.instant(meeting, "endAt"),
+                Rows.str(meeting, "meetingMode"), Rows.str(meeting, "status"), normalized);
     }
 
     @Transactional(readOnly = true)
@@ -168,8 +213,7 @@ public class MeetingService {
                 .map(row -> Rows.lngVal(row, "userId")).toList());
         Map<String, Object> minutes = meetingMapper.findLatestMinutes(tenantId, meetingId);
         MinutesView minutesView = minutes == null ? null
-                : new MinutesView(Rows.str(minutes, "minutesId"), Rows.str(minutes, "status"),
-                Rows.instant(minutes, "publishedAt"));
+                : toMinutesView(tenantId, minutes);
         List<ActionView> actions = minutes == null ? List.of()
                 : meetingMapper.listActions(tenantId, Rows.str(minutes, "minutesId")).stream()
                 .map(row -> new ActionView(Rows.lngVal(row, "actionId"), Rows.str(row, "content"),
@@ -177,6 +221,22 @@ public class MeetingService {
                         Rows.str(row, "status")))
                 .toList();
         return new MeetingDetailView(toMeetingView(meeting), stats, minutesView, actions);
+    }
+
+    /** 纪要历史：每次保存都会新增版本，按创建时间倒序返回，含解密后的正文。 */
+    @Transactional(readOnly = true)
+    public List<MinutesView> minutesHistory(String meetingId) {
+        long tenantId = CollabContext.tenantId();
+        requireMeeting(tenantId, meetingId);
+        return meetingMapper.listMinutes(tenantId, meetingId).stream()
+                .map(row -> toMinutesView(tenantId, row)).toList();
+    }
+
+    private MinutesView toMinutesView(long tenantId, Map<String, Object> row) {
+        return new MinutesView(Rows.str(row, "minutesId"), Rows.str(row, "status"),
+                Rows.instant(row, "publishedAt"), Rows.str(row, "summary"),
+                crypto.decrypt(tenantId, "collab_meeting_minutes", "content", Rows.str(row, "contentCipher")),
+                Rows.instant(row, "createdAt"));
     }
 
     @Transactional

@@ -15,7 +15,8 @@ const activeTab = ref('tasks')
 const gapItems = [
   '我的待办/我的申请返回 Map，字段未强类型化，页面按返回键动态渲染。',
   '没有动态表单引擎，form_data 以 JSON 文本提交，结构由模板 form_schema 约定。',
-  '没有已办/抄送列表接口，也没有审批撤回后的状态查询。',
+  '已办列表已提供（/approvals/tasks/done，含审批意见明文）；撤回后的实例在“我的申请”中保留 CANCELLED 状态可查。',
+  '抄送列表尚未提供：需要新增 collab_approval_cc 表与提交时写入抄送人，属表结构变更，未在本批实施。',
 ]
 
 function formatCell(value: unknown): string {
@@ -58,6 +59,13 @@ const instError = ref('')
 const instQuery = reactive({ page: 1, size: 10 })
 const instTotal = ref(0)
 const instColumns = computed(() => (instRows.value.length ? Object.keys(instRows.value[0]) : []))
+
+const doneRows = ref<(CollabApprovalRow & { comment?: string })[]>([])
+const doneLoading = ref(false)
+const doneError = ref('')
+const doneQuery = reactive({ page: 1, size: 10, action: '' })
+const doneTotal = ref(0)
+const doneColumns = computed(() => (doneRows.value.length ? Object.keys(doneRows.value[0]) : []))
 
 const templateRows = ref<CollabApprovalTemplate[]>([])
 const templateLoading = ref(false)
@@ -119,6 +127,24 @@ async function loadInstances() {
   }
 }
 
+async function loadDone() {
+  doneLoading.value = true
+  doneError.value = ''
+  try {
+    const result = await collabApi.approvals.doneTasks({
+      action: doneQuery.action || undefined,
+      page: doneQuery.page,
+      size: doneQuery.size,
+    })
+    doneRows.value = result.records
+    doneTotal.value = result.total
+  } catch (err) {
+    doneError.value = describeError(err)
+  } finally {
+    doneLoading.value = false
+  }
+}
+
 async function loadTemplates() {
   templateLoading.value = true
   templateError.value = ''
@@ -134,6 +160,8 @@ async function loadTemplates() {
 function refreshActive() {
   if (activeTab.value === 'tasks') {
     void loadTasks()
+  } else if (activeTab.value === 'done') {
+    void loadDone()
   } else {
     void loadInstances()
   }
@@ -302,6 +330,7 @@ async function submitApproval() {
 
 onMounted(() => {
   void loadTasks()
+  void loadDone()
   void loadInstances()
   void loadTemplates()
 })
@@ -354,6 +383,47 @@ onMounted(() => {
             </template>
           </el-table-column>
         </el-table>
+      </el-tab-pane>
+
+      <el-tab-pane label="我处理过的（已办）" name="done">
+        <el-alert v-if="doneError" type="error" :closable="false" show-icon :title="doneError" style="margin-bottom: 12px" />
+
+        <div class="fl-toolbar">
+          <el-select v-model="doneQuery.action" placeholder="全部动作" clearable style="width: 150px" @change="doneQuery.page = 1; loadDone()">
+            <el-option label="通过" value="APPROVE" />
+            <el-option label="驳回" value="REJECT" />
+            <el-option label="转交" value="TRANSFER" />
+          </el-select>
+          <span class="fl-muted">共 {{ doneTotal }} 条已办</span>
+        </div>
+
+        <el-table :data="doneRows" v-loading="doneLoading" border stripe>
+          <el-table-column
+            v-for="col in doneColumns"
+            :key="col"
+            :label="col"
+            min-width="140"
+            show-overflow-tooltip
+          >
+            <template #default="{ row }">{{ formatCell(row[col]) }}</template>
+          </el-table-column>
+          <el-table-column label="操作" width="100" fixed="right">
+            <template #default="{ row }">
+              <el-button link type="primary" @click="openInstance(row)">详情</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+
+        <div class="pager">
+          <el-pagination
+            v-model:current-page="doneQuery.page"
+            v-model:page-size="doneQuery.size"
+            :total="doneTotal"
+            :page-sizes="[10, 20, 50]"
+            layout="sizes, prev, pager, next"
+            @change="loadDone"
+          />
+        </div>
       </el-tab-pane>
 
       <el-tab-pane label="我的申请" name="instances">

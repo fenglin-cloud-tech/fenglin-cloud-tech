@@ -7,7 +7,9 @@ import com.fenglin.finance.support.FinanceContext;
 import com.fenglin.finance.web.dto.FinanceDtos.AgingReport;
 import com.fenglin.finance.web.dto.FinanceDtos.PayableView;
 import com.fenglin.finance.web.dto.FinanceDtos.PaymentCreateRequest;
+import com.fenglin.finance.web.dto.FinanceDtos.PaymentView;
 import com.fenglin.finance.web.dto.FinanceDtos.ReceiptCreateRequest;
+import com.fenglin.finance.web.dto.FinanceDtos.ReceiptView;
 import com.fenglin.finance.web.dto.FinanceDtos.ReceivableView;
 import com.fenglin.finance.web.dto.FinanceDtos.SettlementDocResult;
 import com.fenglin.finance.web.dto.FinanceDtos.WriteOffRequest;
@@ -62,6 +64,28 @@ public class FinanceArapController {
         PermissionGuard.require(permissions, AP_VIEW);
         return ApiResponse.success(arapService.listPayables(status, FinanceContext.size(size),
                 FinanceContext.offset(page, size)));
+    }
+
+    @GetMapping("/receipts")
+    public ApiResponse<List<ReceiptView>> receipts(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "from", required = false) String from,
+            @RequestParam(value = "to", required = false) String to,
+            @RequestParam(value = "limit", required = false) Integer limit) {
+        PermissionGuard.require(permissions, AR_VIEW);
+        return ApiResponse.success(arapService.receipts(status, from, to, limit));
+    }
+
+    @GetMapping("/payments")
+    public ApiResponse<List<PaymentView>> payments(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "from", required = false) String from,
+            @RequestParam(value = "to", required = false) String to,
+            @RequestParam(value = "limit", required = false) Integer limit) {
+        PermissionGuard.require(permissions, AP_VIEW);
+        return ApiResponse.success(arapService.payments(status, from, to, limit));
     }
 
     @PostMapping("/receipts")

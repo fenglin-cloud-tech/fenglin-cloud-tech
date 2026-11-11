@@ -229,6 +229,44 @@ public interface ArapMapper {
                                             @Param("sourceId") long sourceId);
 
     @Select("""
+            <script>
+            SELECT r.id AS "id", r.receipt_no AS "receiptNo", r.customer_id AS "customerId",
+                   r.currency_code AS "currencyCode", r.amount AS "amount", r.pay_method AS "payMethod",
+                   to_char(r.receipt_date, 'YYYY-MM-DD') AS "receiptDate", r.voucher_id AS "voucherId",
+                   r.status AS "status", extract(epoch FROM r.created_at) * 1000 AS "createdAt"
+            FROM fin_receipt r
+            WHERE r.tenant_id = #{tenantId} AND r.deleted = 0
+              AND (CAST(#{status,jdbcType=VARCHAR} AS text) IS NULL OR r.status = #{status})
+              AND (CAST(#{fromDate,jdbcType=VARCHAR} AS text) IS NULL OR r.receipt_date >= CAST(#{fromDate} AS date))
+              AND (CAST(#{toDate,jdbcType=VARCHAR} AS text) IS NULL OR r.receipt_date &lt;= CAST(#{toDate} AS date))
+            ORDER BY r.receipt_date DESC, r.id DESC
+            LIMIT #{limit}
+            </script>
+            """)
+    List<Map<String, Object>> listReceipts(@Param("tenantId") long tenantId, @Param("status") String status,
+                                           @Param("fromDate") String fromDate, @Param("toDate") String toDate,
+                                           @Param("limit") int limit);
+
+    @Select("""
+            <script>
+            SELECT p.id AS "id", p.payment_no AS "paymentNo", p.supplier_id AS "supplierId",
+                   p.currency_code AS "currencyCode", p.amount AS "amount", p.pay_method AS "payMethod",
+                   to_char(p.payment_date, 'YYYY-MM-DD') AS "paymentDate", p.voucher_id AS "voucherId",
+                   p.status AS "status", extract(epoch FROM p.created_at) * 1000 AS "createdAt"
+            FROM fin_payment p
+            WHERE p.tenant_id = #{tenantId} AND p.deleted = 0
+              AND (CAST(#{status,jdbcType=VARCHAR} AS text) IS NULL OR p.status = #{status})
+              AND (CAST(#{fromDate,jdbcType=VARCHAR} AS text) IS NULL OR p.payment_date >= CAST(#{fromDate} AS date))
+              AND (CAST(#{toDate,jdbcType=VARCHAR} AS text) IS NULL OR p.payment_date &lt;= CAST(#{toDate} AS date))
+            ORDER BY p.payment_date DESC, p.id DESC
+            LIMIT #{limit}
+            </script>
+            """)
+    List<Map<String, Object>> listPayments(@Param("tenantId") long tenantId, @Param("status") String status,
+                                           @Param("fromDate") String fromDate, @Param("toDate") String toDate,
+                                           @Param("limit") int limit);
+
+    @Select("""
             SELECT COALESCE(customer_name, '未指定客户') AS "partyName",
                    CASE
                        WHEN due_date >= current_date THEN 'LE_30'

@@ -122,6 +122,9 @@ export const legalApi = {
     list(params: { seal_type?: string; status?: string; page?: number; size?: number } = {}) {
       return get<LegalPage>(`${BASE}/admin/seals`, params)
     },
+    available(params: { seal_type?: string } = {}) {
+      return get<LegalRecord[]>(`${BASE}/seals/available`, params)
+    },
     create(body: LegalRecord) {
       return post<LegalRecord>(`${BASE}/admin/seals`, body)
     },

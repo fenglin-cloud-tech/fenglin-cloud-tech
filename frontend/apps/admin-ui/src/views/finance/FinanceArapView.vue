@@ -6,8 +6,10 @@ import {
   financeApi,
   type FinanceAgingReport,
   type FinancePayable,
+  type FinancePaymentDoc,
   type FinancePaymentPlanLine,
   type FinanceReceivable,
+  type FinanceReceiptDoc,
 } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 
@@ -53,11 +55,45 @@ const statusLabels: Record<string, string> = {
   CLOSED: '已关闭',
 }
 
+const settlementKind = ref<'receipt' | 'payment'>('receipt')
+const settlementStatus = ref('')
+const settlementRange = ref<[string, string] | null>(null)
+const receiptDocs = ref<FinanceReceiptDoc[]>([])
+const paymentDocs = ref<FinancePaymentDoc[]>([])
+const settlementLoading = ref(false)
+const settlementError = ref('')
+
+const settlementStatusOptions = [
+  { value: 'DRAFT', label: '草稿' },
+  { value: 'CONFIRMED', label: '已确认' },
+]
+
 const gapItems = [
-  '后端没有收/付款单列表查询接口，创建后只返回结算单与核销结果，历史单据无法在页面回看。',
-  '客户/供应商主数据不在云财服务内，页面只能按名称填写或通过 ID 关联，缺少统一选择器接口。',
+  '收付款单按单号/日期/状态查询，客户与供应商主数据不在云财服务内，只能显示关联 ID。',
   '坏账核销、催收任务联动接口缺失；账龄报表按后端返回的分桶原样展示。',
 ]
+
+async function loadSettlements() {
+  settlementLoading.value = true
+  settlementError.value = ''
+  try {
+    const params = {
+      status: settlementStatus.value || undefined,
+      from: settlementRange.value?.[0] || undefined,
+      to: settlementRange.value?.[1] || undefined,
+      limit: 100,
+    }
+    if (settlementKind.value === 'receipt') {
+      receiptDocs.value = await financeApi.arap.receipts(params)
+    } else {
+      paymentDocs.value = await financeApi.arap.payments(params)
+    }
+  } catch (err) {
+    settlementError.value = describeError(err)
+  } finally {
+    settlementLoading.value = false
+  }
+}
 
 function money(value?: string | number | null) {
   if (value === undefined || value === null || value === '') return '-'
@@ -259,6 +295,63 @@ onMounted(async () => {
                 <el-button v-perm="'biz:finance:arap:writeoff'" link type="warning" @click="openWriteOff(row, 'AP')">核销</el-button>
               </template>
             </el-table-column>
+          </el-table>
+        </el-tab-pane>
+
+        <el-tab-pane label="收付款单" name="settlement">
+          <div class="fl-toolbar">
+            <el-radio-group v-model="settlementKind" @change="loadSettlements">
+              <el-radio-button value="receipt">收款单</el-radio-button>
+              <el-radio-button value="payment">付款单</el-radio-button>
+            </el-radio-group>
+            <el-select v-model="settlementStatus" placeholder="全部状态" clearable style="width: 150px">
+              <el-option v-for="opt in settlementStatusOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
+            </el-select>
+            <el-date-picker
+              v-model="settlementRange"
+              type="daterange"
+              value-format="YYYY-MM-DD"
+              start-placeholder="开始日期"
+              end-placeholder="结束日期"
+              style="width: 240px"
+            />
+            <el-button type="primary" :loading="settlementLoading" @click="loadSettlements">查询</el-button>
+          </div>
+          <el-alert
+            v-if="settlementError"
+            type="error"
+            :closable="false"
+            show-icon
+            :title="settlementError"
+            style="margin-bottom: 8px"
+          />
+          <el-table v-if="settlementKind === 'receipt'" v-loading="settlementLoading" :data="receiptDocs" border stripe>
+            <el-table-column prop="receipt_no" label="收款单号" min-width="170" show-overflow-tooltip />
+            <el-table-column prop="customer_id" label="客户ID" min-width="150" show-overflow-tooltip />
+            <el-table-column prop="receipt_date" label="收款日期" width="120" />
+            <el-table-column prop="currency_code" label="币种" width="80" />
+            <el-table-column label="金额" width="130" align="right">
+              <template #default="{ row }">{{ money(row.amount) }}</template>
+            </el-table-column>
+            <el-table-column prop="pay_method" label="收款方式" width="130" />
+            <el-table-column label="状态" width="100">
+              <template #default="{ row }"><el-tag size="small">{{ statusLabel(row.status) }}</el-tag></template>
+            </el-table-column>
+            <el-table-column prop="voucher_id" label="凭证ID" min-width="150" show-overflow-tooltip />
+          </el-table>
+          <el-table v-else v-loading="settlementLoading" :data="paymentDocs" border stripe>
+            <el-table-column prop="payment_no" label="付款单号" min-width="170" show-overflow-tooltip />
+            <el-table-column prop="supplier_id" label="供应商ID" min-width="150" show-overflow-tooltip />
+            <el-table-column prop="payment_date" label="付款日期" width="120" />
+            <el-table-column prop="currency_code" label="币种" width="80" />
+            <el-table-column label="金额" width="130" align="right">
+              <template #default="{ row }">{{ money(row.amount) }}</template>
+            </el-table-column>
+            <el-table-column prop="pay_method" label="付款方式" width="130" />
+            <el-table-column label="状态" width="100">
+              <template #default="{ row }"><el-tag size="small">{{ statusLabel(row.status) }}</el-tag></template>
+            </el-table-column>
+            <el-table-column prop="voucher_id" label="凭证ID" min-width="150" show-overflow-tooltip />
           </el-table>
         </el-tab-pane>
 

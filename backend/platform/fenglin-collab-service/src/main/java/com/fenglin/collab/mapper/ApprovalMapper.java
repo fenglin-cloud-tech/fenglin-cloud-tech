@@ -200,4 +200,36 @@ public interface ApprovalMapper {
             """)
     List<Map<String, Object>> listMyInstances(@Param("tenantId") long tenantId, @Param("userId") long userId,
                                               @Param("offset") int offset, @Param("size") int size);
+
+    @Select("""
+            <script>
+            SELECT t.id AS "taskId", CAST(t.instance_id AS varchar) AS "instanceId",
+                   i.instance_no AS "instanceNo", i.status AS "instanceStatus",
+                   t.node_key AS "nodeKey", t.node_name AS "nodeName", t.action AS "action",
+                   t.status AS "status", t.comment_cipher AS "commentCipher",
+                   (EXTRACT(EPOCH FROM t.handled_at) * 1000)::bigint AS "handledAt"
+            FROM collab_approval_task t
+            JOIN collab_approval_instance i ON i.id = t.instance_id AND i.tenant_id = t.tenant_id
+            WHERE t.tenant_id = #{tenantId} AND t.assignee_id = #{userId}
+              AND t.status = 'DONE' AND t.deleted = 0
+            <if test="action != null">AND t.action = #{action}</if>
+            ORDER BY t.handled_at DESC
+            LIMIT #{size} OFFSET #{offset}
+            </script>
+            """)
+    List<Map<String, Object>> listDoneTasks(@Param("tenantId") long tenantId, @Param("userId") long userId,
+                                            @Param("action") String action,
+                                            @Param("offset") int offset, @Param("size") int size);
+
+    @Select("""
+            <script>
+            SELECT count(1)
+            FROM collab_approval_task t
+            WHERE t.tenant_id = #{tenantId} AND t.assignee_id = #{userId}
+              AND t.status = 'DONE' AND t.deleted = 0
+            <if test="action != null">AND t.action = #{action}</if>
+            </script>
+            """)
+    long countDoneTasks(@Param("tenantId") long tenantId, @Param("userId") long userId,
+                        @Param("action") String action);
 }

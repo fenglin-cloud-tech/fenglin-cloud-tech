@@ -341,6 +341,35 @@ public interface ConfigMapper {
             """)
     Map<String, Object> findProblem(@Param("tenantId") long tenantId, @Param("id") long id);
 
+    @Select("""
+            <script>
+            SELECT id, problem_no, title, description, root_cause, workaround, known_error, status, owner_id,
+                   created_at, updated_at
+            FROM svc_problem
+            WHERE tenant_id = #{tenantId} AND deleted = 0
+            <if test="status != null">AND status = #{status}</if>
+            <if test="keyword != null">AND (title ILIKE '%' || #{keyword} || '%'
+                 OR problem_no ILIKE '%' || #{keyword} || '%')</if>
+            ORDER BY id DESC
+            LIMIT #{limit} OFFSET #{offset}
+            </script>
+            """)
+    List<Map<String, Object>> listProblems(@Param("tenantId") long tenantId, @Param("status") String status,
+                                           @Param("keyword") String keyword,
+                                           @Param("limit") int limit, @Param("offset") int offset);
+
+    @Select("""
+            <script>
+            SELECT count(1) FROM svc_problem
+            WHERE tenant_id = #{tenantId} AND deleted = 0
+            <if test="status != null">AND status = #{status}</if>
+            <if test="keyword != null">AND (title ILIKE '%' || #{keyword} || '%'
+                 OR problem_no ILIKE '%' || #{keyword} || '%')</if>
+            </script>
+            """)
+    long countProblems(@Param("tenantId") long tenantId, @Param("status") String status,
+                       @Param("keyword") String keyword);
+
     @Update("""
             UPDATE svc_problem SET root_cause = COALESCE(#{rootCause}, root_cause),
                    workaround = COALESCE(#{workaround}, workaround), known_error = #{knownError},
@@ -371,6 +400,35 @@ public interface ConfigMapper {
             FROM svc_change_request WHERE id = #{id} AND tenant_id = #{tenantId} AND deleted = 0
             """)
     Map<String, Object> findChange(@Param("tenantId") long tenantId, @Param("id") long id);
+
+    @Select("""
+            <script>
+            SELECT id, change_no, title, change_type, plan, rollback_plan, risk_level, planned_start, planned_end,
+                   approval_flow_key, status, owner_id, created_at, updated_at
+            FROM svc_change_request
+            WHERE tenant_id = #{tenantId} AND deleted = 0
+            <if test="status != null">AND status = #{status}</if>
+            <if test="keyword != null">AND (title ILIKE '%' || #{keyword} || '%'
+                 OR change_no ILIKE '%' || #{keyword} || '%')</if>
+            ORDER BY id DESC
+            LIMIT #{limit} OFFSET #{offset}
+            </script>
+            """)
+    List<Map<String, Object>> listChanges(@Param("tenantId") long tenantId, @Param("status") String status,
+                                          @Param("keyword") String keyword,
+                                          @Param("limit") int limit, @Param("offset") int offset);
+
+    @Select("""
+            <script>
+            SELECT count(1) FROM svc_change_request
+            WHERE tenant_id = #{tenantId} AND deleted = 0
+            <if test="status != null">AND status = #{status}</if>
+            <if test="keyword != null">AND (title ILIKE '%' || #{keyword} || '%'
+                 OR change_no ILIKE '%' || #{keyword} || '%')</if>
+            </script>
+            """)
+    long countChanges(@Param("tenantId") long tenantId, @Param("status") String status,
+                      @Param("keyword") String keyword);
 
     @Update("""
             UPDATE svc_change_request SET status = #{status}, updated_by = #{userId}, version = version + 1

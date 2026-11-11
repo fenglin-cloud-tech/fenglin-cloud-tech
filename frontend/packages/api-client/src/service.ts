@@ -79,6 +79,12 @@ export const serviceApi = {
     deskTickets(params: { assigneeId?: number; page?: number; size?: number } = {}) {
       return get<ServicePage>(`${BASE}/desk/tickets`, params)
     },
+    selfClose(id: number, reason?: string) {
+      return post<ServiceRecord>(`${BASE}/tickets/${id}/self-close`, { reason })
+    },
+    selfReopen(id: number, reason?: string) {
+      return post<ServiceRecord>(`${BASE}/tickets/${id}/self-reopen`, { reason })
+    },
   },
   catalog: {
     tree() {
@@ -138,6 +144,12 @@ export const serviceApi = {
     },
   },
   problems: {
+    list(params: { status?: string; keyword?: string; page?: number; size?: number } = {}) {
+      return get<ServicePage>(`${BASE}/problems`, params)
+    },
+    get(id: number) {
+      return get<ServiceRecord>(`${BASE}/problems/${id}`)
+    },
     create(body: {
       title: string
       description?: string
@@ -155,6 +167,12 @@ export const serviceApi = {
     },
   },
   changes: {
+    list(params: { status?: string; keyword?: string; page?: number; size?: number } = {}) {
+      return get<ServicePage>(`${BASE}/changes`, params)
+    },
+    get(id: number) {
+      return get<ServiceRecord>(`${BASE}/changes/${id}`)
+    },
     create(body: {
       title: string
       change_type?: string
@@ -220,13 +238,25 @@ export const serviceApi = {
     saveCatalog(body: {
       id?: number
       parent_id?: number | null
-      code?: string
       name: string
-      description?: string
       sort_no?: number
       status?: string
     }) {
       return post<ServiceRecord>(`${BASE}/admin/catalog`, body)
+    },
+    saveCatalogItem(body: {
+      id?: number
+      catalog_id: number
+      code?: string
+      name: string
+      description?: string
+      ticket_type?: string
+      sla_policy_id?: number | null
+      need_approval?: boolean
+      sort_no?: number
+      status?: string
+    }) {
+      return post<ServiceRecord>(`${BASE}/admin/catalog`, { items: [body] })
     },
     slaPolicies() {
       return get<ServiceRecord[]>(`${BASE}/admin/sla-policies`)
@@ -240,6 +270,7 @@ export const serviceApi = {
       resolve_minutes?: number
       business_hours?: string
       enabled?: boolean
+      status?: string
     }) {
       return post<ServiceRecord>(`${BASE}/admin/sla-policies`, body)
     },

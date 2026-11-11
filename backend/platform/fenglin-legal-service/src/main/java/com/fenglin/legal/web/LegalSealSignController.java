@@ -46,6 +46,13 @@ public class LegalSealSignController {
         return ApiResponse.success(service.listSeals(permissions, page, size, sealType, status));
     }
 
+    @GetMapping("/seals/available")
+    public ApiResponse<List<Map<String, Object>>> availableSeals(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(value = "seal_type", required = false) String sealType) {
+        return ApiResponse.success(service.availableSeals(permissions, sealType));
+    }
+
     @PostMapping("/admin/seals/{id}/revoke")
     public ApiResponse<Map<String, Object>> revokeSeal(
             @RequestHeader(value = "X-Permissions", required = false) String permissions,

@@ -340,6 +340,28 @@ public final class TalentDtos {
                                  String resultStatus, Instant publishedAt) {
     }
 
+    /** 员工自助绩效：只含本人目标、评估与已发布结果。 */
+    public record PerfMyView(Long employeeId, PerfCycleView cycle, List<PerfGoalView> goals,
+                             List<PerfEvaluationView> evaluations, List<PerfResultView> results) {
+    }
+
+    // ---------- 入转调离列表 ----------
+
+    public record OnboardingView(Long id, Long employeeId, String employeeName, Long offerId,
+                                 LocalDate onboardDate, String obStatus, String checklist, Long mentorId,
+                                 Instant createdAt) {
+    }
+
+    public record TransferView(Long id, Long employeeId, String employeeName, String transferType,
+                               String beforeJson, String afterJson, LocalDate effectiveDate, String reason,
+                               String tfStatus, Instant createdAt) {
+    }
+
+    public record ResignationView(Long id, Long employeeId, String employeeName, String resignType,
+                                  LocalDate applyDate, LocalDate lastWorkDate, String reasonCategory,
+                                  String handoverStatus, String rsStatus, Instant createdAt) {
+    }
+
     // ---------- 收口补充 ----------
 
     public record EmployeeImportRow(String empNo, String name, String gender, LocalDate birthDate, String phone,

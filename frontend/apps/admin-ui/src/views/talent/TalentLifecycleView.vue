@@ -1,11 +1,15 @@
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { GapNotice, PageHeader } from '@fenglin/ui-admin'
-import { talentApi } from '@fenglin/api-client'
+import {
+  talentApi,
+  type TalentOnboardingView,
+  type TalentResignationView,
+  type TalentTransferView,
+} from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 
 const gapItems = [
-  '入职、调动、离职都只有创建与状态流转接口，没有列表查询接口，页面无法回显历史单据。',
   '入职办理需先有 offer_id 或 employee_id，本页不提供候选人/员工选择器，需手工填写 ID。',
   '调动生效与审批是两个独立动作，前端按顺序调用，不保证后端幂等。',
   '试用期评估接口只按试用记录 ID 操作，没有试用期列表可查。',
@@ -72,6 +76,98 @@ const probationResultOptions = [
   { value: 'EXTENDED', label: '延长试用' },
   { value: 'FAILED', label: '不通过' },
 ]
+
+// ---------- 历史单据 ----------
+
+const historyTab = ref<'onboarding' | 'transfer' | 'resignation'>('onboarding')
+const historyLoading = ref(false)
+const onboardingRows = ref<TalentOnboardingView[]>([])
+const transferRows = ref<TalentTransferView[]>([])
+const resignationRows = ref<TalentResignationView[]>([])
+const onboardingQuery = reactive({ status: '', page: 1, size: 10 })
+const transferQuery = reactive({ status: '', page: 1, size: 10 })
+const resignationQuery = reactive({ status: '', page: 1, size: 10 })
+const onboardingTotal = ref(0)
+const transferTotal = ref(0)
+const resignationTotal = ref(0)
+
+const onboardingStatusOptions = [
+  { value: 'PENDING', label: '待完成' },
+  { value: 'DONE', label: '已完成' },
+]
+const transferStatusOptions = [
+  { value: 'APPROVING', label: '审批中' },
+  { value: 'EFFECTIVE', label: '已生效' },
+  { value: 'CANCELED', label: '已取消' },
+]
+const resignationStatusOptions = [
+  { value: 'APPROVING', label: '审批中' },
+  { value: 'EFFECTIVE', label: '已生效' },
+  { value: 'REVOKED', label: '已撤销' },
+]
+
+async function loadHistory() {
+  historyLoading.value = true
+  try {
+    const [onboardingPage, transferPage, resignationPage] = await Promise.all([
+      talentApi.lifecycle.onboardings({
+        status: onboardingQuery.status || undefined,
+        page: onboardingQuery.page,
+        size: onboardingQuery.size,
+      }),
+      talentApi.lifecycle.transfers({
+        status: transferQuery.status || undefined,
+        page: transferQuery.page,
+        size: transferQuery.size,
+      }),
+      talentApi.lifecycle.resignations({
+        status: resignationQuery.status || undefined,
+        page: resignationQuery.page,
+        size: resignationQuery.size,
+      }),
+    ])
+    onboardingRows.value = onboardingPage.records
+    onboardingTotal.value = onboardingPage.total
+    transferRows.value = transferPage.records
+    transferTotal.value = transferPage.total
+    resignationRows.value = resignationPage.records
+    resignationTotal.value = resignationPage.total
+  } catch (err) {
+    onboardingResult.value = describeError(err)
+  } finally {
+    historyLoading.value = false
+  }
+}
+
+function searchHistory(tab: 'onboarding' | 'transfer' | 'resignation') {
+  if (tab === 'onboarding') onboardingQuery.page = 1
+  else if (tab === 'transfer') transferQuery.page = 1
+  else resignationQuery.page = 1
+  loadHistory()
+}
+
+function useOnboardingRow(row: TalentOnboardingView) {
+  onboardingId.value = String(row.id)
+  onboardingResult.value = `已选择入职单 ${row.id}（${row.employee_name ?? row.employee_id}），可直接点击「完成入职」`
+}
+
+function useTransferRow(row: TalentTransferView) {
+  transferId.value = String(row.id)
+  transferResult.value = `已选择调动单 ${row.id}（${row.employee_name ?? row.employee_id}），可审批或生效`
+}
+
+function useResignationRow(row: TalentResignationView) {
+  resignId.value = String(row.id)
+  resignResult.value = `已选择离职单 ${row.id}（${row.employee_name ?? row.employee_id}），可审批`
+}
+
+onMounted(loadHistory)
+
+function statusTag(value?: string) {
+  if (value === 'DONE' || value === 'EFFECTIVE') return 'success'
+  if (value === 'CANCELED' || value === 'REVOKED') return 'danger'
+  return 'warning'
+}
 
 function toId(text: string): string | undefined {
   return text.trim() ? text.trim() : undefined
@@ -362,5 +458,118 @@ async function approveResign() {
         </el-card>
       </el-col>
     </el-row>
+
+    <el-card shadow="never" header="历史单据" style="margin-top: 16px">
+      <el-tabs v-model="historyTab" v-loading="historyLoading">
+        <el-tab-pane label="入职单" name="onboarding">
+          <div class="history-toolbar">
+            <el-select v-model="onboardingQuery.status" placeholder="全部状态" clearable style="width: 160px">
+              <el-option v-for="opt in onboardingStatusOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
+            </el-select>
+            <el-button type="primary" @click="searchHistory('onboarding')">查询</el-button>
+            <span class="fl-muted">点击行可将单据带入上方「入职单 ID」</span>
+          </div>
+          <el-table :data="onboardingRows" border stripe size="small" @row-click="useOnboardingRow">
+            <el-table-column prop="id" label="入职单 ID" min-width="170" show-overflow-tooltip />
+            <el-table-column label="员工" min-width="140">
+              <template #default="{ row }">{{ row.employee_name || row.employee_id }}</template>
+            </el-table-column>
+            <el-table-column prop="onboard_date" label="入职日期" width="120" />
+            <el-table-column label="状态" width="100">
+              <template #default="{ row }">
+                <el-tag :type="statusTag(row.ob_status)" size="small">{{ row.ob_status }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="offer_id" label="Offer ID" min-width="150" show-overflow-tooltip />
+          </el-table>
+          <el-pagination
+            v-model:current-page="onboardingQuery.page"
+            :page-size="onboardingQuery.size"
+            :total="onboardingTotal"
+            layout="total, prev, pager, next"
+            style="margin-top: 8px; justify-content: flex-end"
+            @current-change="loadHistory"
+          />
+        </el-tab-pane>
+
+        <el-tab-pane label="调动单" name="transfer">
+          <div class="history-toolbar">
+            <el-select v-model="transferQuery.status" placeholder="全部状态" clearable style="width: 160px">
+              <el-option v-for="opt in transferStatusOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
+            </el-select>
+            <el-button type="primary" @click="searchHistory('transfer')">查询</el-button>
+            <span class="fl-muted">点击行可将单据带入上方「调动单 ID」</span>
+          </div>
+          <el-table :data="transferRows" border stripe size="small" @row-click="useTransferRow">
+            <el-table-column prop="id" label="调动单 ID" min-width="170" show-overflow-tooltip />
+            <el-table-column label="员工" min-width="140">
+              <template #default="{ row }">{{ row.employee_name || row.employee_id }}</template>
+            </el-table-column>
+            <el-table-column prop="transfer_type" label="类型" width="120" />
+            <el-table-column prop="effective_date" label="生效日期" width="120" />
+            <el-table-column label="状态" width="100">
+              <template #default="{ row }">
+                <el-tag :type="statusTag(row.tf_status)" size="small">{{ row.tf_status }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="reason" label="原因" min-width="160" show-overflow-tooltip />
+          </el-table>
+          <el-pagination
+            v-model:current-page="transferQuery.page"
+            :page-size="transferQuery.size"
+            :total="transferTotal"
+            layout="total, prev, pager, next"
+            style="margin-top: 8px; justify-content: flex-end"
+            @current-change="loadHistory"
+          />
+        </el-tab-pane>
+
+        <el-tab-pane label="离职单" name="resignation">
+          <div class="history-toolbar">
+            <el-select v-model="resignationQuery.status" placeholder="全部状态" clearable style="width: 160px">
+              <el-option
+                v-for="opt in resignationStatusOptions"
+                :key="opt.value"
+                :label="opt.label"
+                :value="opt.value"
+              />
+            </el-select>
+            <el-button type="primary" @click="searchHistory('resignation')">查询</el-button>
+            <span class="fl-muted">点击行可将单据带入上方「离职单 ID」</span>
+          </div>
+          <el-table :data="resignationRows" border stripe size="small" @row-click="useResignationRow">
+            <el-table-column prop="id" label="离职单 ID" min-width="170" show-overflow-tooltip />
+            <el-table-column label="员工" min-width="140">
+              <template #default="{ row }">{{ row.employee_name || row.employee_id }}</template>
+            </el-table-column>
+            <el-table-column prop="resign_type" label="类型" width="120" />
+            <el-table-column prop="apply_date" label="申请日期" width="120" />
+            <el-table-column prop="last_work_date" label="最后工作日" width="120" />
+            <el-table-column label="状态" width="100">
+              <template #default="{ row }">
+                <el-tag :type="statusTag(row.rs_status)" size="small">{{ row.rs_status }}</el-tag>
+              </template>
+            </el-table-column>
+          </el-table>
+          <el-pagination
+            v-model:current-page="resignationQuery.page"
+            :page-size="resignationQuery.size"
+            :total="resignationTotal"
+            layout="total, prev, pager, next"
+            style="margin-top: 8px; justify-content: flex-end"
+            @current-change="loadHistory"
+          />
+        </el-tab-pane>
+      </el-tabs>
+    </el-card>
   </div>
 </template>
+
+<style scoped>
+.history-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+</style>

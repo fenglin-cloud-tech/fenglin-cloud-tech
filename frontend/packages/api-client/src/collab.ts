@@ -165,6 +165,20 @@ export interface CollabMinutes {
   minutes_id: CollabId
   status: string
   published_at?: string
+  summary?: string
+  content?: string
+  created_at?: string
+}
+
+export interface CollabInvite {
+  meeting_id: CollabId
+  title: string
+  organizer_id: CollabId
+  start_at: string
+  end_at: string
+  meeting_mode: string
+  status: string
+  response: string
 }
 
 export interface CollabActionItem {
@@ -465,8 +479,24 @@ export const collabApi = {
   },
 
   meetings: {
-    list(params: { page?: number; size?: number } = {}) {
+    list(params: {
+      page?: number
+      size?: number
+      status?: string
+      from?: string
+      to?: string
+      invitedOnly?: boolean
+    } = {}) {
       return get<PageResult<CollabMeeting>>('/api/collab/v1/meetings', params)
+    },
+    invites(params: { response?: string; page?: number; size?: number } = {}) {
+      return get<PageResult<CollabInvite>>('/api/collab/v1/meetings/invites', params)
+    },
+    respondInvite(meetingId: CollabId, response: 'ACCEPTED' | 'DECLINED' | 'TENTATIVE') {
+      return post<CollabInvite>(`/api/collab/v1/meetings/${meetingId}/invites/respond`, { response })
+    },
+    minutesHistory(meetingId: CollabId) {
+      return get<CollabMinutes[]>(`/api/collab/v1/meetings/${meetingId}/minutes`)
     },
     create(body: {
       title: string
@@ -586,6 +616,12 @@ export const collabApi = {
     },
     myTasks() {
       return get<CollabApprovalRow[]>('/api/collab/v1/approvals/tasks/my')
+    },
+    doneTasks(params: { action?: string; page?: number; size?: number } = {}) {
+      return get<PageResult<CollabApprovalRow & { comment?: string }>>(
+        '/api/collab/v1/approvals/tasks/done',
+        params,
+      )
     },
     approve(taskId: string | number, comment?: string) {
       return post<{ task_status: string; instance_status: string }>(

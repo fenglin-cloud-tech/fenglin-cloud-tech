@@ -12,6 +12,7 @@ import com.fenglin.talent.web.dto.TalentDtos.PerfEvaluationSubmitResult;
 import com.fenglin.talent.web.dto.TalentDtos.PerfEvaluationView;
 import com.fenglin.talent.web.dto.TalentDtos.PerfGoalCreateRequest;
 import com.fenglin.talent.web.dto.TalentDtos.PerfGoalView;
+import com.fenglin.talent.web.dto.TalentDtos.PerfMyView;
 import com.fenglin.talent.web.dto.TalentDtos.PerfResultView;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -33,11 +34,31 @@ public class TalentPerformanceController {
     private static final String LIST = "talent:admin:performance:list";
     private static final String MANAGE = "talent:admin:performance:manage";
     private static final String APPROVE = "talent:admin:performance:approve";
+    private static final String SELF_VIEW = "talent:self:performance:view";
 
     private final PerformanceService performanceService;
 
     public TalentPerformanceController(PerformanceService performanceService) {
         this.performanceService = performanceService;
+    }
+
+    /** 员工自助：本人有数据的绩效周期。 */
+    @GetMapping("/my/cycles")
+    public ApiResponse<PageResult<PerfCycleView>> myCycles(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false) Integer size) {
+        PermissionGuard.require(permissions, SELF_VIEW);
+        return ApiResponse.success(performanceService.myCycles(page, size));
+    }
+
+    /** 员工自助：本人目标、评估与已发布结果。 */
+    @GetMapping("/my")
+    public ApiResponse<PerfMyView> myPerformance(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(value = "cycle_id", required = false) Long cycleId) {
+        PermissionGuard.require(permissions, SELF_VIEW);
+        return ApiResponse.success(performanceService.myPerformance(cycleId));
     }
 
     @GetMapping("/cycles")

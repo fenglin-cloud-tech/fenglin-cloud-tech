@@ -125,8 +125,29 @@ public class TicketController {
     public ApiResponse<Map<String, Object>> comment(
             @RequestHeader(value = "X-Permissions", required = false) String permissions,
             @PathVariable("id") long id, @RequestBody Map<String, Object> body) {
-        PermissionGuard.require(permissions, HANDLE);
-        return ApiResponse.success(ticketService.comment(id, body));
+        if (PermissionGuard.has(permissions, HANDLE)) {
+            return ApiResponse.success(ticketService.comment(id, body));
+        }
+        PermissionGuard.require(permissions, SELF_VIEW);
+        return ApiResponse.success(ticketService.selfComment(id, body));
+    }
+
+    /** 员工自助关闭：仅工单提交人本人，等价于 RESOLVED → CLOSED。 */
+    @PostMapping("/tickets/{id}/self-close")
+    public ApiResponse<Map<String, Object>> selfClose(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id, @RequestBody(required = false) Map<String, Object> body) {
+        PermissionGuard.require(permissions, SELF_VIEW);
+        return ApiResponse.success(ticketService.selfTransition(id, "CLOSED", body));
+    }
+
+    /** 员工自助重开：仅工单提交人本人，CLOSED/RESOLVED → REOPENED。 */
+    @PostMapping("/tickets/{id}/self-reopen")
+    public ApiResponse<Map<String, Object>> selfReopen(
+            @RequestHeader("X-Permissions") String permissions,
+            @PathVariable("id") long id, @RequestBody(required = false) Map<String, Object> body) {
+        PermissionGuard.require(permissions, SELF_VIEW);
+        return ApiResponse.success(ticketService.selfTransition(id, "REOPENED", body));
     }
 
     @GetMapping("/tickets/{id}/comments")

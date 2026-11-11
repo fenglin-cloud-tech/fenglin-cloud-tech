@@ -5,7 +5,10 @@ import com.fenglin.collab.web.dto.CollabDtos.ActionCreateRequest;
 import com.fenglin.collab.web.dto.CollabDtos.ActionResult;
 import com.fenglin.collab.web.dto.CollabDtos.CheckinRequest;
 import com.fenglin.collab.web.dto.CollabDtos.CheckinResult;
+import com.fenglin.collab.web.dto.CollabDtos.InviteRespondRequest;
+import com.fenglin.collab.web.dto.CollabDtos.InviteView;
 import com.fenglin.collab.web.dto.CollabDtos.MeetingCreateRequest;
+import com.fenglin.collab.web.dto.CollabDtos.MinutesView;
 import com.fenglin.collab.web.dto.CollabDtos.MeetingDetailView;
 import com.fenglin.collab.web.dto.CollabDtos.MeetingView;
 import com.fenglin.collab.web.dto.CollabDtos.MinutesCreateRequest;
@@ -56,9 +59,44 @@ public class CollabMeetingController {
     public ApiResponse<PageResult<MeetingView>> list(
             @RequestHeader(value = "X-Permissions", required = false) String permissions,
             @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false) Integer size,
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "from", required = false) OffsetDateTime from,
+            @RequestParam(value = "to", required = false) OffsetDateTime to,
+            @RequestParam(value = "invitedOnly", required = false, defaultValue = "false") boolean invitedOnly) {
+        PermissionGuard.require(permissions, JOIN);
+        return ApiResponse.success(meetingService.list(page, size, status, from, to, invitedOnly));
+    }
+
+    /** COL-03：我受邀的会议（排除本人组织），带本人参会响应。 */
+    @GetMapping("/meetings/invites")
+    public ApiResponse<PageResult<InviteView>> invites(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(value = "response", required = false) String response,
+            @RequestParam(value = "page", required = false) Integer page,
             @RequestParam(value = "size", required = false) Integer size) {
         PermissionGuard.require(permissions, JOIN);
-        return ApiResponse.success(meetingService.list(page, size));
+        return ApiResponse.success(meetingService.invites(response, page, size));
+    }
+
+    /** COL-02：接受/拒绝/待定会议邀请，仅本人参会记录可改。 */
+    @PostMapping("/meetings/{meetingId}/invites/respond")
+    public ApiResponse<InviteView> respondInvite(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("meetingId") String meetingId,
+            @RequestBody InviteRespondRequest request) {
+        PermissionGuard.require(permissions, JOIN);
+        return ApiResponse.success(meetingService.respondInvite(meetingId,
+                request == null ? null : request.response()));
+    }
+
+    /** COL-02：纪要历史（每次保存都是新版本），含解密正文。 */
+    @GetMapping("/meetings/{meetingId}/minutes")
+    public ApiResponse<List<MinutesView>> minutesHistory(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("meetingId") String meetingId) {
+        PermissionGuard.require(permissions, JOIN);
+        return ApiResponse.success(meetingService.minutesHistory(meetingId));
     }
 
     @GetMapping("/meetings/{meetingId}")

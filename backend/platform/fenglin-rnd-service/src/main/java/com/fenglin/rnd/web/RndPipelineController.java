@@ -78,6 +78,15 @@ public class RndPipelineController {
         return ApiResponse.success(pipelineService.listRuns(id, limit));
     }
 
+    @GetMapping("/builds")
+    public ApiResponse<List<java.util.Map<String, Object>>> listBuilds(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(value = "product_id", required = false) Long productId,
+            @RequestParam(value = "limit", required = false) Integer limit) {
+        PermissionGuard.require(permissions, VIEW);
+        return ApiResponse.success(pipelineService.listBuilds(productId, limit));
+    }
+
     @GetMapping("/runs/{id}")
     public ApiResponse<RunView> getRun(
             @RequestHeader(value = "X-Permissions", required = false) String permissions,

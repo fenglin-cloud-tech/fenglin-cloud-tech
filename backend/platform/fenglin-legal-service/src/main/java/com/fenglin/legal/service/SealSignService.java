@@ -86,6 +86,13 @@ public class SealSignService {
                 LegalContext.text(status)), LegalContext.page(page), limit);
     }
 
+    /** 发起用印时可选的印章（仅 ACTIVE）；有申请权即可读取，避免员工端拿不到管理权限而无法选择。 */
+    public List<Map<String, Object>> availableSeals(String permissions, String sealType) {
+        PermissionGuard.requireAny(permissions, "legal:seal:apply", "tenant:legal:seal:view");
+        long tenantId = LegalContext.tenantId();
+        return mapper.listSeals(tenantId, LegalContext.text(sealType), "ACTIVE", 0, 200);
+    }
+
     public Map<String, Object> revokeSeal(String permissions, long sealId) {
         PermissionGuard.require(permissions, "tenant:legal:seal:config");
         mapper.revokeSeal(LegalContext.tenantId(), sealId, LegalContext.userId());

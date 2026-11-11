@@ -121,6 +121,13 @@ public class PipelineService {
         return toRunView(row);
     }
 
+    /** 发布单选构建：按产品过滤，仅做只读下拉数据源。 */
+    public List<Map<String, Object>> listBuilds(Long productId, Integer limit) {
+        long tenantId = RndContext.tenantId();
+        int size = limit == null ? 50 : Math.min(Math.max(limit, 1), 200);
+        return pipelineMapper.listBuilds(tenantId, productId, size);
+    }
+
     public List<RunView> listRuns(long pipelineId, Integer limit) {
         return pipelineMapper.listRuns(RndContext.tenantId(), pipelineId, limit == null ? 20 : Math.min(limit, 100))
                 .stream().map(PipelineService::toRunView).toList();

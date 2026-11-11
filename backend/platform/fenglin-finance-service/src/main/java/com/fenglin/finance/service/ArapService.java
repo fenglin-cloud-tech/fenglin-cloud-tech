@@ -23,7 +23,9 @@ import com.fenglin.finance.web.dto.FinanceDtos.AgingLine;
 import com.fenglin.finance.web.dto.FinanceDtos.AgingReport;
 import com.fenglin.finance.web.dto.FinanceDtos.PayableView;
 import com.fenglin.finance.web.dto.FinanceDtos.PaymentCreateRequest;
+import com.fenglin.finance.web.dto.FinanceDtos.PaymentView;
 import com.fenglin.finance.web.dto.FinanceDtos.ReceiptCreateRequest;
+import com.fenglin.finance.web.dto.FinanceDtos.ReceiptView;
 import com.fenglin.finance.web.dto.FinanceDtos.ReceivableView;
 import com.fenglin.finance.web.dto.FinanceDtos.SettlementDocResult;
 import com.fenglin.finance.web.dto.FinanceDtos.WriteOffResult;
@@ -309,6 +311,38 @@ public class ArapService {
                     newOutstanding.signum() <= 0 ? "SETTLED" : "PARTIAL");
         }
         return new WriteOffResult(writeOffId, writeOffNo, sourceId, FinanceContext.amount(amount));
+    }
+
+    // ---------- 收付款单列表 ----------
+
+    public List<ReceiptView> receipts(String status, String fromDate, String toDate, Integer limit) {
+        long tenantId = FinanceContext.tenantId();
+        int size = limit == null ? 100 : Math.min(Math.max(limit, 1), 200);
+        String st = blank(status) ? null : status.trim().toUpperCase();
+        return arapMapper.listReceipts(tenantId, st, blank(fromDate) ? null : fromDate, blank(toDate) ? null : toDate, size)
+                .stream()
+                .map(row -> new ReceiptView(Rows.lngVal(row, "id"), Rows.str(row, "receiptNo"),
+                        Rows.lng(row, "customerId"), Rows.str(row, "currencyCode"), FinanceContext.amount(Rows.dec(row, "amount")),
+                        Rows.str(row, "payMethod"), Rows.str(row, "receiptDate"), Rows.str(row, "status"),
+                        Rows.lng(row, "voucherId"), Rows.instant(row, "createdAt")))
+                .toList();
+    }
+
+    public List<PaymentView> payments(String status, String fromDate, String toDate, Integer limit) {
+        long tenantId = FinanceContext.tenantId();
+        int size = limit == null ? 100 : Math.min(Math.max(limit, 1), 200);
+        String st = blank(status) ? null : status.trim().toUpperCase();
+        return arapMapper.listPayments(tenantId, st, blank(fromDate) ? null : fromDate, blank(toDate) ? null : toDate, size)
+                .stream()
+                .map(row -> new PaymentView(Rows.lngVal(row, "id"), Rows.str(row, "paymentNo"),
+                        Rows.lng(row, "supplierId"), Rows.str(row, "currencyCode"), FinanceContext.amount(Rows.dec(row, "amount")),
+                        Rows.str(row, "payMethod"), Rows.str(row, "paymentDate"), Rows.str(row, "status"),
+                        Rows.lng(row, "voucherId"), Rows.instant(row, "createdAt")))
+                .toList();
+    }
+
+    private boolean blank(String value) {
+        return value == null || value.isBlank();
     }
 
     private SettlementDocResult receiptResult(long tenantId, long receiptId) {

@@ -220,6 +220,32 @@ export interface FinanceSettlementDoc {
   write_offs: FinanceWriteOffResult[]
 }
 
+export interface FinanceReceiptDoc {
+  id: FinanceId
+  receipt_no: string
+  customer_id?: FinanceId | null
+  currency_code: string
+  amount: string
+  pay_method?: string
+  receipt_date?: string
+  status: string
+  voucher_id?: FinanceId | null
+  created_at?: string
+}
+
+export interface FinancePaymentDoc {
+  id: FinanceId
+  payment_no: string
+  supplier_id?: FinanceId | null
+  currency_code: string
+  amount: string
+  pay_method?: string
+  payment_date?: string
+  status: string
+  voucher_id?: FinanceId | null
+  created_at?: string
+}
+
 export interface FinancePaymentPlanLine {
   payable_id: FinanceId
   ap_no: string
@@ -821,6 +847,12 @@ export const financeApi = {
     },
     payables(params: { status?: string; page?: number; size?: number } = {}) {
       return get<FinancePayable[]>(`${BASE}/payables`, params)
+    },
+    receipts(params: { status?: string; from?: string; to?: string; limit?: number } = {}) {
+      return get<FinanceReceiptDoc[]>(`${BASE}/receipts`, params)
+    },
+    payments(params: { status?: string; from?: string; to?: string; limit?: number } = {}) {
+      return get<FinancePaymentDoc[]>(`${BASE}/payments`, params)
     },
     receive(body: {
       customer_id?: FinanceId | null

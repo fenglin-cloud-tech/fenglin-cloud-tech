@@ -132,34 +132,70 @@ public interface MeetingMapper {
     Map<String, Object> findMeeting(@Param("tenantId") long tenantId, @Param("meetingId") String meetingId);
 
     @Select("""
+            <script>
             SELECT m.id AS "meetingId", m.title AS "title", m.organizer_id AS "organizerId", m.room_id AS "roomId",
                    (EXTRACT(EPOCH FROM m.start_at) * 1000)::bigint AS "startAt",
                    (EXTRACT(EPOCH FROM m.end_at) * 1000)::bigint AS "endAt",
                    m.meeting_mode AS "meetingMode", m.join_code AS "joinCode", m.status AS "status"
             FROM collab_meeting m
             WHERE m.tenant_id = #{tenantId} AND m.deleted = 0
-              AND (m.organizer_id = #{userId}
-                   OR EXISTS (SELECT 1 FROM collab_event_attendee a
-                              JOIN collab_event e ON e.id = a.event_id AND e.tenant_id = a.tenant_id
-                              WHERE a.tenant_id = m.tenant_id AND e.meeting_id = m.id
-                                AND a.attendee_id = #{userId} AND a.deleted = 0))
+            <choose>
+              <when test="invitedOnly">
+                AND m.organizer_id &lt;&gt; #{userId}
+                AND EXISTS (SELECT 1 FROM collab_event_attendee a
+                            JOIN collab_event e ON e.id = a.event_id AND e.tenant_id = a.tenant_id
+                            WHERE a.tenant_id = m.tenant_id AND e.meeting_id = m.id
+                              AND a.attendee_id = #{userId} AND a.deleted = 0)
+              </when>
+              <otherwise>
+                AND (m.organizer_id = #{userId}
+                     OR EXISTS (SELECT 1 FROM collab_event_attendee a
+                                JOIN collab_event e ON e.id = a.event_id AND e.tenant_id = a.tenant_id
+                                WHERE a.tenant_id = m.tenant_id AND e.meeting_id = m.id
+                                  AND a.attendee_id = #{userId} AND a.deleted = 0))
+              </otherwise>
+            </choose>
+            <if test="status != null">AND m.status = #{status}</if>
+            <if test="from != null">AND m.end_at &gt;= #{from}</if>
+            <if test="to != null">AND m.start_at &lt;= #{to}</if>
             ORDER BY m.start_at DESC
             LIMIT #{size} OFFSET #{offset}
+            </script>
             """)
     List<Map<String, Object>> listMeetings(@Param("tenantId") long tenantId, @Param("userId") long userId,
+                                           @Param("invitedOnly") boolean invitedOnly, @Param("status") String status,
+                                           @Param("from") OffsetDateTime from, @Param("to") OffsetDateTime to,
                                            @Param("offset") int offset, @Param("size") int size);
 
     @Select("""
+            <script>
             SELECT count(1)
             FROM collab_meeting m
             WHERE m.tenant_id = #{tenantId} AND m.deleted = 0
-              AND (m.organizer_id = #{userId}
-                   OR EXISTS (SELECT 1 FROM collab_event_attendee a
-                              JOIN collab_event e ON e.id = a.event_id AND e.tenant_id = a.tenant_id
-                              WHERE a.tenant_id = m.tenant_id AND e.meeting_id = m.id
-                                AND a.attendee_id = #{userId} AND a.deleted = 0))
+            <choose>
+              <when test="invitedOnly">
+                AND m.organizer_id &lt;&gt; #{userId}
+                AND EXISTS (SELECT 1 FROM collab_event_attendee a
+                            JOIN collab_event e ON e.id = a.event_id AND e.tenant_id = a.tenant_id
+                            WHERE a.tenant_id = m.tenant_id AND e.meeting_id = m.id
+                              AND a.attendee_id = #{userId} AND a.deleted = 0)
+              </when>
+              <otherwise>
+                AND (m.organizer_id = #{userId}
+                     OR EXISTS (SELECT 1 FROM collab_event_attendee a
+                                JOIN collab_event e ON e.id = a.event_id AND e.tenant_id = a.tenant_id
+                                WHERE a.tenant_id = m.tenant_id AND e.meeting_id = m.id
+                                  AND a.attendee_id = #{userId} AND a.deleted = 0))
+              </otherwise>
+            </choose>
+            <if test="status != null">AND m.status = #{status}</if>
+            <if test="from != null">AND m.end_at &gt;= #{from}</if>
+            <if test="to != null">AND m.start_at &lt;= #{to}</if>
+            </script>
             """)
-    long countMeetings(@Param("tenantId") long tenantId, @Param("userId") long userId);
+    long countMeetings(@Param("tenantId") long tenantId, @Param("userId") long userId,
+                       @Param("invitedOnly") boolean invitedOnly, @Param("status") String status,
+                       @Param("from") OffsetDateTime from, @Param("to") OffsetDateTime to);
 
     @Update("""
             UPDATE collab_meeting SET status = #{status}, updated_by = #{userId}
@@ -182,12 +218,68 @@ public interface MeetingMapper {
 
     @Select("""
             SELECT CAST(id AS varchar) AS "minutesId", status AS "status", summary AS "summary",
+                   content_cipher AS "contentCipher",
                    (EXTRACT(EPOCH FROM published_at) * 1000)::bigint AS "publishedAt"
             FROM collab_meeting_minutes
             WHERE tenant_id = #{tenantId} AND meeting_id = CAST(#{meetingId} AS uuid) AND deleted = 0
             ORDER BY created_at DESC LIMIT 1
             """)
     Map<String, Object> findLatestMinutes(@Param("tenantId") long tenantId, @Param("meetingId") String meetingId);
+
+    @Select("""
+            SELECT CAST(id AS varchar) AS "minutesId", status AS "status", summary AS "summary",
+                   content_cipher AS "contentCipher",
+                   (EXTRACT(EPOCH FROM published_at) * 1000)::bigint AS "publishedAt",
+                   (EXTRACT(EPOCH FROM created_at) * 1000)::bigint AS "createdAt"
+            FROM collab_meeting_minutes
+            WHERE tenant_id = #{tenantId} AND meeting_id = CAST(#{meetingId} AS uuid) AND deleted = 0
+            ORDER BY created_at DESC
+            """)
+    List<Map<String, Object>> listMinutes(@Param("tenantId") long tenantId, @Param("meetingId") String meetingId);
+
+    @Select("""
+            <script>
+            SELECT m.id AS "meetingId", m.title AS "title", m.organizer_id AS "organizerId",
+                   (EXTRACT(EPOCH FROM m.start_at) * 1000)::bigint AS "startAt",
+                   (EXTRACT(EPOCH FROM m.end_at) * 1000)::bigint AS "endAt",
+                   m.meeting_mode AS "meetingMode", m.status AS "status", a.response AS "response"
+            FROM collab_meeting m
+            JOIN collab_event e ON e.meeting_id = m.id AND e.tenant_id = m.tenant_id AND e.deleted = 0
+            JOIN collab_event_attendee a ON a.event_id = e.id AND a.tenant_id = e.tenant_id AND a.deleted = 0
+            WHERE m.tenant_id = #{tenantId} AND m.deleted = 0
+              AND a.attendee_id = #{userId} AND m.organizer_id &lt;&gt; #{userId}
+            <if test="response != null">AND a.response = #{response}</if>
+            ORDER BY m.start_at DESC
+            LIMIT #{size} OFFSET #{offset}
+            </script>
+            """)
+    List<Map<String, Object>> listInvites(@Param("tenantId") long tenantId, @Param("userId") long userId,
+                                         @Param("response") String response,
+                                         @Param("offset") int offset, @Param("size") int size);
+
+    @Select("""
+            <script>
+            SELECT count(1)
+            FROM collab_meeting m
+            JOIN collab_event e ON e.meeting_id = m.id AND e.tenant_id = m.tenant_id AND e.deleted = 0
+            JOIN collab_event_attendee a ON a.event_id = e.id AND a.tenant_id = e.tenant_id AND a.deleted = 0
+            WHERE m.tenant_id = #{tenantId} AND m.deleted = 0
+              AND a.attendee_id = #{userId} AND m.organizer_id &lt;&gt; #{userId}
+            <if test="response != null">AND a.response = #{response}</if>
+            </script>
+            """)
+    long countInvites(@Param("tenantId") long tenantId, @Param("userId") long userId,
+                      @Param("response") String response);
+
+    @Update("""
+            UPDATE collab_event_attendee a SET response = #{response}, updated_by = #{userId}
+            WHERE a.tenant_id = #{tenantId} AND a.attendee_id = #{userId} AND a.deleted = 0
+              AND a.event_id IN (SELECT e.id FROM collab_event e
+                                 WHERE e.tenant_id = #{tenantId} AND e.meeting_id = CAST(#{meetingId} AS uuid)
+                                   AND e.deleted = 0)
+            """)
+    int updateInviteResponse(@Param("tenantId") long tenantId, @Param("meetingId") String meetingId,
+                             @Param("userId") long userId, @Param("response") String response);
 
     @Select("""
             SELECT CAST(id AS varchar) AS "minutesId", status AS "status" FROM collab_meeting_minutes

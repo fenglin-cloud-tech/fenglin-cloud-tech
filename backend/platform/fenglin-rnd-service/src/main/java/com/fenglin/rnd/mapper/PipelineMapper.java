@@ -121,4 +121,20 @@ public interface PipelineMapper {
             + "ON p.tenant_id = r.tenant_id AND p.id = r.pipeline_id "
             + "WHERE r.tenant_id = #{tenantId} AND p.product_id = #{productId} AND r.deleted = 0")
     long countRunsByProduct(@Param("tenantId") long tenantId, @Param("productId") long productId);
+
+    @Select("""
+            SELECT b.id AS "id", b.run_id AS "run_id", b.build_no AS "build_no", b.status AS "status",
+                   b.commit_sha AS "commit_sha", b.artifact_name AS "artifact_name",
+                   b.artifact_version AS "artifact_version", b.quality_gate AS "quality_gate",
+                   b.started_at::text AS "started_at", b.finished_at::text AS "finished_at"
+            FROM devops_build b
+            JOIN devops_pipeline_run r ON r.tenant_id = b.tenant_id AND r.id = b.run_id AND r.deleted = 0
+            JOIN devops_pipeline p ON p.tenant_id = r.tenant_id AND p.id = r.pipeline_id AND p.deleted = 0
+            WHERE b.tenant_id = #{tenantId} AND b.deleted = 0
+              AND (#{productId,jdbcType=BIGINT} IS NULL OR p.product_id = #{productId})
+            ORDER BY b.id DESC
+            LIMIT #{limit}
+            """)
+    List<Map<String, Object>> listBuilds(@Param("tenantId") long tenantId,
+                                         @Param("productId") Long productId, @Param("limit") int limit);
 }

@@ -7,6 +7,7 @@ import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -145,4 +146,83 @@ public interface LifecycleMapper {
             """)
     void updateResignationStatus(@Param("tenantId") long tenantId, @Param("id") long id,
                                  @Param("rsStatus") String rsStatus, @Param("userId") long userId);
+
+    // ---------- 单据列表 ----------
+
+    @Select("""
+            <script>
+            SELECT o.id AS "id", o.employee_id AS "employeeId", e.name AS "employeeName",
+                   o.offer_id AS "offerId", to_char(o.onboard_date, 'YYYY-MM-DD') AS "onboardDate",
+                   o.ob_status AS "obStatus", o.checklist::text AS "checklist", o.mentor_id AS "mentorId",
+                   extract(epoch FROM o.created_at) * 1000 AS "createdAt"
+            FROM talent_onboarding o
+            LEFT JOIN talent_employee e ON e.id = o.employee_id AND e.tenant_id = o.tenant_id AND e.deleted = 0
+            WHERE o.tenant_id = #{tenantId} AND o.deleted = 0
+              AND (CAST(#{obStatus,jdbcType=VARCHAR} AS text) IS NULL OR o.ob_status = #{obStatus})
+            ORDER BY o.created_at DESC
+            LIMIT #{limit} OFFSET #{offset}
+            </script>
+            """)
+    List<Map<String, Object>> listOnboardings(@Param("tenantId") long tenantId,
+                                              @Param("obStatus") String obStatus,
+                                              @Param("limit") int limit, @Param("offset") int offset);
+
+    @Select("""
+            SELECT count(1) FROM talent_onboarding o
+            WHERE o.tenant_id = #{tenantId} AND o.deleted = 0
+              AND (CAST(#{obStatus,jdbcType=VARCHAR} AS text) IS NULL OR o.ob_status = #{obStatus})
+            """)
+    long countOnboardings(@Param("tenantId") long tenantId, @Param("obStatus") String obStatus);
+
+    @Select("""
+            <script>
+            SELECT t.id AS "id", t.employee_id AS "employeeId", e.name AS "employeeName",
+                   t.transfer_type AS "transferType", t.before_json::text AS "beforeJson",
+                   t.after_json::text AS "afterJson", to_char(t.effective_date, 'YYYY-MM-DD') AS "effectiveDate",
+                   t.reason AS "reason", t.tf_status AS "tfStatus",
+                   extract(epoch FROM t.created_at) * 1000 AS "createdAt"
+            FROM talent_transfer t
+            LEFT JOIN talent_employee e ON e.id = t.employee_id AND e.tenant_id = t.tenant_id AND e.deleted = 0
+            WHERE t.tenant_id = #{tenantId} AND t.deleted = 0
+              AND (CAST(#{tfStatus,jdbcType=VARCHAR} AS text) IS NULL OR t.tf_status = #{tfStatus})
+            ORDER BY t.created_at DESC
+            LIMIT #{limit} OFFSET #{offset}
+            </script>
+            """)
+    List<Map<String, Object>> listTransfers(@Param("tenantId") long tenantId,
+                                            @Param("tfStatus") String tfStatus,
+                                            @Param("limit") int limit, @Param("offset") int offset);
+
+    @Select("""
+            SELECT count(1) FROM talent_transfer t
+            WHERE t.tenant_id = #{tenantId} AND t.deleted = 0
+              AND (CAST(#{tfStatus,jdbcType=VARCHAR} AS text) IS NULL OR t.tf_status = #{tfStatus})
+            """)
+    long countTransfers(@Param("tenantId") long tenantId, @Param("tfStatus") String tfStatus);
+
+    @Select("""
+            <script>
+            SELECT r.id AS "id", r.employee_id AS "employeeId", e.name AS "employeeName",
+                   r.resign_type AS "resignType", to_char(r.apply_date, 'YYYY-MM-DD') AS "applyDate",
+                   to_char(r.last_work_date, 'YYYY-MM-DD') AS "lastWorkDate",
+                   r.reason_category AS "reasonCategory", r.handover_status AS "handoverStatus",
+                   r.rs_status AS "rsStatus", extract(epoch FROM r.created_at) * 1000 AS "createdAt"
+            FROM talent_resignation r
+            LEFT JOIN talent_employee e ON e.id = r.employee_id AND e.tenant_id = r.tenant_id AND e.deleted = 0
+            WHERE r.tenant_id = #{tenantId} AND r.deleted = 0
+              AND (CAST(#{rsStatus,jdbcType=VARCHAR} AS text) IS NULL OR r.rs_status = #{rsStatus})
+            ORDER BY r.created_at DESC
+            LIMIT #{limit} OFFSET #{offset}
+            </script>
+            """)
+    List<Map<String, Object>> listResignations(@Param("tenantId") long tenantId,
+                                               @Param("rsStatus") String rsStatus,
+                                               @Param("limit") int limit, @Param("offset") int offset);
+
+    @Select("""
+            SELECT count(1) FROM talent_resignation r
+            WHERE r.tenant_id = #{tenantId} AND r.deleted = 0
+              AND (CAST(#{rsStatus,jdbcType=VARCHAR} AS text) IS NULL OR r.rs_status = #{rsStatus})
+            """)
+    long countResignations(@Param("tenantId") long tenantId, @Param("rsStatus") String rsStatus);
 }

@@ -158,6 +158,16 @@ public final class FinanceDtos {
                                       List<WriteOffResult> writeOffs) {
     }
 
+    public record ReceiptView(long id, String receiptNo, Long customerId, String currencyCode, BigDecimal amount,
+                              String payMethod, String receiptDate, String status, Long voucherId,
+                              Instant createdAt) {
+    }
+
+    public record PaymentView(long id, String paymentNo, Long supplierId, String currencyCode, BigDecimal amount,
+                              String payMethod, String paymentDate, String status, Long voucherId,
+                              Instant createdAt) {
+    }
+
     public record WriteOffRequest(BigDecimal amount, LocalDate writeOffDate) {
     }
 

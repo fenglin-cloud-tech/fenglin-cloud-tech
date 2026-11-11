@@ -1,13 +1,25 @@
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { GapNotice, PageHeader } from '@fenglin/ui-admin'
-import { serviceApi } from '@fenglin/api-client'
+import { serviceApi, type ServiceRecord } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 
 const active = ref('problem')
 const saving = ref(false)
 const error = ref('')
+
+const problemQuery = reactive({ status: '', keyword: '', page: 1, size: 10 })
+const problemRows = ref<ServiceRecord[]>([])
+const problemTotal = ref(0)
+const problemLoading = ref(false)
+const changeQuery = reactive({ status: '', keyword: '', page: 1, size: 10 })
+const changeRows = ref<ServiceRecord[]>([])
+const changeTotal = ref(0)
+const changeLoading = ref(false)
+const detailVisible = ref(false)
+const detailTitle = ref('')
+const detail = ref<ServiceRecord | null>(null)
 
 const problemForm = reactive({
   title: '',
@@ -43,10 +55,71 @@ const changeForm = reactive({
 const approveForm = reactive({ id: '', approved: true, comment: '' })
 
 const gapItems = [
-  '问题与变更都没有列表/详情查询接口，本页只提供创建、问题聚合与变更审批。',
+  '问题与变更列表已支持按状态、关键字（编号/标题）过滤并分页，点击行可查看详情。',
   '问题聚合需要先知道工单 ID，工单 ID 可在“工单工作台”查看。',
   '变更审批依赖工作流（svcChangeApproval），工作流服务不可用时返回真实错误。',
 ]
+
+async function loadProblems() {
+  problemLoading.value = true
+  try {
+    const page = await serviceApi.problems.list({
+      status: problemQuery.status || undefined,
+      keyword: problemQuery.keyword || undefined,
+      page: problemQuery.page,
+      size: problemQuery.size,
+    })
+    problemRows.value = page.records ?? []
+    problemTotal.value = page.total ?? 0
+  } catch (err) {
+    error.value = describeError(err)
+  } finally {
+    problemLoading.value = false
+  }
+}
+
+async function loadChanges() {
+  changeLoading.value = true
+  try {
+    const page = await serviceApi.changes.list({
+      status: changeQuery.status || undefined,
+      keyword: changeQuery.keyword || undefined,
+      page: changeQuery.page,
+      size: changeQuery.size,
+    })
+    changeRows.value = page.records ?? []
+    changeTotal.value = page.total ?? 0
+  } catch (err) {
+    error.value = describeError(err)
+  } finally {
+    changeLoading.value = false
+  }
+}
+
+async function openProblem(row: ServiceRecord) {
+  try {
+    detail.value = await serviceApi.problems.get(Number(row.id))
+    detailTitle.value = `问题 ${detail.value.problem_no ?? detail.value.id}`
+    detailVisible.value = true
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  }
+}
+
+async function openChange(row: ServiceRecord) {
+  try {
+    detail.value = await serviceApi.changes.get(Number(row.id))
+    detailTitle.value = `变更 ${detail.value.change_no ?? detail.value.id}`
+    detailVisible.value = true
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  }
+}
+
+onMounted(() => {
+  loadProblems()
+  loadChanges()
+})
 
 function ids(text: string) {
   return text.split(',').map((item) => Number(item.trim())).filter((item) => Number.isFinite(item) && item > 0)
@@ -73,6 +146,7 @@ async function createProblem() {
     problemForm.title = ''
     problemForm.description = ''
     problemForm.ticket_ids = ''
+    await loadProblems()
   } catch (err) {
     error.value = describeError(err)
   } finally {
@@ -96,6 +170,7 @@ async function aggregate() {
       known_error: aggregateForm.known_error,
     })
     ElMessage.success('问题已聚合')
+    await loadProblems()
   } catch (err) {
     error.value = describeError(err)
   } finally {
@@ -124,6 +199,7 @@ async function createChange() {
     })
     ElMessage.success(`变更已创建：${created.change_no ?? created.id}`)
     changeForm.title = ''
+    await loadChanges()
   } catch (err) {
     error.value = describeError(err)
   } finally {
@@ -144,6 +220,7 @@ async function approveChange() {
       comment: approveForm.comment.trim() || undefined,
     })
     ElMessage.success('审批结果已提交')
+    await loadChanges()
   } catch (err) {
     error.value = describeError(err)
   } finally {
@@ -165,6 +242,35 @@ async function approveChange() {
     <el-card shadow="never">
       <el-tabs v-model="active">
         <el-tab-pane label="问题管理" name="problem">
+          <el-row :gutter="8" style="margin-bottom: 8px">
+            <el-col :span="5"><el-input v-model="problemQuery.keyword" placeholder="编号/标题关键字" clearable @keyup.enter="loadProblems" /></el-col>
+            <el-col :span="4">
+              <el-select v-model="problemQuery.status" placeholder="全部状态" clearable style="width: 100%">
+                <el-option label="待分析" value="NEW" />
+                <el-option label="分析中" value="INVESTIGATING" />
+                <el-option label="已知错误" value="KNOWN_ERROR" />
+                <el-option label="已解决" value="RESOLVED" />
+                <el-option label="已关闭" value="CLOSED" />
+              </el-select>
+            </el-col>
+            <el-col :span="3"><el-button type="primary" plain @click="problemQuery.page = 1; loadProblems()">查询</el-button></el-col>
+          </el-row>
+          <el-table v-loading="problemLoading" :data="problemRows" border stripe size="small" @row-click="openProblem">
+            <el-table-column prop="problem_no" label="编号" width="150" />
+            <el-table-column prop="title" label="标题" min-width="220" />
+            <el-table-column prop="status" label="状态" width="130" />
+            <el-table-column prop="known_error" label="已知错误" width="90" />
+            <el-table-column prop="owner_id" label="负责人" width="110" />
+            <el-table-column prop="created_at" label="创建时间" width="170" />
+          </el-table>
+          <el-pagination
+            v-model:current-page="problemQuery.page"
+            :page-size="problemQuery.size"
+            :total="problemTotal"
+            layout="total, prev, pager, next"
+            style="margin: 8px 0 16px; justify-content: flex-end"
+            @current-change="loadProblems"
+          />
           <el-row :gutter="16">
             <el-col :span="12">
               <h4>创建问题</h4>
@@ -199,6 +305,36 @@ async function approveChange() {
         </el-tab-pane>
 
         <el-tab-pane label="变更管理" name="change">
+          <el-row :gutter="8" style="margin-bottom: 8px">
+            <el-col :span="5"><el-input v-model="changeQuery.keyword" placeholder="编号/标题关键字" clearable @keyup.enter="loadChanges" /></el-col>
+            <el-col :span="4">
+              <el-select v-model="changeQuery.status" placeholder="全部状态" clearable style="width: 100%">
+                <el-option label="草稿" value="DRAFT" />
+                <el-option label="待审批" value="PENDING_APPROVAL" />
+                <el-option label="已批准" value="APPROVED" />
+                <el-option label="已驳回" value="REJECTED" />
+                <el-option label="实施中" value="IMPLEMENTING" />
+                <el-option label="已完成" value="COMPLETED" />
+              </el-select>
+            </el-col>
+            <el-col :span="3"><el-button type="primary" plain @click="changeQuery.page = 1; loadChanges()">查询</el-button></el-col>
+          </el-row>
+          <el-table v-loading="changeLoading" :data="changeRows" border stripe size="small" @row-click="openChange">
+            <el-table-column prop="change_no" label="编号" width="150" />
+            <el-table-column prop="title" label="标题" min-width="220" />
+            <el-table-column prop="change_type" label="类型" width="110" />
+            <el-table-column prop="risk_level" label="风险" width="90" />
+            <el-table-column prop="status" label="状态" width="130" />
+            <el-table-column prop="planned_start" label="计划开始" width="170" />
+          </el-table>
+          <el-pagination
+            v-model:current-page="changeQuery.page"
+            :page-size="changeQuery.size"
+            :total="changeTotal"
+            layout="total, prev, pager, next"
+            style="margin: 8px 0 16px; justify-content: flex-end"
+            @current-change="loadChanges"
+          />
           <el-row :gutter="16">
             <el-col :span="12">
               <h4>创建变更</h4>
@@ -248,5 +384,13 @@ async function approveChange() {
         </el-tab-pane>
       </el-tabs>
     </el-card>
+
+    <el-dialog v-model="detailVisible" :title="detailTitle" width="640px">
+      <el-descriptions v-if="detail" :column="1" border size="small">
+        <el-descriptions-item v-for="(value, key) in detail" :key="key" :label="String(key)">
+          {{ value === null || value === undefined || value === '' ? '-' : String(value) }}
+        </el-descriptions-item>
+      </el-descriptions>
+    </el-dialog>
   </div>
 </template>

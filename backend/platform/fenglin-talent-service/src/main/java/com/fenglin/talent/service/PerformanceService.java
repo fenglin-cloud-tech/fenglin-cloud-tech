@@ -18,6 +18,7 @@ import com.fenglin.talent.web.dto.TalentDtos.PerfEvaluationSubmitResult;
 import com.fenglin.talent.web.dto.TalentDtos.PerfEvaluationView;
 import com.fenglin.talent.web.dto.TalentDtos.PerfGoalCreateRequest;
 import com.fenglin.talent.web.dto.TalentDtos.PerfGoalView;
+import com.fenglin.talent.web.dto.TalentDtos.PerfMyView;
 import com.fenglin.talent.web.dto.TalentDtos.PerfResultView;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -42,14 +43,16 @@ public class PerformanceService {
     private final PerformanceMapper performanceMapper;
     private final TalentAudit audit;
     private final WorkflowClient workflowClient;
+    private final EmployeeBindingService employeeBinding;
     private final String performanceProcessKey;
 
     public PerformanceService(PerformanceMapper performanceMapper, TalentAudit audit,
-                              WorkflowClient workflowClient,
+                              WorkflowClient workflowClient, EmployeeBindingService employeeBinding,
                               @Value("${fenglin.talent.approval-process-key.performance}") String performanceProcessKey) {
         this.performanceMapper = performanceMapper;
         this.audit = audit;
         this.workflowClient = workflowClient;
+        this.employeeBinding = employeeBinding;
         this.performanceProcessKey = performanceProcessKey;
     }
 
@@ -380,6 +383,46 @@ public class PerformanceService {
                 .listResults(tenantId, cycleId, pageSize, (pageNo - 1) * pageSize)
                 .stream().map(this::toResultView).toList();
         return PageResult.of(records, performanceMapper.countResults(tenantId, cycleId), pageNo, pageSize);
+    }
+
+    // ---------- 员工自助 ----------
+
+    @Transactional(readOnly = true)
+    public PageResult<PerfCycleView> myCycles(Integer page, Integer size) {
+        long tenantId = TalentContext.tenantId();
+        long employeeId = employeeBinding.requireCurrentEmployeeId();
+        int pageNo = TalentContext.page(page);
+        int pageSize = TalentContext.size(size);
+        List<PerfCycleView> records = performanceMapper
+                .listCyclesByEmployee(tenantId, employeeId, pageSize, (pageNo - 1) * pageSize)
+                .stream().map(this::toCycleView).toList();
+        return PageResult.of(records, performanceMapper.countCyclesByEmployee(tenantId, employeeId),
+                pageNo, pageSize);
+    }
+
+    /** 员工自助详情：未指定周期时取本人最近一个有数据的周期。 */
+    @Transactional(readOnly = true)
+    public PerfMyView myPerformance(Long cycleId) {
+        long tenantId = TalentContext.tenantId();
+        long employeeId = employeeBinding.requireCurrentEmployeeId();
+        if (cycleId == null) {
+            List<Map<String, Object>> latest = performanceMapper
+                    .listCyclesByEmployee(tenantId, employeeId, 1, 0);
+            if (latest.isEmpty()) {
+                return new PerfMyView(employeeId, null, List.of(), List.of(), List.of());
+            }
+            cycleId = Rows.lngVal(latest.get(0), "id");
+        }
+        Map<String, Object> cycle = requireCycle(tenantId, cycleId);
+        List<PerfGoalView> goals = performanceMapper.listGoalsByEmployee(tenantId, cycleId, employeeId)
+                .stream().map(this::toGoalView).toList();
+        List<PerfEvaluationView> evaluations = performanceMapper
+                .listEvaluationsByEmployee(tenantId, cycleId, employeeId)
+                .stream().map(this::toEvaluationView).toList();
+        List<PerfResultView> results = performanceMapper
+                .listPublishedResultsByEmployee(tenantId, cycleId, employeeId)
+                .stream().map(this::toResultView).toList();
+        return new PerfMyView(employeeId, toCycleView(cycle), goals, evaluations, results);
     }
 
     // ---------- 内部 ----------

@@ -6,7 +6,7 @@ import { talentApi, type TalentEmployeeDetail, type TalentEmployeeListItem } fro
 import { describeError } from '@/utils/error'
 
 const gapItems = [
-  '员工详情 DTO 未返回 version，而 PUT 更新接口要求 version，前端无法安全提交编辑，本页只做查看。',
+  '编辑仅支持姓名、邮箱、工作地点三个字段；组织/岗位/职级 ID 未在详情中返回，需在组织或异动页面调整。',
   '批量导入接口接收 JSON 行数组，后端没有模板下载，本页未做 Excel 解析。',
   '组织筛选只接受 org_id，没有组织选择器，需手工填写组织 ID。',
   '手机号与身份证号按后端脱敏规则返回，页面不展示明文。',
@@ -28,6 +28,16 @@ const query = reactive({
 const detailVisible = ref(false)
 const detailLoading = ref(false)
 const detail = ref<TalentEmployeeDetail | null>(null)
+
+const editVisible = ref(false)
+const editing = ref(false)
+const editError = ref('')
+const editForm = reactive({
+  name: '',
+  email: '',
+  work_location: '',
+  version: 0,
+})
 
 const createVisible = ref(false)
 const creating = ref(false)
@@ -108,6 +118,42 @@ async function openDetail(row: TalentEmployeeListItem) {
     ElMessage.warning(describeError(err))
   } finally {
     detailLoading.value = false
+  }
+}
+
+function openEdit() {
+  if (!detail.value) return
+  editForm.name = detail.value.name ?? ''
+  editForm.email = detail.value.email ?? ''
+  editForm.work_location = detail.value.work_location ?? ''
+  editForm.version = detail.value.version ?? 0
+  editError.value = ''
+  editVisible.value = true
+}
+
+async function submitEdit() {
+  if (!detail.value) return
+  if (!editForm.name.trim()) {
+    editError.value = '姓名不能为空'
+    return
+  }
+  editing.value = true
+  editError.value = ''
+  try {
+    await talentApi.employees.update(detail.value.id, {
+      name: editForm.name.trim(),
+      email: editForm.email.trim() || undefined,
+      work_location: editForm.work_location.trim() || undefined,
+      version: editForm.version,
+    })
+    ElMessage.success('员工信息已更新')
+    editVisible.value = false
+    await openDetail({ id: detail.value.id } as TalentEmployeeListItem)
+    await load()
+  } catch (err) {
+    editError.value = describeError(err)
+  } finally {
+    editing.value = false
   }
 }
 
@@ -264,7 +310,33 @@ onMounted(load)
         </el-descriptions>
         <el-empty v-else-if="!detailLoading" description="未获取到员工详情" />
       </div>
+      <template #footer>
+        <el-button @click="detailVisible = false">关闭</el-button>
+        <el-button type="primary" :disabled="!detail" @click="openEdit">编辑</el-button>
+      </template>
     </el-drawer>
+
+    <el-dialog v-model="editVisible" title="编辑员工" width="520px">
+      <el-alert v-if="editError" type="error" :closable="false" show-icon :title="editError" style="margin-bottom: 12px" />
+      <el-form label-width="100px">
+        <el-form-item label="姓名" required>
+          <el-input v-model="editForm.name" maxlength="128" />
+        </el-form-item>
+        <el-form-item label="邮箱">
+          <el-input v-model="editForm.email" maxlength="128" />
+        </el-form-item>
+        <el-form-item label="工作地点">
+          <el-input v-model="editForm.work_location" maxlength="128" />
+        </el-form-item>
+        <el-form-item label="版本号">
+          <el-input v-model.number="editForm.version" disabled />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="editVisible = false">取消</el-button>
+        <el-button type="primary" :loading="editing" @click="submitEdit">保存</el-button>
+      </template>
+    </el-dialog>
 
     <el-dialog v-model="createVisible" title="新建员工" width="640px">
       <el-alert v-if="createError" type="error" :closable="false" show-icon :title="createError" style="margin-bottom: 12px" />

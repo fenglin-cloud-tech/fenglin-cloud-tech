@@ -2,18 +2,24 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { GapNotice, PageHeader } from '@fenglin/ui-admin'
-import { collabApi, type CollabMeeting, type CollabMeetingDetail } from '@fenglin/api-client'
+import {
+  collabApi,
+  type CollabInvite,
+  type CollabMeeting,
+  type CollabMeetingDetail,
+  type CollabMinutes,
+} from '@fenglin/api-client'
 import { useAuthStore } from '@/stores/auth'
 import { describeError } from '@/utils/error'
 
 const auth = useAuthStore()
 
-const rows = ref<CollabMeeting[]>([])
+const rows = ref<CollabInvite[]>([])
 const total = ref(0)
 const loading = ref(false)
 const error = ref('')
-const query = reactive({ page: 1, size: 10 })
-const onlyMine = ref(false)
+const query = reactive({ page: 1, size: 10, response: '' })
+const responding = ref('')
 
 const detailVisible = ref(false)
 const detailLoading = ref(false)
@@ -37,15 +43,12 @@ const actionsError = ref('')
 const actionDrafts = ref<ActionDraft[]>([])
 
 const gapItems = [
-  '后端没有“我受邀的会议”查询接口，会议列表是租户全量；无法准确展示邀请对象，页面仅按组织者标注。',
-  '没有接受/拒绝邀请接口，参会响应通过日程 attendees 表达。',
-  '签到接口可用，签到结果以会议详情 checkins 为准。',
+  '本页只显示“我受邀的会议”（排除本人组织），并带本人参会响应：待响应/已接受/已拒绝/待定。',
+  '接受/拒绝/待定会写回本人在该会议日程中的参会响应，仅本人可改。',
+  '会议纪要正文与历史版本在详情中展示；发布与编辑纪要仍需会议管理权限。',
 ]
 
-const filteredRows = computed(() => {
-  if (!onlyMine.value) return rows.value
-  return rows.value.filter((row) => row.organizer_id === auth.userId)
-})
+const minutesHistory = ref<CollabMinutes[]>([])
 
 const isOrganizer = computed(() => detail.value?.meeting.organizer_id === auth.userId)
 
@@ -64,7 +67,11 @@ async function load() {
   loading.value = true
   error.value = ''
   try {
-    const result = await collabApi.meetings.list({ page: query.page, size: query.size })
+    const result = await collabApi.meetings.invites({
+      page: query.page,
+      size: query.size,
+      response: query.response || undefined,
+    })
     rows.value = result.records
     total.value = result.total
   } catch (err) {
@@ -74,11 +81,25 @@ async function load() {
   }
 }
 
+async function respond(row: CollabInvite, response: 'ACCEPTED' | 'DECLINED' | 'TENTATIVE') {
+  responding.value = String(row.meeting_id)
+  try {
+    await collabApi.meetings.respondInvite(row.meeting_id, response)
+    ElMessage.success(response === 'ACCEPTED' ? '已接受邀请' : response === 'DECLINED' ? '已拒绝邀请' : '已标记待定')
+    await load()
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  } finally {
+    responding.value = ''
+  }
+}
+
 async function loadDetail() {
   if (!detailMeetingId.value) return
   detailLoading.value = true
   try {
     detail.value = await collabApi.meetings.detail(detailMeetingId.value)
+    minutesHistory.value = await collabApi.meetings.minutesHistory(detailMeetingId.value).catch(() => [])
   } catch (err) {
     detail.value = null
     ElMessage.warning(describeError(err))
@@ -87,9 +108,10 @@ async function loadDetail() {
   }
 }
 
-async function openDetail(row: CollabMeeting) {
+async function openDetail(row: CollabInvite | CollabMeeting) {
   detailMeetingId.value = String(row.meeting_id)
   detail.value = null
+  minutesHistory.value = []
   detailVisible.value = true
   await loadDetail()
 }
@@ -227,14 +249,18 @@ onMounted(load)
 
     <el-card shadow="never">
       <div class="fl-toolbar">
-        <span class="fl-muted">仅看我组织</span>
-        <el-switch v-model="onlyMine" />
-        <span class="fl-muted">共 {{ total }} 场会议，当前展示 {{ filteredRows.length }} 场</span>
+        <el-select v-model="query.response" placeholder="全部响应" clearable style="width: 160px" @change="query.page = 1; load()">
+          <el-option label="待响应" value="PENDING" />
+          <el-option label="已接受" value="ACCEPTED" />
+          <el-option label="已拒绝" value="DECLINED" />
+          <el-option label="待定" value="TENTATIVE" />
+        </el-select>
+        <span class="fl-muted">共 {{ total }} 场受邀会议</span>
       </div>
 
       <el-alert v-if="error" type="error" :closable="false" show-icon :title="error" style="margin-bottom: 12px" />
 
-      <el-table :data="filteredRows" v-loading="loading" border stripe row-key="meeting_id">
+      <el-table :data="rows" v-loading="loading" border stripe row-key="meeting_id">
         <el-table-column prop="title" label="主题" min-width="180" show-overflow-tooltip />
         <el-table-column prop="organizer_id" label="组织者" width="100">
           <template #default="{ row }">
@@ -257,12 +283,20 @@ onMounted(load)
             <el-tag :type="row.status === 'CANCELLED' ? 'info' : 'primary'" size="small">{{ row.status }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="入会码" width="110">
-          <template #default="{ row }">{{ row.join_code || '-' }}</template>
+        <el-table-column label="我的响应" width="110">
+          <template #default="{ row }">
+            <el-tag
+              size="small"
+              :type="row.response === 'ACCEPTED' ? 'success' : row.response === 'DECLINED' ? 'danger' : 'info'"
+            >{{ row.response || 'PENDING' }}</el-tag>
+          </template>
         </el-table-column>
-        <el-table-column label="操作" width="90" fixed="right">
+        <el-table-column label="操作" width="220" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" @click="openDetail(row)">详情</el-button>
+            <el-button link type="success" :loading="responding === String(row.meeting_id)" @click="respond(row, 'ACCEPTED')">接受</el-button>
+            <el-button link type="danger" :loading="responding === String(row.meeting_id)" @click="respond(row, 'DECLINED')">拒绝</el-button>
+            <el-button link type="warning" :loading="responding === String(row.meeting_id)" @click="respond(row, 'TENTATIVE')">待定</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -323,8 +357,22 @@ onMounted(load)
             <el-descriptions-item label="纪要 ID">{{ detail.minutes.minutes_id }}</el-descriptions-item>
             <el-descriptions-item label="状态">{{ detail.minutes.status }}</el-descriptions-item>
             <el-descriptions-item label="发布时间">{{ fmt(detail.minutes.published_at) }}</el-descriptions-item>
+            <el-descriptions-item label="摘要" :span="3">{{ detail.minutes.summary || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="正文" :span="3">
+              <pre class="minutes-content">{{ detail.minutes.content || '（无正文）' }}</pre>
+            </el-descriptions-item>
           </el-descriptions>
           <el-text v-else type="info">尚未创建纪要</el-text>
+
+          <div v-if="minutesHistory.length" class="section-head"><h3>纪要历史（{{ minutesHistory.length }} 个版本）</h3></div>
+          <el-table v-if="minutesHistory.length" :data="minutesHistory" border size="small">
+            <el-table-column prop="minutes_id" label="版本 ID" width="120" />
+            <el-table-column prop="status" label="状态" width="100" />
+            <el-table-column label="创建时间" width="170">
+              <template #default="{ row }">{{ fmt(row.created_at) }}</template>
+            </el-table-column>
+            <el-table-column prop="summary" label="摘要" min-width="180" show-overflow-tooltip />
+          </el-table>
 
           <div class="section-head">
             <h3>行动项</h3>
@@ -443,5 +491,11 @@ onMounted(load)
   align-items: center;
   gap: 8px;
   margin-bottom: 8px;
+}
+.minutes-content {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: inherit;
 }
 </style>

@@ -248,6 +248,48 @@ public class TicketService {
         return ServiceMaps.of("ticket_id", id, "internal", internal);
     }
 
+    /**
+     * 员工自助流转：只允许工单提交人本人操作，且只能「关闭」或「重开」。
+     * 管理视角的完整流转仍走 {@link #transition(long, Map)}（需 service:ticket:handle）。
+     */
+    @Transactional
+    public Map<String, Object> selfTransition(long id, String toStatus, Map<String, Object> body) {
+        long tenantId = ServiceContext.tenantId();
+        long userId = ServiceContext.userId();
+        Map<String, Object> ticket = requiredTicket(tenantId, id);
+        if (Rows.lngVal(ticket, "requester_id") != userId) {
+            throw new BizException(ServiceErrorCode.NO_PERMISSION);
+        }
+        if (!"CLOSED".equals(toStatus) && !"REOPENED".equals(toStatus)) {
+            throw new BizException(ServiceErrorCode.TICKET_TRANSITION_INVALID);
+        }
+        Map<String, Object> payload = new LinkedHashMap<>();
+        if (body != null) {
+            payload.putAll(body);
+        }
+        payload.put("to_status", toStatus);
+        if (ServiceContext.string(payload.get("reason")) == null) {
+            payload.put("reason", "CLOSED".equals(toStatus) ? "提交人确认关闭" : "提交人重新打开");
+        }
+        return transition(id, payload);
+    }
+
+    /** 员工自助评论：只允许工单提交人本人，且强制为公开回复（不能写内部备注）。 */
+    public Map<String, Object> selfComment(long id, Map<String, Object> body) {
+        long tenantId = ServiceContext.tenantId();
+        Map<String, Object> ticket = requiredTicket(tenantId, id);
+        if (Rows.lngVal(ticket, "requester_id") != ServiceContext.userId()) {
+            throw new BizException(ServiceErrorCode.NO_PERMISSION);
+        }
+        Map<String, Object> payload = new LinkedHashMap<>();
+        if (body != null) {
+            payload.putAll(body);
+        }
+        payload.put("internal", false);
+        payload.putIfAbsent("comment_type", "REPLY");
+        return comment(id, payload);
+    }
+
     public List<Map<String, Object>> comments(long id) {
         long tenantId = ServiceContext.tenantId();
         requiredTicket(tenantId, id);

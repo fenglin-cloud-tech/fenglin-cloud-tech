@@ -172,6 +172,25 @@ public class CatalogKnowledgeController {
         return ApiResponse.success(problemChangeService.createProblem(body));
     }
 
+    @GetMapping("/problems")
+    public ApiResponse<PageResult<Map<String, Object>>> problems(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "keyword", required = false) String keyword,
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false) Integer size) {
+        PermissionGuard.require(permissions, PROBLEM);
+        return ApiResponse.success(problemChangeService.problems(status, keyword, page, size));
+    }
+
+    @GetMapping("/problems/{id}")
+    public ApiResponse<Map<String, Object>> problem(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id) {
+        PermissionGuard.require(permissions, PROBLEM);
+        return ApiResponse.success(problemChangeService.problem(id));
+    }
+
     @PostMapping("/problems/{id}/aggregate")
     public ApiResponse<Map<String, Object>> aggregateProblem(
             @RequestHeader(value = "X-Permissions", required = false) String permissions,
@@ -195,6 +214,25 @@ public class CatalogKnowledgeController {
             @RequestBody Map<String, Object> body) {
         PermissionGuard.require(permissions, CHANGE);
         return ApiResponse.success(problemChangeService.createChange(body, permissions, requestId));
+    }
+
+    @GetMapping("/changes")
+    public ApiResponse<PageResult<Map<String, Object>>> changes(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "keyword", required = false) String keyword,
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false) Integer size) {
+        PermissionGuard.require(permissions, CHANGE);
+        return ApiResponse.success(problemChangeService.changes(status, keyword, page, size));
+    }
+
+    @GetMapping("/changes/{id}")
+    public ApiResponse<Map<String, Object>> change(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id) {
+        PermissionGuard.require(permissions, CHANGE);
+        return ApiResponse.success(problemChangeService.change(id));
     }
 
     @PostMapping("/changes/{id}/approve")

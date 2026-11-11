@@ -173,7 +173,15 @@ public final class CollabDtos {
                                        String content, Boolean publish) {
     }
 
-    public record MinutesView(String minutesId, String status, Instant publishedAt) {
+    public record MinutesView(String minutesId, String status, Instant publishedAt, String summary, String content,
+                              Instant createdAt) {
+    }
+
+    public record InviteView(String meetingId, String title, long organizerId, Instant startAt, Instant endAt,
+                             String meetingMode, String status, String response) {
+    }
+
+    public record InviteRespondRequest(String response) {
     }
 
     public record MinutesResult(String minutesId, String status) {

@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fenglin.common.core.BizException;
+import com.fenglin.common.core.PageResult;
 import com.fenglin.common.core.RequestContext;
 import com.fenglin.talent.TalentErrorCode;
 import com.fenglin.talent.client.WorkflowClient;
@@ -16,23 +17,27 @@ import com.fenglin.talent.web.dto.TalentDtos.ApprovalRequest;
 import com.fenglin.talent.web.dto.TalentDtos.OnboardingCompleteResult;
 import com.fenglin.talent.web.dto.TalentDtos.OnboardingCreateRequest;
 import com.fenglin.talent.web.dto.TalentDtos.OnboardingCreateResult;
+import com.fenglin.talent.web.dto.TalentDtos.OnboardingView;
 import com.fenglin.talent.web.dto.TalentDtos.ProbationEvaluateRequest;
 import com.fenglin.talent.web.dto.TalentDtos.ProbationEvaluateResult;
 import com.fenglin.talent.web.dto.TalentDtos.ResignationApproveRequest;
 import com.fenglin.talent.web.dto.TalentDtos.ResignationCreateRequest;
 import com.fenglin.talent.web.dto.TalentDtos.ResignationStatusResult;
+import com.fenglin.talent.web.dto.TalentDtos.ResignationView;
 import com.fenglin.talent.web.dto.TalentDtos.TransferAfter;
 import com.fenglin.talent.web.dto.TalentDtos.TransferApprovalResult;
 import com.fenglin.talent.web.dto.TalentDtos.TransferCreateRequest;
 import com.fenglin.talent.web.dto.TalentDtos.TransferCreateResult;
 import com.fenglin.talent.web.dto.TalentDtos.TransferEffectiveResult;
 import com.fenglin.talent.web.dto.TalentDtos.TransferEmployee;
+import com.fenglin.talent.web.dto.TalentDtos.TransferView;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -295,6 +300,59 @@ public class LifecycleService {
         return new ResignationStatusResult(id, "REVOKED");
     }
 
+    // ---------- 单据列表 ----------
+
+    @Transactional(readOnly = true)
+    public PageResult<OnboardingView> onboardings(String obStatus, Integer page, Integer size) {
+        long tenantId = TalentContext.tenantId();
+        int pageNo = TalentContext.page(page);
+        int pageSize = TalentContext.size(size);
+        String status = blank(obStatus) ? null : obStatus.trim().toUpperCase();
+        List<OnboardingView> records = lifecycleMapper
+                .listOnboardings(tenantId, status, pageSize, (pageNo - 1) * pageSize)
+                .stream()
+                .map(row -> new OnboardingView(Rows.lngVal(row, "id"), Rows.lngVal(row, "employeeId"),
+                        Rows.str(row, "employeeName"), Rows.lng(row, "offerId"), Rows.date(row, "onboardDate"),
+                        Rows.str(row, "obStatus"), Rows.str(row, "checklist"), Rows.lng(row, "mentorId"),
+                        Rows.instant(row, "createdAt")))
+                .toList();
+        return PageResult.of(records, lifecycleMapper.countOnboardings(tenantId, status), pageNo, pageSize);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResult<TransferView> transfers(String tfStatus, Integer page, Integer size) {
+        long tenantId = TalentContext.tenantId();
+        int pageNo = TalentContext.page(page);
+        int pageSize = TalentContext.size(size);
+        String status = blank(tfStatus) ? null : tfStatus.trim().toUpperCase();
+        List<TransferView> records = lifecycleMapper
+                .listTransfers(tenantId, status, pageSize, (pageNo - 1) * pageSize)
+                .stream()
+                .map(row -> new TransferView(Rows.lngVal(row, "id"), Rows.lngVal(row, "employeeId"),
+                        Rows.str(row, "employeeName"), Rows.str(row, "transferType"), Rows.str(row, "beforeJson"),
+                        Rows.str(row, "afterJson"), Rows.date(row, "effectiveDate"), Rows.str(row, "reason"),
+                        Rows.str(row, "tfStatus"), Rows.instant(row, "createdAt")))
+                .toList();
+        return PageResult.of(records, lifecycleMapper.countTransfers(tenantId, status), pageNo, pageSize);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResult<ResignationView> resignations(String rsStatus, Integer page, Integer size) {
+        long tenantId = TalentContext.tenantId();
+        int pageNo = TalentContext.page(page);
+        int pageSize = TalentContext.size(size);
+        String status = blank(rsStatus) ? null : rsStatus.trim().toUpperCase();
+        List<ResignationView> records = lifecycleMapper
+                .listResignations(tenantId, status, pageSize, (pageNo - 1) * pageSize)
+                .stream()
+                .map(row -> new ResignationView(Rows.lngVal(row, "id"), Rows.lngVal(row, "employeeId"),
+                        Rows.str(row, "employeeName"), Rows.str(row, "resignType"), Rows.date(row, "applyDate"),
+                        Rows.date(row, "lastWorkDate"), Rows.str(row, "reasonCategory"),
+                        Rows.str(row, "handoverStatus"), Rows.str(row, "rsStatus"), Rows.instant(row, "createdAt")))
+                .toList();
+        return PageResult.of(records, lifecycleMapper.countResignations(tenantId, status), pageNo, pageSize);
+    }
+
     private Map<String, Object> requireEmployee(long tenantId, long employeeId) {
         Map<String, Object> employee = employeeMapper.findEmployee(tenantId, employeeId);
         if (employee == null) {
@@ -307,6 +365,10 @@ public class LifecycleService {
         Map<String, Object> employee = requireEmployee(tenantId, employeeId);
         return new TransferEmployee(Rows.lng(employee, "orgId"), Rows.lng(employee, "positionId"),
                 Rows.lng(employee, "gradeId"));
+    }
+
+    private boolean blank(String value) {
+        return value == null || value.isBlank();
     }
 
     private String toJson(Object value) {

@@ -100,6 +100,15 @@ public class CatalogService {
     public Map<String, Object> saveCatalog(Map<String, Object> body) {
         long tenantId = ServiceContext.tenantId();
         long userId = ServiceContext.userId();
+        // 兼容单条保存：管理端只提交一个对象时，按字段判断是目录还是目录项，不再强制外层包数组。
+        if (!(body.get("catalogs") instanceof List<?>) && !(body.get("items") instanceof List<?>)
+                && ServiceContext.string(body.get("name")) != null) {
+            boolean looksLikeItem = body.get("catalog_id") != null || body.get("code") != null
+                    || body.get("ticket_type") != null;
+            Map<String, Object> wrapped = new LinkedHashMap<>(body);
+            wrapped.put(looksLikeItem ? "items" : "catalogs", List.of(new LinkedHashMap<>(body)));
+            body = wrapped;
+        }
         int catalogs = 0;
         int items = 0;
         Object catalogList = body.get("catalogs");
@@ -116,7 +125,7 @@ public class CatalogService {
                         ServiceContext.string(map.get("icon")),
                         map.get("sort_no") == null ? 0 : (int) ServiceContext.requireLong(map.get("sort_no")),
                         ServiceMaps.json(map.get("visible_scope")),
-                        map.get("status") == null ? "ACTIVE" : ServiceContext.string(map.get("status")), userId);
+                        normalizeStatus(ServiceContext.string(map.get("status"))), userId);
                 catalogs++;
             }
         }
@@ -140,7 +149,7 @@ public class CatalogService {
                         ServiceContext.string(map.get("approval_flow_key")),
                         ServiceMaps.json(map.get("visible_scope")),
                         map.get("sort_no") == null ? 0 : (int) ServiceContext.requireLong(map.get("sort_no")),
-                        map.get("status") == null ? "ACTIVE" : ServiceContext.string(map.get("status")), userId);
+                        normalizeStatus(ServiceContext.string(map.get("status"))), userId);
                 items++;
             }
         }
@@ -178,6 +187,15 @@ public class CatalogService {
                 body.get("status") == null ? "ACTIVE" : ServiceContext.string(body.get("status")), userId);
         audit.high("sla.config", "sla_policy", id);
         return ServiceMaps.of("id", id);
+    }
+
+    /** 目录/目录项状态统一为 ACTIVE/DISABLED，兼容前端历史值 ENABLED。 */
+    private String normalizeStatus(String status) {
+        if (status == null) {
+            return "ACTIVE";
+        }
+        String upper = status.toUpperCase();
+        return "ENABLED".equals(upper) ? "ACTIVE" : upper;
     }
 
     @SuppressWarnings("unchecked")

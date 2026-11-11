@@ -15,7 +15,23 @@ const error = ref('')
 const catalogVisible = ref(false)
 const catalogSaving = ref(false)
 const catalogError = ref('')
-const catalogForm = reactive({ id: '', parent_id: '', name: '', sort_no: 1, status: 'ENABLED' })
+const catalogForm = reactive({ id: '', parent_id: '', name: '', sort_no: 1, status: 'ACTIVE' })
+
+const itemVisible = ref(false)
+const itemSaving = ref(false)
+const itemError = ref('')
+const itemForm = reactive({
+  id: undefined as number | undefined,
+  catalog_id: undefined as number | undefined,
+  code: '',
+  name: '',
+  description: '',
+  ticket_type: 'REQUEST',
+  sla_policy_id: undefined as number | undefined,
+  need_approval: false,
+  sort_no: 1,
+  status: 'ACTIVE',
+})
 
 const policyVisible = ref(false)
 const policySaving = ref(false)
@@ -30,7 +46,7 @@ const policyForm = reactive({
 })
 
 const gapItems = [
-  '后端只有目录（catalog）保存接口 /admin/catalog，没有目录项（catalog item）创建/编辑接口，目录项只能由迁移或后台数据维护。',
+  '目录与目录项统一走 /admin/catalog：目录按单条保存，目录项按 items 数组创建/编辑/停用；新增后立即出现在目录树与员工端提交入口。',
   'SLA 策略保存接口 /admin/sla-policies 未提供删除接口，只能新增或覆盖。',
   '目录项申请接口 /catalog/items/{id}/apply 会创建工单，员工端使用。',
 ]
@@ -92,6 +108,71 @@ async function submitCatalog() {
   }
 }
 
+function openItemEditor(row?: ServiceRecord) {
+  itemError.value = ''
+  itemForm.id = row ? Number(row.id) : undefined
+  itemForm.catalog_id = row?.catalog_id ? Number(row.catalog_id) : Number(selectedCatalogId.value) || undefined
+  itemForm.code = String(row?.code ?? '')
+  itemForm.name = String(row?.name ?? '')
+  itemForm.description = String(row?.description ?? '')
+  itemForm.ticket_type = String(row?.ticket_type ?? 'REQUEST')
+  itemForm.sla_policy_id = row?.sla_policy_id ? Number(row.sla_policy_id) : undefined
+  itemForm.need_approval = Boolean(row?.need_approval)
+  itemForm.sort_no = Number(row?.sort_no ?? 1)
+  itemForm.status = String(row?.status ?? 'ACTIVE')
+  itemVisible.value = true
+}
+
+async function submitItem() {
+  if (!itemForm.catalog_id) {
+    itemError.value = '请选择所属目录'
+    return
+  }
+  if (!itemForm.name.trim()) {
+    itemError.value = '请填写目录项名称'
+    return
+  }
+  itemSaving.value = true
+  itemError.value = ''
+  try {
+    await serviceApi.admin.saveCatalogItem({
+      id: itemForm.id,
+      catalog_id: Number(itemForm.catalog_id),
+      code: itemForm.code.trim() || undefined,
+      name: itemForm.name.trim(),
+      description: itemForm.description || undefined,
+      ticket_type: itemForm.ticket_type,
+      sla_policy_id: itemForm.sla_policy_id ?? null,
+      need_approval: itemForm.need_approval,
+      sort_no: Number(itemForm.sort_no),
+      status: itemForm.status,
+    })
+    ElMessage.success('目录项已保存')
+    itemVisible.value = false
+    await loadItems()
+  } catch (err) {
+    itemError.value = describeError(err)
+  } finally {
+    itemSaving.value = false
+  }
+}
+
+async function disableItem(row: ServiceRecord) {
+  try {
+    await serviceApi.admin.saveCatalogItem({
+      id: Number(row.id),
+      catalog_id: Number(row.catalog_id),
+      code: String(row.code ?? ''),
+      name: String(row.name ?? ''),
+      status: 'DISABLED',
+    })
+    ElMessage.success('目录项已停用')
+    await loadItems()
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  }
+}
+
 async function submitPolicy() {
   if (!policyForm.name.trim()) {
     policyError.value = '请填写策略名称'
@@ -106,7 +187,7 @@ async function submitPolicy() {
       ticket_type: policyForm.ticket_type,
       response_minutes: Number(policyForm.response_minutes),
       resolve_minutes: Number(policyForm.resolve_minutes),
-      enabled: policyForm.enabled,
+      status: policyForm.enabled ? 'ACTIVE' : 'DISABLED',
     })
     ElMessage.success('SLA 策略已保存')
     policyVisible.value = false
@@ -156,7 +237,16 @@ onMounted(load)
       </el-col>
       <el-col :span="16">
         <el-card shadow="never" style="margin-bottom: 12px">
-          <template #header><span>目录项（目录 #{{ selectedCatalogId || '-' }}）</span></template>
+          <template #header>
+            <span>目录项（目录 #{{ selectedCatalogId || '-' }}）</span>
+            <el-button
+              v-perm="'tenant:service:catalog:config'"
+              style="float: right"
+              size="small"
+              type="primary"
+              @click="openItemEditor()"
+            >新增目录项</el-button>
+          </template>
           <el-table :data="items" border stripe size="small" max-height="320">
             <el-table-column prop="code" label="编码" width="130" />
             <el-table-column prop="name" label="名称" min-width="170" />
@@ -164,6 +254,18 @@ onMounted(load)
             <el-table-column prop="need_approval" label="需审批" width="90" />
             <el-table-column prop="sla_policy_id" label="SLA策略" width="100" />
             <el-table-column prop="status" label="状态" width="100" />
+            <el-table-column label="操作" width="140">
+              <template #default="{ row }">
+                <el-button v-perm="'tenant:service:catalog:config'" link type="primary" @click="openItemEditor(row)">编辑</el-button>
+                <el-button
+                  v-if="row.status !== 'DISABLED'"
+                  v-perm="'tenant:service:catalog:config'"
+                  link
+                  type="danger"
+                  @click="disableItem(row)"
+                >停用</el-button>
+              </template>
+            </el-table-column>
           </el-table>
         </el-card>
         <el-card shadow="never">
@@ -189,7 +291,7 @@ onMounted(load)
         <el-form-item label="排序"><el-input-number v-model="catalogForm.sort_no" :min="0" /></el-form-item>
         <el-form-item label="状态">
           <el-select v-model="catalogForm.status" style="width: 100%">
-            <el-option label="启用" value="ENABLED" />
+            <el-option label="启用" value="ACTIVE" />
             <el-option label="停用" value="DISABLED" />
           </el-select>
         </el-form-item>
@@ -197,6 +299,44 @@ onMounted(load)
       <template #footer>
         <el-button @click="catalogVisible = false">取消</el-button>
         <el-button type="primary" :loading="catalogSaving" @click="submitCatalog">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="itemVisible" :title="itemForm.id ? '编辑目录项' : '新增目录项'" width="520px">
+      <el-alert v-if="itemError" type="error" :closable="false" show-icon :title="itemError" style="margin-bottom: 12px" />
+      <el-form label-width="100px">
+        <el-form-item label="所属目录" required>
+          <el-select v-model="itemForm.catalog_id" style="width: 100%">
+            <el-option v-for="node in tree" :key="node.id" :label="node.name" :value="Number(node.id)" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="编码"><el-input v-model="itemForm.code" placeholder="留空自动生成" maxlength="40" /></el-form-item>
+        <el-form-item label="名称" required><el-input v-model="itemForm.name" maxlength="80" /></el-form-item>
+        <el-form-item label="说明"><el-input v-model="itemForm.description" type="textarea" :rows="2" /></el-form-item>
+        <el-form-item label="工单类型">
+          <el-select v-model="itemForm.ticket_type" style="width: 100%">
+            <el-option label="故障 INCIDENT" value="INCIDENT" />
+            <el-option label="服务请求 REQUEST" value="REQUEST" />
+            <el-option label="咨询 QUESTION" value="QUESTION" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="SLA 策略">
+          <el-select v-model="itemForm.sla_policy_id" clearable style="width: 100%">
+            <el-option v-for="p in policies" :key="p.id" :label="p.name" :value="Number(p.id)" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="需审批"><el-switch v-model="itemForm.need_approval" /></el-form-item>
+        <el-form-item label="排序"><el-input-number v-model="itemForm.sort_no" :min="0" /></el-form-item>
+        <el-form-item label="状态">
+          <el-select v-model="itemForm.status" style="width: 100%">
+            <el-option label="启用" value="ACTIVE" />
+            <el-option label="停用" value="DISABLED" />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="itemVisible = false">取消</el-button>
+        <el-button type="primary" :loading="itemSaving" @click="submitItem">保存</el-button>
       </template>
     </el-dialog>
 

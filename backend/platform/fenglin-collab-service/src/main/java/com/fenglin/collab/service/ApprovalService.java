@@ -182,6 +182,32 @@ public class ApprovalService {
                 .toList();
     }
 
+    /** COL-01：我的已办（我处理过且已完成的任务），按办理时间倒序，附审批意见明文。 */
+    @Transactional(readOnly = true)
+    public Map<String, Object> doneTasks(String action, Integer page, Integer size) {
+        long tenantId = CollabContext.tenantId();
+        long userId = CollabContext.userId();
+        int safePage = CollabContext.page(page);
+        int safeSize = CollabContext.size(size);
+        String normalized = action == null || action.isBlank() ? null : action.toUpperCase();
+        List<Map<String, Object>> records = approvalMapper
+                .listDoneTasks(tenantId, userId, normalized, (safePage - 1) * safeSize, safeSize).stream()
+                .map(row -> {
+                    Map<String, Object> copy = new LinkedHashMap<>(row);
+                    Object taskId = copy.get("taskId");
+                    if (taskId != null) {
+                        copy.put("taskId", String.valueOf(taskId));
+                    }
+                    copy.put("comment", crypto.decrypt(tenantId, "collab_approval_task", "comment",
+                            Rows.str(row, "commentCipher")));
+                    copy.remove("commentCipher");
+                    return copy;
+                })
+                .toList();
+        return Map.of("records", records, "total", approvalMapper.countDoneTasks(tenantId, userId, normalized),
+                "page", safePage, "size", safeSize);
+    }
+
     @Transactional(readOnly = true)
     public List<Map<String, Object>> myInstances(Integer page, Integer size) {
         int safePage = CollabContext.page(page);

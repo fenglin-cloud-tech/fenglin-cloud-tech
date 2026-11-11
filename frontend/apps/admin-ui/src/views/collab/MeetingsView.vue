@@ -9,7 +9,7 @@ const rows = ref<CollabMeeting[]>([])
 const total = ref(0)
 const loading = ref(false)
 const error = ref('')
-const query = reactive({ page: 1, size: 10 })
+const query = reactive({ page: 1, size: 10, status: '', range: [] as string[] })
 
 const createVisible = ref(false)
 const creating = ref(false)
@@ -28,6 +28,7 @@ const detailVisible = ref(false)
 const detailLoading = ref(false)
 const detail = ref<CollabMeetingDetail | null>(null)
 const detailMeetingId = ref('')
+const minutesHistory = ref<{ minutes_id: string; status: string; created_at?: string; summary?: string }[]>([])
 
 const minutesVisible = ref(false)
 const minutesSaving = ref(false)
@@ -51,17 +52,23 @@ const modeOptions = [
 ]
 
 const gapItems = [
-  '会议详情只返回纪要状态，不返回纪要正文/主题结论，编辑后无法回显正文。',
-  '没有会议邀请的接受/拒绝接口，参会响应只能通过日程 attendees 表达。',
-  '会议列表是租户全量分页，没有按参会人、时间范围或状态过滤的参数。',
-  '会议取消/纪要不提供撤销与历史版本。',
+  '会议详情已返回纪要摘要与正文；纪要历史按版本另列（GET /meetings/{id}/minutes）。',
+  '会议邀请的接受/拒绝/待定在员工端“会议邀请”页处理，写回本人参会响应。',
+  '会议列表已支持状态与时间范围过滤；“我受邀的会议”走 /meetings/invites。',
+  '会议取消仍不单独留状态流水，取消动作只记审计；如需完整状态轨迹需新增历史表。',
 ]
 
 async function load() {
   loading.value = true
   error.value = ''
   try {
-    const result = await collabApi.meetings.list({ page: query.page, size: query.size })
+    const result = await collabApi.meetings.list({
+      page: query.page,
+      size: query.size,
+      status: query.status || undefined,
+      from: query.range && query.range[0] ? new Date(query.range[0]).toISOString() : undefined,
+      to: query.range && query.range[1] ? new Date(query.range[1]).toISOString() : undefined,
+    })
     rows.value = result.records
     total.value = result.total
   } catch (err) {
@@ -128,6 +135,7 @@ async function loadDetail() {
   detailLoading.value = true
   try {
     detail.value = await collabApi.meetings.detail(detailMeetingId.value)
+    minutesHistory.value = await collabApi.meetings.minutesHistory(detailMeetingId.value).catch(() => [])
   } catch (err) {
     detail.value = null
     ElMessage.warning(describeError(err))
@@ -275,6 +283,25 @@ onMounted(load)
     <GapNotice :items="gapItems" />
 
     <div class="fl-card">
+      <div class="fl-toolbar">
+        <el-select v-model="query.status" placeholder="全部状态" clearable style="width: 140px" @change="query.page = 1; load()">
+          <el-option label="已预约" value="SCHEDULED" />
+          <el-option label="进行中" value="IN_PROGRESS" />
+          <el-option label="已结束" value="ENDED" />
+          <el-option label="已取消" value="CANCELLED" />
+        </el-select>
+        <el-date-picker
+          v-model="query.range"
+          type="datetimerange"
+          value-format="YYYY-MM-DDTHH:mm:ss"
+          range-separator="至"
+          start-placeholder="开始时间起"
+          end-placeholder="开始时间止"
+          @change="query.page = 1; load()"
+        />
+        <el-button :loading="loading" @click="load">查询</el-button>
+      </div>
+
       <el-alert v-if="error" type="error" :closable="false" show-icon :title="error" style="margin-bottom: 12px" />
 
       <el-table :data="rows" v-loading="loading" border stripe>
@@ -402,8 +429,24 @@ onMounted(load)
             <el-descriptions-item label="发布时间">
               {{ detail.minutes.published_at ? new Date(detail.minutes.published_at).toLocaleString() : '-' }}
             </el-descriptions-item>
+            <el-descriptions-item label="摘要" :span="3">{{ detail.minutes.summary || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="正文" :span="3">
+              <pre style="margin: 0; white-space: pre-wrap; font-family: inherit">{{ detail.minutes.content || '（无正文）' }}</pre>
+            </el-descriptions-item>
           </el-descriptions>
           <el-text v-else type="info">尚未创建纪要</el-text>
+
+          <template v-if="minutesHistory.length">
+            <div class="section-head"><h3>纪要历史（{{ minutesHistory.length }} 个版本）</h3></div>
+            <el-table :data="minutesHistory" size="small" border>
+              <el-table-column prop="minutes_id" label="版本 ID" width="120" />
+              <el-table-column prop="status" label="状态" width="100" />
+              <el-table-column label="创建时间" width="170">
+                <template #default="{ row }">{{ row.created_at ? new Date(row.created_at).toLocaleString() : '-' }}</template>
+              </el-table-column>
+              <el-table-column prop="summary" label="摘要" min-width="180" show-overflow-tooltip />
+            </el-table>
+          </template>
 
           <div class="section-head">
             <h3>行动项</h3>
