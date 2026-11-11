@@ -35,10 +35,12 @@ public class TenantService {
 
     private final TenantMapper tenantMapper;
     private final AuditSink auditSink;
+    private final FinanceProvisioner financeProvisioner;
 
-    public TenantService(TenantMapper tenantMapper, AuditSink auditSink) {
+    public TenantService(TenantMapper tenantMapper, AuditSink auditSink, FinanceProvisioner financeProvisioner) {
         this.tenantMapper = tenantMapper;
         this.auditSink = auditSink;
+        this.financeProvisioner = financeProvisioner;
     }
 
     /**
@@ -77,7 +79,34 @@ public class TenantService {
                 () -> bootstrapAdmin(tenantId, request.adminUsername(), passwordHash));
 
         audit(tenantId, "CREATED", code);
+        financeProvisioner.initialize(tenantId, request.name());
         return new CreateTenantResult(tenantId, code, STATUS_ACTIVE, initialPassword);
+    }
+
+    /**
+     * FIN-15：存量租户财务域补齐。逐租户调用财务幂等初始化接口，单个失败不影响其他租户。
+     * 只读事务仅为满足 RLS 拦截器“租户查询必须在事务内执行”的约束。
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> backfillFinance() {
+        List<Map<String, Object>> tenants = tenantMapper.listAll();
+        int success = 0;
+        List<Map<String, Object>> failures = new java.util.ArrayList<>();
+        for (Map<String, Object> tenant : tenants) {
+            long tenantId = ((Number) tenant.get("id")).longValue();
+            Object name = tenant.get("name");
+            try {
+                financeProvisioner.initialize(tenantId, name == null ? null : name.toString());
+                success++;
+            } catch (Exception ex) {
+                failures.add(Map.of(
+                        "tenant_id", tenantId,
+                        "tenant_code", String.valueOf(tenant.get("code")),
+                        "message", ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage()));
+            }
+        }
+        return Map.of("total", tenants.size(), "success", success, "failed", failures.size(),
+                "failures", failures);
     }
 
     /**

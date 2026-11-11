@@ -60,6 +60,14 @@ public interface TenantMapper {
     @Select("SELECT count(*) FROM hub_tenant WHERE code = #{code}")
     long countByCode(@Param("code") String code);
 
+    @Select("""
+            SELECT id, code, name
+              FROM hub_tenant
+             WHERE deleted = 0
+             ORDER BY id
+            """)
+    List<Map<String, Object>> listAll();
+
     @Insert("""
             INSERT INTO hub_tenant (id, code, name, status, contact_name, hash_salt_enc, hash_version,
                                     expire_at, created_at, updated_at, deleted)

@@ -43,6 +43,16 @@ public class TenantController {
         return ApiResponse.success(tenantService.create(request));
     }
 
+    /**
+     * FIN-15：存量租户财务域补齐（幂等，可重复调用）。
+     */
+    @PostMapping("/finance-init")
+    public ApiResponse<java.util.Map<String, Object>> backfillFinance(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions) {
+        PermissionGuard.require(permissions, WRITE_PERMISSION);
+        return ApiResponse.success(tenantService.backfillFinance());
+    }
+
     @GetMapping("/{id}")
     public ApiResponse<TenantView> get(@PathVariable long id) {
         return ApiResponse.success(tenantService.get(id));

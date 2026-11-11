@@ -202,4 +202,38 @@ public interface LedgerMapper {
                         @Param("trialDebit") BigDecimal trialDebit, @Param("trialCredit") BigDecimal trialCredit,
                         @Param("snapshotJson") String snapshotJson, @Param("recordHash") String recordHash,
                         @Param("prevHash") String prevHash, @Param("userId") long userId);
+
+    @Select("""
+            SELECT id FROM fin_currency
+            WHERE tenant_id = #{tenantId} AND currency_code = #{currencyCode} AND deleted = 0
+            """)
+    Long findCurrencyId(@Param("tenantId") long tenantId, @Param("currencyCode") String currencyCode);
+
+    @Insert("""
+            INSERT INTO fin_currency
+                (id, tenant_id, currency_code, currency_name, symbol, decimal_places, status, created_by)
+            VALUES (#{id}, #{tenantId}, #{currencyCode}, #{currencyName}, #{symbol}, #{decimalPlaces},
+                    'ACTIVE', #{userId})
+            """)
+    void insertCurrency(@Param("id") long id, @Param("tenantId") long tenantId,
+                        @Param("currencyCode") String currencyCode, @Param("currencyName") String currencyName,
+                        @Param("symbol") String symbol, @Param("decimalPlaces") int decimalPlaces,
+                        @Param("userId") long userId);
+
+    @Select("""
+            SELECT count(*) FROM fin_accounting_subject
+            WHERE tenant_id = #{tenantId} AND ledger_id = #{ledgerId} AND deleted = 0
+            """)
+    long countSubjects(@Param("tenantId") long tenantId, @Param("ledgerId") long ledgerId);
+
+    @Select("""
+            SELECT count(*) FROM fin_accounting_period
+            WHERE tenant_id = #{tenantId} AND ledger_id = #{ledgerId} AND deleted = 0
+            """)
+    long countPeriods(@Param("tenantId") long tenantId, @Param("ledgerId") long ledgerId);
+
+    @Select("""
+            SELECT count(*) FROM fin_currency WHERE tenant_id = #{tenantId} AND deleted = 0
+            """)
+    long countCurrencies(@Param("tenantId") long tenantId);
 }

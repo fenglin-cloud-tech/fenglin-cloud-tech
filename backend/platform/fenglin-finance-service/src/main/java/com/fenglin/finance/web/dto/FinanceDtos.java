@@ -538,4 +538,11 @@ public final class FinanceDtos {
                                   String dueDate, String plannedPayDate, BigDecimal amount,
                                   BigDecimal settledAmount, BigDecimal outstanding) {
     }
+
+    // ---------- 租户财务域初始化 ----------
+
+    public record TenantInitView(long tenantId, long ledgerId, int ledgersCreated, int subjectsCreated,
+                                 int periodsCreated, int currenciesCreated, long subjectsTotal,
+                                 long periodsTotal, long currenciesTotal) {
+    }
 }
