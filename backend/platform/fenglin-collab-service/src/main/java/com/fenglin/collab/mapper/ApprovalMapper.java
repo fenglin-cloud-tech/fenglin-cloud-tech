@@ -281,4 +281,59 @@ public interface ApprovalMapper {
             """)
     long countDoneTasks(@Param("tenantId") long tenantId, @Param("userId") long userId,
                         @Param("action") String action);
+
+    // ---------- COL-01c 抄送 ----------
+
+    @Insert("""
+            INSERT INTO collab_approval_cc (id, tenant_id, instance_id, cc_user_id, created_by)
+            VALUES (#{id}, #{tenantId}, CAST(#{instanceId} AS uuid), #{ccUserId}, #{userId})
+            """)
+    void insertCc(@Param("id") long id, @Param("tenantId") long tenantId,
+                  @Param("instanceId") String instanceId, @Param("ccUserId") long ccUserId,
+                  @Param("userId") long userId);
+
+    @Select("""
+            SELECT id AS "ccId", cc_user_id AS "ccUserId",
+                   (EXTRACT(EPOCH FROM read_at) * 1000)::bigint AS "readAt",
+                   (EXTRACT(EPOCH FROM created_at) * 1000)::bigint AS "createdAt"
+            FROM collab_approval_cc
+            WHERE tenant_id = #{tenantId} AND instance_id = CAST(#{instanceId} AS uuid) AND deleted = 0
+            ORDER BY id
+            """)
+    List<Map<String, Object>> listCcByInstance(@Param("tenantId") long tenantId,
+                                               @Param("instanceId") String instanceId);
+
+    @Select("""
+            SELECT c.id AS "ccId", CAST(c.instance_id AS varchar) AS "instanceId", i.instance_no AS "instanceNo",
+                   i.status AS "instanceStatus", i.initiator_id AS "initiatorId", t.name AS "templateName",
+                   CAST(i.form_data AS varchar) AS "formData",
+                   (EXTRACT(EPOCH FROM c.read_at) * 1000)::bigint AS "readAt",
+                   (EXTRACT(EPOCH FROM c.created_at) * 1000)::bigint AS "createdAt"
+            FROM collab_approval_cc c
+            JOIN collab_approval_instance i ON i.id = c.instance_id AND i.tenant_id = c.tenant_id
+            JOIN collab_approval_template t ON t.id = i.template_id AND t.tenant_id = i.tenant_id
+            WHERE c.tenant_id = #{tenantId} AND c.cc_user_id = #{userId}
+              AND c.deleted = 0 AND i.deleted = 0
+            ORDER BY c.created_at DESC
+            LIMIT #{size} OFFSET #{offset}
+            """)
+    List<Map<String, Object>> listMyCc(@Param("tenantId") long tenantId, @Param("userId") long userId,
+                                       @Param("offset") int offset, @Param("size") int size);
+
+    @Select("""
+            SELECT count(1)
+            FROM collab_approval_cc c
+            JOIN collab_approval_instance i ON i.id = c.instance_id AND i.tenant_id = c.tenant_id
+            WHERE c.tenant_id = #{tenantId} AND c.cc_user_id = #{userId}
+              AND c.deleted = 0 AND i.deleted = 0
+            """)
+    long countMyCc(@Param("tenantId") long tenantId, @Param("userId") long userId);
+
+    /** 仅允许抄送人本人标记已读；已读时间只写一次。 */
+    @Update("""
+            UPDATE collab_approval_cc
+            SET read_at = COALESCE(read_at, now()), updated_by = #{userId}, updated_at = now()
+            WHERE tenant_id = #{tenantId} AND id = #{ccId} AND cc_user_id = #{userId} AND deleted = 0
+            """)
+    int markCcRead(@Param("tenantId") long tenantId, @Param("ccId") long ccId, @Param("userId") long userId);
 }

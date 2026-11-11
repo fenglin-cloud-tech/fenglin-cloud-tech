@@ -603,6 +603,7 @@ export const collabApi = {
       form_data?: Record<string, unknown>
       approver_id?: number
       idempotency_key?: string
+      cc_user_ids?: number[]
     }) {
       return post<CollabApprovalInstance>('/api/collab/v1/approvals/instances', body)
     },
@@ -641,6 +642,12 @@ export const collabApi = {
     },
     addSign(taskId: string | number, body: { assignee_id: number; position?: string }) {
       return post<void>(`/api/collab/v1/approvals/tasks/${taskId}/add-sign`, body)
+    },
+    myCc(params: { page?: number; size?: number } = {}) {
+      return get<PageResult<CollabApprovalRow>>('/api/collab/v1/approvals/cc/my', params)
+    },
+    readCc(ccId: string | number) {
+      return post<void>(`/api/collab/v1/approvals/cc/${ccId}/read`)
     },
   },
 

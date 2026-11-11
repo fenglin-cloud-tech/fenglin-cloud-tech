@@ -275,8 +275,9 @@ public final class CollabDtos {
                                         String processKey, Boolean enabled, List<Long> deptScope) {
     }
 
+    /** COL-01c：ccUserIds 为抄送人，发起时写入 collab_approval_cc。 */
     public record InstanceCreateRequest(String templateId, Map<String, Object> formData, Long approverId,
-                                        String idempotencyKey) {
+                                        String idempotencyKey, List<Long> ccUserIds) {
     }
 
     public record InstanceView(String instanceId, String instanceNo, String templateId, long initiatorId,
@@ -301,6 +302,12 @@ public final class CollabDtos {
     }
 
     public record TaskResult(String taskStatus, String instanceStatus) {
+    }
+
+    /** COL-01c：抄送记录（列表按抄送人本人收敛）。 */
+    public record CcView(long ccId, String instanceId, String instanceNo, String instanceStatus,
+                         long initiatorId, String templateName, Map<String, Object> formData, Instant readAt,
+                         Instant createdAt) {
     }
 
     // ---------- 工作台 ----------

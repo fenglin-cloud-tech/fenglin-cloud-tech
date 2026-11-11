@@ -33,6 +33,7 @@ public class CollabApprovalController {
     private static final String SUBMIT = "biz:collab:approval:submit";
     private static final String HANDLE = "biz:collab:approval:handle";
     private static final String READ = "biz:collab:approval:read";
+    private static final String CC_READ = "biz:collab:approval:cc:read";
 
     private final ApprovalService approvalService;
 
@@ -100,6 +101,26 @@ public class CollabApprovalController {
             @RequestParam(value = "size", required = false) Integer size) {
         PermissionGuard.require(permissions, READ);
         return ApiResponse.success(approvalService.doneTasks(action, page, size));
+    }
+
+    /** COL-01c：抄送我的列表（按抄送人本人收敛，需 biz:collab:approval:cc:read）。 */
+    @GetMapping("/cc/my")
+    public ApiResponse<Map<String, Object>> myCc(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false) Integer size) {
+        PermissionGuard.require(permissions, CC_READ);
+        return ApiResponse.success(approvalService.myCc(page, size));
+    }
+
+    /** COL-01c：抄送记录标记已读，仅本人记录可标记。 */
+    @PostMapping("/cc/{ccId}/read")
+    public ApiResponse<Void> readCc(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("ccId") long ccId) {
+        PermissionGuard.require(permissions, CC_READ);
+        approvalService.markCcRead(ccId);
+        return ApiResponse.success(null);
     }
 
     @PostMapping("/tasks/{taskId}/approve")

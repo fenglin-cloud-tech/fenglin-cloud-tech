@@ -15,7 +15,7 @@ const activeTab = ref('tasks')
 const gapItems = [
   '我的待办/我的申请返回 Map，字段未强类型化，页面按返回键动态渲染。',
   '已办列表已提供（/approvals/tasks/done，含审批意见明文）；撤回后的实例在“我的申请”中保留 CANCELLED 状态可查。',
-  '抄送列表尚未提供：需要新增 collab_approval_cc 表与提交时写入抄送人，属表结构变更，未在本批实施。',
+  '抄送已补齐：发起时可填抄送人（逗号分隔用户 ID），新增“抄送我的”列表与已读标记（/approvals/cc/my）。',
 ]
 
 function formatCell(value: unknown): string {
@@ -70,6 +70,12 @@ const templateRows = ref<CollabApprovalTemplate[]>([])
 const templateLoading = ref(false)
 const templateError = ref('')
 
+const ccRows = ref<CollabApprovalRow[]>([])
+const ccLoading = ref(false)
+const ccError = ref('')
+const ccQuery = reactive({ page: 1, size: 10 })
+const ccTotal = ref(0)
+
 const actionVisible = ref(false)
 const actionSaving = ref(false)
 const actionError = ref('')
@@ -92,7 +98,7 @@ const submitVisible = ref(false)
 const submitSaving = ref(false)
 const submitError = ref('')
 const submitResult = ref('')
-const submitForm = reactive({ template_id: '', approver_id: '', form_data: '{}' })
+const submitForm = reactive({ template_id: '', approver_id: '', cc_user_id: '', form_data: '{}' })
 const idempotencyKey = ref('')
 const submitValues = ref<Record<string, unknown>>({})
 const submitFieldsRef = ref<{ validate: () => string | null } | null>(null)
@@ -173,11 +179,42 @@ async function loadTemplates() {
   }
 }
 
+async function loadCc() {
+  ccLoading.value = true
+  ccError.value = ''
+  try {
+    const result = await collabApi.approvals.myCc({ page: ccQuery.page, size: ccQuery.size })
+    ccRows.value = result.records
+    ccTotal.value = result.total
+  } catch (err) {
+    ccError.value = describeError(err)
+  } finally {
+    ccLoading.value = false
+  }
+}
+
+async function markCcRead(row: CollabApprovalRow) {
+  const ccId = pickId(row, ['cc_id', 'ccId'])
+  if (!ccId) {
+    ElMessage.warning('缺少抄送记录 ID')
+    return
+  }
+  try {
+    await collabApi.approvals.readCc(ccId)
+    ElMessage.success('已标记为已读')
+    await loadCc()
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  }
+}
+
 function refreshActive() {
   if (activeTab.value === 'tasks') {
     void loadTasks()
   } else if (activeTab.value === 'done') {
     void loadDone()
+  } else if (activeTab.value === 'cc') {
+    void loadCc()
   } else {
     void loadInstances()
   }
@@ -289,7 +326,7 @@ async function cancelInstance(row: CollabApprovalRow) {
 }
 
 function openSubmit() {
-  Object.assign(submitForm, { template_id: '', approver_id: '', form_data: '{}' })
+  Object.assign(submitForm, { template_id: '', approver_id: '', cc_user_id: '', form_data: '{}' })
   submitValues.value = {}
   submitFieldsRef.value = null
   idempotencyKey.value = genIdempotencyKey()
@@ -336,6 +373,18 @@ async function submitApproval() {
       return
     }
   }
+  let ccUserIds: number[] | undefined
+  if (submitForm.cc_user_id.trim()) {
+    const parsed = submitForm.cc_user_id
+      .split(/[,，\s]+/)
+      .filter((item) => item.length > 0)
+      .map((item) => Number(item))
+    if (parsed.some((item) => !Number.isFinite(item) || item <= 0)) {
+      submitError.value = '抄送人 ID 必须是正整数，多个用逗号分隔'
+      return
+    }
+    ccUserIds = parsed
+  }
   submitSaving.value = true
   submitError.value = ''
   try {
@@ -344,6 +393,7 @@ async function submitApproval() {
       form_data: formData,
       approver_id: approverId,
       idempotency_key: idempotencyKey.value,
+      cc_user_ids: ccUserIds,
     })
     submitResult.value = result.instance_no
     ElMessage.success('审批已提交')
@@ -360,6 +410,7 @@ onMounted(() => {
   void loadDone()
   void loadInstances()
   void loadTemplates()
+  void loadCc()
 })
 </script>
 
@@ -491,6 +542,48 @@ onMounted(() => {
           <span class="fl-muted">本页 {{ instRows.length }} 条（接口不返回总数）</span>
         </div>
       </el-tab-pane>
+
+      <el-tab-pane label="抄送我的" name="cc">
+        <el-alert v-if="ccError" type="error" :closable="false" show-icon :title="ccError" style="margin-bottom: 12px" />
+
+        <el-table :data="ccRows" v-loading="ccLoading" border stripe>
+          <el-table-column prop="instance_no" label="实例编号" min-width="150" show-overflow-tooltip />
+          <el-table-column prop="template_name" label="模板" min-width="140" show-overflow-tooltip />
+          <el-table-column prop="instance_status" label="状态" width="110" />
+          <el-table-column prop="initiator_id" label="发起人" width="100" />
+          <el-table-column label="抄送时间" width="170">
+            <template #default="{ row }">{{ formatTime(row.created_at) }}</template>
+          </el-table-column>
+          <el-table-column label="已读时间" width="170">
+            <template #default="{ row }">{{ row.read_at ? formatTime(row.read_at) : '未读' }}</template>
+          </el-table-column>
+          <el-table-column label="操作" width="110" fixed="right">
+            <template #default="{ row }">
+              <el-button
+                v-if="!row.read_at"
+                v-perm="'biz:collab:approval:cc:read'"
+                link
+                type="primary"
+                @click="markCcRead(row)"
+              >
+                标记已读
+              </el-button>
+              <el-text v-else type="info">已读</el-text>
+            </template>
+          </el-table-column>
+        </el-table>
+
+        <div class="pager">
+          <el-pagination
+            v-model:current-page="ccQuery.page"
+            v-model:page-size="ccQuery.size"
+            :total="ccTotal"
+            :page-sizes="[10, 20, 50]"
+            layout="sizes, prev, pager, next"
+            @change="loadCc"
+          />
+        </div>
+      </el-tab-pane>
     </el-tabs>
 
     <el-dialog v-model="actionVisible" :title="actionTitle" width="480px">
@@ -584,6 +677,9 @@ onMounted(() => {
         </el-form-item>
         <el-form-item label="指定审批人">
           <el-input v-model="submitForm.approver_id" placeholder="选填，数字 ID" />
+        </el-form-item>
+        <el-form-item label="抄送人">
+          <el-input v-model="submitForm.cc_user_id" placeholder="选填，用户 ID，多个用逗号分隔" />
         </el-form-item>
         <ApprovalFormFields
           v-if="schemaFields.length > 0"

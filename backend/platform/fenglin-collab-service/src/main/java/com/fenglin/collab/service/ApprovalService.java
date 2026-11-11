@@ -12,6 +12,7 @@ import com.fenglin.collab.support.CollabContext;
 import com.fenglin.collab.support.CollabCrypto;
 import com.fenglin.collab.support.Rows;
 import com.fenglin.collab.web.dto.CollabDtos.AddSignRequest;
+import com.fenglin.collab.web.dto.CollabDtos.CcView;
 import com.fenglin.collab.web.dto.CollabDtos.InstanceCreateRequest;
 import com.fenglin.collab.web.dto.CollabDtos.InstanceView;
 import com.fenglin.collab.web.dto.CollabDtos.TaskResult;
@@ -281,10 +282,31 @@ public class ApprovalService {
         long approverId = request.approverId() == null || request.approverId() <= 0 ? userId : request.approverId();
         approvalMapper.insertTask(IdWorker.getId(), tenantId, instanceId, NODE_KEY, NODE_NAME, approverId,
                 "USER", userId);
+        insertCcUsers(tenantId, instanceId, instanceNo, template, request.ccUserIds(), userId, approverId);
         workbenchService.notifyUser(tenantId, approverId, "APPROVAL", "新的审批待办",
                 Rows.str(template, "name") + " " + instanceNo, "COLLAB_APPROVAL", instanceId, userId);
         audit.publish("COLLAB_APPROVAL_SUBMITTED", "CREATE", "collab_approval_instance", instanceId, "LOW");
         return detail(instanceId);
+    }
+
+    /** COL-01c：写入抄送人（去重，排除发起人与审批人本人），并各发一条站内通知。 */
+    private void insertCcUsers(long tenantId, String instanceId, String instanceNo, Map<String, Object> template,
+                               List<Long> ccUserIds, long initiatorId, long approverId) {
+        if (ccUserIds == null || ccUserIds.isEmpty()) {
+            return;
+        }
+        Set<Long> seen = new java.util.LinkedHashSet<>();
+        for (Long ccUserId : ccUserIds) {
+            if (ccUserId == null || ccUserId <= 0 || ccUserId == initiatorId || ccUserId == approverId) {
+                continue;
+            }
+            if (!seen.add(ccUserId)) {
+                continue;
+            }
+            approvalMapper.insertCc(IdWorker.getId(), tenantId, instanceId, ccUserId, initiatorId);
+            workbenchService.notifyUser(tenantId, ccUserId, "APPROVAL", "审批抄送",
+                    Rows.str(template, "name") + " " + instanceNo, "COLLAB_APPROVAL", instanceId, initiatorId);
+        }
     }
 
     @Transactional(readOnly = true)
@@ -353,6 +375,34 @@ public class ApprovalService {
         int safeSize = CollabContext.size(size);
         return approvalMapper.listMyInstances(CollabContext.tenantId(), CollabContext.userId(),
                 (safePage - 1) * safeSize, safeSize);
+    }
+
+    /** COL-01c：抄送我的列表。 */
+    @Transactional(readOnly = true)
+    public Map<String, Object> myCc(Integer page, Integer size) {
+        long tenantId = CollabContext.tenantId();
+        long userId = CollabContext.userId();
+        int safePage = CollabContext.page(page);
+        int safeSize = CollabContext.size(size);
+        List<CcView> records = approvalMapper.listMyCc(tenantId, userId, (safePage - 1) * safeSize, safeSize)
+                .stream()
+                .map(row -> new CcView(Rows.lngVal(row, "ccId"), Rows.str(row, "instanceId"),
+                        Rows.str(row, "instanceNo"), Rows.str(row, "instanceStatus"),
+                        Rows.lngVal(row, "initiatorId"), Rows.str(row, "templateName"),
+                        parseFormData(Rows.str(row, "formData")), Rows.instant(row, "readAt"),
+                        Rows.instant(row, "createdAt")))
+                .toList();
+        return Map.of("records", records, "total", approvalMapper.countMyCc(tenantId, userId),
+                "page", safePage, "size", safeSize);
+    }
+
+    /** COL-01c：抄送人标记已读，仅本人记录可标记。 */
+    @Transactional
+    public void markCcRead(long ccId) {
+        if (approvalMapper.markCcRead(CollabContext.tenantId(), ccId, CollabContext.userId()) == 0) {
+            throw new BizException(CollabErrorCode.RESOURCE_NOT_FOUND, "抄送记录不存在");
+        }
+        audit.publish("COLLAB_APPROVAL_CC_READ", "UPDATE", "collab_approval_cc", ccId, "LOW");
     }
 
     @Transactional
