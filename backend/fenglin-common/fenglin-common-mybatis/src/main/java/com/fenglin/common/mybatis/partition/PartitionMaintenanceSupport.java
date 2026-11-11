@@ -2,7 +2,6 @@ package com.fenglin.common.mybatis.partition;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.autoconfigure.jdbc.DataSourceProperties;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -27,8 +26,9 @@ import java.util.List;
  *   <li>以 {@code pg_try_advisory_xact_lock(2100, lockKey)} 串行化，拿不到锁直接放弃本次，不做任何部分操作；</li>
  *   <li>新分区开启 RLS 并逐条复制父表策略，不新增父表没有的策略。</li>
  * </ul>
- * DDL 需要库属主权限，因此使用 spring.datasource 的属主凭据单独建短连接，不占用应用连接池
- * （应用连接池已 SET ROLE fl_app，无 DDL 权限）。
+ * DDL 使用独立数据源（{@code fenglin.db.ddl.*}）：以 {@code fl_login_ddl} 登录并立即
+ * {@code SET ROLE fl_ddl_owner}，每次操作单连接、用后即关。找不到 DDL 配置或身份校验不通过即失败，
+ * 不存在回退到应用数据源（超级用户）的兜底路径。
  */
 public class PartitionMaintenanceSupport {
 
@@ -39,10 +39,58 @@ public class PartitionMaintenanceSupport {
     private static final DateTimeFormatter TIMESTAMPTZ_BOUND = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ssxx");
     private static final DateTimeFormatter DATE_BOUND = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
-    private final DataSourceProperties dataSourceProperties;
+    private final DdlConnectionConfig ddl;
 
-    public PartitionMaintenanceSupport(DataSourceProperties dataSourceProperties) {
-        this.dataSourceProperties = dataSourceProperties;
+    public PartitionMaintenanceSupport(DdlConnectionConfig ddl) {
+        this.ddl = ddl;
+    }
+
+    /**
+     * 启动自检：DDL 连接必须同时满足
+     * session_user=登录角色、current_user=DDL 属主、对 schema 有 CREATE、非超级用户、非 BYPASSRLS。
+     *
+     * @throws IllegalStateException 连接不可用或任一条件不满足
+     */
+    public void verifyIdentity(String schema) {
+        try (Connection connection = ownerConnection();
+             Statement statement = connection.createStatement();
+             ResultSet rs = statement.executeQuery(
+                     "SELECT session_user, current_user,"
+                             + " (SELECT rolsuper FROM pg_roles WHERE rolname = current_user),"
+                             + " (SELECT rolbypassrls FROM pg_roles WHERE rolname = current_user),"
+                             + " has_schema_privilege(current_user, " + literal(schema) + ", 'CREATE')")) {
+            rs.next();
+            String sessionUser = rs.getString(1);
+            String currentUser = rs.getString(2);
+            boolean superuser = rs.getBoolean(3);
+            boolean bypassRls = rs.getBoolean(4);
+            boolean canCreate = rs.getBoolean(5);
+
+            List<String> violations = new ArrayList<>();
+            if (!ddl.username().equals(sessionUser)) {
+                violations.add("session_user=" + sessionUser + "，期望 " + ddl.username());
+            }
+            if (!ddl.role().equals(currentUser)) {
+                violations.add("current_user=" + currentUser + "，期望 " + ddl.role());
+            }
+            if (superuser) {
+                violations.add("rolsuper=true，DDL 角色不允许超级用户");
+            }
+            if (bypassRls) {
+                violations.add("rolbypassrls=true，DDL 角色不允许绕过 RLS");
+            }
+            if (!canCreate) {
+                violations.add("has_schema_privilege(" + schema + ", CREATE)=false");
+            }
+            if (!violations.isEmpty()) {
+                throw new IllegalStateException("DDL 身份自检未通过：" + String.join("；", violations));
+            }
+            log.info("DDL 身份自检通过：session_user={} current_user={} schema={} CREATE=true rolsuper=false rolbypassrls=false",
+                    sessionUser, currentUser, schema);
+        } catch (SQLException ex) {
+            throw new IllegalStateException("DDL 连接不可用，请检查 " + DdlConnectionConfig.PREFIX
+                    + "* 与 FL_LOGIN_DDL_PASSWORD", ex);
+        }
     }
 
     /**
@@ -286,12 +334,33 @@ public class PartitionMaintenanceSupport {
         return '"' + identifier.replace("\"", "\"\"") + '"';
     }
 
+    private String literal(String value) {
+        return "'" + value.replace("'", "''") + "'";
+    }
+
+    /**
+     * 独立 DDL 连接：以 {@code fl_login_ddl} 登录，连接建立后立即 {@code SET ROLE fl_ddl_owner}；
+     * 没有 DDL 配置时构造阶段就会失败，不存在回退到应用数据源的路径。
+     */
     private Connection ownerConnection() throws SQLException {
-        String url = dataSourceProperties.getUrl();
-        String username = dataSourceProperties.getUsername();
-        String password = dataSourceProperties.getPassword();
-        return DriverManager.getConnection(url, username == null ? "" : username,
-                password == null ? "" : password);
+        Connection connection = DriverManager.getConnection(ddl.url(), ddl.username(), ddl.password());
+        try {
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("SET ROLE " + quote(ddl.role()));
+            }
+            try (Statement statement = connection.createStatement();
+                 ResultSet rs = statement.executeQuery("SELECT current_user")) {
+                rs.next();
+                String currentUser = rs.getString(1);
+                if (!ddl.role().equals(currentUser)) {
+                    throw new SQLException("DDL 连接 SET ROLE 未生效：期望 " + ddl.role() + "，实际 " + currentUser);
+                }
+            }
+            return connection;
+        } catch (SQLException | RuntimeException ex) {
+            connection.close();
+            throw ex;
+        }
     }
 
     private record Policy(String name, String code, String command, boolean permissive, String using, String check,

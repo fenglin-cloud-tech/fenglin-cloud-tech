@@ -56,6 +56,12 @@ class AuditPartitionMaintenanceIntegrationTest {
         registry.add("spring.datasource.username", () -> "postgres");
         registry.add("spring.datasource.password", () -> "");
         registry.add("spring.datasource.hikari.connection-init-sql", () -> "SET ROLE fl_app");
+        // 内嵌库无法提供 fl_login_ddl 登录身份，测试只验证 DDL 目标身份（SET ROLE fl_ddl_owner）
+        registry.add("fenglin.db.ddl.url", () -> JDBC_URL);
+        registry.add("fenglin.db.ddl.username", () -> "postgres");
+        registry.add("fenglin.db.ddl.password", () -> "test");
+        registry.add("fenglin.db.ddl.role", () -> "fl_ddl_owner");
+        registry.add("fenglin.db.ddl.self-check-enabled", () -> "false");
     }
 
     @Autowired

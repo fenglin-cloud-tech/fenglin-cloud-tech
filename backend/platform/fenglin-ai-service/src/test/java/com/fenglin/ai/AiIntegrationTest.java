@@ -125,6 +125,7 @@ class AiIntegrationTest {
         registry.add("spring.datasource.hikari.connection-init-sql", () -> "SET ROLE fl_app");
         registry.add("fenglin.ai.search-service-url",
                 () -> "http://localhost:" + SEARCH_STUB.getAddress().getPort());
+        registry.add("fenglin.ai.partition-maintenance-enabled", () -> "false");
     }
 
     @TestConfiguration

@@ -59,6 +59,7 @@ class MessageFlowIntegrationTest {
         registry.add("spring.datasource.password", () -> "");
         registry.add("spring.datasource.hikari.connection-init-sql", () -> "SET ROLE fl_app");
         registry.add("fenglin.message.retry-job-enabled", () -> "false");
+        registry.add("fenglin.message.partition-maintenance-enabled", () -> "false");
     }
 
     @LocalServerPort

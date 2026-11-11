@@ -33,6 +33,15 @@ mybatis-plus:
     map-underscore-to-camel-case: true
 
 fenglin:
+  db:
+    ddl:
+      # 分区 DDL 独立连接：fl_login_ddl + SET ROLE fl_ddl_owner，口令只从用户级环境变量注入，不落仓库
+      url: ${FENGLIN_DB_URL:jdbc:postgresql://localhost:5432/fenglin_hub?currentSchema=fenglin_hub}
+      username: ${FL_LOGIN_DDL_USER:fl_login_ddl}
+      password: ${FL_LOGIN_DDL_PASSWORD:}
+      role: fl_ddl_owner
+      # 启动自检不通过即退出；仅集成测试关闭
+      self-check-enabled: ${FENGLIN_DDL_SELF_CHECK_ENABLED:true}
   openapi:
     # X-Timestamp 允许偏差（秒），契约：≤ 5min
     timestamp-skew-seconds: 300
