@@ -56,6 +56,16 @@ fenglin-cloud-tech/
 11. 用户操作手册
 12. 系统管理员手册
 
+## 本地 Docker 环境注意事项（Windows）
+
+- **重装 Docker Desktop 必须用管理员终端执行安装命令，不要双击安装包。** 双击时安装器会尝试自提权，本机的安全软件（360 主动防御、联想电脑管家内置的火绒引擎）会在内核层静默拦截，表现为进程 3 秒内退出、无 UAC 弹窗、`%LOCALAPPDATA%\Docker\install-log.txt` 停在 `已取消一个任务`。正确做法是打开“终端（管理员）”，执行：
+
+  ```powershell
+  & "E:\DockerDesktop\Docker Desktop Installer.exe" install --accept-license --user --backend=wsl-2 --installation-dir=E:\DockerDesktop\app
+  ```
+
+- **迁移数据盘后，必须先恢复 `settings-store.json`，再首次启动 Docker。** 配置文件为 `%APPDATA%\Docker\settings-store.json`，其中 `CustomWslDistroDir` 指向数据盘目录（当前为 `E:\DockerDesktop\data\DockerDesktopWSL`）。若先启动，Docker 会按默认在 C 盘新建一个空数据盘，界面上看起来像数据丢失，实际只是连到了错盘。
+
 ## 分支与协作
 
 - 默认分支：`main`
