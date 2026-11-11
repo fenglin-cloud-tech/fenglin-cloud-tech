@@ -396,6 +396,35 @@ export interface TalentSessionCreateResult {
   session_status: string
 }
 
+export interface TalentTrainingSession {
+  id: TalentId
+  course_id: TalentId
+  start_at?: number
+  end_at?: number
+  capacity: number
+  enrolled: number
+  enroll_deadline?: number
+  venue?: string
+  session_status: string
+}
+
+export interface TalentMyEnrollment {
+  id: TalentId
+  course_id: TalentId
+  course_code?: string
+  course_title?: string
+  session_id?: TalentId
+  start_at?: number
+  end_at?: number
+  venue?: string
+  progress: number
+  learn_status: string
+  enroll_status: string
+  score?: number
+  completed_at?: number
+  created_at?: number
+}
+
 export interface TalentEnrollmentResult {
   id: TalentId
   enroll_status: string
@@ -909,6 +938,12 @@ export const talentApi = {
       venue?: string
     }) {
       return post<TalentSessionCreateResult>(`/api/talent/v1/training/courses/${courseId}/sessions`, body)
+    },
+    sessions(courseId: TalentId, params?: { sessionStatus?: string; page?: number; size?: number }) {
+      return get<PageResult<TalentTrainingSession>>(`/api/talent/v1/training/courses/${courseId}/sessions`, params)
+    },
+    myEnrollments(params?: { enrollStatus?: string; page?: number; size?: number }) {
+      return get<PageResult<TalentMyEnrollment>>('/api/talent/v1/training/my/enrollments', params)
     },
     enroll(body: { course_id: TalentId; session_id: TalentId; employee_id?: TalentId }) {
       return post<TalentEnrollmentResult>('/api/talent/v1/training/enrollments', body)

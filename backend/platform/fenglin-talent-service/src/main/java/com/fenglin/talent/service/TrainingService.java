@@ -28,8 +28,10 @@ import com.fenglin.talent.web.dto.TrainingDtos.ExamSubmitRequest;
 import com.fenglin.talent.web.dto.TrainingDtos.ExamSubmitResult;
 import com.fenglin.talent.web.dto.TrainingDtos.LearningProgressRequest;
 import com.fenglin.talent.web.dto.TrainingDtos.LearningProgressResult;
+import com.fenglin.talent.web.dto.TrainingDtos.MyEnrollmentView;
 import com.fenglin.talent.web.dto.TrainingDtos.SessionCreateRequest;
 import com.fenglin.talent.web.dto.TrainingDtos.SessionCreateResult;
+import com.fenglin.talent.web.dto.TrainingDtos.SessionView;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -150,6 +152,24 @@ public class TrainingService {
         return new SessionCreateResult(id, "OPEN");
     }
 
+    @Transactional(readOnly = true)
+    public PageResult<SessionView> listSessions(long courseId, String sessionStatus, Integer page, Integer size) {
+        long tenantId = TalentContext.tenantId();
+        requireCourse(tenantId, courseId);
+        int pageNo = TalentContext.page(page);
+        int pageSize = TalentContext.size(size);
+        List<SessionView> records = trainingMapper.listSessions(tenantId, courseId, sessionStatus, pageSize,
+                        (pageNo - 1) * pageSize)
+                .stream()
+                .map(row -> new SessionView(Rows.lngVal(row, "id"), Rows.lngVal(row, "courseId"),
+                        Rows.lng(row, "startAt"), Rows.lng(row, "endAt"), Rows.intVal(row, "capacity"),
+                        Rows.intVal(row, "enrolled"), Rows.lng(row, "enrollDeadline"), Rows.str(row, "venue"),
+                        Rows.str(row, "sessionStatus")))
+                .toList();
+        long total = trainingMapper.countSessions(tenantId, courseId, sessionStatus);
+        return PageResult.of(records, total, pageNo, pageSize);
+    }
+
     // ---------- 报名 / 候补 ----------
 
     @Transactional(noRollbackFor = BizException.class)
@@ -159,7 +179,9 @@ public class TrainingService {
         if (request == null || request.courseId() == null || request.sessionId() == null) {
             throw new BizException(TalentErrorCode.PARAM_INVALID, "课程与班次不能为空");
         }
-        long employeeId = request.employeeId() == null ? userId : request.employeeId();
+        Long targetEmployeeId = request.employeeId() == null
+                ? employeeBindingService.currentEmployeeIdOrNull() : request.employeeId();
+        long employeeId = targetEmployeeId == null ? userId : targetEmployeeId;
         Map<String, Object> session = trainingMapper.findSession(tenantId, request.sessionId());
         if (session == null || Rows.lngVal(session, "courseId") != request.courseId()) {
             throw new BizException(TalentErrorCode.RESOURCE_NOT_FOUND, "班次不存在或不属于该课程");
@@ -214,6 +236,28 @@ public class TrainingService {
         }
         audit.publish("TALENT_COURSE_ENROLL_CANCELED", "UPDATE", "talent_learning_record", id, "LOW");
         return new EnrollmentCancelResult(id, "CANCELED", promoted);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResult<MyEnrollmentView> myEnrollments(String enrollStatus, Integer page, Integer size) {
+        long tenantId = TalentContext.tenantId();
+        int pageNo = TalentContext.page(page);
+        int pageSize = TalentContext.size(size);
+        Long employeeId = employeeBindingService.currentEmployeeIdOrNull();
+        if (employeeId == null) {
+            return PageResult.of(List.of(), 0, pageNo, pageSize);
+        }
+        List<MyEnrollmentView> records = trainingMapper.listMyEnrollments(tenantId, employeeId, enrollStatus,
+                        pageSize, (pageNo - 1) * pageSize)
+                .stream()
+                .map(row -> new MyEnrollmentView(Rows.lngVal(row, "id"), Rows.lngVal(row, "courseId"),
+                        Rows.str(row, "courseCode"), Rows.str(row, "courseTitle"), Rows.lng(row, "sessionId"),
+                        Rows.lng(row, "startAt"), Rows.lng(row, "endAt"), Rows.str(row, "venue"),
+                        Rows.intVal(row, "progress"), Rows.str(row, "learnStatus"), Rows.str(row, "enrollStatus"),
+                        Rows.dec(row, "score"), Rows.lng(row, "completedAt"), Rows.lng(row, "createdAt")))
+                .toList();
+        long total = trainingMapper.countMyEnrollments(tenantId, employeeId, enrollStatus);
+        return PageResult.of(records, total, pageNo, pageSize);
     }
 
     // ---------- 学习进度 / 考试 ----------

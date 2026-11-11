@@ -8,6 +8,8 @@ import {
   type TalentCourse,
   type TalentEnrollmentResult,
   type TalentId,
+  type TalentMyEnrollment,
+  type TalentTrainingSession,
 } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 
@@ -21,10 +23,19 @@ const certificates = ref<TalentCertificate[]>([])
 const certLoading = ref(false)
 const certError = ref('')
 
+const sessions = ref<TalentTrainingSession[]>([])
+const sessionLoading = ref(false)
+
+const myEnrollments = ref<TalentMyEnrollment[]>([])
+const myTotal = ref(0)
+const myLoading = ref(false)
+const myError = ref('')
+const myQuery = reactive({ page: 1, size: 10 })
+
 const enrollVisible = ref(false)
 const enrollSaving = ref(false)
 const enrollError = ref('')
-const enrollForm = reactive({ course_id: '' as TalentId | '', session_id: '' })
+const enrollForm = reactive({ course_id: '' as TalentId | '', session_id: '' as TalentId | '' })
 const enrollment = ref<TalentEnrollmentResult | null>(null)
 const enrolledCourseTitle = ref('')
 
@@ -34,8 +45,6 @@ const progressError = ref('')
 const progressForm = reactive({ learning_id: '', progress: 50, study_seconds: 0 })
 
 const gapItems = [
-  '后端只有“创建班次”接口（POST /training/courses/{id}/sessions），没有班次查询接口；报名时需手工填写培训管理员提供的班次 ID。',
-  '后端没有“我的报名/学习记录”查询接口，报名成功返回的学习记录 ID 只在本次页面会话内保留，可用于上报学习进度。',
   '考试提交需要试卷 ID 与答案结构（POST /training/exams/{id}/submit），员工端未开放考试入口。',
 ]
 
@@ -86,16 +95,53 @@ async function loadCertificates() {
   }
 }
 
+async function loadMyEnrollments() {
+  myLoading.value = true
+  myError.value = ''
+  try {
+    const page = await talentApi.training.myEnrollments({ page: myQuery.page, size: myQuery.size })
+    myEnrollments.value = page.records
+    myTotal.value = page.total
+  } catch (err) {
+    myError.value = describeError(err)
+  } finally {
+    myLoading.value = false
+  }
+}
+
+async function loadSessions(courseId: TalentId) {
+  sessions.value = []
+  sessionLoading.value = true
+  try {
+    const page = await talentApi.training.sessions(courseId, { page: 1, size: 50 })
+    sessions.value = page.records
+  } catch (err) {
+    enrollError.value = describeError(err)
+  } finally {
+    sessionLoading.value = false
+  }
+}
+
+function formatTime(millis?: number) {
+  if (!millis) {
+    return '-'
+  }
+  const date = new Date(millis)
+  const pad = (value: number) => String(value).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
 function openEnroll(row: TalentCourse) {
   enrollForm.course_id = row.id
   enrollForm.session_id = ''
   enrolledCourseTitle.value = row.title
   enrollError.value = ''
   enrollVisible.value = true
+  void loadSessions(row.id)
 }
 
 async function submitEnroll() {
-  if (!enrollForm.course_id || !enrollForm.session_id.trim()) {
+  if (!enrollForm.course_id || enrollForm.session_id === '') {
     enrollError.value = '课程与班次 ID 不能为空'
     return
   }
@@ -104,7 +150,7 @@ async function submitEnroll() {
   try {
     const result = await talentApi.training.enroll({
       course_id: enrollForm.course_id,
-      session_id: enrollForm.session_id.trim(),
+      session_id: enrollForm.session_id,
     })
     enrollment.value = result
     ElMessage.success(
@@ -113,6 +159,7 @@ async function submitEnroll() {
         : `报名成功，学习记录 ID：${result.id}`,
     )
     enrollVisible.value = false
+    void loadMyEnrollments()
   } catch (err) {
     enrollError.value = describeError(err)
   } finally {
@@ -120,8 +167,8 @@ async function submitEnroll() {
   }
 }
 
-function openProgress() {
-  progressForm.learning_id = String(enrollment.value?.id ?? '')
+function openProgress(learningId?: TalentId) {
+  progressForm.learning_id = String(learningId ?? enrollment.value?.id ?? '')
   progressForm.progress = 50
   progressForm.study_seconds = 0
   progressError.value = ''
@@ -156,6 +203,7 @@ async function submitProgress() {
 onMounted(() => {
   void loadCourses()
   void loadCertificates()
+  void loadMyEnrollments()
 })
 </script>
 
@@ -231,6 +279,61 @@ onMounted(() => {
     </el-card>
 
     <el-card shadow="never" style="margin-top: 16px">
+      <template #header>
+        <div class="fl-toolbar">
+          <span>我的报名与学习记录</span>
+          <el-button size="small" :loading="myLoading" @click="loadMyEnrollments">刷新</el-button>
+        </div>
+      </template>
+      <el-alert v-if="myError" type="error" :closable="false" show-icon :title="myError" style="margin-bottom: 12px" />
+      <el-table :data="myEnrollments" v-loading="myLoading" border stripe size="small">
+        <el-table-column label="课程" min-width="200" show-overflow-tooltip>
+          <template #default="{ row }">
+            {{ row.course_title || row.course_id }}
+            <span class="fl-muted" v-if="row.course_code">（{{ row.course_code }}）</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="班次时间" width="220">
+          <template #default="{ row }">{{ formatTime(row.start_at) }} ~ {{ formatTime(row.end_at) }}</template>
+        </el-table-column>
+        <el-table-column label="地点" width="120">
+          <template #default="{ row }">{{ row.venue || '线上' }}</template>
+        </el-table-column>
+        <el-table-column label="报名状态" width="100">
+          <template #default="{ row }">{{ row.enroll_status }}</template>
+        </el-table-column>
+        <el-table-column label="学习进度" width="120">
+          <template #default="{ row }">{{ row.progress ?? 0 }}%</template>
+        </el-table-column>
+        <el-table-column label="成绩" width="80">
+          <template #default="{ row }">{{ row.score ?? '-' }}</template>
+        </el-table-column>
+        <el-table-column label="操作" width="120" fixed="right">
+          <template #default="{ row }">
+            <el-button
+              v-if="row.enroll_status === 'ENROLLED' || row.enroll_status === 'WAITLIST' || row.learn_status === 'LEARNING'"
+              link
+              type="primary"
+              @click="openProgress(row.id)"
+            >
+              上报进度
+            </el-button>
+            <span v-else class="fl-muted">-</span>
+          </template>
+        </el-table-column>
+      </el-table>
+      <el-empty v-if="!myLoading && !myEnrollments.length" description="暂无报名记录" :image-size="64" />
+      <el-pagination
+        v-model:current-page="myQuery.page"
+        :page-size="myQuery.size"
+        :total="myTotal"
+        layout="total, prev, pager, next"
+        style="margin-top: 12px; justify-content: flex-end"
+        @change="loadMyEnrollments"
+      />
+    </el-card>
+
+    <el-card shadow="never" style="margin-top: 16px">
       <template #header>我的证书</template>
       <el-alert v-if="certError" type="error" :closable="false" show-icon :title="certError" style="margin-bottom: 12px" />
       <el-table v-if="certificates.length" :data="certificates" v-loading="certLoading" border stripe size="small">
@@ -248,11 +351,21 @@ onMounted(() => {
         <el-form-item label="课程">
           <el-text>{{ enrolledCourseTitle }}</el-text>
         </el-form-item>
-        <el-form-item label="班次 ID" required>
-          <el-input v-model="enrollForm.session_id" placeholder="由培训管理员创建班次后提供" />
-        </el-form-item>
-        <el-form-item label="说明">
-          <span class="fl-muted">后端没有班次查询接口，无法在员工端选择班次；请向培训管理员索取班次 ID。</span>
+        <el-form-item label="班次" required>
+          <el-select
+            v-model="enrollForm.session_id"
+            :loading="sessionLoading"
+            placeholder="请选择班次"
+            style="width: 100%"
+          >
+            <el-option
+              v-for="item in sessions"
+              :key="item.id"
+              :label="`${formatTime(item.start_at)} ~ ${formatTime(item.end_at)}，${item.venue || '线上'}，已报 ${item.enrolled}/${item.capacity}`"
+              :value="item.id"
+            />
+          </el-select>
+          <span v-if="!sessionLoading && !sessions.length" class="fl-muted">该课程暂无可报名班次</span>
         </el-form-item>
       </el-form>
       <template #footer>

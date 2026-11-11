@@ -36,6 +36,10 @@ public final class TrainingDtos {
     public record SessionCreateResult(Long id, String sessionStatus) {
     }
 
+    public record SessionView(Long id, Long courseId, Long startAt, Long endAt, Integer capacity, Integer enrolled,
+                              Long enrollDeadline, String venue, String sessionStatus) {
+    }
+
     public record EnrollmentCreateRequest(Long courseId, Long sessionId, Long employeeId) {
     }
 
@@ -43,6 +47,11 @@ public final class TrainingDtos {
     }
 
     public record EnrollmentCancelResult(Long id, String enrollStatus, Long promotedWaitlistUserId) {
+    }
+
+    public record MyEnrollmentView(Long id, Long courseId, String courseCode, String courseTitle, Long sessionId,
+                                   Long startAt, Long endAt, String venue, Integer progress, String learnStatus,
+                                   String enrollStatus, BigDecimal score, Long completedAt, Long createdAt) {
     }
 
     public record LearningProgressRequest(Integer progress, Integer studySeconds, String position) {

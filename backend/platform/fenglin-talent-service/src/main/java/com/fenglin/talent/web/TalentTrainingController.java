@@ -22,8 +22,10 @@ import com.fenglin.talent.web.dto.TrainingDtos.ExamSubmitRequest;
 import com.fenglin.talent.web.dto.TrainingDtos.ExamSubmitResult;
 import com.fenglin.talent.web.dto.TrainingDtos.LearningProgressRequest;
 import com.fenglin.talent.web.dto.TrainingDtos.LearningProgressResult;
+import com.fenglin.talent.web.dto.TrainingDtos.MyEnrollmentView;
 import com.fenglin.talent.web.dto.TrainingDtos.SessionCreateRequest;
 import com.fenglin.talent.web.dto.TrainingDtos.SessionCreateResult;
+import com.fenglin.talent.web.dto.TrainingDtos.SessionView;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -46,6 +48,8 @@ public class TalentTrainingController {
     private static final String COURSE_CREATE = "talent:admin:course:create";
     private static final String COURSE_LIST = "talent:course:list";
     private static final String SESSION_CREATE = "talent:admin:session:create";
+    private static final String SESSION_LIST = "talent:course:session:list";
+    private static final String MY_TRAINING = "talent:self:training:view";
     private static final String COURSE_ENROLL = "biz:talent:course:enroll";
     private static final String COURSE_CANCEL = "biz:talent:course:cancel";
     private static final String LEARNING_PROGRESS = "biz:talent:learning:progress";
@@ -108,6 +112,17 @@ public class TalentTrainingController {
         return ApiResponse.success(trainingService.createSession(id, request));
     }
 
+    @GetMapping("/training/courses/{id}/sessions")
+    public ApiResponse<PageResult<SessionView>> listSessions(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id,
+            @RequestParam(value = "sessionStatus", required = false) String sessionStatus,
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false) Integer size) {
+        PermissionGuard.require(permissions, SESSION_LIST);
+        return ApiResponse.success(trainingService.listSessions(id, sessionStatus, page, size));
+    }
+
     // ---------- 报名 / 学习 ----------
 
     @PostMapping("/training/enrollments")
@@ -148,6 +163,16 @@ public class TalentTrainingController {
             @RequestParam(value = "employeeId", required = false) Long employeeId) {
         PermissionGuard.require(permissions, CERT_LIST);
         return ApiResponse.success(trainingService.myCertificates(employeeId));
+    }
+
+    @GetMapping("/training/my/enrollments")
+    public ApiResponse<PageResult<MyEnrollmentView>> myEnrollments(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(value = "enrollStatus", required = false) String enrollStatus,
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false) Integer size) {
+        PermissionGuard.require(permissions, MY_TRAINING);
+        return ApiResponse.success(trainingService.myEnrollments(enrollStatus, page, size));
     }
 
     // ---------- 知识库 ----------

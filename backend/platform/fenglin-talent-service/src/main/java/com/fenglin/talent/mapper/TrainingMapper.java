@@ -119,6 +119,32 @@ public interface TrainingMapper {
     void addEnrolled(@Param("tenantId") long tenantId, @Param("id") long id, @Param("delta") int delta,
                      @Param("userId") long userId);
 
+    @Select("""
+            SELECT id AS "id", course_id AS "courseId", capacity AS "capacity", enrolled AS "enrolled",
+                   extract(epoch FROM start_at) * 1000 AS "startAt",
+                   extract(epoch FROM end_at) * 1000 AS "endAt",
+                   extract(epoch FROM enroll_deadline) * 1000 AS "enrollDeadline",
+                   venue AS "venue", session_status AS "sessionStatus"
+            FROM talent_course_session
+            WHERE tenant_id = #{tenantId} AND course_id = #{courseId} AND deleted = 0
+              AND (CAST(#{sessionStatus,jdbcType=VARCHAR} AS text) IS NULL
+                   OR session_status = #{sessionStatus})
+            ORDER BY start_at DESC
+            LIMIT #{limit} OFFSET #{offset}
+            """)
+    List<Map<String, Object>> listSessions(@Param("tenantId") long tenantId, @Param("courseId") long courseId,
+                                           @Param("sessionStatus") String sessionStatus, @Param("limit") int limit,
+                                           @Param("offset") int offset);
+
+    @Select("""
+            SELECT count(1) FROM talent_course_session
+            WHERE tenant_id = #{tenantId} AND course_id = #{courseId} AND deleted = 0
+              AND (CAST(#{sessionStatus,jdbcType=VARCHAR} AS text) IS NULL
+                   OR session_status = #{sessionStatus})
+            """)
+    long countSessions(@Param("tenantId") long tenantId, @Param("courseId") long courseId,
+                       @Param("sessionStatus") String sessionStatus);
+
     // ---------- 报名 / 学习记录 ----------
 
     @Insert("""
@@ -177,6 +203,41 @@ public interface TrainingMapper {
             """)
     void updateEnrollStatus(@Param("tenantId") long tenantId, @Param("id") long id,
                             @Param("enrollStatus") String enrollStatus, @Param("userId") long userId);
+
+    @Select("""
+            SELECT r.id AS "id", r.course_id AS "courseId", c.course_code AS "courseCode",
+                   c.title AS "courseTitle", r.session_id AS "sessionId", r.progress AS "progress",
+                   r.learn_status AS "learnStatus", r.enroll_status AS "enrollStatus", r.score AS "score",
+                   extract(epoch FROM s.start_at) * 1000 AS "startAt",
+                   extract(epoch FROM s.end_at) * 1000 AS "endAt",
+                   s.venue AS "venue",
+                   extract(epoch FROM r.completed_at) * 1000 AS "completedAt",
+                   extract(epoch FROM r.created_at) * 1000 AS "createdAt"
+            FROM talent_learning_record r
+            JOIN talent_training_course c ON c.id = r.course_id AND c.tenant_id = r.tenant_id AND c.deleted = 0
+            LEFT JOIN talent_course_session s ON s.id = r.session_id AND s.tenant_id = r.tenant_id
+                 AND s.deleted = 0
+            WHERE r.tenant_id = #{tenantId} AND r.employee_id = #{employeeId} AND r.deleted = 0
+              AND (CAST(#{enrollStatus,jdbcType=VARCHAR} AS text) IS NULL
+                   OR r.enroll_status = #{enrollStatus})
+            ORDER BY r.created_at DESC
+            LIMIT #{limit} OFFSET #{offset}
+            """)
+    List<Map<String, Object>> listMyEnrollments(@Param("tenantId") long tenantId,
+                                                @Param("employeeId") long employeeId,
+                                                @Param("enrollStatus") String enrollStatus,
+                                                @Param("limit") int limit, @Param("offset") int offset);
+
+    @Select("""
+            SELECT count(1)
+            FROM talent_learning_record r
+            JOIN talent_training_course c ON c.id = r.course_id AND c.tenant_id = r.tenant_id AND c.deleted = 0
+            WHERE r.tenant_id = #{tenantId} AND r.employee_id = #{employeeId} AND r.deleted = 0
+              AND (CAST(#{enrollStatus,jdbcType=VARCHAR} AS text) IS NULL
+                   OR r.enroll_status = #{enrollStatus})
+            """)
+    long countMyEnrollments(@Param("tenantId") long tenantId, @Param("employeeId") long employeeId,
+                            @Param("enrollStatus") String enrollStatus);
 
     @Update("""
             UPDATE talent_learning_record
