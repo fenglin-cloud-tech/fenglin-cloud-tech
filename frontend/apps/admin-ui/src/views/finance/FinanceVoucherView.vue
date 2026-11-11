@@ -17,6 +17,7 @@ const PAGE_SIZE = 50
 const ledgers = ref<FinanceLedger[]>([])
 const subjects = ref<FinanceSubject[]>([])
 const vouchers = ref<FinanceVoucher[]>([])
+const voucherTotal = ref(0)
 const templates = ref<FinanceVoucherTemplate[]>([])
 const selectedLedgerId = ref<number | ''>('')
 const query = reactive({ periodCode: '', status: '', page: 1 })
@@ -122,18 +123,21 @@ async function loadSubjects() {
 async function loadVouchers() {
   if (!selectedLedgerId.value) {
     vouchers.value = []
+    voucherTotal.value = 0
     return
   }
   loading.value = true
   error.value = ''
   try {
-    vouchers.value = await financeApi.vouchers.list({
+    const page = await financeApi.vouchers.list({
       ledgerId: Number(selectedLedgerId.value),
       periodCode: query.periodCode || undefined,
       status: query.status || undefined,
       page: query.page,
       size: PAGE_SIZE,
     })
+    vouchers.value = page.records
+    voucherTotal.value = page.total
   } catch (err) {
     error.value = describeError(err)
   } finally {
@@ -312,7 +316,7 @@ onMounted(async () => {
               <el-option v-for="(label, value) in statusLabels" :key="value" :label="label" :value="value" />
             </el-select>
             <el-button type="primary" plain @click="query.page = 1; loadVouchers()">查询</el-button>
-            <span class="fl-muted">当前第 {{ query.page }} 页，共 {{ vouchers.length }} 条</span>
+            <span class="fl-muted">当前第 {{ query.page }} 页，共 {{ voucherTotal }} 条</span>
           </div>
 
           <el-table :data="vouchers" v-loading="loading" border stripe>
@@ -344,7 +348,7 @@ onMounted(async () => {
 
           <div class="fl-toolbar" style="margin-top: 12px">
             <el-button :disabled="query.page <= 1" @click="query.page -= 1; loadVouchers()">上一页</el-button>
-            <el-button :disabled="vouchers.length < 50" @click="query.page += 1; loadVouchers()">下一页</el-button>
+            <el-button :disabled="query.page * PAGE_SIZE >= voucherTotal" @click="query.page += 1; loadVouchers()">下一页</el-button>
           </div>
         </el-tab-pane>
 

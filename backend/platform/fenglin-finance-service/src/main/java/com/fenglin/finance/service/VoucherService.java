@@ -2,6 +2,7 @@ package com.fenglin.finance.service;
 
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.fenglin.common.core.BizException;
+import com.fenglin.common.core.PageResult;
 import com.fenglin.finance.FinanceErrorCode;
 import com.fenglin.finance.client.WorkflowClient;
 import com.fenglin.finance.mapper.CommonsMapper;
@@ -270,19 +271,23 @@ public class VoucherService {
                 Rows.lng(row, "postedBy"), Rows.str(row, "chainHash"), entries, auditLogs(tenantId, id));
     }
 
-    public List<VoucherView> list(long ledgerId, String periodCode, String status, int limit, int offset) {
+    public PageResult<VoucherView> list(long ledgerId, String periodCode, String status, Integer page,
+                                        Integer size) {
         long tenantId = FinanceContext.tenantId();
         requireLedger(tenantId, ledgerId);
+        int pageNo = FinanceContext.page(page);
+        int pageSize = FinanceContext.size(size);
         List<VoucherView> views = new ArrayList<>();
         for (Map<String, Object> row : voucherMapper.listVouchers(tenantId, ledgerId, periodCode, status,
-                limit, offset)) {
+                pageSize, (pageNo - 1) * pageSize)) {
             views.add(new VoucherView(Rows.lngVal(row, "id"), ledgerId, Rows.str(row, "voucherWord"),
                     Rows.str(row, "voucherNo"), Rows.str(row, "periodCode"), Rows.str(row, "voucherDate"),
                     Rows.str(row, "summary"), null, Rows.dec(row, "totalDebit"), Rows.dec(row, "totalCredit"),
                     Rows.str(row, "sourceType"), null, Rows.str(row, "status"), null, null,
                     Rows.str(row, "chainHash"), List.of(), List.of()));
         }
-        return views;
+        long total = voucherMapper.countVouchers(tenantId, ledgerId, periodCode, status);
+        return PageResult.of(views, total, pageNo, pageSize);
     }
 
     public AuditTrailView auditTrail(long id) {

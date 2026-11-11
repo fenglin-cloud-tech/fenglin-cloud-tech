@@ -82,15 +82,20 @@ public interface VoucherMapper {
     List<Map<String, Object>> listEntries(@Param("tenantId") long tenantId,
                                           @Param("voucherId") long voucherId);
 
+    /** 列表与计数共用同一段过滤条件，避免 total 与列表漂移。 */
+    String VOUCHER_LIST_FILTER = """
+            FROM fin_voucher
+            WHERE tenant_id = #{tenantId} AND ledger_id = #{ledgerId} AND deleted = 0
+              AND (CAST(#{periodCode,jdbcType=VARCHAR} AS text) IS NULL OR period_code = #{periodCode})
+              AND (CAST(#{status,jdbcType=VARCHAR} AS text) IS NULL OR status = #{status})
+            """;
+
     @Select("""
             SELECT id AS "id", voucher_no AS "voucherNo", period_code AS "periodCode",
                    voucher_date::text AS "voucherDate", summary AS "summary", total_debit AS "totalDebit",
                    total_credit AS "totalCredit", status AS "status", source_type AS "sourceType",
                    chain_hash AS "chainHash"
-            FROM fin_voucher
-            WHERE tenant_id = #{tenantId} AND ledger_id = #{ledgerId} AND deleted = 0
-              AND (CAST(#{periodCode,jdbcType=VARCHAR} AS text) IS NULL OR period_code = #{periodCode})
-              AND (CAST(#{status,jdbcType=VARCHAR} AS text) IS NULL OR status = #{status})
+            """ + VOUCHER_LIST_FILTER + """
             ORDER BY voucher_date DESC, id DESC
             LIMIT #{limit} OFFSET #{offset}
             """)
@@ -99,6 +104,10 @@ public interface VoucherMapper {
                                            @Param("periodCode") String periodCode,
                                            @Param("status") String status,
                                            @Param("limit") int limit, @Param("offset") int offset);
+
+    @Select("SELECT count(1) " + VOUCHER_LIST_FILTER)
+    long countVouchers(@Param("tenantId") long tenantId, @Param("ledgerId") long ledgerId,
+                       @Param("periodCode") String periodCode, @Param("status") String status);
 
     @Select("""
             SELECT count(1) FROM fin_voucher

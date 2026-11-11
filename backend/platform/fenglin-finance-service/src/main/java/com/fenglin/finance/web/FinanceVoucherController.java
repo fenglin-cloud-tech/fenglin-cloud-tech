@@ -1,10 +1,10 @@
 package com.fenglin.finance.web;
 
 import com.fenglin.common.core.ApiResponse;
+import com.fenglin.common.core.PageResult;
 import com.fenglin.common.security.PermissionGuard;
 import com.fenglin.finance.service.ReportService;
 import com.fenglin.finance.service.VoucherService;
-import com.fenglin.finance.support.FinanceContext;
 import com.fenglin.finance.web.dto.FinanceDtos.AuditTrailView;
 import com.fenglin.finance.web.dto.FinanceDtos.BalanceSheetView;
 import com.fenglin.finance.web.dto.FinanceDtos.IncomeStatementView;
@@ -19,8 +19,6 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.List;
 
 /**
  * 凭证制单/审核/过账/冲销、审计链与财务报表接口。
@@ -56,7 +54,7 @@ public class FinanceVoucherController {
     }
 
     @GetMapping("/vouchers")
-    public ApiResponse<List<VoucherView>> list(
+    public ApiResponse<PageResult<VoucherView>> list(
             @RequestHeader(value = "X-Permissions", required = false) String permissions,
             @RequestParam("ledgerId") long ledgerId,
             @RequestParam(value = "periodCode", required = false) String periodCode,
@@ -64,8 +62,7 @@ public class FinanceVoucherController {
             @RequestParam(value = "page", required = false) Integer page,
             @RequestParam(value = "size", required = false) Integer size) {
         PermissionGuard.require(permissions, VIEW);
-        return ApiResponse.success(voucherService.list(ledgerId, periodCode, status,
-                FinanceContext.size(size), FinanceContext.offset(page, size)));
+        return ApiResponse.success(voucherService.list(ledgerId, periodCode, status, page, size));
     }
 
     @GetMapping("/vouchers/{id}")

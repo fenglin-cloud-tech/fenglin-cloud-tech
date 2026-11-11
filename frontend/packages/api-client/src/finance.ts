@@ -1,3 +1,4 @@
+import type { PageResult } from '@fenglin/shared'
 import { download, get, post, put, request } from './http'
 
 export type FinanceId = number
@@ -772,7 +773,7 @@ export const financeApi = {
   },
   vouchers: {
     list(params: { ledgerId: FinanceId; periodCode?: string; status?: string; page?: number; size?: number }) {
-      return get<FinanceVoucher[]>(`${BASE}/vouchers`, params)
+      return get<PageResult<FinanceVoucher>>(`${BASE}/vouchers`, params)
     },
     detail(id: FinanceId) {
       return get<FinanceVoucher>(`${BASE}/vouchers/${id}`)
