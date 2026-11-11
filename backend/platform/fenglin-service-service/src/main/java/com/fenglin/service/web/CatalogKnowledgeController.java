@@ -291,6 +291,14 @@ public class CatalogKnowledgeController {
         return ApiResponse.success(csatAssetService.assetAction(id, payload));
     }
 
+    @PostMapping("/assets/{id}/return-self")
+    public ApiResponse<Map<String, Object>> returnSelf(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id) {
+        PermissionGuard.require(permissions, ASSET_VIEW);
+        return ApiResponse.success(csatAssetService.returnSelf(id));
+    }
+
     @GetMapping("/assets/reminders")
     public ApiResponse<Map<String, Object>> assetReminders(
             @RequestHeader(value = "X-Permissions", required = false) String permissions) {

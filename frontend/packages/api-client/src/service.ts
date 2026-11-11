@@ -214,6 +214,9 @@ export const serviceApi = {
     returnAsset(id: number, body?: ServiceRecord) {
       return post<ServiceRecord>(`${BASE}/assets/${id}/return`, body ?? {})
     },
+    returnSelf(id: number) {
+      return post<ServiceRecord>(`${BASE}/assets/${id}/return-self`)
+    },
     reminders() {
       return get<ServiceRecord>(`${BASE}/assets/reminders`)
     },

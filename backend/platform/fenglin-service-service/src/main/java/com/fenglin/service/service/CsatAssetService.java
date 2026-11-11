@@ -147,6 +147,29 @@ public class CsatAssetService {
         return asset(id);
     }
 
+    /**
+     * 员工自助归还：仅借用人本人可归还，且资产必须处于借用中；归还直接置为在库（IDLE）。
+     */
+    @Transactional
+    public Map<String, Object> returnSelf(long id) {
+        long tenantId = ServiceContext.tenantId();
+        long userId = ServiceContext.userId();
+        Map<String, Object> asset = configMapper.findAsset(tenantId, id);
+        if (asset == null) {
+            throw new BizException(ServiceErrorCode.RESOURCE_NOT_FOUND);
+        }
+        if (!"BORROWED".equals(Rows.str(asset, "status"))) {
+            throw new BizException(ServiceErrorCode.ASSET_STATE_INVALID, "该资产当前不在借用中，无法归还");
+        }
+        Long ownerId = Rows.lng(asset, "owner_id");
+        if (ownerId == null || ownerId.longValue() != userId) {
+            throw new BizException(ServiceErrorCode.NO_PERMISSION, "只能归还本人借用中的资产");
+        }
+        configMapper.updateAsset(tenantId, id, "IDLE", null, null, userId);
+        audit.low("asset.return_self", "asset", id);
+        return asset(id);
+    }
+
     public Map<String, Object> assetReminder(String permissions) {
         Long ownerId = PermissionGuard.has(permissions, "service:asset:manage")
                 ? null : ServiceContext.userId();

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { ElMessage } from 'element-plus'
 import { GapNotice, PageHeader } from '@fenglin/ui-admin'
 import { serviceApi, type ServiceRecord } from '@fenglin/api-client'
 import { useAuthStore } from '@/stores/auth'
@@ -14,10 +15,11 @@ const status = ref('')
 const loading = ref(false)
 const error = ref('')
 const reminder = ref<ServiceRecord | null>(null)
+const returning = ref(false)
 
 const gapItems = [
   '资产提醒接口 /assets/reminders 返回租户级汇总（总量/借出/逾期），不支持按本人过滤。',
-  '员工端不提供借用/归还操作：/assets/{id}/borrow 与 /return 需要 service:asset:manage（资产管理员权限）。',
+  '自助归还直接置为在库（IDLE），不经过资产管理员确认；若产品需要确认环节，可在此处加一步，不改本接口契约。',
   '资产台账按 ownerId 过滤，仅显示负责人为当前登录用户的资产。',
 ]
 
@@ -42,6 +44,21 @@ async function load() {
     error.value = describeError(err)
   } finally {
     loading.value = false
+  }
+}
+
+async function returnSelf(row: ServiceRecord) {
+  if (returning.value) return
+  returning.value = true
+  error.value = ''
+  try {
+    await serviceApi.assets.returnSelf(Number(row.id))
+    ElMessage.success('已归还，资产状态已置为在库')
+    await load()
+  } catch (err) {
+    error.value = describeError(err)
+  } finally {
+    returning.value = false
   }
 }
 
@@ -97,6 +114,18 @@ onMounted(load)
         <el-table-column prop="status" label="状态" width="110" />
         <el-table-column prop="borrow_due_at" label="借用到期" width="170" />
         <el-table-column prop="ext_ref" label="外部引用" min-width="140" />
+        <el-table-column label="操作" width="100" fixed="right">
+          <template #default="{ row }">
+            <el-button
+              v-if="row.status === 'BORROWED'"
+              size="small"
+              plain
+              :loading="returning"
+              @click="returnSelf(row)"
+            >归还</el-button>
+            <span v-else class="fl-muted">-</span>
+          </template>
+        </el-table-column>
       </el-table>
       <el-pagination
         style="margin-top: 8px; justify-content: flex-end"
