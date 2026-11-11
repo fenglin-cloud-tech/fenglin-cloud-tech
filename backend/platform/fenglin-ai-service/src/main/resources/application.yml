@@ -34,6 +34,9 @@ fenglin:
     rag-top-k: 5
     # 模型网关超时（毫秒）
     model-timeout-ms: 15000
+    # hub_ai_metering 月分区维护（当月 + 未来两月）
+    partition-maintenance-enabled: true
+    partition-maintenance-cron: "0 30 1 1 * *"
 
 management:
   endpoints:

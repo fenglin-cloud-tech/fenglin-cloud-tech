@@ -38,6 +38,9 @@ fenglin:
     timestamp-skew-seconds: 300
     # X-Nonce 防重放窗口，契约：Redis TTL 5min
     nonce-ttl: PT5M
+    # hub_api_call_log 月分区维护（当月 + 未来两月）
+    partition-maintenance-enabled: true
+    partition-maintenance-cron: "0 20 1 1 * *"
   crypto:
     # 本地/测试密钥，生产由 KMS 注入
     data-key-base64: ${FENGLIN_CRYPTO_DATA_KEY:MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=}
