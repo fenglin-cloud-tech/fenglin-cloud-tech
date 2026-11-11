@@ -27,17 +27,24 @@ public interface AuditChainMapper {
     Map<String, Object> findLast(@Param("tenantId") long tenantId,
                                  @Param("partitionKey") String partitionKey);
 
+    /**
+     * 取区间内全部链行，并带出所关联审计日志的事件类型与发生时间，用于识别基线、定位缺口。
+     */
     @Select("""
-            SELECT id, tenant_id, log_id, partition_key, seq_no, content_hash, prev_hash, chain_hash
-              FROM hub_audit_chain
-             WHERE tenant_id = #{tenantId}
-               AND partition_key = #{partitionKey}
-               AND seq_no >= #{fromSeq}
-             ORDER BY seq_no
+            SELECT c.id, c.tenant_id, c.log_id, c.partition_key, c.seq_no,
+                   c.content_hash, c.prev_hash, c.chain_hash,
+                   l.event_type AS event_type, l.occurred_at AS occurred_at
+              FROM hub_audit_chain c
+              LEFT JOIN hub_audit_log l
+                ON l.id = c.log_id AND l.tenant_id = c.tenant_id AND l.deleted = 0
+             WHERE c.tenant_id = #{tenantId}
+               AND c.partition_key >= #{fromKey}
+               AND c.partition_key <= #{toKey}
+             ORDER BY c.partition_key, c.seq_no
             """)
-    List<Map<String, Object>> findFrom(@Param("tenantId") long tenantId,
-                                       @Param("partitionKey") String partitionKey,
-                                       @Param("fromSeq") long fromSeq);
+    List<Map<String, Object>> findRows(@Param("tenantId") long tenantId,
+                                       @Param("fromKey") String fromKey,
+                                       @Param("toKey") String toKey);
 
     /**
      * 指定月份区间内该租户实际存在的链分区，用于链校验时避免逐月空查询。

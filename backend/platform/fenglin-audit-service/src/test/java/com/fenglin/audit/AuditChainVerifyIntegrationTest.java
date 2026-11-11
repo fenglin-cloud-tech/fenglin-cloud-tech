@@ -91,6 +91,8 @@ class AuditChainVerifyIntegrationTest {
         JsonNode data = verified.body().get("data");
         assertThat(data.get("tenant_id").asLong()).isEqualTo(1001L);
         assertThat(data.get("checked").asLong()).isEqualTo(3L);
+        assertThat(data.get("audit_log_count").asLong()).isEqualTo(3L);
+        assertThat(data.get("status").asText()).isEqualTo("PASS");
         assertThat(data.get("valid").asBoolean()).isTrue();
         // 全局 Jackson 省略 null 字段，此处兼容“缺省”与“显式 null”两种序列化
         assertThat(data.get("broken_seq") == null || data.get("broken_seq").isNull()).isTrue();
@@ -113,6 +115,7 @@ class AuditChainVerifyIntegrationTest {
         HttpResult verified = verify("?tenantId=1001", Map.of("X-Tenant-Id", "1001", "X-Permissions", READ_PERMISSION));
         assertThat(verified.status()).isEqualTo(200);
         JsonNode data = verified.body().get("data");
+        assertThat(data.get("status").asText()).isEqualTo("FAIL");
         assertThat(data.get("valid").asBoolean()).isFalse();
         assertThat(data.get("broken_seq").asLong()).isEqualTo(2L);
         assertThat(data.get("broken_log_id").asLong()).isEqualTo(brokenLogId);
@@ -128,7 +131,54 @@ class AuditChainVerifyIntegrationTest {
         JsonNode data = verified.body().get("data");
         assertThat(data.get("tenant_id").asLong()).isEqualTo(1002L);
         assertThat(data.get("checked").asLong()).isZero();
-        assertThat(data.get("valid").asBoolean()).isTrue();
+        assertThat(data.get("status").asText()).isEqualTo("UNVERIFIABLE");
+        assertThat(data.get("valid").asBoolean()).isFalse();
+        assertThat(data.get("message").asText()).contains("RLS");
+    }
+
+    @Test
+    void deletedChainRowsAreReportedAsUnverifiableInsteadOfPassing() throws Exception {
+        for (int i = 0; i < 3; i++) {
+            record("AUTH_LOGIN_SUCCESS", "auth", "1001");
+        }
+        deleteChainRows(1001L);
+
+        HttpResult verified = verify("?tenantId=1001", Map.of("X-Tenant-Id", "1001", "X-Permissions", READ_PERMISSION));
+        JsonNode data = verified.body().get("data");
+        assertThat(data.get("checked").asLong()).isZero();
+        assertThat(data.get("audit_log_count").asLong()).isEqualTo(3L);
+        assertThat(data.get("unchained_count").asLong()).isEqualTo(3L);
+        assertThat(data.get("status").asText()).isEqualTo("UNVERIFIABLE");
+        assertThat(data.get("valid").asBoolean()).isFalse();
+        assertThat(data.get("message").asText()).contains("不可验证区间");
+    }
+
+    @Test
+    void gapBeforeBaselineIsUnverifiableButGapAfterBaselineFails() throws Exception {
+        record("AUTH_LOGIN_SUCCESS", "auth", "1001");
+        record("IAM_USER_CREATED", "iam", "1001");
+        deleteChainRows(1001L);
+        record("CHAIN_BASELINE", "platform", "1001");
+
+        JsonNode beforeBaseline = verify("?tenantId=1001",
+                Map.of("X-Tenant-Id", "1001", "X-Permissions", READ_PERMISSION)).body().get("data");
+        assertThat(beforeBaseline.get("status").asText()).isEqualTo("UNVERIFIABLE");
+        assertThat(beforeBaseline.get("valid").asBoolean()).isFalse();
+        assertThat(beforeBaseline.get("unchained_count").asLong()).isEqualTo(2L);
+        assertThat(beforeBaseline.get("baseline_log_id").asLong()).isPositive();
+
+        record("FILE_UPLOADED", "file", "1001");
+        long postBaselineLogId = chainLogId(1001L, 2L);
+        try (Connection connection = ownerConnection(); Statement statement = connection.createStatement()) {
+            statement.execute("DELETE FROM fenglin_hub.hub_audit_chain WHERE tenant_id = 1001 AND log_id = %d"
+                    .formatted(postBaselineLogId));
+        }
+
+        JsonNode afterBaseline = verify("?tenantId=1001",
+                Map.of("X-Tenant-Id", "1001", "X-Permissions", READ_PERMISSION)).body().get("data");
+        assertThat(afterBaseline.get("status").asText()).isEqualTo("FAIL");
+        assertThat(afterBaseline.get("valid").asBoolean()).isFalse();
+        assertThat(afterBaseline.get("message").asText()).contains("基线之后");
     }
 
     @Test
@@ -166,6 +216,12 @@ class AuditChainVerifyIntegrationTest {
         ResponseEntity<String> response = restTemplate.exchange("http://localhost:" + port + path, method,
                 new HttpEntity<>(body, httpHeaders), String.class);
         return new HttpResult(response.getStatusCode().value(), read(response.getBody()));
+    }
+
+    private void deleteChainRows(long tenantId) throws Exception {
+        try (Connection connection = ownerConnection(); Statement statement = connection.createStatement()) {
+            statement.execute("DELETE FROM fenglin_hub.hub_audit_chain WHERE tenant_id = %d".formatted(tenantId));
+        }
     }
 
     private long chainLogId(long tenantId, long seqNo) throws Exception {

@@ -82,8 +82,8 @@ public class AuditChainVerifyJob {
             results.add(result);
             if (!result.valid()) {
                 broken++;
-                log.error("审计链断裂：tenant={} seq={} logId={} message={}",
-                        tenantId, result.brokenSeq(), result.brokenLogId(), result.message());
+                log.error("审计链校验未通过：tenant={} status={} seq={} logId={} message={}",
+                        tenantId, result.status(), result.brokenSeq(), result.brokenLogId(), result.message());
             }
         }
         return new VerifySummary(tenantIds.size(), broken, List.copyOf(results));
@@ -95,7 +95,8 @@ public class AuditChainVerifyJob {
             ChainVerifyResult result = transactionTemplate.execute(status ->
                     auditChainService.verify(tenantId, from, to));
             return result == null
-                    ? new ChainVerifyResult(tenantId, 0, true, null, null, "校验通过")
+                    ? new ChainVerifyResult(tenantId, 0, 0, 0, false, ChainVerifyResult.UNVERIFIABLE,
+                            null, null, null, null, null, "校验未返回结果")
                     : result;
         } finally {
             TenantContext.clear();

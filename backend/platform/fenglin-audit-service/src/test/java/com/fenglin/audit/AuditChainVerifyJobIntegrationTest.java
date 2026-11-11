@@ -102,8 +102,10 @@ class AuditChainVerifyJobIntegrationTest {
         Map<Long, ChainVerifyResult> byTenant = new HashMap<>();
         summary.results().forEach(result -> byTenant.put(result.tenantId(), result));
         assertThat(byTenant.get(7001L).checked()).isEqualTo(3);
+        assertThat(byTenant.get(7001L).status()).isEqualTo(ChainVerifyResult.PASS);
         assertThat(byTenant.get(7001L).valid()).isTrue();
         assertThat(byTenant.get(7002L).checked()).isEqualTo(1);
+        assertThat(byTenant.get(7002L).status()).isEqualTo(ChainVerifyResult.PASS);
         assertThat(byTenant.get(7002L).valid()).isTrue();
     }
 
@@ -125,6 +127,7 @@ class AuditChainVerifyJobIntegrationTest {
         assertThat(summary.checked()).isEqualTo(1);
         assertThat(summary.broken()).isEqualTo(1);
         ChainVerifyResult broken = summary.results().get(0);
+        assertThat(broken.status()).isEqualTo(ChainVerifyResult.FAIL);
         assertThat(broken.valid()).isFalse();
         assertThat(broken.brokenSeq()).isEqualTo(2L);
         assertThat(broken.brokenLogId()).isEqualTo(brokenLogId);
