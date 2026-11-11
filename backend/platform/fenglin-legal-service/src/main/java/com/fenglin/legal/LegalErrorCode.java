@@ -33,7 +33,10 @@ public enum LegalErrorCode implements ErrorCode {
     DLP_AUDIT_CHAIN_INVALID("7002007", "DLP 审计链路校验失败", 409),
     TERMINAL_OFFLINE("7002008", "终端未注册或已离线", 403),
     REPORT_QUOTA_EXCEEDED("7002009", "批量上报超出配额", 429),
-    RELEASE_APPROVAL_REQUIRED("7002010", "敏感数据外发需审批放行", 403);
+    RELEASE_APPROVAL_REQUIRED("7002010", "敏感数据外发需审批放行", 403),
+    PII_REQUEST_EXISTS("7002011", "该相对方已有待审批的明文查看申请", 409),
+    PII_REQUEST_DECIDED("7002012", "明文查看申请已处理，不能重复审批", 409),
+    PII_NOT_APPROVED("7002013", "未获得该相对方的明文查看授权", 403);
 
     private final String code;
     private final String message;

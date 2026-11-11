@@ -4,6 +4,7 @@ import com.fenglin.common.core.ApiResponse;
 import com.fenglin.common.core.PageResult;
 import com.fenglin.common.security.PermissionGuard;
 import com.fenglin.legal.service.ContractService;
+import com.fenglin.legal.service.PartyPiiService;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -26,9 +27,11 @@ import java.util.Map;
 public class LegalContractController {
 
     private final ContractService contractService;
+    private final PartyPiiService partyPiiService;
 
-    public LegalContractController(ContractService contractService) {
+    public LegalContractController(ContractService contractService, PartyPiiService partyPiiService) {
         this.contractService = contractService;
+        this.partyPiiService = partyPiiService;
     }
 
     // ---------- 模板 ----------
@@ -191,6 +194,46 @@ public class LegalContractController {
             @RequestParam(value = "keyword", required = false) String keyword) {
         PermissionGuard.require(permissions, "legal:party:view");
         return ApiResponse.success(contractService.listParties(page, size, keyword));
+    }
+
+    @PostMapping("/contract-parties/{id}/mobile-requests")
+    public ApiResponse<Map<String, Object>> applyMobile(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id, @RequestBody(required = false) Map<String, Object> body) {
+        return ApiResponse.success(partyPiiService.apply(permissions, id, body));
+    }
+
+    @GetMapping("/contract-parties/mobile-requests/my")
+    public ApiResponse<PageResult<Map<String, Object>>> myMobileRequests(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false) Integer size,
+            @RequestParam(value = "status", required = false) String status) {
+        PermissionGuard.require(permissions, "legal:party:pii:apply");
+        return ApiResponse.success(partyPiiService.myRequests(page, size, status));
+    }
+
+    @GetMapping("/admin/contract-parties/mobile-requests")
+    public ApiResponse<PageResult<Map<String, Object>>> mobileRequestsForReview(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false) Integer size,
+            @RequestParam(value = "status", required = false) String status) {
+        return ApiResponse.success(partyPiiService.reviewList(permissions, page, size, status));
+    }
+
+    @PostMapping("/admin/contract-parties/mobile-requests/{id}/review")
+    public ApiResponse<Map<String, Object>> reviewMobileRequest(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id, @RequestBody(required = false) Map<String, Object> body) {
+        return ApiResponse.success(partyPiiService.review(permissions, id, body));
+    }
+
+    @GetMapping("/contract-parties/{id}/mobile")
+    public ApiResponse<Map<String, Object>> revealMobile(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id) {
+        return ApiResponse.success(partyPiiService.reveal(permissions, id));
     }
 
     // ---------- 履约与提醒 ----------

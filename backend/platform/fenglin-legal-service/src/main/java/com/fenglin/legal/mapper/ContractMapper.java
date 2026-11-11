@@ -374,6 +374,112 @@ public interface ContractMapper {
             """)
     long countParties(@Param("tenantId") long tenantId, @Param("keyword") String keyword);
 
+    @Select("""
+            SELECT id, name, contact_mobile_enc
+            FROM legal_contract_party WHERE tenant_id = #{tenantId} AND id = #{id} AND deleted = 0
+            """)
+    Map<String, Object> findPartyPii(@Param("tenantId") long tenantId, @Param("id") long id);
+
+    // ---------- 相对方手机号明文申请 ----------
+
+    @Insert("""
+            INSERT INTO legal_party_mobile_request
+                (id, tenant_id, party_id, reason, status, applied_by, created_by, updated_by)
+            VALUES (#{id}, #{tenantId}, #{partyId}, #{reason}, 'PENDING', #{appliedBy}, #{appliedBy}, #{appliedBy})
+            """)
+    void insertMobileRequest(@Param("id") long id, @Param("tenantId") long tenantId,
+                             @Param("partyId") long partyId, @Param("reason") String reason,
+                             @Param("appliedBy") long appliedBy);
+
+    @Select("""
+            SELECT id, party_id, reason, status, applied_by, decided_by, decided_at, decision_comment, created_at
+            FROM legal_party_mobile_request
+            WHERE tenant_id = #{tenantId} AND id = #{id} AND deleted = 0
+            """)
+    Map<String, Object> findMobileRequest(@Param("tenantId") long tenantId, @Param("id") long id);
+
+    @Select("""
+            SELECT id FROM legal_party_mobile_request
+            WHERE tenant_id = #{tenantId} AND party_id = #{partyId} AND applied_by = #{appliedBy}
+              AND status = 'PENDING' AND deleted = 0
+            """)
+    Long findPendingMobileRequest(@Param("tenantId") long tenantId, @Param("partyId") long partyId,
+                                  @Param("appliedBy") long appliedBy);
+
+    @Select("""
+            SELECT id FROM legal_party_mobile_request
+            WHERE tenant_id = #{tenantId} AND party_id = #{partyId} AND applied_by = #{appliedBy}
+              AND status = 'APPROVED' AND deleted = 0
+            ORDER BY decided_at DESC LIMIT 1
+            """)
+    Long findApprovedMobileRequest(@Param("tenantId") long tenantId, @Param("partyId") long partyId,
+                                   @Param("appliedBy") long appliedBy);
+
+    @Select("""
+            <script>
+            SELECT r.id, r.party_id, p.name AS party_name, r.reason, r.status, r.applied_by,
+                   r.decided_by, r.decided_at, r.decision_comment, r.created_at
+            FROM legal_party_mobile_request r
+            JOIN legal_contract_party p ON p.id = r.party_id AND p.tenant_id = r.tenant_id AND p.deleted = 0
+            WHERE r.tenant_id = #{tenantId} AND r.applied_by = #{appliedBy} AND r.deleted = 0
+              <if test="status != null and status != ''">AND r.status = #{status}</if>
+            ORDER BY r.id DESC LIMIT #{size} OFFSET #{offset}
+            </script>
+            """)
+    List<Map<String, Object>> listMyMobileRequests(@Param("tenantId") long tenantId,
+                                                   @Param("appliedBy") long appliedBy,
+                                                   @Param("status") String status,
+                                                   @Param("offset") int offset, @Param("size") int size);
+
+    @Select("""
+            <script>
+            SELECT count(1)
+            FROM legal_party_mobile_request r
+            JOIN legal_contract_party p ON p.id = r.party_id AND p.tenant_id = r.tenant_id AND p.deleted = 0
+            WHERE r.tenant_id = #{tenantId} AND r.applied_by = #{appliedBy} AND r.deleted = 0
+              <if test="status != null and status != ''">AND r.status = #{status}</if>
+            </script>
+            """)
+    long countMyMobileRequests(@Param("tenantId") long tenantId, @Param("appliedBy") long appliedBy,
+                               @Param("status") String status);
+
+    @Select("""
+            <script>
+            SELECT r.id, r.party_id, p.name AS party_name, p.contact_mobile_tail, r.reason, r.status,
+                   r.applied_by, r.decided_by, r.decided_at, r.decision_comment, r.created_at
+            FROM legal_party_mobile_request r
+            JOIN legal_contract_party p ON p.id = r.party_id AND p.tenant_id = r.tenant_id AND p.deleted = 0
+            WHERE r.tenant_id = #{tenantId} AND r.deleted = 0
+              <if test="status != null and status != ''">AND r.status = #{status}</if>
+            ORDER BY r.id DESC LIMIT #{size} OFFSET #{offset}
+            </script>
+            """)
+    List<Map<String, Object>> listMobileRequestsForReview(@Param("tenantId") long tenantId,
+                                                          @Param("status") String status,
+                                                          @Param("offset") int offset,
+                                                          @Param("size") int size);
+
+    @Select("""
+            <script>
+            SELECT count(1)
+            FROM legal_party_mobile_request r
+            JOIN legal_contract_party p ON p.id = r.party_id AND p.tenant_id = r.tenant_id AND p.deleted = 0
+            WHERE r.tenant_id = #{tenantId} AND r.deleted = 0
+              <if test="status != null and status != ''">AND r.status = #{status}</if>
+            </script>
+            """)
+    long countMobileRequestsForReview(@Param("tenantId") long tenantId, @Param("status") String status);
+
+    @Update("""
+            UPDATE legal_party_mobile_request
+            SET status = #{status}, decided_by = #{decidedBy}, decided_at = now(),
+                decision_comment = #{comment,jdbcType=VARCHAR}, updated_by = #{decidedBy}, version = version + 1
+            WHERE tenant_id = #{tenantId} AND id = #{id} AND status = 'PENDING' AND deleted = 0
+            """)
+    int decideMobileRequest(@Param("tenantId") long tenantId, @Param("id") long id,
+                            @Param("status") String status, @Param("decidedBy") long decidedBy,
+                            @Param("comment") String comment);
+
     // ---------- 履约与提醒 ----------
     @Insert("""
             INSERT INTO legal_performance_node (id, tenant_id, contract_id, node_type, name, plan_date,

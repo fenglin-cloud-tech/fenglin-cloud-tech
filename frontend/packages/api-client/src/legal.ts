@@ -95,6 +95,21 @@ export const legalApi = {
     create(body: LegalRecord) {
       return post<LegalRecord>(`${BASE}/contract-parties`, body)
     },
+    applyMobile(id: number, body: LegalRecord) {
+      return post<LegalRecord>(`${BASE}/contract-parties/${id}/mobile-requests`, body)
+    },
+    myMobileRequests(params: { status?: string; page?: number; size?: number } = {}) {
+      return get<LegalPage>(`${BASE}/contract-parties/mobile-requests/my`, params)
+    },
+    mobileRequests(params: { status?: string; page?: number; size?: number } = {}) {
+      return get<LegalPage>(`${BASE}/admin/contract-parties/mobile-requests`, params)
+    },
+    reviewMobileRequest(id: number, body: LegalRecord) {
+      return post<LegalRecord>(`${BASE}/admin/contract-parties/mobile-requests/${id}/review`, body)
+    },
+    mobile(id: number) {
+      return get<LegalRecord>(`${BASE}/contract-parties/${id}/mobile`)
+    },
   },
 
   performance: {
