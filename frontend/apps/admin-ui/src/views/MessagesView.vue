@@ -1,11 +1,19 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { PageHeader, GapNotice } from '@fenglin/ui-admin'
-import { messageApi, type MessageView, type PreferenceView, type TemplateRequest, type TemplateView } from '@/api'
+import {
+  messageApi,
+  type MessageChannelRequest,
+  type MessageChannelView,
+  type MessageView,
+  type PreferenceView,
+  type TemplateRequest,
+  type TemplateView,
+} from '@/api'
 import { describeError } from '@/utils/error'
 
-const activeTab = ref<'templates' | 'messages' | 'preferences'>('templates')
+const activeTab = ref<'templates' | 'channels' | 'messages' | 'preferences'>('templates')
 
 const templates = ref<TemplateView[]>([])
 const templateLoading = ref(false)
@@ -23,6 +31,30 @@ const form = reactive<{ code: string; name: string; channel: string; title_tpl: 
   variablesText: '',
   locale: 'zh-CN',
   status: 'ENABLED',
+})
+
+const channels = ref<MessageChannelView[]>([])
+const channelLoading = ref(false)
+const channelError = ref('')
+const channelVisible = ref(false)
+const channelSaving = ref(false)
+const channelFormError = ref('')
+const channelForm = reactive<{
+  id?: number
+  channel_type: string
+  name: string
+  configText: string
+  enabled: boolean
+  is_default: boolean
+  remark: string
+}>({
+  id: undefined,
+  channel_type: 'WECOM',
+  name: '',
+  configText: '{}',
+  enabled: true,
+  is_default: false,
+  remark: '',
 })
 
 const messages = ref<MessageView[]>([])
@@ -46,6 +78,96 @@ async function loadTemplates() {
     templateError.value = describeError(err)
   } finally {
     templateLoading.value = false
+  }
+}
+
+async function loadChannels() {
+  channelLoading.value = true
+  channelError.value = ''
+  try {
+    channels.value = await messageApi.channels()
+  } catch (err) {
+    channelError.value = describeError(err)
+  } finally {
+    channelLoading.value = false
+  }
+}
+
+function openChannel(row?: MessageChannelView) {
+  Object.assign(channelForm, {
+    id: row?.id,
+    channel_type: row?.channel_type ?? 'WECOM',
+    name: row?.name ?? '',
+    configText: row?.config ?? '{}',
+    enabled: row?.enabled ?? true,
+    is_default: row?.is_default ?? false,
+    remark: row?.remark ?? '',
+  })
+  channelFormError.value = ''
+  channelVisible.value = true
+}
+
+async function submitChannel() {
+  if (!channelForm.name.trim()) {
+    channelFormError.value = '通道名称不能为空'
+    return
+  }
+  let config: Record<string, unknown> = {}
+  if (channelForm.configText.trim()) {
+    try {
+      const parsed = JSON.parse(channelForm.configText)
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        throw new Error('not object')
+      }
+      config = parsed as Record<string, unknown>
+    } catch {
+      channelFormError.value = '通道配置必须是 JSON 对象'
+      return
+    }
+  }
+  channelSaving.value = true
+  channelFormError.value = ''
+  try {
+    const body: MessageChannelRequest = {
+      id: channelForm.id,
+      channel_type: channelForm.channel_type,
+      name: channelForm.name.trim(),
+      config,
+      enabled: channelForm.enabled,
+      is_default: channelForm.is_default,
+      remark: channelForm.remark || undefined,
+    }
+    await messageApi.saveChannel(body)
+    ElMessage.success('通道已保存')
+    channelVisible.value = false
+    await loadChannels()
+  } catch (err) {
+    channelFormError.value = describeError(err)
+  } finally {
+    channelSaving.value = false
+  }
+}
+
+async function toggleChannel(row: MessageChannelView) {
+  try {
+    await messageApi.toggleChannel(row.id, !row.enabled)
+    ElMessage.success(row.enabled ? '已停用' : '已启用')
+    await loadChannels()
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  }
+}
+
+async function removeChannel(row: MessageChannelView) {
+  try {
+    await ElMessageBox.confirm(`确认删除通道「${row.name}」？`, '删除通道', { type: 'warning' })
+    await messageApi.deleteChannel(row.id)
+    ElMessage.success('已删除')
+    await loadChannels()
+  } catch (err) {
+    if (err !== 'cancel') {
+      ElMessage.error(describeError(err))
+    }
   }
 }
 
@@ -148,6 +270,7 @@ function addPreference() {
 
 onMounted(() => {
   void loadTemplates()
+  void loadChannels()
   void loadMessages()
   void loadPreferences()
 })
@@ -188,6 +311,40 @@ onMounted(() => {
             <el-table-column label="操作" width="100" fixed="right">
               <template #default="{ row }">
                 <el-button link type="primary" @click="openTemplate(row)">编辑</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-tab-pane>
+
+        <el-tab-pane label="通道管理" name="channels">
+          <div class="fl-toolbar">
+            <el-button type="primary" @click="openChannel()">新增通道</el-button>
+            <span class="fl-muted">共 {{ channels.length }} 个通道</span>
+          </div>
+          <el-alert v-if="channelError" type="error" :closable="false" show-icon :title="channelError" style="margin-bottom: 12px" />
+          <el-table :data="channels" v-loading="channelLoading" border stripe>
+            <el-table-column prop="channel_type" label="类型" width="110" />
+            <el-table-column prop="name" label="名称" width="180" />
+            <el-table-column label="默认" width="80">
+              <template #default="{ row }">
+                <el-tag v-if="row.is_default" type="success" size="small">默认</el-tag>
+                <span v-else class="fl-muted">-</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="状态" width="90">
+              <template #default="{ row }">
+                <el-tag :type="row.enabled ? 'success' : 'info'" size="small">{{ row.enabled ? '启用' : '停用' }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="config" label="配置" min-width="240" show-overflow-tooltip />
+            <el-table-column prop="remark" label="备注" min-width="140" show-overflow-tooltip />
+            <el-table-column label="操作" width="200" fixed="right">
+              <template #default="{ row }">
+                <el-button link type="primary" @click="openChannel(row)">编辑</el-button>
+                <el-button link :type="row.enabled ? 'warning' : 'success'" @click="toggleChannel(row)">
+                  {{ row.enabled ? '停用' : '启用' }}
+                </el-button>
+                <el-button link type="danger" @click="removeChannel(row)">删除</el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -293,6 +450,34 @@ onMounted(() => {
       <template #footer>
         <el-button @click="templateVisible = false">取消</el-button>
         <el-button type="primary" :loading="saving" @click="submitTemplate">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="channelVisible" :title="channelForm.id ? '编辑通道' : '新增通道'" width="620px">
+      <el-alert v-if="channelFormError" type="error" :closable="false" show-icon :title="channelFormError" style="margin-bottom: 12px" />
+      <el-form label-width="100px">
+        <el-form-item label="通道类型" required>
+          <el-select v-model="channelForm.channel_type" style="width: 100%">
+            <el-option label="站内 INAPP" value="INAPP" />
+            <el-option label="短信 SMS" value="SMS" />
+            <el-option label="邮件 EMAIL" value="EMAIL" />
+            <el-option label="企业微信 WECOM" value="WECOM" />
+            <el-option label="钉钉 DINGTALK" value="DINGTALK" />
+            <el-option label="Webhook" value="WEBHOOK" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="名称" required><el-input v-model="channelForm.name" maxlength="100" /></el-form-item>
+        <el-form-item label="通道配置">
+          <el-input v-model="channelForm.configText" type="textarea" :rows="6"
+                    placeholder='JSON 对象，例如 {"webhook":"https://..."}' />
+        </el-form-item>
+        <el-form-item label="启用"><el-switch v-model="channelForm.enabled" /></el-form-item>
+        <el-form-item label="设为默认"><el-switch v-model="channelForm.is_default" /></el-form-item>
+        <el-form-item label="备注"><el-input v-model="channelForm.remark" maxlength="200" /></el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="channelVisible = false">取消</el-button>
+        <el-button type="primary" :loading="channelSaving" @click="submitChannel">保存</el-button>
       </template>
     </el-dialog>
   </div>

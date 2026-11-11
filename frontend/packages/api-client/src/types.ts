@@ -214,6 +214,26 @@ export interface MessageView {
   created_at?: string
 }
 
+export interface MessageChannelView {
+  id: number
+  channel_type: string
+  name: string
+  config?: string
+  enabled: boolean
+  is_default: boolean
+  remark?: string
+}
+
+export interface MessageChannelRequest {
+  id?: number
+  channel_type: string
+  name: string
+  config?: Record<string, unknown>
+  enabled?: boolean
+  is_default?: boolean
+  remark?: string
+}
+
 export interface MessageListResult {
   records: MessageView[]
   unread_count: number

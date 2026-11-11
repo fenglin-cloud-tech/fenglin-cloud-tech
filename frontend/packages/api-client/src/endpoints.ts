@@ -23,6 +23,8 @@ import type {
   LowcodeAppView,
   LowcodeVersionView,
   MenuNode,
+  MessageChannelRequest,
+  MessageChannelView,
   MessageListResult,
   MetricCreateRequest,
   MetricView,
@@ -205,6 +207,18 @@ export const messageApi = {
   },
   upsertTemplate(body: TemplateRequest) {
     return post<TemplateView>('/api/hub/v1/admin/message/templates', body)
+  },
+  channels() {
+    return get<MessageChannelView[]>('/api/hub/v1/admin/message/channels')
+  },
+  saveChannel(body: MessageChannelRequest) {
+    return post<MessageChannelView>('/api/hub/v1/admin/message/channels', body)
+  },
+  toggleChannel(id: string | number, enabled: boolean) {
+    return post<MessageChannelView>(`/api/hub/v1/admin/message/channels/${id}/toggle?enabled=${enabled}`)
+  },
+  deleteChannel(id: string | number) {
+    return request<unknown>(`/api/hub/v1/admin/message/channels/${id}`, { method: 'DELETE' })
   },
   list(params: { status?: string; channel?: string; page?: number; size?: number }) {
     return get<MessageListResult>('/api/hub/v1/messages', params)
