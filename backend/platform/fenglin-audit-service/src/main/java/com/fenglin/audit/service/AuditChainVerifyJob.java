@@ -5,14 +5,13 @@ import com.fenglin.common.tenant.TenantContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.jdbc.DataSourceProperties;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import javax.sql.DataSource;
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -36,16 +35,16 @@ public class AuditChainVerifyJob {
     private static final DateTimeFormatter BOUND = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ssxx");
 
     private final AuditChainService auditChainService;
-    private final DataSourceProperties dataSourceProperties;
+    private final DataSource dataSource;
     private final TransactionTemplate transactionTemplate;
     private final boolean enabled;
 
     public AuditChainVerifyJob(AuditChainService auditChainService,
-                               DataSourceProperties dataSourceProperties,
+                               DataSource dataSource,
                                PlatformTransactionManager transactionManager,
                                @Value("${fenglin.audit.chain-verify-enabled:true}") boolean enabled) {
         this.auditChainService = auditChainService;
-        this.dataSourceProperties = dataSourceProperties;
+        this.dataSource = dataSource;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
         this.enabled = enabled;
     }
@@ -104,13 +103,12 @@ public class AuditChainVerifyJob {
     }
 
     /**
-     * 平台级遍历租户需绕过 RLS，使用库属主连接只读取租户列表。
+     * 平台级遍历租户需跨租户读取，走 job_list_audit_chain_tenants 窄函数（仅返回 tenant_id）。
      */
     private List<Long> tenantsWithChain(String partitionKey) {
-        String sql = "SELECT DISTINCT tenant_id FROM fenglin_hub.hub_audit_chain"
-                + " WHERE partition_key = ? AND deleted = 0 AND tenant_id > 0 ORDER BY tenant_id";
+        String sql = "SELECT tenant_id FROM fenglin_hub.job_list_audit_chain_tenants(?)";
         List<Long> tenantIds = new ArrayList<>();
-        try (Connection connection = ownerConnection();
+        try (Connection connection = dataSource.getConnection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, partitionKey);
             try (ResultSet rs = statement.executeQuery()) {
@@ -122,14 +120,6 @@ public class AuditChainVerifyJob {
             throw new IllegalStateException("读取待校验租户列表失败", ex);
         }
         return tenantIds;
-    }
-
-    private Connection ownerConnection() throws SQLException {
-        String url = dataSourceProperties.getUrl();
-        String username = dataSourceProperties.getUsername();
-        String password = dataSourceProperties.getPassword();
-        return DriverManager.getConnection(url, username == null ? "" : username,
-                password == null ? "" : password);
     }
 
     public record VerifySummary(int checked, int broken, List<ChainVerifyResult> results) {

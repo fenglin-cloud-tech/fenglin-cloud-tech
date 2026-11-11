@@ -3,12 +3,11 @@ package com.fenglin.audit.service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.jdbc.DataSourceProperties;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import javax.sql.DataSource;
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -25,14 +24,14 @@ public class AuditExportJob {
     private static final Logger log = LoggerFactory.getLogger(AuditExportJob.class);
 
     private final AuditExportService auditExportService;
-    private final DataSourceProperties dataSourceProperties;
+    private final DataSource dataSource;
     private final boolean enabled;
 
     public AuditExportJob(AuditExportService auditExportService,
-                          DataSourceProperties dataSourceProperties,
+                          DataSource dataSource,
                           @Value("${fenglin.audit.export-job-enabled:true}") boolean enabled) {
         this.auditExportService = auditExportService;
-        this.dataSourceProperties = dataSourceProperties;
+        this.dataSource = dataSource;
         this.enabled = enabled;
     }
 
@@ -57,27 +56,20 @@ public class AuditExportJob {
     }
 
     private List<PendingTask> pendingTasks() {
-        String sql = "SELECT id, tenant_id FROM fenglin_hub.hub_audit_export_task"
-                + " WHERE status = 'PENDING' AND deleted = 0 ORDER BY created_at LIMIT 10";
+        String sql = "SELECT task_id, tenant_id FROM fenglin_hub.job_list_pending_audit_exports(?)";
         List<PendingTask> tasks = new ArrayList<>();
-        try (Connection connection = ownerConnection();
-             PreparedStatement statement = connection.prepareStatement(sql);
-             ResultSet rs = statement.executeQuery()) {
-            while (rs.next()) {
-                tasks.add(new PendingTask(rs.getLong("id"), rs.getLong("tenant_id")));
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setInt(1, 10);
+            try (ResultSet rs = statement.executeQuery()) {
+                while (rs.next()) {
+                    tasks.add(new PendingTask(rs.getLong("task_id"), rs.getLong("tenant_id")));
+                }
             }
         } catch (SQLException ex) {
             throw new IllegalStateException("读取待导出任务失败", ex);
         }
         return tasks;
-    }
-
-    private Connection ownerConnection() throws SQLException {
-        String url = dataSourceProperties.getUrl();
-        String username = dataSourceProperties.getUsername();
-        String password = dataSourceProperties.getPassword();
-        return DriverManager.getConnection(url, username == null ? "" : username,
-                password == null ? "" : password);
     }
 
     private record PendingTask(long id, long tenantId) {
