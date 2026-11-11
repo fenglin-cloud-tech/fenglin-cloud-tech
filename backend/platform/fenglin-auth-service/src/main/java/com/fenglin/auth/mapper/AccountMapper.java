@@ -29,4 +29,18 @@ public interface AccountMapper extends BaseMapper<AccountEntity> {
                         @Param("userId") Long userId,
                         @Param("failCount") int failCount,
                         @Param("lockedUntil") java.time.Instant lockedUntil);
+
+    /** 自助改密：更新哈希与时间戳，并清零失败计数与锁定时间 */
+    @Update("""
+            UPDATE hub_account
+               SET password_hash = #{passwordHash},
+                   password_updated_at = now(),
+                   fail_count = 0,
+                   locked_until = NULL,
+                   updated_at = now()
+             WHERE tenant_id = #{tenantId} AND user_id = #{userId} AND deleted = 0
+            """)
+    int changePassword(@Param("tenantId") Long tenantId,
+                       @Param("userId") Long userId,
+                       @Param("passwordHash") String passwordHash);
 }

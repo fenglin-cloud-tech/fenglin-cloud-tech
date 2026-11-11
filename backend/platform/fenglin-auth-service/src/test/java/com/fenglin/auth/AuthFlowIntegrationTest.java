@@ -45,6 +45,7 @@ class AuthFlowIntegrationTest {
     private static final String PASSWORD = "Fenglin@2026Dev";
     private static final String TENANT_CODE_B = "acme";
     private static final String PASSWORD_B = "Acme@2026Secret";
+    private static final String NEW_PASSWORD = "NewPass@2026!";
 
     private static final EmbeddedPostgresSupport POSTGRES;
     private static final String JDBC_URL;
@@ -348,6 +349,95 @@ class AuthFlowIntegrationTest {
         ResultSet rs = statement.executeQuery("SELECT count(*) FROM fenglin_hub.hub_user");
         rs.next();
         return rs.getInt(1);
+    }
+
+    @Test
+    void changePasswordSucceedsAndRevokesOtherSessions() throws Exception {
+        JsonNode first = login(TENANT_CODE, USERNAME, PASSWORD).body().get("data");
+        JsonNode second = login(TENANT_CODE, USERNAME, PASSWORD).body().get("data");
+        String accessToken = first.get("access_token").asText();
+        String currentSession = first.get("session_id").asText();
+        String otherSession = second.get("session_id").asText();
+
+        try (Connection connection = ownerConnection(); Statement statement = connection.createStatement()) {
+            statement.execute("UPDATE fenglin_hub.hub_account SET fail_count = 2 WHERE tenant_id = 1001 AND user_id = 2001");
+        }
+
+        HttpResult changed = postWithHeaders("/api/hub/v1/sso/password/change",
+                Map.of("old_password", PASSWORD, "new_password", NEW_PASSWORD),
+                Map.of(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken));
+        assertThat(changed.status()).isEqualTo(200);
+        assertThat(changed.body().get("data").get("changed").asBoolean()).isTrue();
+        assertThat(changed.body().get("data").get("revoked_sessions").asInt()).isEqualTo(1);
+
+        try (Connection connection = ownerConnection(); Statement statement = connection.createStatement()) {
+            ResultSet account = statement.executeQuery("""
+                    SELECT password_hash, password_updated_at, fail_count, locked_until
+                      FROM fenglin_hub.hub_account WHERE tenant_id = 1001 AND user_id = 2001
+                    """);
+            account.next();
+            assertThat(PasswordPolicy.matches(NEW_PASSWORD, account.getString("password_hash"))).isTrue();
+            assertThat(account.getTimestamp("password_updated_at")).isNotNull();
+            assertThat(account.getInt("fail_count")).isZero();
+            assertThat(account.getTimestamp("locked_until")).isNull();
+
+            ResultSet current = statement.executeQuery(
+                    "SELECT status FROM fenglin_hub.hub_login_session WHERE session_id = '" + currentSession + "'");
+            current.next();
+            assertThat(current.getString(1)).isEqualTo("ONLINE");
+            ResultSet other = statement.executeQuery(
+                    "SELECT status FROM fenglin_hub.hub_login_session WHERE session_id = '" + otherSession + "'");
+            other.next();
+            assertThat(other.getString(1)).isEqualTo("KICKED");
+            ResultSet tokens = statement.executeQuery(
+                    "SELECT count(*) FROM fenglin_hub.hub_auth_token WHERE session_id = '" + otherSession + "' AND revoked = 0");
+            tokens.next();
+            assertThat(tokens.getInt(1)).isZero();
+            ResultSet user = statement.executeQuery(
+                    "SELECT permission_version FROM fenglin_hub.hub_user WHERE tenant_id = 1001 AND id = 2001");
+            user.next();
+            assertThat(user.getLong(1)).isZero();
+        }
+
+        assertThat(login(TENANT_CODE, USERNAME, PASSWORD).status()).isEqualTo(401);
+        assertThat(login(TENANT_CODE, USERNAME, NEW_PASSWORD).status()).isEqualTo(200);
+    }
+
+    @Test
+    void changePasswordRejectsWrongOldPassword() throws Exception {
+        String accessToken = login(TENANT_CODE, USERNAME, PASSWORD).body().get("data").get("access_token").asText();
+        HttpResult result = postWithHeaders("/api/hub/v1/sso/password/change",
+                Map.of("old_password", "Wrong@Password1", "new_password", NEW_PASSWORD),
+                Map.of(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken));
+        assertThat(result.status()).isEqualTo(401);
+        assertThat(PasswordPolicy.matches(PASSWORD, accountHash())).isTrue();
+    }
+
+    @Test
+    void changePasswordRejectsWeakOrSamePassword() throws Exception {
+        String accessToken = login(TENANT_CODE, USERNAME, PASSWORD).body().get("data").get("access_token").asText();
+        Map<String, String> headers = Map.of(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken);
+        HttpResult weak = postWithHeaders("/api/hub/v1/sso/password/change",
+                Map.of("old_password", PASSWORD, "new_password", "short"), headers);
+        assertThat(weak.status()).isEqualTo(400);
+        HttpResult same = postWithHeaders("/api/hub/v1/sso/password/change",
+                Map.of("old_password", PASSWORD, "new_password", PASSWORD), headers);
+        assertThat(same.status()).isEqualTo(400);
+        assertThat(same.body().get("message").asText()).contains("相同");
+        assertThat(PasswordPolicy.matches(PASSWORD, accountHash())).isTrue();
+    }
+
+    private String accountHash() throws Exception {
+        try (Connection connection = ownerConnection(); Statement statement = connection.createStatement();
+             ResultSet rs = statement.executeQuery(
+                     "SELECT password_hash FROM fenglin_hub.hub_account WHERE tenant_id = 1001 AND user_id = 2001")) {
+            rs.next();
+            return rs.getString(1);
+        }
+    }
+
+    private HttpResult postWithHeaders(String path, Object body, Map<String, String> headers) {
+        return exchange(HttpMethod.POST, path, body, headers);
     }
 
     private HttpResult login(String tenantCode, String username, String password) {

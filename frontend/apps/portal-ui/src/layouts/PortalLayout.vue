@@ -32,11 +32,15 @@ import {
   Clock,
 } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
+import { authApi } from '@fenglin/api-client'
 
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 const permissionVisible = ref(false)
+const passwordVisible = ref(false)
+const passwordSaving = ref(false)
+const passwordForm = ref({ oldPassword: '', newPassword: '', confirmPassword: '' })
 
 const navItems = [
   { path: '/overview', title: '我的工作台', icon: Grid, perm: '' },
@@ -123,6 +127,43 @@ async function handleLogout() {
   await auth.logout()
   ElMessage.success('已退出登录')
   router.replace({ name: 'login' })
+}
+
+async function submitPasswordChange() {
+  const form = passwordForm.value
+  if (!form.oldPassword) {
+    ElMessage.warning('请输入旧口令')
+    return
+  }
+  if (form.newPassword.length < 12) {
+    ElMessage.warning('新口令至少 12 位，且需包含大写、小写、数字和符号')
+    return
+  }
+  if (form.newPassword !== form.confirmPassword) {
+    ElMessage.warning('两次输入的新口令不一致')
+    return
+  }
+  passwordSaving.value = true
+  try {
+    await authApi.changePassword({
+      old_password: form.oldPassword,
+      new_password: form.newPassword,
+    })
+    ElMessage.success('口令已修改，其他设备上的登录会话已失效')
+    passwordVisible.value = false
+    passwordForm.value = { oldPassword: '', newPassword: '', confirmPassword: '' }
+  } catch (err) {
+    const error = err as { status?: number; message?: string }
+    if (error.status === 401) {
+      ElMessage.error('旧口令错误')
+    } else if (error.status === 400) {
+      ElMessage.error(error.message || '新口令不符合强度要求，或与旧口令相同')
+    } else {
+      ElMessage.error(error.message || '修改口令失败')
+    }
+  } finally {
+    passwordSaving.value = false
+  }
 }
 </script>
 
@@ -224,7 +265,8 @@ async function handleLogout() {
             <el-dropdown-menu>
               <el-dropdown-item disabled>租户：{{ auth.user?.tenant_code || auth.user?.tenant_id || '-' }}</el-dropdown-item>
               <el-dropdown-item disabled>账号：{{ auth.user?.username || '-' }}</el-dropdown-item>
-              <el-dropdown-item divided @click="handleLogout">退出登录</el-dropdown-item>
+              <el-dropdown-item divided @click="passwordVisible = true">修改密码</el-dropdown-item>
+              <el-dropdown-item @click="handleLogout">退出登录</el-dropdown-item>
             </el-dropdown-menu>
           </template>
         </el-dropdown>
@@ -251,6 +293,25 @@ async function handleLogout() {
       </div>
       <p class="fl-muted">菜单与按钮均按后端权限码收敛；无权限时操作会返回后端真实 403 错误，前端不伪造数据。</p>
     </el-drawer>
+
+    <el-dialog v-model="passwordVisible" title="修改密码" width="440px">
+      <el-form label-width="96px">
+        <el-form-item label="旧口令">
+          <el-input v-model="passwordForm.oldPassword" type="password" show-password autocomplete="current-password" />
+        </el-form-item>
+        <el-form-item label="新口令">
+          <el-input v-model="passwordForm.newPassword" type="password" show-password autocomplete="new-password" />
+        </el-form-item>
+        <el-form-item label="确认新口令">
+          <el-input v-model="passwordForm.confirmPassword" type="password" show-password autocomplete="new-password" />
+        </el-form-item>
+      </el-form>
+      <p class="fl-muted">新口令至少 12 位，需包含大写、小写、数字和符号；修改成功后，其他设备上的登录会话会失效。</p>
+      <template #footer>
+        <el-button @click="passwordVisible = false">取消</el-button>
+        <el-button type="primary" :loading="passwordSaving" @click="submitPasswordChange">确认修改</el-button>
+      </template>
+    </el-dialog>
   </el-container>
 </template>
 

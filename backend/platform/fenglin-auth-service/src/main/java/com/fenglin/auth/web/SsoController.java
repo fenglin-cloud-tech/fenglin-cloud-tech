@@ -2,6 +2,8 @@ package com.fenglin.auth.web;
 
 import com.fenglin.auth.config.AuthErrorCode;
 import com.fenglin.auth.service.AuthService;
+import com.fenglin.auth.web.dto.ChangePasswordRequest;
+import com.fenglin.auth.web.dto.ChangePasswordResult;
 import com.fenglin.auth.web.dto.LoginRequest;
 import com.fenglin.auth.web.dto.LogoutPayload;
 import com.fenglin.auth.web.dto.LogoutRequest;
@@ -78,6 +80,14 @@ public class SsoController {
     public ApiResponse<UserInfoPayload> userinfo(
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization) {
         return ApiResponse.success(authService.userinfo(extractBearer(authorization)));
+    }
+
+    /** 自助修改口令：以当前 access token 识别登录人，校验旧口令后更新 */
+    @PostMapping("/password/change")
+    public ApiResponse<ChangePasswordResult> changePassword(
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
+            @Valid @RequestBody ChangePasswordRequest request) {
+        return ApiResponse.success(authService.changePassword(extractBearer(authorization), request));
     }
 
     private String extractBearer(String authorization) {

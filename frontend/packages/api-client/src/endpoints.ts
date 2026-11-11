@@ -112,6 +112,9 @@ export const authApi = {
   userinfo() {
     return get<UserInfo>('/api/hub/v1/sso/userinfo')
   },
+  changePassword(body: { old_password: string; new_password: string }) {
+    return post<{ changed: boolean; revoked_sessions: number }>('/api/hub/v1/sso/password/change', body)
+  },
   logout(idTokenHint?: string) {
     return post<unknown>('/api/hub/v1/sso/logout', {
       id_token_hint: idTokenHint,

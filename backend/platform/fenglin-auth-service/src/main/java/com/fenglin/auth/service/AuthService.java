@@ -17,6 +17,8 @@ import com.fenglin.auth.mapper.RefreshTokenMapper;
 import com.fenglin.auth.mapper.RevocationMapper;
 import com.fenglin.auth.mapper.TenantMapper;
 import com.fenglin.auth.mapper.UserMapper;
+import com.fenglin.auth.web.dto.ChangePasswordRequest;
+import com.fenglin.auth.web.dto.ChangePasswordResult;
 import com.fenglin.auth.web.dto.LoginRequest;
 import com.fenglin.auth.web.dto.LogoutPayload;
 import com.fenglin.auth.web.dto.PrincipalPermissionPayload;
@@ -266,6 +268,74 @@ public class AuthService {
     /**
      * 供 IAM 管理员重置口令后调用：复用登出链路吊销该用户全部会话与刷新令牌。
      */
+    /**
+     * 自助改密：校验旧口令 → 强度校验/新旧不同 → 更新哈希与时间戳、清零失败与锁定 →
+     * 吊销除当前会话外的在线会话与刷新令牌；permission_version 不变。
+     */
+    @Transactional
+    public ChangePasswordResult changePassword(String accessToken, ChangePasswordRequest request) {
+        JWTClaimsSet claims = keyProvider.verify(accessToken, JwtTokenService.USE_ACCESS);
+        Long tenantId = longClaim(claims, "tenant_id");
+        Long userId = Long.valueOf(claims.getSubject());
+        String clientType = (String) claims.getClaim("client_type");
+        String currentSessionId = (String) claims.getClaim("sid");
+        TenantContext.set(tenantId, userId, clientType, null, false);
+        if (isRevokedJti(claims.getJWTID())) {
+            throw new BizException(CommonErrorCode.UNAUTHORIZED, "令牌已撤销");
+        }
+        UserEntity user = userMapper.selectById(userId);
+        if (user == null || !STATUS_ACTIVE.equals(user.getStatus())) {
+            throw new BizException(CommonErrorCode.UNAUTHORIZED, "用户不可用");
+        }
+        AccountEntity account = accountMapper.selectOne(Wrappers.<AccountEntity>lambdaQuery()
+                .eq(AccountEntity::getTenantId, tenantId)
+                .eq(AccountEntity::getUserId, userId)
+                .eq(AccountEntity::getDeleted, 0));
+        if (account == null) {
+            throw new BizException(CommonErrorCode.UNAUTHORIZED, "账号不可用");
+        }
+        String oldPassword = request.oldPassword();
+        String newPassword = request.newPassword();
+        if (oldPassword == null || oldPassword.isBlank()) {
+            throw new BizException(CommonErrorCode.BAD_REQUEST, "旧口令不能为空");
+        }
+        if (!PasswordPolicy.matches(oldPassword, account.getPasswordHash())) {
+            audit(tenantId, userId, clientType, "PASSWORD_CHANGE_FAILED", "BAD_OLD_PASSWORD");
+            throw new BizException(CommonErrorCode.UNAUTHORIZED, "旧口令错误");
+        }
+        if (newPassword != null && newPassword.equals(oldPassword)) {
+            throw new BizException(CommonErrorCode.BAD_REQUEST, "新口令不能与旧口令相同");
+        }
+        String passwordHash = PasswordPolicy.encode(newPassword);
+        if (accountMapper.changePassword(tenantId, userId, passwordHash) == 0) {
+            throw new BizException(CommonErrorCode.UNAUTHORIZED, "账号不可用");
+        }
+        int revoked = revokeOtherSessions(tenantId, userId, currentSessionId);
+        audit(tenantId, userId, clientType, "PASSWORD_CHANGED", "SELF_SERVICE");
+        return new ChangePasswordResult(true, revoked);
+    }
+
+    /** 吊销除当前会话外的在线会话与刷新令牌；当前会话保留，避免改密后立即掉线。 */
+    private int revokeOtherSessions(long tenantId, long userId, String currentSessionId) {
+        List<LoginSessionEntity> sessions = loginSessionMapper.selectList(
+                Wrappers.<LoginSessionEntity>lambdaQuery()
+                        .eq(LoginSessionEntity::getTenantId, tenantId)
+                        .eq(LoginSessionEntity::getUserId, userId)
+                        .eq(LoginSessionEntity::getStatus, SESSION_ONLINE)
+                        .eq(LoginSessionEntity::getDeleted, 0));
+        int revoked = 0;
+        for (LoginSessionEntity session : sessions) {
+            String sessionId = session.getSessionId();
+            if (sessionId == null || sessionId.equals(currentSessionId)) {
+                continue;
+            }
+            loginSessionMapper.closeBySession(tenantId, sessionId, SESSION_KICKED);
+            refreshTokenMapper.revokeBySession(tenantId, sessionId);
+            revoked++;
+        }
+        return revoked;
+    }
+
     @Transactional
     public int revokeAllSessions(long tenantId, long userId) {
         int closed = loginSessionMapper.closeAllByUser(tenantId, userId, SESSION_LOGOUT);
