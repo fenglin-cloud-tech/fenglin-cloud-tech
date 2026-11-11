@@ -14,7 +14,8 @@ spring:
     username: ${FENGLIN_SERVICE_DB_USER:fenglin}
     password: ${FENGLIN_SERVICE_DB_PASSWORD:fenglin_dev}
     hikari:
-      maximum-pool-size: 10
+      maximum-pool-size: 4
+      minimum-idle: 2
       connection-init-sql: SET ROLE fl_service_app
   flyway:
     enabled: false
