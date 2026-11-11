@@ -9,6 +9,7 @@ import com.fenglin.common.tenant.TenantContext;
 import com.fenglin.openapi.service.OpenApiCallLogService;
 import com.fenglin.openapi.service.OpenApiDocService;
 import com.fenglin.openapi.service.OpenApiKeyService;
+import com.fenglin.openapi.service.OpenApiQuotaRequestService;
 import com.fenglin.openapi.service.OpenApiQuotaService;
 import com.fenglin.openapi.service.OpenApiSandboxService;
 import com.fenglin.openapi.service.OpenAppService;
@@ -25,6 +26,8 @@ import com.fenglin.openapi.web.dto.OpenApiDtos.PortalKeyView;
 import com.fenglin.openapi.web.dto.OpenApiDtos.PortalQuotaView;
 import com.fenglin.openapi.web.dto.OpenApiDtos.PortalScopeRequest;
 import com.fenglin.openapi.web.dto.OpenApiDtos.PortalScopeView;
+import com.fenglin.openapi.web.dto.OpenApiDtos.QuotaApplyRequest;
+import com.fenglin.openapi.web.dto.OpenApiDtos.QuotaRequestView;
 import com.fenglin.openapi.web.dto.OpenApiDtos.SandboxCallRequest;
 import com.fenglin.openapi.web.dto.OpenApiDtos.SandboxCallResponse;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -54,6 +57,7 @@ public class OpenApiPortalController {
     private static final String APP_MANAGE = "biz:openapi:app:manage";
     private static final String KEY_MANAGE = "biz:openapi:key:manage";
     private static final String QUOTA_VIEW = "biz:openapi:quota:view";
+    private static final String QUOTA_APPLY = "biz:openapi:quota:apply";
     private static final String CALL_LOG_VIEW = "biz:openapi:calllog:view";
     private static final String SANDBOX_CALL = "biz:openapi:sandbox:call";
 
@@ -63,19 +67,22 @@ public class OpenApiPortalController {
     private final OpenApiCallLogService callLogService;
     private final OpenApiDocService docService;
     private final OpenApiSandboxService sandboxService;
+    private final OpenApiQuotaRequestService quotaRequestService;
 
     public OpenApiPortalController(OpenAppService appService,
                                    OpenApiKeyService keyService,
                                    OpenApiQuotaService quotaService,
                                    OpenApiCallLogService callLogService,
                                    OpenApiDocService docService,
-                                   OpenApiSandboxService sandboxService) {
+                                   OpenApiSandboxService sandboxService,
+                                   OpenApiQuotaRequestService quotaRequestService) {
         this.appService = appService;
         this.keyService = keyService;
         this.quotaService = quotaService;
         this.callLogService = callLogService;
         this.docService = docService;
         this.sandboxService = sandboxService;
+        this.quotaRequestService = quotaRequestService;
     }
 
     /** HUB-API-1006 开发者门户应用列表（仅当前用户创建的应用）。 */
@@ -214,6 +221,25 @@ public class OpenApiPortalController {
         PermissionGuard.require(permissions, QUOTA_VIEW);
         appService.requireOwnedApp(id, requireUserId());
         return ApiResponse.success(quotaService.listOwned(id));
+    }
+
+    /** OPEN-03 配额自助申请（提交后由平台管理端审批）。 */
+    @PostMapping("/openapi/portal/quotas/requests")
+    public ApiResponse<QuotaRequestView> applyQuota(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestBody QuotaApplyRequest request) {
+        PermissionGuard.require(permissions, QUOTA_APPLY);
+        return ApiResponse.success(quotaRequestService.apply(request, requireUserId()));
+    }
+
+    /** OPEN-03 我的配额申请列表。 */
+    @GetMapping("/openapi/portal/quotas/requests")
+    public ApiResponse<PageResult<QuotaRequestView>> myQuotaRequests(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(defaultValue = "1") long page,
+            @RequestParam(defaultValue = "20") long size) {
+        PermissionGuard.require(permissions, QUOTA_APPLY);
+        return ApiResponse.success(quotaRequestService.listMine(requireUserId(), page, size));
     }
 
     private long requireUserId() {

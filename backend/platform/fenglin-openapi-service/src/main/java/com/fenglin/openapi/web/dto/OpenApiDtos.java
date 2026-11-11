@@ -80,6 +80,19 @@ public final class OpenApiDtos {
                                   long usedToday, String usedDate, Integer currentQps, String limitStatus) {
     }
 
+    // ---------- OPEN-03 配额自助申请 ----------
+
+    public record QuotaApplyRequest(Long appId, String apiPath, Integer qpsLimit, Long dailyLimit, String reason) {
+    }
+
+    public record QuotaRequestView(long id, long appId, String apiPath, Integer requestedQps, Long requestedDaily,
+                                   String reason, String status, long appliedBy, Long decidedBy, Instant decidedAt,
+                                   String decisionComment, Instant createdAt) {
+    }
+
+    public record QuotaRequestReview(String action, String comment) {
+    }
+
     public record PortalScopeView(String code, String name, String domain, boolean subscribed) {
     }
 

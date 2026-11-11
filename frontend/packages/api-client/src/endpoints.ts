@@ -57,6 +57,7 @@ import type {
   PortalAppDetail,
   PortalApiDocView,
   PortalKeyView,
+  PortalQuotaRequestView,
   PortalQuotaView,
   PortalScopeView,
   SandboxCallResult,
@@ -335,6 +336,12 @@ export const openApi = {
   }) {
     return get<PageResult<OpenApiCallLogView>>('/api/hub/v1/admin/openapi/call-logs', params)
   },
+  quotaRequests(params: { status?: string; page?: number; size?: number } = {}) {
+    return get<PageResult<PortalQuotaRequestView>>('/api/hub/v1/admin/openapi/quota-requests', params)
+  },
+  reviewQuotaRequest(id: string | number, body: { action: 'APPROVE' | 'REJECT'; comment?: string }) {
+    return post<PortalQuotaRequestView>(`/api/hub/v1/admin/openapi/quota-requests/${id}/review`, body)
+  },
 }
 
 export const openApiPortal = {
@@ -374,6 +381,18 @@ export const openApiPortal = {
   },
   quotas(id: string | number) {
     return get<PortalQuotaView[]>(`/openapi/portal/apps/${id}/quotas`)
+  },
+  applyQuota(body: {
+    app_id: string | number
+    api_path: string
+    qps_limit?: number
+    daily_limit?: number
+    reason: string
+  }) {
+    return post<PortalQuotaRequestView>('/openapi/portal/quotas/requests', body)
+  },
+  quotaRequests(params: { page?: number; size?: number } = {}) {
+    return get<PageResult<PortalQuotaRequestView>>('/openapi/portal/quotas/requests', params)
   },
   apiDocs(params: { domain?: string; app_id?: string | number } = {}) {
     return get<PortalApiDocView[]>('/openapi/portal/api-docs', params)

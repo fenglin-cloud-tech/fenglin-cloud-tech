@@ -2,7 +2,7 @@
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { PageHeader, GapNotice } from '@fenglin/ui-admin'
-import { openApi, type OpenApiCallLogView, type OpenApiKeyResponse, type OpenAppCreateResponse } from '@/api'
+import { openApi, type OpenApiCallLogView, type OpenApiKeyResponse, type OpenAppCreateResponse, type PortalQuotaRequestView } from '@/api'
 import { toIsoOrUndefined } from '@fenglin/shared'
 import { useAuthStore } from '@/stores/auth'
 import { describeError } from '@/utils/error'
@@ -13,6 +13,7 @@ const allowed = {
   key: 'platform:openapi:key:manage',
   quota: 'platform:openapi:quota:manage',
   callLog: 'platform:openapi:calllog:view',
+  approve: 'platform:openapi:quota:approve',
 }
 
 const appForm = reactive({ name: '', owner_type: 'TENANT', scopes: '', redirect_uris: '' })
@@ -39,6 +40,54 @@ const logTotal = ref(0)
 const logLoading = ref(false)
 const logError = ref('')
 const logQuery = reactive({ app_id: undefined as number | undefined, api_path: '', status: undefined as number | undefined, from: '', to: '', page: 1, size: 10 })
+
+const quotaReqRows = ref<PortalQuotaRequestView[]>([])
+const quotaReqTotal = ref(0)
+const quotaReqLoading = ref(false)
+const quotaReqError = ref('')
+const quotaReqComment = ref('')
+const quotaReqQuery = reactive({ status: undefined as string | undefined, page: 1, size: 10 })
+
+async function loadQuotaRequests() {
+  quotaReqLoading.value = true
+  quotaReqError.value = ''
+  try {
+    const result = await openApi.quotaRequests({
+      status: quotaReqQuery.status || undefined,
+      page: quotaReqQuery.page,
+      size: quotaReqQuery.size,
+    })
+    quotaReqRows.value = result.records
+    quotaReqTotal.value = result.total
+  } catch (err) {
+    quotaReqRows.value = []
+    quotaReqTotal.value = 0
+    quotaReqError.value = describeError(err)
+  } finally {
+    quotaReqLoading.value = false
+  }
+}
+
+async function reviewQuotaRequest(row: PortalQuotaRequestView, action: 'APPROVE' | 'REJECT') {
+  if (action === 'REJECT' && !quotaReqComment.value.trim()) {
+    ElMessage.warning('驳回时必须填写审批意见')
+    return
+  }
+  quotaReqLoading.value = true
+  try {
+    await openApi.reviewQuotaRequest(row.id, {
+      action,
+      comment: quotaReqComment.value.trim() || undefined,
+    })
+    ElMessage.success(action === 'APPROVE' ? '已通过并写入配额' : '已驳回')
+    quotaReqComment.value = ''
+    await loadQuotaRequests()
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  } finally {
+    quotaReqLoading.value = false
+  }
+}
 
 async function createApp() {
   if (!appForm.name) {
@@ -137,7 +186,10 @@ async function loadLogs() {
   }
 }
 
-onMounted(loadLogs)
+onMounted(() => {
+  void loadLogs()
+  void loadQuotaRequests()
+})
 </script>
 
 <template>
@@ -153,7 +205,8 @@ onMounted(loadLogs)
         '后端未提供开放应用列表/详情查询接口（仅注册、审核、密钥、配额、日志），本页所有应用操作需手工输入 app_id。',
         'AppSecret 仅在生成/轮换时返回一次，前端不持久化；关闭弹窗后不可再次查看。',
         '网关原配置未转发 /api/hub/v1/admin/openapi/**，本轮已补充网关路由（否则经网关调用 404）。',
-        '当前权限：审核=' + (auth.can(allowed.review) ? '具备' : '缺失') + '，密钥=' + (auth.can(allowed.key) ? '具备' : '缺失') + '，配额=' + (auth.can(allowed.quota) ? '具备' : '缺失') + '，日志=' + (auth.can(allowed.callLog) ? '具备' : '缺失') + '。',
+        '当前权限：审核=' + (auth.can(allowed.review) ? '具备' : '缺失') + '，密钥=' + (auth.can(allowed.key) ? '具备' : '缺失') + '，配额=' + (auth.can(allowed.quota) ? '具备' : '缺失') + '，日志=' + (auth.can(allowed.callLog) ? '具备' : '缺失') + '，配额审批=' + (auth.can(allowed.approve) ? '具备' : '缺失') + '。',
+        '配额申请审批（OPEN-03）已接入：开发者门户提交后进入本页，批准即写入 hub_api_quota，驳回必须填写意见。',
       ]"
     />
 
@@ -224,6 +277,62 @@ onMounted(loadLogs)
           </el-table-column>
         </el-table>
       </div>
+    </div>
+
+    <div class="fl-card" style="margin-bottom: 16px">
+      <div class="fl-section-title"><span>配额申请审批</span><span class="fl-muted">OPEN-03</span></div>
+      <div class="fl-toolbar">
+        <el-select v-model="quotaReqQuery.status" clearable placeholder="状态" style="width: 140px">
+          <el-option label="PENDING" value="PENDING" />
+          <el-option label="APPROVED" value="APPROVED" />
+          <el-option label="REJECTED" value="REJECTED" />
+        </el-select>
+        <el-input v-model="quotaReqComment" placeholder="审批意见（驳回必填）" clearable style="width: 260px" />
+        <el-button type="primary" plain @click="quotaReqQuery.page = 1; loadQuotaRequests()">查询</el-button>
+      </div>
+      <el-alert v-if="quotaReqError" type="error" :closable="false" show-icon :title="quotaReqError" style="margin-bottom: 12px" />
+      <el-table :data="quotaReqRows" v-loading="quotaReqLoading" border stripe size="small">
+        <el-table-column prop="id" label="申请 ID" width="90" />
+        <el-table-column prop="app_id" label="应用" width="80" />
+        <el-table-column prop="api_path" label="接口路径" min-width="200" show-overflow-tooltip />
+        <el-table-column label="申请 QPS" width="90">
+          <template #default="{ row }">{{ row.requested_qps ?? '-' }}</template>
+        </el-table-column>
+        <el-table-column label="申请日配额" width="110">
+          <template #default="{ row }">{{ row.requested_daily ?? '-' }}</template>
+        </el-table-column>
+        <el-table-column prop="reason" label="申请理由" min-width="180" show-overflow-tooltip />
+        <el-table-column label="状态" width="100">
+          <template #default="{ row }">
+            <el-tag :type="row.status === 'APPROVED' ? 'success' : row.status === 'REJECTED' ? 'danger' : 'warning'" size="small">
+              {{ row.status }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="applied_by" label="申请人" width="90" />
+        <el-table-column label="审批意见" min-width="160" show-overflow-tooltip>
+          <template #default="{ row }">{{ row.decision_comment || '-' }}</template>
+        </el-table-column>
+        <el-table-column label="操作" width="140" fixed="right">
+          <template #default="{ row }">
+            <template v-if="row.status === 'PENDING'">
+              <el-button v-perm="'platform:openapi:quota:approve'" link type="primary" @click="reviewQuotaRequest(row, 'APPROVE')">通过</el-button>
+              <el-button v-perm="'platform:openapi:quota:approve'" link type="danger" @click="reviewQuotaRequest(row, 'REJECT')">驳回</el-button>
+            </template>
+            <span v-else class="fl-muted">已处理</span>
+          </template>
+        </el-table-column>
+        <template #empty><el-empty description="暂无配额申请" /></template>
+      </el-table>
+      <el-pagination
+        v-model:current-page="quotaReqQuery.page"
+        v-model:page-size="quotaReqQuery.size"
+        :total="quotaReqTotal"
+        :page-sizes="[10, 20, 50]"
+        layout="sizes, prev, pager, next"
+        style="margin-top: 12px; justify-content: flex-end"
+        @change="loadQuotaRequests"
+      />
     </div>
 
     <div class="fl-card">

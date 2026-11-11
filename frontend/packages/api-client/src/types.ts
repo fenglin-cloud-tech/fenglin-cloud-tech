@@ -517,6 +517,22 @@ export interface PortalQuotaView {
   limit_status: 'NORMAL' | 'WARNING' | 'EXCEEDED'
 }
 
+/** OPEN-03：配额自助申请单（门户“我的申请”与平台审批共用）。 */
+export interface PortalQuotaRequestView {
+  id: string
+  app_id: string
+  api_path: string
+  requested_qps?: number | null
+  requested_daily?: number | null
+  reason: string
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED'
+  applied_by: string
+  decided_by?: string | null
+  decided_at?: string | null
+  decision_comment?: string | null
+  created_at?: string | null
+}
+
 export interface PortalScopeView {
   code: string
   name: string
