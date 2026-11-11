@@ -522,6 +522,35 @@ class CollabIntegrationTest {
         assertThat(AUDIT_EVENTS).anyMatch(event -> "COLLAB_OKR_PERIOD_CLOSED".equals(event.eventType()));
     }
 
+    @Test
+    void privateObjectiveOnlyVisibleToOwnerAndRejectsInvalidPeriodStatus() {
+        JsonNode period = read(exchange(HttpMethod.PUT, "/api/collab/v1/admin/okr/periods", TENANT_A,
+                USER_OWNER, ALL_PERMISSIONS, Map.of("name", "2027 Q1", "start_date", "2027-01-01",
+                        "end_date", "2027-03-31")).getBody()).get("data");
+        String periodId = period.get("period_id").asText();
+
+        JsonNode created = read(post("/api/collab/v1/okr/objectives", TENANT_A, USER_OWNER, ALL_PERMISSIONS,
+                Map.of("period_id", periodId, "obj_type", "PERSONAL", "title", "个人隐私目标",
+                        "visibility", "PRIVATE")).getBody()).get("data");
+        String objectiveId = created.get("objective_id").asText();
+
+        JsonNode ownerView = read(get("/api/collab/v1/okr/objectives?periodId=" + periodId, TENANT_A,
+                USER_OWNER, ALL_PERMISSIONS).getBody()).get("data");
+        assertThat(ownerView.toString()).contains(objectiveId);
+
+        JsonNode memberView = read(get("/api/collab/v1/okr/objectives?periodId=" + periodId, TENANT_A,
+                USER_MEMBER, ALL_PERMISSIONS).getBody()).get("data");
+        assertThat(memberView.toString()).doesNotContain(objectiveId);
+        JsonNode memberGraph = read(get("/api/collab/v1/okr/alignment-graph?periodId=" + periodId, TENANT_A,
+                USER_MEMBER, ALL_PERMISSIONS).getBody()).get("data");
+        assertThat(memberGraph.get("nodes").size()).isZero();
+
+        ResponseEntity<String> invalidStatus = exchange(HttpMethod.PUT, "/api/collab/v1/admin/okr/periods",
+                TENANT_A, USER_OWNER, ALL_PERMISSIONS, Map.of("name", "2027 Q2", "start_date", "2027-04-01",
+                        "end_date", "2027-06-30", "status", "ARCHIVED"));
+        assertThat(invalidStatus.getStatusCode().value()).isEqualTo(400);
+    }
+
     // ---------- 审批 + 通知 ----------
 
     @Test

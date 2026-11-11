@@ -124,6 +124,11 @@ class AuditExportIntegrationTest {
         ResponseEntity<String> otherTenant = get("/api/hub/v1/admin/audit/export-tasks/" + taskId,
                 "7102", EXPORT_PERMISSION);
         assertThat(otherTenant.getStatusCode().value()).isEqualTo(404);
+
+        ResponseEntity<byte[]> otherTenantDownload = restTemplate.exchange(
+                "http://localhost:" + port + "/api/hub/v1/admin/audit/export-tasks/" + taskId + "/download",
+                HttpMethod.GET, new HttpEntity<>(headers("7102", EXPORT_PERMISSION)), byte[].class);
+        assertThat(otherTenantDownload.getStatusCode().value()).isEqualTo(404);
     }
 
     @Test

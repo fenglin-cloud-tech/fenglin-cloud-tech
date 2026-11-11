@@ -37,9 +37,9 @@ public interface SearchIndexTaskMapper {
     @Select("""
             SELECT id, index_name, task_type, status, doc_count, error_msg
               FROM hub_search_index_task
-             WHERE id = #{id} AND deleted = 0
+             WHERE tenant_id = #{tenantId} AND id = #{id} AND deleted = 0
             """)
-    Map<String, Object> findById(@Param("id") long id);
+    Map<String, Object> findById(@Param("tenantId") long tenantId, @Param("id") long id);
 
     @Update("""
             UPDATE hub_search_index_task SET status = 'RUNNING', updated_at = now()

@@ -48,7 +48,7 @@ public interface AuditLogMapper {
                    target_type, target_id, request_id, trace_id, client_type, result, risk_level,
                    detail::text AS detail, occurred_at
               FROM hub_audit_log
-             WHERE deleted = 0
+             WHERE tenant_id = #{tenantId} AND deleted = 0
              <if test="eventType != null and eventType != ''">AND event_type = #{eventType}</if>
              <if test="operatorId != null">AND operator_id = #{operatorId}</if>
              <if test="targetType != null and targetType != ''">AND target_type = #{targetType}</if>
@@ -61,7 +61,8 @@ public interface AuditLogMapper {
              LIMIT #{limit} OFFSET #{offset}
             </script>
             """)
-    List<Map<String, Object>> findPage(@Param("eventType") String eventType,
+    List<Map<String, Object>> findPage(@Param("tenantId") long tenantId,
+                                       @Param("eventType") String eventType,
                                        @Param("operatorId") Long operatorId,
                                        @Param("targetType") String targetType,
                                        @Param("targetId") String targetId,
@@ -75,7 +76,7 @@ public interface AuditLogMapper {
     @Select("""
             <script>
             SELECT count(*) FROM hub_audit_log
-             WHERE deleted = 0
+             WHERE tenant_id = #{tenantId} AND deleted = 0
              <if test="eventType != null and eventType != ''">AND event_type = #{eventType}</if>
              <if test="operatorId != null">AND operator_id = #{operatorId}</if>
              <if test="targetType != null and targetType != ''">AND target_type = #{targetType}</if>
@@ -86,7 +87,8 @@ public interface AuditLogMapper {
              <if test="to != null">AND occurred_at &lt; #{to,jdbcType=TIMESTAMP}</if>
             </script>
             """)
-    long count(@Param("eventType") String eventType,
+    long count(@Param("tenantId") long tenantId,
+               @Param("eventType") String eventType,
                @Param("operatorId") Long operatorId,
                @Param("targetType") String targetType,
                @Param("targetId") String targetId,
@@ -101,14 +103,15 @@ public interface AuditLogMapper {
                    target_type, target_id, request_id, client_type, result, risk_level,
                    detail::text AS detail, occurred_at
               FROM hub_audit_log
-             WHERE deleted = 0
+             WHERE tenant_id = #{tenantId} AND deleted = 0
              <if test="eventType != null and eventType != ''">AND event_type = #{eventType}</if>
              <if test="from != null">AND occurred_at &gt;= #{from,jdbcType=TIMESTAMP}</if>
              <if test="to != null">AND occurred_at &lt; #{to,jdbcType=TIMESTAMP}</if>
              ORDER BY occurred_at ASC, id ASC
             </script>
             """)
-    List<Map<String, Object>> findForExport(@Param("eventType") String eventType,
+    List<Map<String, Object>> findForExport(@Param("tenantId") long tenantId,
+                                            @Param("eventType") String eventType,
                                             @Param("from") Instant from,
                                             @Param("to") Instant to);
 
@@ -126,9 +129,9 @@ public interface AuditLogMapper {
                    target_type, target_id, request_id, trace_id, client_type, result, risk_level,
                    detail::text AS detail, occurred_at
               FROM hub_audit_log
-             WHERE id = #{id} AND deleted = 0
+             WHERE tenant_id = #{tenantId} AND id = #{id} AND deleted = 0
              ORDER BY occurred_at DESC
              LIMIT 1
             """)
-    Map<String, Object> findById(@Param("id") long id);
+    Map<String, Object> findById(@Param("tenantId") long tenantId, @Param("id") long id);
 }

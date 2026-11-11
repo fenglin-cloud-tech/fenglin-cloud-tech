@@ -337,29 +337,47 @@ public interface SealSignMapper {
 
     @Select("""
             <script>
-            SELECT id, evidence_no, contract_id, sign_record_id, evidence_type, content_hash,
-                   hash_algorithm, worm_ref, provider_evidence_id, cert_ref, chain_id, prev_hash,
-                   block_hash, verified, verified_at, created_at
-            FROM legal_evidence WHERE tenant_id = #{tenantId}
-              <if test="contractId != null">AND contract_id = #{contractId}</if>
-              <if test="evidenceType != null and evidenceType != ''">AND evidence_type = #{evidenceType}</if>
-            ORDER BY id DESC LIMIT #{size} OFFSET #{offset}
+            SELECT e.id, e.evidence_no, e.contract_id, e.sign_record_id, e.evidence_type, e.content_hash,
+                   e.hash_algorithm, e.worm_ref, e.provider_evidence_id, e.cert_ref, e.chain_id, e.prev_hash,
+                   e.block_hash, e.verified, e.verified_at, e.created_at
+            FROM legal_evidence e
+            LEFT JOIN legal_contract c ON c.id = e.contract_id AND c.tenant_id = e.tenant_id
+            WHERE e.tenant_id = #{tenantId} AND e.deleted = 0
+              <if test="contractId != null">AND e.contract_id = #{contractId}</if>
+              <if test="evidenceType != null and evidenceType != ''">AND e.evidence_type = #{evidenceType}</if>
+              <if test="scopeUserId != null">
+                AND (c.owner_id = #{scopeUserId} OR e.created_by = #{scopeUserId} OR EXISTS (
+                    SELECT 1 FROM legal_signatory s
+                    WHERE s.tenant_id = e.tenant_id AND s.contract_id = e.contract_id
+                      AND s.party_type = 'INTERNAL' AND s.party_id = #{scopeUserId}))
+              </if>
+            ORDER BY e.id DESC LIMIT #{size} OFFSET #{offset}
             </script>
             """)
     List<Map<String, Object>> listEvidences(@Param("tenantId") long tenantId,
                                             @Param("contractId") Long contractId,
                                             @Param("evidenceType") String evidenceType,
+                                            @Param("scopeUserId") Long scopeUserId,
                                             @Param("offset") int offset, @Param("size") int size);
 
     @Select("""
             <script>
-            SELECT count(1) FROM legal_evidence WHERE tenant_id = #{tenantId}
-              <if test="contractId != null">AND contract_id = #{contractId}</if>
-              <if test="evidenceType != null and evidenceType != ''">AND evidence_type = #{evidenceType}</if>
+            SELECT count(1)
+            FROM legal_evidence e
+            LEFT JOIN legal_contract c ON c.id = e.contract_id AND c.tenant_id = e.tenant_id
+            WHERE e.tenant_id = #{tenantId} AND e.deleted = 0
+              <if test="contractId != null">AND e.contract_id = #{contractId}</if>
+              <if test="evidenceType != null and evidenceType != ''">AND e.evidence_type = #{evidenceType}</if>
+              <if test="scopeUserId != null">
+                AND (c.owner_id = #{scopeUserId} OR e.created_by = #{scopeUserId} OR EXISTS (
+                    SELECT 1 FROM legal_signatory s
+                    WHERE s.tenant_id = e.tenant_id AND s.contract_id = e.contract_id
+                      AND s.party_type = 'INTERNAL' AND s.party_id = #{scopeUserId}))
+              </if>
             </script>
             """)
     long countEvidences(@Param("tenantId") long tenantId, @Param("contractId") Long contractId,
-                        @Param("evidenceType") String evidenceType);
+                        @Param("evidenceType") String evidenceType, @Param("scopeUserId") Long scopeUserId);
 
     @Select("""
             SELECT id, evidence_no, contract_id, sign_record_id, evidence_type, content_hash,

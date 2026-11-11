@@ -3,6 +3,7 @@ package com.fenglin.service.service;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.fenglin.common.core.BizException;
 import com.fenglin.common.core.PageResult;
+import com.fenglin.common.security.PermissionGuard;
 import com.fenglin.service.ServiceErrorCode;
 import com.fenglin.service.mapper.CommonsMapper;
 import com.fenglin.service.mapper.ConfigMapper;
@@ -146,8 +147,10 @@ public class CsatAssetService {
         return asset(id);
     }
 
-    public Map<String, Object> assetReminder() {
-        return configMapper.assetSummary(ServiceContext.tenantId());
+    public Map<String, Object> assetReminder(String permissions) {
+        Long ownerId = PermissionGuard.has(permissions, "service:asset:manage")
+                ? null : ServiceContext.userId();
+        return configMapper.assetSummary(ServiceContext.tenantId(), ownerId);
     }
 
     public Map<String, Object> now() {

@@ -69,12 +69,12 @@ public class SearchIndexTaskService {
         auditSink.publish(new AuditEvent(UUID.randomUUID().toString(), "SEARCH_INDEX_TASK_CREATED",
                 "search", "CREATE", "LOW", tenantId, operatorId, "ADMIN", null,
                 "SEARCH_INDEX_TASK", String.valueOf(id), Instant.now()));
-        return toView(taskMapper.findById(id));
+        return toView(taskMapper.findById(tenantId, id));
     }
 
     @Transactional(readOnly = true)
     public IndexTaskView get(long taskId) {
-        Map<String, Object> row = taskMapper.findById(taskId);
+        Map<String, Object> row = taskMapper.findById(TenantContext.requireTenantId(), taskId);
         if (row == null) {
             throw new BizException(CommonErrorCode.NOT_FOUND, "索引任务不存在: " + taskId);
         }
@@ -92,7 +92,8 @@ public class SearchIndexTaskService {
                 return;
             }
             try {
-                Map<String, Object> task = transactionTemplate.execute(status -> taskMapper.findById(taskId));
+                Map<String, Object> task = transactionTemplate.execute(status ->
+                        taskMapper.findById(tenantId, taskId));
                 if (task == null) {
                     return;
                 }

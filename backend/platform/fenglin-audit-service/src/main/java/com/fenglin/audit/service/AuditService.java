@@ -74,9 +74,10 @@ public class AuditService {
     public List<AuditLogView> list(String eventType, Long operatorId, String targetType, String targetId,
                                    String requestId, String result, Instant from, Instant to,
                                    int page, int size) {
+        long tenantId = TenantContext.requireTenantId();
         int normalizedPage = Math.max(page, 1);
         int normalizedSize = Math.min(Math.max(size, 1), 200);
-        return auditLogMapper.findPage(normalize(eventType), operatorId, normalize(targetType),
+        return auditLogMapper.findPage(tenantId, normalize(eventType), operatorId, normalize(targetType),
                         normalize(targetId), normalize(requestId), normalize(result), from, to,
                         normalizedSize, (normalizedPage - 1) * normalizedSize)
                 .stream().map(this::toView).toList();
@@ -85,13 +86,14 @@ public class AuditService {
     @Transactional(readOnly = true)
     public long count(String eventType, Long operatorId, String targetType, String targetId,
                       String requestId, String result, Instant from, Instant to) {
-        return auditLogMapper.count(normalize(eventType), operatorId, normalize(targetType),
+        long tenantId = TenantContext.requireTenantId();
+        return auditLogMapper.count(tenantId, normalize(eventType), operatorId, normalize(targetType),
                 normalize(targetId), normalize(requestId), normalize(result), from, to);
     }
 
     @Transactional(readOnly = true)
     public AuditLogView get(long id) {
-        Map<String, Object> row = auditLogMapper.findById(id);
+        Map<String, Object> row = auditLogMapper.findById(TenantContext.requireTenantId(), id);
         if (row == null) {
             throw new BizException(CommonErrorCode.NOT_FOUND, "审计记录不存在: " + id);
         }

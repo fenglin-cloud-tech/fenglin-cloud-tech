@@ -98,11 +98,12 @@ public interface OkrMapper {
                    o.score AS "score"
             FROM collab_okr_objective o
             WHERE o.tenant_id = #{tenantId} AND o.deleted = 0
+              AND (o.visibility <> 'PRIVATE' OR o.owner_id = #{userId})
               AND (CAST(#{periodId,jdbcType=VARCHAR} AS uuid) IS NULL OR o.period_id = CAST(#{periodId} AS uuid))
               AND (CAST(#{ownerId,jdbcType=BIGINT} AS bigint) IS NULL OR o.owner_id = #{ownerId})
             ORDER BY o.created_at
             """)
-    List<Map<String, Object>> listObjectives(@Param("tenantId") long tenantId,
+    List<Map<String, Object>> listObjectives(@Param("tenantId") long tenantId, @Param("userId") long userId,
                                              @Param("periodId") String periodId, @Param("ownerId") Long ownerId);
 
     @Insert("""

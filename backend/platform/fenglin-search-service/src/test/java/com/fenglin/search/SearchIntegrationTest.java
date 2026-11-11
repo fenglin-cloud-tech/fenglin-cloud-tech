@@ -174,6 +174,10 @@ class SearchIntegrationTest {
         assertThat(task.get("status").asText()).isEqualTo("SUCCEEDED");
         assertThat(task.get("doc_count").asLong()).isZero();
 
+        ResponseEntity<String> otherTenant = get("/api/hub/v1/admin/search/index-tasks/" + taskId,
+                TENANT_B, MANAGE_PERMISSION);
+        assertThat(otherTenant.getStatusCode().value()).isEqualTo(404);
+
         assertThat(AUDIT_EVENTS)
                 .anyMatch(event -> "SEARCH_INDEX_TASK_CREATED".equals(event.eventType())
                         && event.tenantId() == TENANT_A);

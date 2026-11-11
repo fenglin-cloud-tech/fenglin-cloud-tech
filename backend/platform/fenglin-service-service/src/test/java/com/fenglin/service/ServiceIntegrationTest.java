@@ -227,6 +227,18 @@ class ServiceIntegrationTest {
         assertThat(returned.path("data").path("status").asText()).isEqualTo("IDLE");
         assertThat(ok(get("/api/service/v1/assets/reminders", TENANT, USER, ALL)).path("data")).isNotNull();
 
+        JsonNode scopedAsset = ok(post("/api/service/v1/assets", TENANT, USER, ALL, null,
+                Map.of("name", "ThinkPad X1", "asset_type", "LAPTOP", "status", "IDLE")));
+        long scopedAssetId = scopedAsset.path("data").path("id").asLong();
+        ok(post("/api/service/v1/assets/" + scopedAssetId + "/borrow", TENANT, USER, ALL, null,
+                Map.of("owner_id", USER, "days", 7)));
+        assertThat(ok(get("/api/service/v1/assets/reminders", TENANT, USER, "service:asset:reminder:view"))
+                .path("data").path("total").asInt()).isEqualTo(1);
+        assertThat(ok(get("/api/service/v1/assets/reminders", TENANT, AGENT, "service:asset:reminder:view"))
+                .path("data").path("total").asInt()).isZero();
+        assertThat(ok(get("/api/service/v1/assets/reminders", TENANT, AGENT, ALL))
+                .path("data").path("total").asInt()).isEqualTo(2);
+
         JsonNode problem = ok(post("/api/service/v1/problems", TENANT, USER, ALL, null, Map.of(
                 "title", "VPN 网关不稳定", "description", "多起连接失败", "ticket_ids", List.of(ticketId))));
         long problemId = problem.path("data").path("id").asLong();

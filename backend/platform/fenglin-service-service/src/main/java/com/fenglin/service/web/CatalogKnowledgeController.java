@@ -257,6 +257,6 @@ public class CatalogKnowledgeController {
     public ApiResponse<Map<String, Object>> assetReminders(
             @RequestHeader(value = "X-Permissions", required = false) String permissions) {
         PermissionGuard.require(permissions, ASSET_REMINDER_VIEW);
-        return ApiResponse.success(csatAssetService.assetReminder());
+        return ApiResponse.success(csatAssetService.assetReminder(permissions));
     }
 }

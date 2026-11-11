@@ -71,6 +71,9 @@ public class OkrService {
         }
         String periodId = UUID.randomUUID().toString();
         String status = request.status() == null ? "OPEN" : request.status();
+        if (!"OPEN".equals(status) && !"CLOSED".equals(status)) {
+            throw new BizException(CollabErrorCode.PARAM_INVALID, "周期状态必须为 OPEN/CLOSED");
+        }
         okrMapper.insertPeriod(periodId, tenantId, request.name(), request.startDate(), request.endDate(),
                 request.scorePolicy() == null ? "AVG_KR" : request.scorePolicy(), status, userId);
         audit.publish("COLLAB_OKR_PERIOD_CREATED", "CREATE", "collab_okr_period", periodId, "LOW");
@@ -165,7 +168,8 @@ public class OkrService {
     @Transactional(readOnly = true)
     public List<ObjectiveView> listObjectives(String periodId, Long ownerId) {
         long tenantId = CollabContext.tenantId();
-        return okrMapper.listObjectives(tenantId, periodId, ownerId).stream()
+        long userId = CollabContext.userId();
+        return okrMapper.listObjectives(tenantId, userId, periodId, ownerId).stream()
                 .map(row -> objectiveView(tenantId, row)).toList();
     }
 
@@ -287,7 +291,8 @@ public class OkrService {
     @Transactional(readOnly = true)
     public AlignmentGraph alignmentGraph(String periodId) {
         long tenantId = CollabContext.tenantId();
-        List<Map<String, Object>> objectives = okrMapper.listObjectives(tenantId, periodId, null);
+        long userId = CollabContext.userId();
+        List<Map<String, Object>> objectives = okrMapper.listObjectives(tenantId, userId, periodId, null);
         List<GraphNode> nodes = objectives.stream()
                 .map(row -> new GraphNode(Rows.str(row, "objectiveId"), Rows.str(row, "title"),
                         Rows.str(row, "objType"), Rows.lng(row, "ownerId")))

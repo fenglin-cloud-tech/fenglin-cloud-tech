@@ -204,6 +204,10 @@ class LegalIntegrationTest {
                 .path("data").path("status").asText()).isEqualTo("SIGNED");
         assertThat(ok(get("/api/legal/v1/evidences?contract_id=" + contractId, TENANT, USER, ALL))
                 .path("data").path("total").asInt()).isGreaterThanOrEqualTo(2);
+        assertThat(ok(get("/api/legal/v1/evidences?contract_id=" + contractId, TENANT, USER,
+                "legal:evidence:view")).path("data").path("total").asInt()).isGreaterThanOrEqualTo(2);
+        assertThat(ok(get("/api/legal/v1/evidences?contract_id=" + contractId, TENANT, APPROVER,
+                "legal:evidence:view")).path("data").path("total").asInt()).isZero();
         assertThat(ok(get("/api/legal/v1/evidences/chain-verify?contract_id=" + contractId, TENANT, USER, ALL))
                 .path("data").path("valid").asBoolean()).isTrue();
 

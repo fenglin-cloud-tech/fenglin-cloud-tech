@@ -136,6 +136,23 @@ class AuditFlowIntegrationTest {
     }
 
     @Test
+    void auditDetailIsTenantIsolated() {
+        HttpResult recorded = post("/internal/v1/audit/logs",
+                event("IAM_USER_CREATED", "iam", "3001"), Map.of("X-Tenant-Id", "1001"));
+        long logId = recorded.body().get("data").get("log_id").asLong();
+
+        HttpResult sameTenant = get("/api/hub/v1/admin/audits/" + logId,
+                Map.of("X-Tenant-Id", "1001", "X-Permissions", READ_PERMISSION));
+        assertThat(sameTenant.status()).isEqualTo(200);
+        assertThat(sameTenant.body().get("data").get("log_id").asLong()).isEqualTo(logId);
+
+        HttpResult otherTenant = get("/api/hub/v1/admin/audits/" + logId,
+                Map.of("X-Tenant-Id", "1002", "X-Permissions", READ_PERMISSION));
+        assertThat(otherTenant.status()).isEqualTo(404);
+        assertThat(otherTenant.body().get("code").asText()).isEqualTo("FL-COMMON-0404");
+    }
+
+    @Test
     void platformLevelEventUsesTenantZero() throws Exception {
         HttpResult recorded = post("/internal/v1/audit/logs", event("TENANT_STATUS_CHANGED", "tenant", "1001"),
                 Map.of());

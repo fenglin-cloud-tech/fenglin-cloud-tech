@@ -99,12 +99,12 @@ public class AuditExportService {
         auditService.record(new RecordAuditRequest(null, "AUDIT_EXPORT_CREATED", "audit", "EXPORT",
                 "MEDIUM", operatorId, null, "AUDIT_EXPORT", taskNo, null, null, "ADMIN", null,
                 "SUCCESS", MAPPER.valueToTree(detail), Instant.now()));
-        return toView(taskMapper.findById(id));
+        return toView(taskMapper.findById(tenantId, id));
     }
 
     @Transactional(readOnly = true)
     public AuditExportTaskView get(long taskId) {
-        Map<String, Object> row = taskMapper.findById(taskId);
+        Map<String, Object> row = taskMapper.findById(TenantContext.requireTenantId(), taskId);
         if (row == null) {
             throw new BizException(CommonErrorCode.NOT_FOUND, "导出任务不存在: " + taskId);
         }
@@ -113,7 +113,7 @@ public class AuditExportService {
 
     @Transactional(readOnly = true)
     public ExportFile download(long taskId) {
-        Map<String, Object> row = taskMapper.findById(taskId);
+        Map<String, Object> row = taskMapper.findById(TenantContext.requireTenantId(), taskId);
         if (row == null) {
             throw new BizException(CommonErrorCode.NOT_FOUND, "导出任务不存在: " + taskId);
         }
@@ -143,12 +143,13 @@ public class AuditExportService {
                 return;
             }
             try {
-                Map<String, Object> task = transactionTemplate.execute(status -> taskMapper.findById(taskId));
+                Map<String, Object> task = transactionTemplate.execute(status ->
+                        taskMapper.findById(tenantId, taskId));
                 if (task == null) {
                     return;
                 }
                 List<Map<String, Object>> rows = transactionTemplate.execute(status ->
-                        auditLogMapper.findForExport((String) task.get("event_type"),
+                        auditLogMapper.findForExport(tenantId, (String) task.get("event_type"),
                                 toInstant(task.get("filter_from")), toInstant(task.get("filter_to"))));
                 String fileName = writeCsv(tenantId, (String) task.get("task_no"), rows == null ? List.of() : rows);
                 long rowCount = rows == null ? 0 : rows.size();

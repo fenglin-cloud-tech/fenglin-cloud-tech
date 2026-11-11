@@ -484,10 +484,13 @@ public class SealSignService {
                                                         Long contractId, String evidenceType) {
         PermissionGuard.require(permissions, "legal:evidence:view");
         long tenantId = LegalContext.tenantId();
+        boolean fullScope = PermissionGuard.has(permissions, "legal:contract:view");
+        Long scopeUserId = fullScope ? null : LegalContext.userId();
         int limit = LegalContext.size(size);
         List<Map<String, Object>> rows = mapper.listEvidences(tenantId, contractId,
-                LegalContext.text(evidenceType), LegalContext.offset(page, size), limit);
-        return PageResult.of(rows, mapper.countEvidences(tenantId, contractId, LegalContext.text(evidenceType)),
+                LegalContext.text(evidenceType), scopeUserId, LegalContext.offset(page, size), limit);
+        return PageResult.of(rows, mapper.countEvidences(tenantId, contractId,
+                        LegalContext.text(evidenceType), scopeUserId),
                 LegalContext.page(page), limit);
     }
 

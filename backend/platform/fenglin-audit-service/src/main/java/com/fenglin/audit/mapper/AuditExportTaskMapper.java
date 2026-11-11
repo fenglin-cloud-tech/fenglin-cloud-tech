@@ -33,9 +33,9 @@ public interface AuditExportTaskMapper {
             SELECT id, tenant_id, task_no, format, event_type, filter_from, filter_to, status,
                    file_path, row_count, error_msg, created_at
               FROM hub_audit_export_task
-             WHERE id = #{id} AND deleted = 0
+             WHERE tenant_id = #{tenantId} AND id = #{id} AND deleted = 0
             """)
-    Map<String, Object> findById(@Param("id") long id);
+    Map<String, Object> findById(@Param("tenantId") long tenantId, @Param("id") long id);
 
     @Update("""
             UPDATE hub_audit_export_task

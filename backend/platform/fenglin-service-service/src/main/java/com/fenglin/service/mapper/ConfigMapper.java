@@ -311,11 +311,14 @@ public interface ConfigMapper {
                     @Param("userId") long userId);
 
     @Select("""
+            <script>
             SELECT count(1) AS total, count(1) FILTER (WHERE status = 'BORROWED') AS borrowed,
-                   count(1) FILTER (WHERE borrow_due_at IS NOT NULL AND borrow_due_at < now()) AS overdue
+                   count(1) FILTER (WHERE borrow_due_at IS NOT NULL AND borrow_due_at &lt; now()) AS overdue
             FROM svc_it_asset WHERE tenant_id = #{tenantId} AND deleted = 0
+              <if test="ownerId != null">AND owner_id = #{ownerId}</if>
+            </script>
             """)
-    Map<String, Object> assetSummary(@Param("tenantId") long tenantId);
+    Map<String, Object> assetSummary(@Param("tenantId") long tenantId, @Param("ownerId") Long ownerId);
 
     // ---------- 问题 / 变更 ----------
     @Insert("""
