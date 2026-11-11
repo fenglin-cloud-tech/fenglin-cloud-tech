@@ -216,7 +216,8 @@ public class PartitionMaintenanceSupport {
             }
         }
         for (Policy policy : parentPolicies(connection, spec)) {
-            if (policyExists(connection, qualifiedChild, policy.name())) {
+            // 按语义判重：既有子分区可能存在等价但命名不同的策略（如 *_default_* 前缀），不能重复建
+            if (equivalentPolicyExists(connection, qualifiedChild, policy)) {
                 continue;
             }
             String sql = "CREATE POLICY " + quote(policy.name()) + " ON " + qualifiedChild
@@ -234,6 +235,7 @@ public class PartitionMaintenanceSupport {
     private List<Policy> parentPolicies(Connection connection, PartitionSpec spec) throws SQLException {
         String sql = "SELECT p.polname, p.polcmd, p.polpermissive, "
                 + "pg_get_expr(p.polqual, p.polrelid), pg_get_expr(p.polwithcheck, p.polrelid), "
+                + "p.polroles::text, "
                 + "ARRAY(SELECT CASE WHEN r = 0 THEN 'PUBLIC' ELSE quote_ident(pg_get_userbyid(r)) END "
                 + "FROM unnest(p.polroles) AS r) "
                 + "FROM pg_policy p WHERE p.polrelid = ?::regclass ORDER BY p.polname";
@@ -242,20 +244,28 @@ public class PartitionMaintenanceSupport {
             statement.setString(1, spec.qualifiedParent());
             try (ResultSet rs = statement.executeQuery()) {
                 while (rs.next()) {
-                    policies.add(new Policy(rs.getString(1), command(rs.getString(2)), rs.getBoolean(3),
-                            rs.getString(4), rs.getString(5),
-                            (String[]) rs.getArray(6).getArray()));
+                    policies.add(new Policy(rs.getString(1), rs.getString(2), command(rs.getString(2)),
+                            rs.getBoolean(3), rs.getString(4), rs.getString(5), rs.getString(6),
+                            (String[]) rs.getArray(7).getArray()));
                 }
             }
         }
         return policies;
     }
 
-    private boolean policyExists(Connection connection, String qualifiedChild, String name) throws SQLException {
-        try (PreparedStatement statement = connection.prepareStatement(
-                "SELECT 1 FROM pg_policy WHERE polrelid = ?::regclass AND polname = ?")) {
+    private boolean equivalentPolicyExists(Connection connection, String qualifiedChild, Policy policy)
+            throws SQLException {
+        String sql = "SELECT 1 FROM pg_policy ep WHERE ep.polrelid = ?::regclass"
+                + " AND ep.polcmd = ? AND ep.polpermissive = ? AND ep.polroles::text = ?"
+                + " AND coalesce(pg_get_expr(ep.polqual, ep.polrelid), '') = coalesce(?, '')"
+                + " AND coalesce(pg_get_expr(ep.polwithcheck, ep.polrelid), '') = coalesce(?, '')";
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, qualifiedChild);
-            statement.setString(2, name);
+            statement.setString(2, policy.code());
+            statement.setBoolean(3, policy.permissive());
+            statement.setString(4, policy.rolesText());
+            statement.setString(5, policy.using());
+            statement.setString(6, policy.check());
             try (ResultSet rs = statement.executeQuery()) {
                 return rs.next();
             }
@@ -284,7 +294,7 @@ public class PartitionMaintenanceSupport {
                 password == null ? "" : password);
     }
 
-    private record Policy(String name, String command, boolean permissive, String using, String check,
-                          String[] roles) {
+    private record Policy(String name, String code, String command, boolean permissive, String using, String check,
+                          String rolesText, String[] roles) {
     }
 }

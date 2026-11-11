@@ -17,6 +17,12 @@ import java.time.OffsetDateTime;
 import java.time.YearMonth;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -92,6 +98,106 @@ class AuditPartitionMaintenanceIntegrationTest {
         insertAsAppRole(9_000_002L, appOccurredAt);
 
         assertThat(tableOf(9_000_002L)).isEqualTo("fenglin_hub." + targetTable);
+    }
+
+    @Test
+    void createdPartitionHasRlsCopiedPoliciesAndCorrectBounds() throws Exception {
+        YearMonth target = YearMonth.now(ZoneOffset.UTC).plusMonths(5);
+
+        assertThat(maintainer.ensureMonth(target)).isTrue();
+
+        String child = "fenglin_hub.hub_audit_log_" + target.format(SUFFIX);
+        assertThat(rlsEnabled(target)).as("新子分区必须开启 RLS").isTrue();
+        assertThat(policyCount(child))
+                .as("策略数与父表一致")
+                .isEqualTo(policyCount("fenglin_hub.hub_audit_log"));
+        assertThat(partitionBoundInstant(child, "FROM"))
+                .as("下界")
+                .isEqualTo(target.atDay(1).atStartOfDay().toInstant(ZoneOffset.UTC));
+        assertThat(partitionBoundInstant(child, "TO"))
+                .as("上界")
+                .isEqualTo(target.plusMonths(1).atDay(1).atStartOfDay().toInstant(ZoneOffset.UTC));
+    }
+
+    @Test
+    void concurrentEnsureMonthCreatesOnlyOnePartition() throws Exception {
+        YearMonth target = YearMonth.now(ZoneOffset.UTC).plusMonths(3);
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        CountDownLatch start = new CountDownLatch(1);
+        try {
+            Future<Boolean> first = pool.submit(() -> {
+                start.await();
+                return maintainer.ensureMonth(target);
+            });
+            Future<Boolean> second = pool.submit(() -> {
+                start.await();
+                return maintainer.ensureMonth(target);
+            });
+            start.countDown();
+            List<Boolean> results = List.of(first.get(30, TimeUnit.SECONDS), second.get(30, TimeUnit.SECONDS));
+
+            assertThat(results).as("同一月份只允许一个执行者建成").containsExactlyInAnyOrder(true, false);
+        } finally {
+            pool.shutdownNow();
+        }
+        assertThat(partitionExists(target)).isTrue();
+        assertThat(rlsEnabled(target)).isTrue();
+        assertThat(policyCount("fenglin_hub.hub_audit_log_" + target.format(SUFFIX)))
+                .isEqualTo(policyCount("fenglin_hub.hub_audit_log"));
+    }
+
+    @Test
+    void skipsWhenAnotherSessionHoldsAdvisoryLock() throws Exception {
+        YearMonth target = YearMonth.now(ZoneOffset.UTC).plusMonths(4);
+        try (Connection holder = ownerConnection()) {
+            holder.setAutoCommit(false);
+            try (Statement statement = holder.createStatement()) {
+                statement.execute("SELECT pg_advisory_xact_lock(2100, 1)");
+            }
+
+            assertThat(maintainer.ensureMonth(target)).as("未取得 advisory lock 时跳过").isFalse();
+            assertThat(partitionExists(target)).as("跳过时不得产生任何分区").isFalse();
+
+            holder.rollback();
+        }
+        assertThat(maintainer.ensureMonth(target)).as("锁释放后可以正常建出").isTrue();
+        assertThat(rlsEnabled(target)).isTrue();
+    }
+
+    private boolean rlsEnabled(YearMonth month) throws Exception {
+        return queryBoolean("SELECT relrowsecurity FROM pg_class WHERE oid = 'fenglin_hub.hub_audit_log_"
+                + month.format(SUFFIX) + "'::regclass");
+    }
+
+    private long policyCount(String qualifiedTable) throws Exception {
+        return queryLong("SELECT count(*) FROM pg_policy WHERE polrelid = '" + qualifiedTable + "'::regclass");
+    }
+
+    private java.time.Instant partitionBoundInstant(String qualifiedTable, String direction) throws Exception {
+        String sql = "SELECT (regexp_match(pg_get_expr(relpartbound, oid), '"
+                + direction + " \\(''([^'']+)''\\)'))[1]::timestamptz"
+                + " FROM pg_class WHERE oid = '" + qualifiedTable + "'::regclass";
+        try (Connection connection = ownerConnection(); Statement statement = connection.createStatement();
+             ResultSet rs = statement.executeQuery(sql)) {
+            rs.next();
+            return rs.getObject(1, OffsetDateTime.class).toInstant();
+        }
+    }
+
+    private boolean queryBoolean(String sql) throws Exception {
+        try (Connection connection = ownerConnection(); Statement statement = connection.createStatement();
+             ResultSet rs = statement.executeQuery(sql)) {
+            rs.next();
+            return rs.getBoolean(1);
+        }
+    }
+
+    private long queryLong(String sql) throws Exception {
+        try (Connection connection = ownerConnection(); Statement statement = connection.createStatement();
+             ResultSet rs = statement.executeQuery(sql)) {
+            rs.next();
+            return rs.getLong(1);
+        }
     }
 
     private void insertAsAppRole(long id, OffsetDateTime occurredAt) throws Exception {
