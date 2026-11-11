@@ -253,7 +253,12 @@ public class CatalogKnowledgeController {
             @RequestParam(value = "page", required = false) Integer page,
             @RequestParam(value = "size", required = false) Integer size) {
         PermissionGuard.require(permissions, ASSET_VIEW);
-        return ApiResponse.success(csatAssetService.listAssets(status, ownerId, assetType, page, size));
+        // 仅持查看权限时强制收敛为本人资产，忽略客户端传入的 ownerId
+        Long scopedOwnerId = ownerId;
+        if (!PermissionGuard.has(permissions, ASSET_MANAGE)) {
+            scopedOwnerId = ServiceContext.userId();
+        }
+        return ApiResponse.success(csatAssetService.listAssets(status, scopedOwnerId, assetType, page, size));
     }
 
     @GetMapping("/assets/{id}")
@@ -261,7 +266,7 @@ public class CatalogKnowledgeController {
             @RequestHeader(value = "X-Permissions", required = false) String permissions,
             @PathVariable("id") long id) {
         PermissionGuard.require(permissions, ASSET_VIEW);
-        return ApiResponse.success(csatAssetService.asset(id));
+        return ApiResponse.success(csatAssetService.asset(id, PermissionGuard.has(permissions, ASSET_MANAGE)));
     }
 
     @PostMapping("/assets")

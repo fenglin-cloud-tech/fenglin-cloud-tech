@@ -91,6 +91,20 @@ public class CsatAssetService {
         return asset;
     }
 
+    /**
+     * 读资产详情：持管理权限可读全租户；仅持查看权限时只能读本人名下资产。
+     */
+    public Map<String, Object> asset(long id, boolean canViewAll) {
+        Map<String, Object> asset = asset(id);
+        if (!canViewAll) {
+            Long ownerId = Rows.lng(asset, "owner_id");
+            if (ownerId == null || ownerId.longValue() != ServiceContext.userId()) {
+                throw new BizException(ServiceErrorCode.NO_PERMISSION, "只能查看本人名下的资产");
+            }
+        }
+        return asset;
+    }
+
     public Map<String, Object> createAsset(Map<String, Object> body) {
         long tenantId = ServiceContext.tenantId();
         long id = IdWorker.getId();
