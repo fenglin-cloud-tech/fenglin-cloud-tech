@@ -4,6 +4,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { GapNotice, PageHeader } from '@fenglin/ui-admin'
 import {
   financeApi,
+  type FinanceId,
   type FinanceProject,
   type FinanceProjectDetail,
   type FinanceProfitability,
@@ -78,7 +79,7 @@ const settlementVisible = ref(false)
 const settlementError = ref('')
 const settlementForm = reactive({ settlement_amount: '', currency_code: 'CNY', remark: '' })
 
-const selectedTimesheets = ref<number[]>([])
+const selectedTimesheets = ref<FinanceId[]>([])
 
 const statusLabels: Record<string, string> = {
   DRAFT: '草稿',
@@ -196,7 +197,7 @@ async function submitMember() {
   }
   try {
     await financeApi.projects.addMember(detail.value.project.id, {
-      employee_id: Number(memberForm.employee_id),
+      employee_id: memberForm.employee_id,
       employee_name: memberForm.employee_name.trim(),
       member_role: memberForm.member_role,
       allocation_pct: memberForm.allocation_pct,
@@ -240,7 +241,7 @@ async function submitTimesheet() {
   }
   try {
     await financeApi.projects.createTimesheet(detail.value.project.id, {
-      employee_id: Number(timesheetForm.employee_id),
+      employee_id: timesheetForm.employee_id,
       employee_name: timesheetForm.employee_name.trim(),
       work_date: timesheetForm.work_date,
       hours: timesheetForm.hours,

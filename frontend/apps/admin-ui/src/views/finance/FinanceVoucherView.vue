@@ -19,7 +19,7 @@ const subjects = ref<FinanceSubject[]>([])
 const vouchers = ref<FinanceVoucher[]>([])
 const voucherTotal = ref(0)
 const templates = ref<FinanceVoucherTemplate[]>([])
-const selectedLedgerId = ref<number | ''>('')
+const selectedLedgerId = ref<string | number | ''>('')
 const query = reactive({ periodCode: '', status: '', page: 1 })
 const activeTab = ref('vouchers')
 const loading = ref(false)
@@ -114,7 +114,7 @@ async function loadLedgers() {
 async function loadSubjects() {
   if (!selectedLedgerId.value) return
   try {
-    subjects.value = await financeApi.ledgers.subjects(Number(selectedLedgerId.value))
+    subjects.value = await financeApi.ledgers.subjects(selectedLedgerId.value)
   } catch (err) {
     error.value = describeError(err)
   }
@@ -130,7 +130,7 @@ async function loadVouchers() {
   error.value = ''
   try {
     const page = await financeApi.vouchers.list({
-      ledgerId: Number(selectedLedgerId.value),
+      ledgerId: selectedLedgerId.value,
       periodCode: query.periodCode || undefined,
       status: query.status || undefined,
       page: query.page,
@@ -229,7 +229,7 @@ async function submitCreate() {
   createError.value = ''
   try {
     const created = await financeApi.vouchers.create({
-      ledger_id: Number(selectedLedgerId.value),
+      ledger_id: selectedLedgerId.value,
       voucher_date: voucherForm.voucher_date,
       summary: voucherForm.summary.trim() || undefined,
       currency_code: voucherForm.currency_code,

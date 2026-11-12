@@ -4,6 +4,7 @@ import { ElMessage } from 'element-plus'
 import { GapNotice, PageHeader } from '@fenglin/ui-admin'
 import {
   financeApi,
+  type FinanceId,
   type FinanceAgingReport,
   type FinancePayable,
   type FinancePaymentDoc,
@@ -44,7 +45,7 @@ const paymentForm = reactive({
 
 const writeOffVisible = ref(false)
 const writeOffError = ref('')
-const writeOffContext = ref<{ bizType: 'AR' | 'AP'; id: number; no: string; outstanding: string } | null>(null)
+const writeOffContext = ref<{ bizType: 'AR' | 'AP'; id: FinanceId; no: string; outstanding: string } | null>(null)
 const writeOffForm = reactive({ amount: '', write_off_date: new Date().toISOString().slice(0, 10) })
 
 const statusLabels: Record<string, string> = {

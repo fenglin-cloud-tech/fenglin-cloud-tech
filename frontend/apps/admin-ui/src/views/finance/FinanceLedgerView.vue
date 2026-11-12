@@ -20,7 +20,7 @@ const currencies = ref<FinanceCurrency[]>([])
 const exchangeRates = ref<FinanceExchangeRate[]>([])
 const trialBalance = ref<FinanceTrialBalance | null>(null)
 
-const selectedLedgerId = ref<number | ''>('')
+const selectedLedgerId = ref<string | number | ''>('')
 const selectedPeriod = ref('')
 const activeTab = ref('subjects')
 const loading = ref(false)
@@ -113,7 +113,7 @@ async function loadLedgerDetail() {
     periods.value = []
     return
   }
-  const ledgerId = Number(selectedLedgerId.value)
+  const ledgerId = selectedLedgerId.value
   try {
     const [subjectList, periodList] = await Promise.all([
       financeApi.ledgers.subjects(ledgerId),
@@ -151,7 +151,7 @@ async function loadTrialBalance() {
   }
   try {
     trialBalance.value = await financeApi.ledgers.trialBalance(
-      Number(selectedLedgerId.value),
+      selectedLedgerId.value,
       selectedPeriod.value,
     )
   } catch (err) {
@@ -194,7 +194,7 @@ async function submitSubject() {
   subjectSaving.value = true
   subjectError.value = ''
   try {
-    await financeApi.ledgers.createSubject(Number(selectedLedgerId.value), {
+    await financeApi.ledgers.createSubject(selectedLedgerId.value, {
       subject_code: subjectForm.subject_code.trim(),
       subject_name: subjectForm.subject_name.trim(),
       subject_category: subjectForm.subject_category,
@@ -214,7 +214,7 @@ async function submitSubject() {
 }
 
 async function periodAction(period: FinancePeriod, action: 'close' | 'reopen' | 'seal') {
-  const ledgerId = Number(selectedLedgerId.value)
+  const ledgerId = selectedLedgerId.value
   try {
     if (action === 'close') {
       const result = await financeApi.ledgers.closePeriod(ledgerId, period.period_code)

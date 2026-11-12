@@ -40,7 +40,7 @@ const cardVisible = ref(false)
 const cardError = ref('')
 const cardForm = reactive({
   asset_name: '',
-  category_id: '' as number | '',
+  category_id: '' as string | number | '',
   specification: '',
   location: '',
   enable_date: '',
@@ -52,7 +52,7 @@ const cardForm = reactive({
   ip_address: '',
 })
 
-const depreciationForm = reactive({ ledger_id: '' as number | '', period_code: '' })
+const depreciationForm = reactive({ ledger_id: '' as string | number | '', period_code: '' })
 
 const stocktakingVisible = ref(false)
 const stocktakingError = ref('')
@@ -170,7 +170,7 @@ async function submitCard() {
   try {
     await financeApi.assets.createCard({
       asset_name: cardForm.asset_name.trim(),
-      category_id: Number(cardForm.category_id),
+      category_id: cardForm.category_id,
       specification: cardForm.specification.trim() || undefined,
       location: cardForm.location.trim() || undefined,
       enable_date: cardForm.enable_date || undefined,
@@ -216,7 +216,7 @@ async function runDepreciation() {
   }
   try {
     const result = await financeApi.assets.runDepreciation({
-      ledger_id: Number(depreciationForm.ledger_id),
+      ledger_id: depreciationForm.ledger_id,
       period_code: depreciationForm.period_code.trim(),
     })
     ElMessage.success(`批次 ${result.batch_no}：${result.asset_count} 项资产，计提 ${money(result.total_amount)}`)
@@ -263,7 +263,7 @@ async function submitCount() {
   }
   try {
     stocktakingDetail.value = await financeApi.assets.countStocktaking(stocktakingDetail.value.stocktaking.id, {
-      asset_id: Number(countForm.asset_id),
+      asset_id: countForm.asset_id,
       actual_location: countForm.actual_location.trim() || undefined,
       result: countForm.result,
       remark: countForm.remark.trim() || undefined,
@@ -309,7 +309,7 @@ async function submitBorrow() {
   }
   try {
     await financeApi.assets.borrowIt(borrowTarget.value.asset_id, {
-      borrower_id: Number(borrowForm.borrower_id),
+      borrower_id: borrowForm.borrower_id,
       due_date: borrowForm.due_date || undefined,
     })
     ElMessage.success('借用已登记')

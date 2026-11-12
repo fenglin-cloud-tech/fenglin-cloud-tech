@@ -179,7 +179,7 @@ async function submitBudget() {
       budget_name: budgetForm.budget_name.trim(),
       period_year: Number(budgetForm.period_year),
       dimension: budgetForm.dimension,
-      dimension_id: budgetForm.dimension_id ? Number(budgetForm.dimension_id) : null,
+      dimension_id: budgetForm.dimension_id ? budgetForm.dimension_id : null,
       subject_code: budgetForm.subject_code.trim() || undefined,
       budget_amount: budgetForm.budget_amount,
       control_mode: budgetForm.control_mode,
@@ -218,7 +218,7 @@ async function runControlCheck() {
     checkResult.value = await financeApi.expenses.checkBudget({
       period_year: Number(checkForm.period_year),
       dimension: checkForm.dimension,
-      dimension_id: checkForm.dimension_id ? Number(checkForm.dimension_id) : null,
+      dimension_id: checkForm.dimension_id ? checkForm.dimension_id : null,
       subject_code: checkForm.subject_code.trim() || undefined,
       amount: checkForm.amount,
     })

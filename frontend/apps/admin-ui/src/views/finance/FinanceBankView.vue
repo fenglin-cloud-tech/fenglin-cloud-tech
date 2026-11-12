@@ -13,7 +13,7 @@ import { describeError } from '@/utils/error'
 const accounts = ref<FinanceBankAccount[]>([])
 const transactions = ref<FinanceBankTransaction[]>([])
 const reconciliations = ref<FinanceReconciliation[]>([])
-const selectedAccountId = ref<number | ''>('')
+const selectedAccountId = ref<string | number | ''>('')
 const activeTab = ref('accounts')
 const loading = ref(false)
 const error = ref('')
@@ -37,7 +37,7 @@ const importRows = ref<Array<{ txn_no: string; txn_date: string; direction: 'IN'
 
 const reconVisible = ref(false)
 const reconError = ref('')
-const reconForm = reactive({ account_id: '' as number | '', period_code: '' })
+const reconForm = reactive({ account_id: '' as string | number | '', period_code: '' })
 
 const gapItems = [
   '银行账户没有修改/停用接口，只能新增与查询；账户余额由后端维护。',
@@ -72,7 +72,7 @@ async function loadTransactions() {
     return
   }
   try {
-    transactions.value = await financeApi.bank.transactions(Number(selectedAccountId.value), { size: 100 })
+    transactions.value = await financeApi.bank.transactions(selectedAccountId.value, { size: 100 })
   } catch (err) {
     error.value = describeError(err)
   }
@@ -136,7 +136,7 @@ async function submitImport() {
   }
   try {
     const result = await financeApi.bank.importTransactions({
-      account_id: Number(selectedAccountId.value),
+      account_id: selectedAccountId.value,
       transactions: importRows.value.map((row) => ({
         txn_no: row.txn_no.trim(),
         txn_date: row.txn_date,
@@ -162,7 +162,7 @@ async function submitReconcile() {
   }
   try {
     const result = await financeApi.bank.reconcile({
-      account_id: Number(reconForm.account_id),
+      account_id: reconForm.account_id,
       period_code: reconForm.period_code.trim(),
     })
     ElMessage.success(`对账单 ${result.recon_no} 已生成，未匹配 ${result.unmatched_count} 条`)

@@ -199,7 +199,7 @@ async function submitActivity() {
       activity_date: activityForm.activity_date,
       amount: activityForm.amount,
       unit: activityForm.unit,
-      factor_id: activityForm.factor_id ? Number(activityForm.factor_id) : null,
+      factor_id: activityForm.factor_id ? activityForm.factor_id : null,
       data_source: activityForm.data_source,
     })
     ElMessage.success('碳活动已提交')

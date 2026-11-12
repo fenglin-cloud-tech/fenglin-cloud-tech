@@ -1,7 +1,7 @@
 import type { PageResult } from '@fenglin/shared'
 import { download, get, post, put, request } from './http'
 
-export type FinanceId = number
+export type FinanceId = string | number
 
 /** 云财接口金额均为字符串（后端 BigDecimal），日期为 ISO 字符串。 */
 export interface FinanceLedger {

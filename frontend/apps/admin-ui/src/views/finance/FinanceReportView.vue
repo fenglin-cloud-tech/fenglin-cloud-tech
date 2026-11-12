@@ -14,7 +14,7 @@ import { describeError } from '@/utils/error'
 
 const ledgers = ref<FinanceLedger[]>([])
 const periods = ref<FinancePeriod[]>([])
-const ledgerId = ref<number | ''>('')
+const ledgerId = ref<string | number | ''>('')
 const periodCode = ref('')
 const subjectCode = ref('')
 const activeTab = ref('balance')
@@ -50,7 +50,7 @@ async function loadLedgers() {
 async function loadPeriods() {
   if (!ledgerId.value) return
   try {
-    periods.value = await financeApi.ledgers.periods(Number(ledgerId.value))
+    periods.value = await financeApi.ledgers.periods(ledgerId.value)
     if (!periodCode.value && periods.value.length) {
       periodCode.value = periods.value[periods.value.length - 1].period_code
     }
@@ -62,7 +62,7 @@ async function loadPeriods() {
 
 async function loadActive() {
   if (!ledgerId.value || !periodCode.value) return
-  const id = Number(ledgerId.value)
+  const id = ledgerId.value
   loading.value = true
   error.value = ''
   try {
@@ -89,7 +89,7 @@ async function loadGeneralLedger() {
   error.value = ''
   try {
     generalLedger.value = await financeApi.ledgers.generalLedger(
-      Number(ledgerId.value),
+      ledgerId.value,
       subjectCode.value.trim(),
       periodCode.value,
     )
