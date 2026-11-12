@@ -87,7 +87,7 @@ async function openDetail(row: ServiceRecord) {
   comments.value = []
   flowLogs.value = []
   sla.value = null
-  const id = Number(row.id)
+  const id = row.id
   try {
     detail.value = await serviceApi.tickets.get(id)
   } catch (err) {
@@ -139,7 +139,7 @@ async function assign() {
     return
   }
   try {
-    detail.value = await serviceApi.tickets.assign(Number(detail.value.id), { assignee_id: Number(assignId.value) })
+    detail.value = await serviceApi.tickets.assign(detail.value.id, { assignee_id: assignId.value })
     ElMessage.success('已分派')
     await load()
   } catch (err) {
@@ -153,7 +153,7 @@ async function transition() {
     return
   }
   try {
-    detail.value = await serviceApi.tickets.transition(Number(detail.value.id), transitionStatus.value)
+    detail.value = await serviceApi.tickets.transition(detail.value.id, transitionStatus.value)
     ElMessage.success('状态已流转')
     await load()
   } catch (err) {
@@ -164,13 +164,13 @@ async function transition() {
 async function addComment() {
   if (!detail.value || !commentText.value.trim()) return
   try {
-    await serviceApi.tickets.addComment(Number(detail.value.id), {
+    await serviceApi.tickets.addComment(detail.value.id, {
       content: commentText.value.trim(),
       internal: internalComment.value,
       comment_type: 'COMMENT',
     })
     commentText.value = ''
-    comments.value = await serviceApi.tickets.comments(Number(detail.value.id))
+    comments.value = await serviceApi.tickets.comments(detail.value.id)
     ElMessage.success('评论已添加')
   } catch (err) {
     ElMessage.error(describeError(err))

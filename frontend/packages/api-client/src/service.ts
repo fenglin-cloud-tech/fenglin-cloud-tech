@@ -4,6 +4,8 @@ import type { PageResult } from '@fenglin/shared'
 /** 云服后端返回动态 Map（SNAKE_CASE），此处统一用宽松记录类型承接。 */
 export type ServiceRecord = Record<string, any>
 export type ServicePage = PageResult<ServiceRecord>
+/** 雪花 ID 以字符串下发，仅做透传，禁止转 number（超过 2^53 会丢精度）。 */
+export type ServiceId = string | number
 
 const BASE = '/api/service/v1'
 
@@ -13,16 +15,16 @@ export const serviceApi = {
       status?: string
       ticketType?: string
       priority?: string
-      assigneeId?: number
-      requesterId?: number
-      catalogItemId?: number
+      assigneeId?: ServiceId
+      requesterId?: ServiceId
+      catalogItemId?: ServiceId
       keyword?: string
       page?: number
       size?: number
     } = {}) {
       return get<ServicePage>(`${BASE}/tickets`, params)
     },
-    get(id: number) {
+    get(id: ServiceId) {
       return get<ServiceRecord>(`${BASE}/tickets/${id}`)
     },
     create(body: {
@@ -31,14 +33,14 @@ export const serviceApi = {
       ticket_type?: string
       priority?: string
       source?: string
-      catalog_item_id?: number | null
+      catalog_item_id?: ServiceId | null
       requester_id?: string | number | null
       impact?: string
       urgency?: string
       contact?: string
-      assignee_id?: number | null
-      assignee_group_id?: number | null
-      sla_policy_id?: number | null
+      assignee_id?: ServiceId | null
+      assignee_group_id?: ServiceId | null
+      sla_policy_id?: ServiceId | null
       tags?: string[]
     }) {
       return post<ServiceRecord>(`${BASE}/tickets`, body)
@@ -46,28 +48,28 @@ export const serviceApi = {
     importBatch(items: ServiceRecord[]) {
       return post<ServiceRecord>(`${BASE}/tickets/import`, { items })
     },
-    assign(id: number, body: { assignee_id: number; assignee_group_id?: number | null; reason?: string }) {
+    assign(id: ServiceId, body: { assignee_id: ServiceId; assignee_group_id?: ServiceId | null; reason?: string }) {
       return post<ServiceRecord>(`${BASE}/tickets/${id}/assign`, body)
     },
-    transition(id: number, toStatus: string, reason?: string) {
+    transition(id: ServiceId, toStatus: string, reason?: string) {
       return post<ServiceRecord>(`${BASE}/tickets/${id}/transition`, { to_status: toStatus, reason })
     },
-    suspend(id: number, reason?: string) {
+    suspend(id: ServiceId, reason?: string) {
       return post<ServiceRecord>(`${BASE}/tickets/${id}/suspend`, { reason })
     },
-    resume(id: number, reason?: string) {
+    resume(id: ServiceId, reason?: string) {
       return post<ServiceRecord>(`${BASE}/tickets/${id}/resume`, { reason })
     },
-    comments(id: number) {
+    comments(id: ServiceId) {
       return get<ServiceRecord[]>(`${BASE}/tickets/${id}/comments`)
     },
-    addComment(id: number, body: { content: string; internal?: boolean; comment_type?: string; attachment_ids?: number[] }) {
+    addComment(id: ServiceId, body: { content: string; internal?: boolean; comment_type?: string; attachment_ids?: ServiceId[] }) {
       return post<ServiceRecord>(`${BASE}/tickets/${id}/comments`, body)
     },
-    flowLogs(id: number) {
+    flowLogs(id: ServiceId) {
       return get<ServiceRecord[]>(`${BASE}/tickets/${id}/flow-logs`)
     },
-    sla(id: number) {
+    sla(id: ServiceId) {
       return get<ServiceRecord>(`${BASE}/tickets/${id}/sla`)
     },
     breaches(params: { status?: string; page?: number; size?: number } = {}) {
@@ -76,13 +78,13 @@ export const serviceApi = {
     myTickets(params: { page?: number; size?: number } = {}) {
       return get<ServicePage>(`${BASE}/my/tickets`, params)
     },
-    deskTickets(params: { assigneeId?: number; page?: number; size?: number } = {}) {
+    deskTickets(params: { assigneeId?: ServiceId; page?: number; size?: number } = {}) {
       return get<ServicePage>(`${BASE}/desk/tickets`, params)
     },
-    selfClose(id: number, reason?: string) {
+    selfClose(id: ServiceId, reason?: string) {
       return post<ServiceRecord>(`${BASE}/tickets/${id}/self-close`, { reason })
     },
-    selfReopen(id: number, reason?: string) {
+    selfReopen(id: ServiceId, reason?: string) {
       return post<ServiceRecord>(`${BASE}/tickets/${id}/self-reopen`, { reason })
     },
   },
@@ -90,13 +92,13 @@ export const serviceApi = {
     tree() {
       return get<ServiceRecord[]>(`${BASE}/catalog/tree`)
     },
-    items(catalogId?: number) {
+    items(catalogId?: ServiceId) {
       return get<ServiceRecord[]>(`${BASE}/catalog/items`, { catalogId })
     },
-    item(id: number) {
+    item(id: ServiceId) {
       return get<ServiceRecord>(`${BASE}/catalog/items/${id}`)
     },
-    apply(id: number, body: ServiceRecord) {
+    apply(id: ServiceId, body: ServiceRecord) {
       return post<ServiceRecord>(`${BASE}/catalog/items/${id}/apply`, body)
     },
   },
@@ -104,24 +106,24 @@ export const serviceApi = {
     categories() {
       return get<ServiceRecord[]>(`${BASE}/kb/categories`)
     },
-    createCategory(body: { name: string; parent_id?: number | null; sort_no?: number }) {
+    createCategory(body: { name: string; parent_id?: ServiceId | null; sort_no?: number }) {
       return post<ServiceRecord>(`${BASE}/kb/categories`, body)
     },
     articles(params: {
       status?: string
-      categoryId?: number
+      categoryId?: ServiceId
       keyword?: string
       page?: number
       size?: number
     } = {}) {
       return get<ServicePage>(`${BASE}/kb/articles`, params)
     },
-    article(id: number) {
+    article(id: ServiceId) {
       return get<ServiceRecord>(`${BASE}/kb/articles/${id}`)
     },
     saveArticle(body: {
-      id?: number
-      category_id?: number | null
+      id?: ServiceId
+      category_id?: ServiceId | null
       title: string
       summary?: string
       content: string
@@ -131,15 +133,15 @@ export const serviceApi = {
     }) {
       return post<ServiceRecord>(`${BASE}/kb/articles`, body)
     },
-    feedback(id: number, body: { helpful: boolean; reason?: string; ticket_id?: number | null }) {
+    feedback(id: ServiceId, body: { helpful: boolean; reason?: string; ticket_id?: ServiceId | null }) {
       return post<ServiceRecord>(`${BASE}/kb/articles/${id}/feedback`, body)
     },
-    suggest(params: { ticketId?: number; keyword?: string; limit?: number } = {}) {
+    suggest(params: { ticketId?: ServiceId; keyword?: string; limit?: number } = {}) {
       return get<ServiceRecord[]>(`${BASE}/kb/suggest`, params)
     },
   },
   csat: {
-    submit(body: { ticket_id: number; score: number; comment?: string; channel?: string; tags?: string[] }) {
+    submit(body: { ticket_id: ServiceId; score: number; comment?: string; channel?: string; tags?: string[] }) {
       return post<ServiceRecord>(`${BASE}/csat`, body)
     },
   },
@@ -147,7 +149,7 @@ export const serviceApi = {
     list(params: { status?: string; keyword?: string; page?: number; size?: number } = {}) {
       return get<ServicePage>(`${BASE}/problems`, params)
     },
-    get(id: number) {
+    get(id: ServiceId) {
       return get<ServiceRecord>(`${BASE}/problems/${id}`)
     },
     create(body: {
@@ -157,12 +159,12 @@ export const serviceApi = {
       workaround?: string
       known_error?: boolean
       status?: string
-      owner_id?: number | null
-      ticket_ids?: number[]
+      owner_id?: ServiceId | null
+      ticket_ids?: ServiceId[]
     }) {
       return post<ServiceRecord>(`${BASE}/problems`, body)
     },
-    aggregate(id: number, body: { ticket_ids: number[]; status?: string; root_cause?: string; workaround?: string; known_error?: boolean }) {
+    aggregate(id: ServiceId, body: { ticket_ids: ServiceId[]; status?: string; root_cause?: string; workaround?: string; known_error?: boolean }) {
       return post<ServiceRecord>(`${BASE}/problems/${id}/aggregate`, body)
     },
   },
@@ -170,7 +172,7 @@ export const serviceApi = {
     list(params: { status?: string; keyword?: string; page?: number; size?: number } = {}) {
       return get<ServicePage>(`${BASE}/changes`, params)
     },
-    get(id: number) {
+    get(id: ServiceId) {
       return get<ServiceRecord>(`${BASE}/changes/${id}`)
     },
     create(body: {
@@ -182,11 +184,11 @@ export const serviceApi = {
       planned_start?: string
       planned_end?: string
       approval_flow_key?: string
-      owner_id?: number | null
+      owner_id?: ServiceId | null
     }) {
       return post<ServiceRecord>(`${BASE}/changes`, body)
     },
-    approve(id: number, body: { approved?: boolean; comment?: string }) {
+    approve(id: ServiceId, body: { approved?: boolean; comment?: string }) {
       return post<ServiceRecord>(`${BASE}/changes/${id}/approve`, body)
     },
   },
@@ -194,27 +196,27 @@ export const serviceApi = {
     list(params: { status?: string; ownerId?: string | number; assetType?: string; page?: number; size?: number } = {}) {
       return get<ServicePage>(`${BASE}/assets`, params)
     },
-    get(id: number) {
+    get(id: ServiceId) {
       return get<ServiceRecord>(`${BASE}/assets/${id}`)
     },
     create(body: {
       asset_no?: string
       name: string
       asset_type?: string
-      owner_id?: number | null
-      dept_id?: number | null
+      owner_id?: ServiceId | null
+      dept_id?: ServiceId | null
       status?: string
       ext_ref?: string
     }) {
       return post<ServiceRecord>(`${BASE}/assets`, body)
     },
-    borrow(id: number, body: { owner_id: number; days?: number }) {
+    borrow(id: ServiceId, body: { owner_id: ServiceId; days?: number }) {
       return post<ServiceRecord>(`${BASE}/assets/${id}/borrow`, body)
     },
-    returnAsset(id: number, body?: ServiceRecord) {
+    returnAsset(id: ServiceId, body?: ServiceRecord) {
       return post<ServiceRecord>(`${BASE}/assets/${id}/return`, body ?? {})
     },
-    returnSelf(id: number) {
+    returnSelf(id: ServiceId) {
       return post<ServiceRecord>(`${BASE}/assets/${id}/return-self`)
     },
     reminders() {
@@ -239,8 +241,8 @@ export const serviceApi = {
       return put<ServiceRecord>(`${BASE}/admin/config/${kind}`, body)
     },
     saveCatalog(body: {
-      id?: number
-      parent_id?: number | null
+      id?: ServiceId
+      parent_id?: ServiceId | null
       name: string
       sort_no?: number
       status?: string
@@ -248,13 +250,13 @@ export const serviceApi = {
       return post<ServiceRecord>(`${BASE}/admin/catalog`, body)
     },
     saveCatalogItem(body: {
-      id?: number
-      catalog_id: number
+      id?: ServiceId
+      catalog_id: ServiceId
       code?: string
       name: string
       description?: string
       ticket_type?: string
-      sla_policy_id?: number | null
+      sla_policy_id?: ServiceId | null
       need_approval?: boolean
       sort_no?: number
       status?: string
@@ -265,7 +267,7 @@ export const serviceApi = {
       return get<ServiceRecord[]>(`${BASE}/admin/sla-policies`)
     },
     saveSlaPolicy(body: {
-      id?: number
+      id?: ServiceId
       name: string
       priority?: string
       ticket_type?: string
@@ -288,25 +290,25 @@ export const serviceApi = {
     models(params: { resultType?: string; page?: number; size?: number } = {}) {
       return get<ServicePage>(`${BASE}/mining/models`, params)
     },
-    model(id: number) {
+    model(id: ServiceId) {
       return get<ServiceRecord>(`${BASE}/mining/models/${id}`)
     },
-    conformance(id: number) {
+    conformance(id: ServiceId) {
       return post<ServiceRecord>(`${BASE}/mining/models/${id}/conformance`)
     },
-    bottlenecks(id: number) {
+    bottlenecks(id: ServiceId) {
       return get<ServiceRecord>(`${BASE}/mining/models/${id}/bottlenecks`)
     },
-    resourceLoad(id: number) {
+    resourceLoad(id: ServiceId) {
       return get<ServiceRecord>(`${BASE}/mining/models/${id}/resource-load`)
     },
-    candidates(id: number) {
+    candidates(id: ServiceId) {
       return get<ServiceRecord[]>(`${BASE}/mining/models/${id}/candidates`)
     },
-    toAutomation(id: number, body: ServiceRecord = {}) {
+    toAutomation(id: ServiceId, body: ServiceRecord = {}) {
       return post<ServiceRecord>(`${BASE}/mining/candidates/${id}/to-automation`, body)
     },
-    archive(id: number) {
+    archive(id: ServiceId) {
       return post<ServiceRecord>(`${BASE}/mining/models/${id}/archive`)
     },
   },
@@ -325,7 +327,7 @@ export const serviceApi = {
     }) {
       return post<ServiceRecord>(`${BASE}/rpa/robots`, body)
     },
-    governRobot(body: { robot_id: number; status: string; reason?: string }) {
+    governRobot(body: { robot_id: ServiceId; status: string; reason?: string }) {
       return post<ServiceRecord>(`${BASE}/rpa/robots/govern`, body)
     },
     credentials() {
@@ -342,34 +344,34 @@ export const serviceApi = {
     }) {
       return post<ServiceRecord>(`${BASE}/rpa/credentials`, body)
     },
-    credentialToken(id: number) {
+    credentialToken(id: ServiceId) {
       return post<ServiceRecord>(`${BASE}/rpa/credentials/${id}/token`)
     },
     automations(params: { status?: string; page?: number; size?: number } = {}) {
       return get<ServicePage>(`${BASE}/rpa/automations`, params)
     },
-    automation(id: number) {
+    automation(id: ServiceId) {
       return get<ServiceRecord>(`${BASE}/rpa/automations/${id}`)
     },
     saveAutomation(body: {
       flow_code: string
       name: string
-      app_id?: number | null
+      app_id?: ServiceId | null
       version_no?: number
       nodes?: ServiceRecord[]
       params_schema?: ServiceRecord
       target_whitelist?: string[]
       timeout_sec?: number
       retry_policy?: ServiceRecord
-      source_candidate_id?: number | null
+      source_candidate_id?: ServiceId | null
       status?: string
     }) {
       return post<ServiceRecord>(`${BASE}/rpa/automations`, body)
     },
-    publish(id: number) {
+    publish(id: ServiceId) {
       return post<ServiceRecord>(`${BASE}/rpa/automations/${id}/publish`)
     },
-    updateWhitelist(id: number, body: { target_whitelist: string[] }) {
+    updateWhitelist(id: ServiceId, body: { target_whitelist: string[] }) {
       return put<ServiceRecord>(`${BASE}/rpa/automations/${id}/whitelist`, body)
     },
     schedules() {
@@ -377,7 +379,7 @@ export const serviceApi = {
     },
     createSchedule(body: {
       name: string
-      automation_flow_id: number
+      automation_flow_id: ServiceId
       trigger_type?: string
       cron_expr?: string
       event_topic?: string
@@ -388,18 +390,18 @@ export const serviceApi = {
     }) {
       return post<ServiceRecord>(`${BASE}/rpa/schedules`, body)
     },
-    tasks(params: { status?: string; robotId?: number; page?: number; size?: number } = {}) {
+    tasks(params: { status?: string; robotId?: ServiceId; page?: number; size?: number } = {}) {
       return get<ServicePage>(`${BASE}/rpa/tasks`, params)
     },
-    task(id: number) {
+    task(id: ServiceId) {
       return get<ServiceRecord>(`${BASE}/rpa/tasks/${id}`)
     },
-    taskLogs(id: number) {
+    taskLogs(id: ServiceId) {
       return get<ServiceRecord[]>(`${BASE}/rpa/tasks/${id}/logs`)
     },
     triggerTask(body: {
-      automation_flow_id: number
-      robot_id?: number | null
+      automation_flow_id: ServiceId
+      robot_id?: ServiceId | null
       trigger_type?: string
       priority?: number
       input?: ServiceRecord
@@ -408,10 +410,10 @@ export const serviceApi = {
     }) {
       return post<ServiceRecord>(`${BASE}/rpa/tasks`, body)
     },
-    retry(id: number) {
+    retry(id: ServiceId) {
       return post<ServiceRecord>(`${BASE}/rpa/tasks/${id}/retry`)
     },
-    taskAction(id: number, body: { action: string; status?: string; output?: ServiceRecord; error_code?: string; error_msg?: string }) {
+    taskAction(id: ServiceId, body: { action: string; status?: string; output?: ServiceRecord; error_code?: string; error_msg?: string }) {
       return post<ServiceRecord>(`${BASE}/rpa/tasks/${id}/actions`, body)
     },
   },
@@ -422,31 +424,31 @@ export const serviceApi = {
     adminApps(params: { status?: string; keyword?: string; page?: number; size?: number } = {}) {
       return get<ServicePage>(`${BASE}/admin/lowcode/apps`, params)
     },
-    app(id: number) {
+    app(id: ServiceId) {
       return get<ServiceRecord>(`${BASE}/lowcode/apps/${id}`)
     },
-    createApp(body: { app_code?: string; name: string; description?: string; owner_id?: number | null }) {
+    createApp(body: { app_code?: string; name: string; description?: string; owner_id?: ServiceId | null }) {
       return post<ServiceRecord>(`${BASE}/lowcode/apps`, body)
     },
-    copyApp(id: number) {
+    copyApp(id: ServiceId) {
       return post<ServiceRecord>(`${BASE}/lowcode/apps/${id}/copy`)
     },
-    archiveApp(id: number) {
+    archiveApp(id: ServiceId) {
       return post<ServiceRecord>(`${BASE}/lowcode/apps/${id}/archive`)
     },
-    freezeApp(id: number) {
+    freezeApp(id: ServiceId) {
       return post<ServiceRecord>(`${BASE}/lowcode/apps/${id}/freeze`)
     },
-    releases(params: { appId?: number; page?: number; size?: number } = {}) {
+    releases(params: { appId?: ServiceId; page?: number; size?: number } = {}) {
       return get<ServicePage>(`${BASE}/lowcode/releases`, params)
     },
-    release(id: number) {
+    release(id: ServiceId) {
       return get<ServiceRecord>(`${BASE}/lowcode/releases/${id}`)
     },
-    submitRelease(appId: number, body: { to_env?: string; release_note?: string }) {
+    submitRelease(appId: ServiceId, body: { to_env?: string; release_note?: string }) {
       return post<ServiceRecord>(`${BASE}/lowcode/apps/${appId}/releases`, body)
     },
-    approveRelease(id: number, body: { approved?: boolean; comment?: string }) {
+    approveRelease(id: ServiceId, body: { approved?: boolean; comment?: string }) {
       return post<ServiceRecord>(`${BASE}/lowcode/releases/${id}/approve`, body)
     },
     templates() {

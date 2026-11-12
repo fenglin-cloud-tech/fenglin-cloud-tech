@@ -118,9 +118,9 @@ async function submitDataPermission() {
   try {
     permResult.value = await intelligenceApi.dataPermissions.config({
       subject_type: permForm.subject_type.trim(),
-      subject_id: Number(permForm.subject_id),
+      subject_id: permForm.subject_id,
       resource_type: permForm.resource_type.trim(),
-      resource_id: permForm.resource_id ? Number(permForm.resource_id) : undefined,
+      resource_id: permForm.resource_id ? permForm.resource_id : undefined,
       data_scope: permForm.data_scope,
       scope_dept_ids: permForm.scope_dept_ids.trim() || undefined,
       column_hidden: permForm.column_hidden.trim() || undefined,

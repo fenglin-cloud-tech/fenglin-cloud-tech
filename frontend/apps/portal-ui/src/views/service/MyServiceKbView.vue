@@ -47,7 +47,7 @@ async function load() {
 
 async function openArticle(row: ServiceRecord) {
   try {
-    article.value = await serviceApi.kb.article(Number(row.id))
+    article.value = await serviceApi.kb.article(row.id)
     drawer.value = true
   } catch (err) {
     ElMessage.error(describeError(err))
@@ -57,7 +57,7 @@ async function openArticle(row: ServiceRecord) {
 async function feedback(helpful: boolean) {
   if (!article.value) return
   try {
-    await serviceApi.kb.feedback(Number(article.value.id), { helpful })
+    await serviceApi.kb.feedback(article.value.id, { helpful })
     ElMessage.success(helpful ? '已标记有帮助' : '已记录反馈')
   } catch (err) {
     ElMessage.error(describeError(err))

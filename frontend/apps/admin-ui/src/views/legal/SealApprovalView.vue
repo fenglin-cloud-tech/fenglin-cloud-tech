@@ -42,7 +42,7 @@ async function load() {
 }
 
 function openApprove(row: LegalRecord, action: string) {
-  approveForm.id = Number(row.id)
+  approveForm.id = row.id
   approveForm.action = action
   approveForm.comment = ''
   approveVisible.value = true
@@ -63,7 +63,7 @@ async function submitApprove() {
 }
 
 function openExecute(row: LegalRecord) {
-  executeForm.id = Number(row.id)
+  executeForm.id = row.id
   executeForm.image_ref = ''
   executeVisible.value = true
 }

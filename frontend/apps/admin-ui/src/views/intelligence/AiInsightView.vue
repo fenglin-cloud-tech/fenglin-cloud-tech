@@ -96,7 +96,7 @@ async function submitCreate() {
     await intelligenceApi.insight.createTask({
       name: form.name.trim(),
       target_type: form.target_type,
-      target_id: Number(form.target_id),
+      target_id: form.target_id,
       trigger_type: form.trigger_type,
       cron_expr: form.cron_expr.trim() || undefined,
       rule,
@@ -114,7 +114,7 @@ async function submitCreate() {
 
 async function runTask(row: AiRecord) {
   try {
-    const result = await intelligenceApi.insight.runTask(Number(row.id))
+    const result = await intelligenceApi.insight.runTask(row.id)
     ElMessage.success(`任务已运行：${result?.anomaly_type ?? '完成'}`)
     await loadTasks()
     await openResults(row)
@@ -130,7 +130,7 @@ async function openResults(row: AiRecord) {
   resultsError.value = ''
   resultsLoading.value = true
   try {
-    results.value = await intelligenceApi.insight.results(Number(row.id))
+    results.value = await intelligenceApi.insight.results(row.id)
   } catch (err) {
     resultsError.value = describeError(err)
   } finally {
@@ -148,7 +148,7 @@ async function runAttribution() {
   attrResult.value = null
   try {
     attrResult.value = await intelligenceApi.insight.attribution({
-      metric_id: Number(attrForm.metric_id),
+      metric_id: attrForm.metric_id,
       dimension_field: attrForm.dimension_field.trim(),
       algorithm: attrForm.algorithm,
     })
@@ -168,7 +168,7 @@ async function loadAttributions() {
   }
   historyLoading.value = true
   try {
-    attributions.value = await intelligenceApi.insight.attributions(Number(attrForm.metric_id), 20)
+    attributions.value = await intelligenceApi.insight.attributions(attrForm.metric_id, 20)
   } catch (err) {
     attributions.value = []
     historyError.value = describeError(err)
@@ -184,7 +184,7 @@ async function submitExport() {
   try {
     exportResult.value = await intelligenceApi.insight.exportReport({
       report_type: exportForm.report_type.trim() || undefined,
-      metric_id: exportForm.metric_id ? Number(exportForm.metric_id) : undefined,
+      metric_id: exportForm.metric_id ? exportForm.metric_id : undefined,
       format: exportForm.format,
     })
     ElMessage.success('导出请求已提交')

@@ -43,7 +43,7 @@ async function loadRecords() {
   recordError.value = ''
   try {
     const result = await legalApi.sign.records({
-      contract_id: recordFilter.contract_id ? Number(recordFilter.contract_id) : undefined,
+      contract_id: recordFilter.contract_id ? recordFilter.contract_id : undefined,
       status: recordFilter.status || undefined,
       page: recordPage.value,
       size: 20,
@@ -63,7 +63,7 @@ async function loadEvidences() {
   evidenceError.value = ''
   try {
     const result = await legalApi.evidences.list({
-      contract_id: evidenceFilter.contract_id ? Number(evidenceFilter.contract_id) : undefined,
+      contract_id: evidenceFilter.contract_id ? evidenceFilter.contract_id : undefined,
       evidence_type: evidenceFilter.evidence_type || undefined,
       page: evidencePage.value,
       size: 20,
@@ -86,7 +86,7 @@ async function loadSignatories() {
   signatoryLoading.value = true
   signatoryError.value = ''
   try {
-    signatories.value = await legalApi.signatories.list(Number(signatoryContractId.value))
+    signatories.value = await legalApi.signatories.list(signatoryContractId.value)
   } catch (err) {
     signatories.value = []
     signatoryError.value = describeError(err)
@@ -97,7 +97,7 @@ async function loadSignatories() {
 
 async function verifyEvidence(row: LegalRecord) {
   try {
-    const result = await legalApi.evidences.verify(Number(row.id))
+    const result = await legalApi.evidences.verify(row.id)
     ElMessage.success(`核验完成：${result.verified === false ? '不一致' : '通过'}`)
     await loadEvidences()
   } catch (err) {
@@ -111,7 +111,7 @@ async function chainVerify() {
     return
   }
   try {
-    chainResult.value = await legalApi.evidences.chainVerify(Number(evidenceFilter.contract_id))
+    chainResult.value = await legalApi.evidences.chainVerify(evidenceFilter.contract_id)
   } catch (err) {
     chainResult.value = null
     ElMessage.error(describeError(err))

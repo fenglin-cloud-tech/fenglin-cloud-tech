@@ -275,7 +275,7 @@ export const fileApi = {
 export const auditApi = {
   list(params: {
     event_type?: string
-    operator_id?: number
+    operator_id?: string | number
     target_type?: string
     target_id?: string
     request_id?: string
@@ -332,20 +332,20 @@ export const openApi = {
   createApp(body: { name: string; owner_type?: string; scopes?: string[]; redirect_uris?: string[] }) {
     return post<OpenAppCreateResponse>('/api/hub/v1/admin/openapi/apps', body)
   },
-  reviewApp(id: number, body: { action: string; reason?: string }) {
+  reviewApp(id: string | number, body: { action: string; reason?: string }) {
     return post<unknown>(`/api/hub/v1/admin/openapi/apps/${id}:review`, body)
   },
-  issueKey(id: number, body: { action?: string; grace_hours?: number } = {}) {
+  issueKey(id: string | number, body: { action?: string; grace_hours?: number } = {}) {
     return post<OpenApiKeyResponse>(`/api/hub/v1/admin/openapi/apps/${id}/keys`, body)
   },
   upsertQuota(body: {
-    app_id: number
+    app_id: string | number
     items: Array<{ api_path: string; qps_limit?: number; daily_limit?: number }>
   }) {
     return put<unknown>('/api/hub/v1/admin/openapi/quotas', body)
   },
   callLogs(params: {
-    app_id?: number
+    app_id?: string | number
     api_path?: string
     status?: number
     from?: string
@@ -594,13 +594,13 @@ export const reportApi = {
   createMetric(body: MetricCreateRequest) {
     return post<MetricView>('/api/hub/v1/admin/metrics', body)
   },
-  queryDataset(id: number, body: { dimensions?: string[]; measures?: string[]; filters?: unknown[]; limit?: number }) {
+  queryDataset(id: string | number, body: { dimensions?: string[]; measures?: string[]; filters?: unknown[]; limit?: number }) {
     return post<DatasetQueryResult>(`/api/hub/v1/report/datasets/${id}/query`, body)
   },
-  dashboardData(id: number, body: { chart_ids?: number[]; params?: Record<string, unknown> }) {
+  dashboardData(id: string | number, body: { chart_ids?: (string | number)[]; params?: Record<string, unknown> }) {
     return post<DashboardData>(`/api/hub/v1/report/dashboards/${id}/data`, body)
   },
-  exportReport(body: { report_id: number; format: string }) {
+  exportReport(body: { report_id: string | number; format: string }) {
     return post<{ file_id: string; download_url: string; watermark: boolean; format: string }>(
       '/api/hub/v1/report:export',
       body,

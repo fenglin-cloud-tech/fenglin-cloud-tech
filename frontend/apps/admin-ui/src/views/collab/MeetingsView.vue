@@ -27,8 +27,8 @@ const createForm = reactive({
 const detailVisible = ref(false)
 const detailLoading = ref(false)
 const detail = ref<CollabMeetingDetail | null>(null)
-const detailMeetingId = ref('')
-const minutesHistory = ref<{ minutes_id: string; status: string; created_at?: string; summary?: string }[]>([])
+const detailMeetingId = ref<string | number>('')
+const minutesHistory = ref<{ minutes_id: string | number; status: string; created_at?: string; summary?: string }[]>([])
 
 const minutesVisible = ref(false)
 const minutesSaving = ref(false)
@@ -201,14 +201,14 @@ function removeActionRow(index: number) {
 
 async function submitActions() {
   if (!detailMeetingId.value) return
-  const actions: Array<{ content: string; assignee_id?: number; due_at?: string }> = []
+  const actions: Array<{ content: string; assignee_id?: string; due_at?: string }> = []
   for (const draft of actionDrafts.value) {
     const content = draft.content.trim()
     if (!content) continue
-    let assigneeId: number | undefined
+    let assigneeId: string | undefined
     if (draft.assignee_id.trim()) {
-      assigneeId = Number(draft.assignee_id.trim())
-      if (!Number.isFinite(assigneeId)) {
+      assigneeId = draft.assignee_id.trim()
+      if (!/^\d+$/.test(assigneeId)) {
         actionsError.value = '负责人 ID 必须是数字'
         return
       }
@@ -248,7 +248,7 @@ async function checkin() {
   }
 }
 
-async function cancelMeeting(meetingId: string, title: string) {
+async function cancelMeeting(meetingId: string | number, title: string) {
   try {
     await ElMessageBox.confirm(`确认取消会议「${title}」？取消后不可恢复。`, '取消会议', {
       type: 'warning',

@@ -47,7 +47,7 @@ async function load() {
       serviceApi.kb.categories().catch(() => [] as ServiceRecord[]),
       serviceApi.kb.articles({
         status: filters.status || undefined,
-        categoryId: filters.categoryId ? Number(filters.categoryId) : undefined,
+        categoryId: filters.categoryId ? filters.categoryId : undefined,
         keyword: filters.keyword || undefined,
         page: page.value,
         size: size.value,
@@ -94,7 +94,7 @@ async function submitCategory() {
   try {
     await serviceApi.kb.createCategory({
       name: categoryForm.name.trim(),
-      parent_id: categoryForm.parent_id ? Number(categoryForm.parent_id) : undefined,
+      parent_id: categoryForm.parent_id ? categoryForm.parent_id : undefined,
       sort_no: Number(categoryForm.sort_no),
     })
     ElMessage.success('分类已创建')
@@ -117,8 +117,8 @@ async function submitArticle() {
   articleError.value = ''
   try {
     await serviceApi.kb.saveArticle({
-      id: articleForm.id ? Number(articleForm.id) : undefined,
-      category_id: articleForm.category_id ? Number(articleForm.category_id) : undefined,
+      id: articleForm.id ? articleForm.id : undefined,
+      category_id: articleForm.category_id ? articleForm.category_id : undefined,
       title: articleForm.title.trim(),
       summary: articleForm.summary.trim() || undefined,
       content: articleForm.content,

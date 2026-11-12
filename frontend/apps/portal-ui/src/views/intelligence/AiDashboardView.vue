@@ -15,7 +15,7 @@ const size = ref(10)
 const loading = ref(false)
 const error = ref('')
 
-const activeId = ref<number | null>(null)
+const activeId = ref<string | number | null>(null)
 const detail = ref<AiRecord | null>(null)
 const detailLoading = ref(false)
 const detailError = ref('')
@@ -31,7 +31,7 @@ const charts = computed<AiRecord[]>(() => {
   return Array.isArray(value) ? value : []
 })
 
-const activeDashboard = computed(() => dashboards.value.find((item) => Number(item.id) === activeId.value))
+const activeDashboard = computed(() => dashboards.value.find((item) => item.id === activeId.value))
 
 function layoutText(value: unknown) {
   if (value === null || value === undefined || value === '') return '-'
@@ -53,7 +53,7 @@ async function load() {
     const result = await intelligenceApi.dashboards.list({ page: page.value, size: size.value })
     dashboards.value = result.records
     total.value = result.total
-    if (activeId.value && !result.records.some((item) => Number(item.id) === activeId.value)) {
+    if (activeId.value && !result.records.some((item) => item.id === activeId.value)) {
       activeId.value = null
       detail.value = null
     }
@@ -70,12 +70,13 @@ async function load() {
 }
 
 async function openDashboard(row: AiRecord) {
-  activeId.value = Number(row.id)
+  const id = row.id
+  activeId.value = id
   detailLoading.value = true
   detailError.value = ''
   detail.value = null
   try {
-    detail.value = await intelligenceApi.dashboards.detail(activeId.value)
+    detail.value = await intelligenceApi.dashboards.detail(id)
   } catch (err) {
     detailError.value = describeError(err)
   } finally {
@@ -117,7 +118,7 @@ onMounted(load)
               v-for="item in dashboards"
               :key="String(item.id)"
               class="dashboard-item"
-              :class="{ 'dashboard-item--active': Number(item.id) === activeId }"
+              :class="{ 'dashboard-item--active': item.id === activeId }"
               @click="openDashboard(item)"
             >
               <div class="dashboard-item__main">

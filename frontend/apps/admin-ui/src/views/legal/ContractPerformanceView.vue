@@ -48,7 +48,7 @@ async function loadNodes() {
   nodeError.value = ''
   try {
     const result = await legalApi.performance.list({
-      contract_id: nodeFilter.contract_id ? Number(nodeFilter.contract_id) : undefined,
+      contract_id: nodeFilter.contract_id ? nodeFilter.contract_id : undefined,
       status: nodeFilter.status || undefined,
       page: nodePage.value,
       size: 20,
@@ -68,7 +68,7 @@ async function loadReminders() {
   reminderError.value = ''
   try {
     const result = await legalApi.reminders.list({
-      contract_id: reminderFilter.contract_id ? Number(reminderFilter.contract_id) : undefined,
+      contract_id: reminderFilter.contract_id ? reminderFilter.contract_id : undefined,
       status: reminderFilter.status || undefined,
       page: reminderPage.value,
       size: 20,
@@ -112,7 +112,7 @@ async function createNode() {
 
 async function completeNode(row: LegalRecord) {
   try {
-    await legalApi.performance.updateStatus(Number(row.id), 'DONE')
+    await legalApi.performance.updateStatus(row.id, 'DONE')
     ElMessage.success('节点已完成')
     await loadNodes()
   } catch (err) {

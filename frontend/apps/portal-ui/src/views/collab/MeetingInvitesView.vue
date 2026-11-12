@@ -195,14 +195,14 @@ function removeActionRow(index: number) {
 
 async function submitActions() {
   if (!detailMeetingId.value) return
-  const actions: Array<{ content: string; assignee_id?: number; due_at?: string }> = []
+  const actions: Array<{ content: string; assignee_id?: string; due_at?: string }> = []
   for (const draft of actionDrafts.value) {
     const content = draft.content.trim()
     if (!content) continue
-    let assigneeId: number | undefined
+    let assigneeId: string | undefined
     if (draft.assignee_id.trim()) {
-      assigneeId = Number(draft.assignee_id.trim())
-      if (!Number.isInteger(assigneeId) || assigneeId <= 0) {
+      assigneeId = draft.assignee_id.trim()
+      if (!/^\d+$/.test(assigneeId)) {
         actionsError.value = '负责人 ID 需为正整数'
         return
       }

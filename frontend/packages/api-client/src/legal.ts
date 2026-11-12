@@ -4,6 +4,8 @@ import type { PageResult } from '@fenglin/shared'
 /** 云法后端统一返回动态 Map（SNAKE_CASE），此处用宽松记录类型承接。 */
 export type LegalRecord = Record<string, any>
 export type LegalPage = PageResult<LegalRecord>
+/** 雪花 ID 以字符串下发，仅做透传，禁止转 number（超过 2^53 会丢精度）。 */
+export type LegalId = string | number
 
 const BASE = '/api/legal/v1'
 
@@ -27,8 +29,8 @@ export const legalApi = {
     list(params: {
       status?: string
       category?: string
-      owner_id?: number
-      org_id?: number
+      owner_id?: LegalId
+      org_id?: LegalId
       keyword?: string
       page?: number
       size?: number
@@ -38,37 +40,37 @@ export const legalApi = {
     search(params: { keyword?: string; status?: string; page?: number; size?: number } = {}) {
       return get<LegalPage>(`${BASE}/contracts/search`, params)
     },
-    get(id: number) {
+    get(id: LegalId) {
       return get<LegalRecord>(`${BASE}/contracts/${id}`)
     },
     create(body: LegalRecord) {
       return postIdem<LegalRecord>(`${BASE}/contracts`, body)
     },
-    update(id: number, body: LegalRecord) {
+    update(id: LegalId, body: LegalRecord) {
       return put<LegalRecord>(`${BASE}/contracts/${id}`, body)
     },
-    remove(id: number) {
+    remove(id: LegalId) {
       return request<LegalRecord>(`${BASE}/contracts/${id}`, { method: 'DELETE' })
     },
-    saveVersion(id: number, body: LegalRecord) {
+    saveVersion(id: LegalId, body: LegalRecord) {
       return post<LegalRecord>(`${BASE}/contracts/${id}/versions`, body)
     },
-    saveClauses(id: number, body: LegalRecord) {
+    saveClauses(id: LegalId, body: LegalRecord) {
       return put<LegalRecord[]>(`${BASE}/contracts/${id}/clauses`, body)
     },
-    submit(id: number, body: LegalRecord = {}) {
+    submit(id: LegalId, body: LegalRecord = {}) {
       return postIdem<LegalRecord>(`${BASE}/contracts/${id}/submit`, body)
     },
-    approve(id: number, body: LegalRecord = {}) {
+    approve(id: LegalId, body: LegalRecord = {}) {
       return postIdem<LegalRecord>(`${BASE}/contracts/${id}/approve`, body)
     },
-    archive(id: number) {
+    archive(id: LegalId) {
       return postIdem<LegalRecord>(`${BASE}/contracts/${id}/archive`)
     },
-    terminate(id: number, body: LegalRecord = {}) {
+    terminate(id: LegalId, body: LegalRecord = {}) {
       return postIdem<LegalRecord>(`${BASE}/contracts/${id}/terminate`, body)
     },
-    verifyIntegrity(id: number) {
+    verifyIntegrity(id: LegalId) {
       return post<LegalRecord>(`${BASE}/contracts/${id}/verify-integrity`)
     },
   },
@@ -80,10 +82,10 @@ export const legalApi = {
     create(body: LegalRecord) {
       return post<LegalRecord>(`${BASE}/contract-templates`, body)
     },
-    publish(id: number, body: LegalRecord) {
+    publish(id: LegalId, body: LegalRecord) {
       return post<LegalRecord>(`${BASE}/contract-templates/${id}/versions`, body)
     },
-    saveVariables(id: number, body: LegalRecord) {
+    saveVariables(id: LegalId, body: LegalRecord) {
       return put<LegalRecord[]>(`${BASE}/admin/contract-templates/${id}/variables`, body)
     },
   },
@@ -95,7 +97,7 @@ export const legalApi = {
     create(body: LegalRecord) {
       return post<LegalRecord>(`${BASE}/contract-parties`, body)
     },
-    applyMobile(id: number, body: LegalRecord) {
+    applyMobile(id: LegalId, body: LegalRecord) {
       return post<LegalRecord>(`${BASE}/contract-parties/${id}/mobile-requests`, body)
     },
     myMobileRequests(params: { status?: string; page?: number; size?: number } = {}) {
@@ -104,28 +106,28 @@ export const legalApi = {
     mobileRequests(params: { status?: string; page?: number; size?: number } = {}) {
       return get<LegalPage>(`${BASE}/admin/contract-parties/mobile-requests`, params)
     },
-    reviewMobileRequest(id: number, body: LegalRecord) {
+    reviewMobileRequest(id: LegalId, body: LegalRecord) {
       return post<LegalRecord>(`${BASE}/admin/contract-parties/mobile-requests/${id}/review`, body)
     },
-    mobile(id: number) {
+    mobile(id: LegalId) {
       return get<LegalRecord>(`${BASE}/contract-parties/${id}/mobile`)
     },
   },
 
   performance: {
-    list(params: { contract_id?: number; status?: string; page?: number; size?: number } = {}) {
+    list(params: { contract_id?: LegalId; status?: string; page?: number; size?: number } = {}) {
       return get<LegalPage>(`${BASE}/performance-nodes`, params)
     },
     create(body: LegalRecord) {
       return post<LegalRecord>(`${BASE}/performance-nodes`, body)
     },
-    updateStatus(id: number, status: string) {
+    updateStatus(id: LegalId, status: string) {
       return post<LegalRecord>(`${BASE}/performance-nodes/${id}/status`, { status })
     },
   },
 
   reminders: {
-    list(params: { contract_id?: number; status?: string; page?: number; size?: number } = {}) {
+    list(params: { contract_id?: LegalId; status?: string; page?: number; size?: number } = {}) {
       return get<LegalPage>(`${BASE}/expiry-reminders`, params)
     },
     create(body: LegalRecord) {
@@ -143,7 +145,7 @@ export const legalApi = {
     create(body: LegalRecord) {
       return post<LegalRecord>(`${BASE}/admin/seals`, body)
     },
-    revoke(id: number) {
+    revoke(id: LegalId) {
       return post<LegalRecord>(`${BASE}/admin/seals/${id}/revoke`)
     },
   },
@@ -155,22 +157,22 @@ export const legalApi = {
     create(body: LegalRecord) {
       return postIdem<LegalRecord>(`${BASE}/seal-applications`, body)
     },
-    approve(id: number, body: LegalRecord) {
+    approve(id: LegalId, body: LegalRecord) {
       return postIdem<LegalRecord>(`${BASE}/seal-applications/${id}/approve`, body)
     },
-    execute(id: number, body: LegalRecord) {
+    execute(id: LegalId, body: LegalRecord) {
       return postIdem<LegalRecord>(`${BASE}/seal-applications/${id}/execute`, body)
     },
   },
 
   sealRecords: {
-    list(params: { contract_id?: number; page?: number; size?: number } = {}) {
+    list(params: { contract_id?: LegalId; page?: number; size?: number } = {}) {
       return get<LegalPage>(`${BASE}/seal-records`, params)
     },
   },
 
   signatories: {
-    list(contract_id: number) {
+    list(contract_id: LegalId) {
       return get<LegalRecord[]>(`${BASE}/contract-signatories`, { contract_id: contract_id })
     },
     create(body: LegalRecord) {
@@ -179,31 +181,31 @@ export const legalApi = {
   },
 
   sign: {
-    initiate(contract_id: number, body: LegalRecord = {}) {
+    initiate(contract_id: LegalId, body: LegalRecord = {}) {
       return postIdem<LegalRecord>(`${BASE}/contracts/${contract_id}/sign/initiate`, body)
     },
     tasks(params: { page?: number; size?: number } = {}) {
       return get<LegalPage>(`${BASE}/sign-tasks`, params)
     },
-    sign(taskId: number, body: LegalRecord) {
+    sign(taskId: LegalId, body: LegalRecord) {
       return postIdem<LegalRecord>(`${BASE}/sign-tasks/${taskId}/sign`, body)
     },
-    reject(taskId: number, body: LegalRecord) {
+    reject(taskId: LegalId, body: LegalRecord) {
       return postIdem<LegalRecord>(`${BASE}/sign-tasks/${taskId}/reject`, body)
     },
-    records(params: { contract_id?: number; status?: string; page?: number; size?: number } = {}) {
+    records(params: { contract_id?: LegalId; status?: string; page?: number; size?: number } = {}) {
       return get<LegalPage>(`${BASE}/sign-records`, params)
     },
   },
 
   evidences: {
-    list(params: { contract_id?: number; evidence_type?: string; page?: number; size?: number } = {}) {
+    list(params: { contract_id?: LegalId; evidence_type?: string; page?: number; size?: number } = {}) {
       return get<LegalPage>(`${BASE}/evidences`, params)
     },
-    verify(id: number) {
+    verify(id: LegalId) {
       return post<LegalRecord>(`${BASE}/evidences/${id}/verify`)
     },
-    chainVerify(contract_id: number) {
+    chainVerify(contract_id: LegalId) {
       return get<LegalRecord>(`${BASE}/evidences/chain-verify`, { contract_id: contract_id })
     },
   },
@@ -215,7 +217,7 @@ export const legalApi = {
     createRule(body: LegalRecord) {
       return post<LegalRecord>(`${BASE}/admin/dlp/rules`, body)
     },
-    testRule(id: number, body: LegalRecord) {
+    testRule(id: LegalId, body: LegalRecord) {
       return post<LegalRecord>(`${BASE}/admin/dlp/rules/${id}/test`, body)
     },
     policies(params: { data_level?: string; action?: string; enabled?: boolean; page?: number; size?: number } = {}) {
@@ -224,7 +226,7 @@ export const legalApi = {
     createPolicy(body: LegalRecord) {
       return post<LegalRecord>(`${BASE}/admin/dlp/policies`, body)
     },
-    channels(params: { policy_id?: number } = {}) {
+    channels(params: { policy_id?: LegalId } = {}) {
       return get<LegalRecord[]>(`${BASE}/admin/dlp/channels`, params)
     },
     saveChannels(body: LegalRecord) {
@@ -246,14 +248,14 @@ export const legalApi = {
     } = {}) {
       return get<LegalPage>(`${BASE}/dlp/events`, params)
     },
-    event(id: number) {
+    event(id: LegalId) {
       return get<LegalRecord>(`${BASE}/dlp/events/${id}`)
     },
-    handleEvent(id: number, body: LegalRecord) {
+    handleEvent(id: LegalId, body: LegalRecord) {
       return postIdem<LegalRecord>(`${BASE}/dlp/events/${id}/handle`, body)
     },
     releases(params: {
-      applicant_id?: number
+      applicant_id?: LegalId
       status?: string
       from?: string
       to?: string
@@ -262,16 +264,16 @@ export const legalApi = {
     } = {}) {
       return get<LegalPage>(`${BASE}/dlp/releases`, params)
     },
-    release(id: number) {
+    release(id: LegalId) {
       return get<LegalRecord>(`${BASE}/dlp/releases/${id}`)
     },
-    releaseProgress(id: number) {
+    releaseProgress(id: LegalId) {
       return get<LegalRecord>(`${BASE}/dlp/releases/${id}/progress`)
     },
     createRelease(body: LegalRecord) {
       return post<LegalRecord>(`${BASE}/dlp/releases`, body)
     },
-    approveRelease(id: number, body: LegalRecord) {
+    approveRelease(id: LegalId, body: LegalRecord) {
       return postIdem<LegalRecord>(`${BASE}/dlp/releases/${id}/approve`, body)
     },
     watermarks(params: { biz_type?: string; trace_status?: string; page?: number; size?: number } = {}) {

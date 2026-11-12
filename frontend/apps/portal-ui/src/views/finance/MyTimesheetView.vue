@@ -80,7 +80,7 @@ async function handleCreate() {
   }
   saving.value = true
   try {
-    await financeApi.projects.createTimesheet(Number(form.project_id), {
+    await financeApi.projects.createTimesheet(form.project_id, {
       employee_id: auth.userId,
       employee_name: auth.displayName,
       work_date: form.work_date,

@@ -52,7 +52,7 @@ async function loadEntities() {
   error.value = ''
   try {
     entities.value = await intelligenceApi.kg.entities({
-      kb_id: query.kb_id ? Number(query.kb_id) : undefined,
+      kb_id: query.kb_id ? query.kb_id : undefined,
       keyword: query.keyword.trim() || undefined,
       limit: query.limit,
     })
@@ -74,8 +74,8 @@ async function queryPath() {
   pathResult.value = null
   try {
     pathResult.value = await intelligenceApi.kg.paths({
-      from_id: Number(pathQuery.from_id),
-      to_id: Number(pathQuery.to_id),
+      from_id: pathQuery.from_id,
+      to_id: pathQuery.to_id,
       max_depth: pathQuery.max_depth,
     })
   } catch (err) {
@@ -99,7 +99,7 @@ async function submitEntity() {
   entitySaving.value = true
   try {
     await intelligenceApi.kg.createEntity({
-      knowledge_base_id: Number(entityForm.knowledge_base_id),
+      knowledge_base_id: entityForm.knowledge_base_id,
       name: entityForm.name.trim(),
       entity_type: entityForm.entity_type.trim(),
       description: entityForm.description.trim() || undefined,
@@ -136,8 +136,8 @@ async function submitRelation() {
   relationSaving.value = true
   try {
     await intelligenceApi.kg.createRelation({
-      from_entity_id: Number(relationForm.from_entity_id),
-      to_entity_id: Number(relationForm.to_entity_id),
+      from_entity_id: relationForm.from_entity_id,
+      to_entity_id: relationForm.to_entity_id,
       relation_type: relationForm.relation_type.trim(),
       weight: relationForm.weight,
     })

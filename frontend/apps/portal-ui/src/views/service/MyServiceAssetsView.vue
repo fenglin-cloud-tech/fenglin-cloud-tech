@@ -52,7 +52,7 @@ async function returnSelf(row: ServiceRecord) {
   returning.value = true
   error.value = ''
   try {
-    await serviceApi.assets.returnSelf(Number(row.id))
+    await serviceApi.assets.returnSelf(row.id)
     ElMessage.success('已归还，资产状态已置为在库')
     await load()
   } catch (err) {

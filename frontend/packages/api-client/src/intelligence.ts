@@ -3,6 +3,8 @@ import type { PageResult } from './http'
 
 export type AiRecord = Record<string, any>
 export type AiPage = PageResult<AiRecord>
+/** 雪花 ID 以字符串下发，仅做透传，禁止转 number（超过 2^53 会丢精度）。 */
+export type IntelligenceId = string | number
 
 const BASE = '/api/intelligence/v1'
 
@@ -58,22 +60,22 @@ export const intelligenceApi = {
 
   // ---------- 文档 / 索引 / 审核 ----------
   documents: {
-    list(kbId: number, params?: AiPageQuery) {
+    list(kbId: IntelligenceId, params?: AiPageQuery) {
       return get<AiPage>(`${BASE}/knowledge-bases/${kbId}/documents`, params)
     },
-    detail(id: number) {
+    detail(id: IntelligenceId) {
       return get<AiRecord>(`${BASE}/admin/documents/${id}`)
     },
     create(body: AiRecord) {
       return post<AiRecord>(`${BASE}/admin/documents`, body)
     },
-    submitReview(id: number) {
+    submitReview(id: IntelligenceId) {
       return post<AiRecord>(`${BASE}/admin/documents/${id}/review:submit`)
     },
-    review(id: number, action: string) {
+    review(id: IntelligenceId, action: string) {
       return post<AiRecord>(`${BASE}/admin/documents/${id}/review`, { action })
     },
-    index(id: number) {
+    index(id: IntelligenceId) {
       return post<AiRecord>(`${BASE}/admin/documents/${id}/index`)
     },
   },
@@ -86,17 +88,17 @@ export const intelligenceApi = {
     secure(body: AiRecord) {
       return post<AiRecord>(`${BASE}/search/secure`, body)
     },
-    preview(docId: number, secLevel?: number) {
+    preview(docId: IntelligenceId, secLevel?: number) {
       return get<AiRecord>(`${BASE}/documents/${docId}/preview`, { sec_level: secLevel })
     },
   },
 
   // ---------- 知识图谱 ----------
   kg: {
-    entities(params?: { kb_id?: number; keyword?: string; limit?: number }) {
+    entities(params?: { kb_id?: IntelligenceId; keyword?: string; limit?: number }) {
       return get<AiRecord[]>(`${BASE}/kg/entities`, params)
     },
-    paths(params: { from_id: number; to_id: number; max_depth?: number }) {
+    paths(params: { from_id: IntelligenceId; to_id: IntelligenceId; max_depth?: number }) {
       return get<AiRecord>(`${BASE}/kg/paths`, params)
     },
     createEntity(body: AiRecord) {
@@ -115,13 +117,13 @@ export const intelligenceApi = {
     createConversation(body?: AiRecord) {
       return post<AiRecord>(`${BASE}/copilot/conversations`, body ?? {})
     },
-    messages(id: number, params?: AiPageQuery) {
+    messages(id: IntelligenceId, params?: AiPageQuery) {
       return get<AiPage>(`${BASE}/copilot/conversations/${id}/messages`, params)
     },
-    send(id: number, body: AiRecord) {
+    send(id: IntelligenceId, body: AiRecord) {
       return post<AiRecord>(`${BASE}/copilot/conversations/${id}/messages`, body)
     },
-    feedback(messageId: number, body: AiRecord) {
+    feedback(messageId: IntelligenceId, body: AiRecord) {
       return post<AiRecord>(`${BASE}/copilot/messages/${messageId}/feedback`, body)
     },
     write(body: AiRecord) {
@@ -172,10 +174,10 @@ export const intelligenceApi = {
     create(body: AiRecord) {
       return post<AiRecord>(`${BASE}/admin/datasets`, body)
     },
-    fields(datasetId: number) {
+    fields(datasetId: IntelligenceId) {
       return get<AiRecord[]>(`${BASE}/datasets/${datasetId}/fields`)
     },
-    addField(datasetId: number, body: AiRecord) {
+    addField(datasetId: IntelligenceId, body: AiRecord) {
       return post<AiRecord>(`${BASE}/admin/datasets/${datasetId}/fields`, body)
     },
   },
@@ -188,10 +190,10 @@ export const intelligenceApi = {
     create(body: AiRecord) {
       return post<AiRecord>(`${BASE}/admin/dashboards`, body)
     },
-    detail(id: number) {
+    detail(id: IntelligenceId) {
       return get<AiRecord>(`${BASE}/dashboards/${id}`)
     },
-    createChart(id: number, body: AiRecord) {
+    createChart(id: IntelligenceId, body: AiRecord) {
       return post<AiRecord>(`${BASE}/admin/dashboards/${id}/charts`, body)
     },
   },
@@ -204,16 +206,16 @@ export const intelligenceApi = {
     createTask(body: AiRecord) {
       return post<AiRecord>(`${BASE}/admin/insight-tasks`, body)
     },
-    runTask(id: number) {
+    runTask(id: IntelligenceId) {
       return post<AiRecord>(`${BASE}/admin/insight-tasks/${id}/run`)
     },
-    results(id: number) {
+    results(id: IntelligenceId) {
       return get<AiRecord[]>(`${BASE}/insight-tasks/${id}/results`)
     },
     attribution(body: AiRecord) {
       return post<AiRecord>(`${BASE}/analytics/attribution`, body)
     },
-    attributions(metricId: number, limit?: number) {
+    attributions(metricId: IntelligenceId, limit?: number) {
       return get<AiRecord[]>(`${BASE}/analytics/attributions`, { metric_id: metricId, limit })
     },
     nl2sql(body: AiRecord) {

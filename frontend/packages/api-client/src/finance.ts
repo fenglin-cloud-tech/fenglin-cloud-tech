@@ -109,7 +109,7 @@ export interface FinanceVoucherEntry {
 export interface FinanceVoucherAuditLog {
   chain_seq: number
   action: string
-  operator_id: number
+  operator_id: FinanceId
   operator_name: string
   occurred_at: string
   record_hash: string

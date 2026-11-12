@@ -67,7 +67,7 @@ async function openEvent(row: LegalRecord) {
   eventDrawer.value = true
   eventDetailLoading.value = true
   try {
-    eventDetail.value = await legalApi.dlp.event(Number(row.id))
+    eventDetail.value = await legalApi.dlp.event(row.id)
   } catch (err) {
     eventDetail.value = null
     ElMessage.error(describeError(err))
@@ -77,7 +77,7 @@ async function openEvent(row: LegalRecord) {
 }
 
 function openHandle(row: LegalRecord, action: string) {
-  handleForm.id = Number(row.id)
+  handleForm.id = row.id
   handleForm.action = action
   handleForm.conclusion = ''
   handleForm.rectify_item = ''
@@ -110,7 +110,7 @@ async function loadReleases() {
   releaseError.value = ''
   try {
     const result = await legalApi.dlp.releases({
-      applicant_id: releaseFilter.applicant_id ? Number(releaseFilter.applicant_id) : undefined,
+      applicant_id: releaseFilter.applicant_id ? releaseFilter.applicant_id : undefined,
       status: releaseFilter.status || undefined,
       from: releaseFilter.from || undefined,
       to: releaseFilter.to || undefined,
@@ -132,8 +132,8 @@ async function openRelease(row: LegalRecord) {
   releaseDetailLoading.value = true
   try {
     const [detail, progress] = await Promise.all([
-      legalApi.dlp.release(Number(row.id)),
-      legalApi.dlp.releaseProgress(Number(row.id)),
+      legalApi.dlp.release(row.id),
+      legalApi.dlp.releaseProgress(row.id),
     ])
     releaseDetail.value = detail
     releaseTimeline.value = progress.timeline ?? progress.progress ?? []
@@ -147,7 +147,7 @@ async function openRelease(row: LegalRecord) {
 }
 
 function openApprove(row: LegalRecord, action: string) {
-  approveForm.id = Number(row.id)
+  approveForm.id = row.id
   approveForm.action = action
   approveForm.comment = ''
   approveVisible.value = true

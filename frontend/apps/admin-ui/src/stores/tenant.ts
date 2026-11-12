@@ -39,7 +39,7 @@ export const useTenantStore = defineStore('tenant', {
         this.loading = false
       }
     },
-    selectTenant(id: number) {
+    selectTenant(id: string | number) {
       this.selectedTenantId = String(id)
       saveSelectedTenant(id)
     },

@@ -35,7 +35,7 @@ async function load() {
     const [assetResult, reminderResult, csatResult] = await Promise.all([
       serviceApi.assets.list({
         status: filters.status || undefined,
-        ownerId: filters.ownerId ? Number(filters.ownerId) : undefined,
+        ownerId: filters.ownerId ? filters.ownerId : undefined,
         assetType: filters.assetType || undefined,
         page: page.value,
         size: size.value,
@@ -66,8 +66,8 @@ async function submitCreate() {
       asset_no: form.asset_no.trim() || undefined,
       name: form.name.trim(),
       asset_type: form.asset_type,
-      owner_id: form.owner_id ? Number(form.owner_id) : undefined,
-      dept_id: form.dept_id ? Number(form.dept_id) : undefined,
+      owner_id: form.owner_id ? form.owner_id : undefined,
+      dept_id: form.dept_id ? form.dept_id : undefined,
       ext_ref: form.ext_ref.trim() || undefined,
     })
     ElMessage.success('资产已创建')
@@ -88,8 +88,8 @@ async function borrow() {
     return
   }
   try {
-    await serviceApi.assets.borrow(Number(actionForm.id), {
-      owner_id: Number(actionForm.owner_id),
+    await serviceApi.assets.borrow(actionForm.id, {
+      owner_id: actionForm.owner_id,
       days: Number(actionForm.days),
     })
     ElMessage.success('借用成功')
@@ -105,7 +105,7 @@ async function returnAsset() {
     return
   }
   try {
-    await serviceApi.assets.returnAsset(Number(actionForm.id), {})
+    await serviceApi.assets.returnAsset(actionForm.id, {})
     ElMessage.success('归还成功')
     await load()
   } catch (err) {

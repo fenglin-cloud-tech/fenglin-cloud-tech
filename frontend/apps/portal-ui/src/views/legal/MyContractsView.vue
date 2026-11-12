@@ -48,7 +48,7 @@ async function openDetail(row: LegalRecord) {
   drawer.value = true
   detailLoading.value = true
   try {
-    detail.value = await legalApi.contracts.get(Number(row.id))
+    detail.value = await legalApi.contracts.get(row.id)
   } catch (err) {
     detail.value = null
     ElMessage.error(describeError(err))

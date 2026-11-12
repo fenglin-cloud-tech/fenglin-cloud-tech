@@ -82,8 +82,11 @@ function enabledParam(value: string): boolean | undefined {
   return undefined
 }
 
-function csvNumbers(text: string): number[] | undefined {
-  const values = text.split(',').map((item) => Number(item.trim())).filter((num) => !Number.isNaN(num) && num > 0)
+function csvIds(text: string): string[] | undefined {
+  const values = text
+    .split(',')
+    .map((item) => item.trim())
+    .filter((item) => /^\d+$/.test(item) && item !== '0')
   return values.length ? values : undefined
 }
 
@@ -137,7 +140,7 @@ async function loadChannels() {
   channelLoading.value = true
   channelError.value = ''
   try {
-    channels.value = await legalApi.dlp.channels({ policy_id: channelPolicyId.value ? Number(channelPolicyId.value) : undefined })
+    channels.value = await legalApi.dlp.channels({ policy_id: channelPolicyId.value ? channelPolicyId.value : undefined })
   } catch (err) {
     channels.value = []
     channelError.value = describeError(err)
@@ -198,8 +201,8 @@ async function createRule() {
 
 async function testRule(row: LegalRecord) {
   try {
-    const result = await legalApi.dlp.testRule(Number(row.id), {
-      rule_id: Number(row.id),
+    const result = await legalApi.dlp.testRule(row.id, {
+      rule_id: row.id,
       sample_text: '测试样本：客户手机号 13800000000，邮箱 test@example.com',
     })
     const matched = result.matched ?? result.hit ?? result.hits ?? '-'
@@ -222,7 +225,7 @@ async function createPolicy() {
       action: policyForm.action,
       priority: policyForm.priority,
       channel_codes: csvStrings(policyForm.channel_codes),
-      rule_ids: csvNumbers(policyForm.rule_ids),
+      rule_ids: csvIds(policyForm.rule_ids),
       effective_from: policyForm.effective_from || undefined,
       effective_to: policyForm.effective_to || undefined,
     })
@@ -243,7 +246,7 @@ async function saveChannels() {
     return
   }
   try {
-    await legalApi.dlp.saveChannels({ policy_id: Number(channelPolicyId.value), channels: channels.value })
+    await legalApi.dlp.saveChannels({ policy_id: channelPolicyId.value, channels: channels.value })
     ElMessage.success('通道配置已保存')
   } catch (err) {
     ElMessage.error(describeError(err))

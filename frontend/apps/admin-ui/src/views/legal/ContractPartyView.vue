@@ -42,7 +42,7 @@ const requestsLoading = ref(false)
 const myRequests = ref<LegalRecord[]>([])
 const reviewRequests = ref<LegalRecord[]>([])
 const approvedPartyIds = computed(
-  () => new Set(myRequests.value.filter((row) => row.status === 'APPROVED').map((row) => Number(row.party_id))),
+  () => new Set(myRequests.value.filter((row) => row.status === 'APPROVED').map((row) => row.party_id)),
 )
 
 const plainVisible = ref(false)
@@ -121,7 +121,7 @@ async function submitPii() {
   }
   piiSaving.value = true
   try {
-    await legalApi.parties.applyMobile(Number(piiParty.value.id), { reason: piiReason.value.trim() })
+    await legalApi.parties.applyMobile(piiParty.value.id, { reason: piiReason.value.trim() })
     ElMessage.success('已提交，等待审批')
     piiVisible.value = false
     await loadRequests()
@@ -164,7 +164,7 @@ async function review(row: LegalRecord, approve: boolean) {
       })
       comment = result.value
     }
-    await legalApi.parties.reviewMobileRequest(Number(row.id), { approve, comment })
+    await legalApi.parties.reviewMobileRequest(row.id, { approve, comment })
     ElMessage.success(approve ? '已批准' : '已驳回')
     await loadRequests()
   } catch (err) {
@@ -176,7 +176,7 @@ async function review(row: LegalRecord, approve: boolean) {
 
 async function reveal(row: LegalRecord) {
   try {
-    const result = await legalApi.parties.mobile(Number(row.party_id ?? row.id))
+    const result = await legalApi.parties.mobile(row.party_id ?? row.id)
     plainParty.value = row.party_name || row.name || String(row.party_id ?? row.id)
     plainMobile.value = result.contact_mobile || '-'
     plainVisible.value = true
@@ -229,7 +229,7 @@ onMounted(load)
               申请明文
             </el-button>
             <el-button
-              v-if="approvedPartyIds.has(Number(row.id))"
+              v-if="approvedPartyIds.has(row.id)"
               v-perm="'legal:party:pii:view'"
               link
               type="success"

@@ -25,7 +25,7 @@ async function load() {
   error.value = ''
   try {
     const result = await legalApi.evidences.list({
-      contract_id: filters.contract_id ? Number(filters.contract_id) : undefined,
+      contract_id: filters.contract_id ? filters.contract_id : undefined,
       evidence_type: filters.evidence_type || undefined,
       page: page.value,
       size: 20,
@@ -42,7 +42,7 @@ async function load() {
 
 async function verify(row: LegalRecord) {
   try {
-    const result = await legalApi.evidences.verify(Number(row.id))
+    const result = await legalApi.evidences.verify(row.id)
     ElMessage.success(`核验完成：${result.verified === false ? '不一致' : '通过'}`)
     await load()
   } catch (err) {
@@ -56,7 +56,7 @@ async function chainVerify() {
     return
   }
   try {
-    chainResult.value = await legalApi.evidences.chainVerify(Number(filters.contract_id))
+    chainResult.value = await legalApi.evidences.chainVerify(filters.contract_id)
   } catch (err) {
     chainResult.value = null
     ElMessage.error(describeError(err))

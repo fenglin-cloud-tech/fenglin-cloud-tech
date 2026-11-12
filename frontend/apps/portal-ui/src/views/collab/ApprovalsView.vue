@@ -236,14 +236,14 @@ function openAction(mode: 'approve' | 'reject' | 'transfer' | 'addSign', row: Co
 async function submitAction() {
   const taskId = actionTaskId.value
   if (taskId === null) return
-  let assigneeId = 0
+  let assigneeId: string | undefined
   if (actionMode.value === 'transfer' || actionMode.value === 'addSign') {
     if (!actionForm.assignee_id.trim()) {
       actionError.value = '请填写处理人 ID'
       return
     }
-    assigneeId = Number(actionForm.assignee_id.trim())
-    if (!Number.isFinite(assigneeId)) {
+    assigneeId = actionForm.assignee_id.trim()
+    if (!/^\d+$/.test(assigneeId)) {
       actionError.value = '处理人 ID 必须是数字'
       return
     }
@@ -259,13 +259,13 @@ async function submitAction() {
       ElMessage.success('审批已驳回')
     } else if (actionMode.value === 'transfer') {
       await collabApi.approvals.transfer(taskId, {
-        assignee_id: assigneeId,
+        assignee_id: assigneeId ?? '',
         reason: actionForm.reason.trim() || undefined,
       })
       ElMessage.success('审批已转交')
     } else {
       await collabApi.approvals.addSign(taskId, {
-        assignee_id: assigneeId,
+        assignee_id: assigneeId ?? '',
         position: actionForm.position.trim() || undefined,
       })
       ElMessage.success('已加签')
@@ -365,21 +365,20 @@ async function submitApproval() {
       }
     }
   }
-  let approverId: number | undefined
+  let approverId: string | undefined
   if (submitForm.approver_id.trim()) {
-    approverId = Number(submitForm.approver_id.trim())
-    if (!Number.isFinite(approverId)) {
+    approverId = submitForm.approver_id.trim()
+    if (!/^\d+$/.test(approverId)) {
       submitError.value = '审批人 ID 必须是数字'
       return
     }
   }
-  let ccUserIds: number[] | undefined
+  let ccUserIds: string[] | undefined
   if (submitForm.cc_user_id.trim()) {
     const parsed = submitForm.cc_user_id
       .split(/[,，\s]+/)
       .filter((item) => item.length > 0)
-      .map((item) => Number(item))
-    if (parsed.some((item) => !Number.isFinite(item) || item <= 0)) {
+    if (parsed.some((item) => !/^\d+$/.test(item))) {
       submitError.value = '抄送人 ID 必须是正整数，多个用逗号分隔'
       return
     }

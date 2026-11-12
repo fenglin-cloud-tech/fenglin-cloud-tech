@@ -90,7 +90,7 @@ async function openDetail(row: LegalRecord) {
   drawer.value = true
   detailLoading.value = true
   try {
-    const [d, p] = await Promise.all([legalApi.dlp.release(Number(row.id)), legalApi.dlp.releaseProgress(Number(row.id))])
+    const [d, p] = await Promise.all([legalApi.dlp.release(row.id), legalApi.dlp.releaseProgress(row.id)])
     detail.value = d
     timeline.value = p.timeline ?? p.progress ?? []
   } catch (err) {

@@ -109,7 +109,7 @@ async function search() {
 }
 
 async function openPreview(hit: AiRecord) {
-  const docId = Number(hit.document_id)
+  const docId = hit.document_id
   if (!docId) {
     ElMessage.warning('该结果缺少 document_id，无法预览')
     return
@@ -190,7 +190,7 @@ onMounted(loadKbs)
             :disabled="!canLoadKb"
             placeholder="不选择则检索全部知识库"
           >
-            <el-option v-for="kb in kbOptions" :key="String(kb.id)" :label="kb.name || kb.code" :value="Number(kb.id)" />
+            <el-option v-for="kb in kbOptions" :key="String(kb.id)" :label="kb.name || kb.code" :value="kb.id" />
           </el-select>
         </el-form-item>
         <el-form-item>

@@ -117,7 +117,7 @@ async function openDetail(row: AiRecord) {
   detailError.value = ''
   detailLoading.value = true
   try {
-    detail.value = await intelligenceApi.dashboards.detail(Number(row.id))
+    detail.value = await intelligenceApi.dashboards.detail(row.id)
   } catch (err) {
     detailError.value = describeError(err)
   } finally {
@@ -154,16 +154,16 @@ async function submitChart() {
   }
   chartSaving.value = true
   try {
-    await intelligenceApi.dashboards.createChart(Number(detail.value.id), {
+    await intelligenceApi.dashboards.createChart(detail.value.id, {
       name: chartForm.name.trim(),
       chart_type: chartForm.chart_type,
-      dataset_id: Number(chartForm.dataset_id),
+      dataset_id: chartForm.dataset_id,
       dimension: chartForm.dimension.trim() || undefined,
       options,
     })
     ElMessage.success('图表已创建')
     chartVisible.value = false
-    detail.value = await intelligenceApi.dashboards.detail(Number(detail.value.id))
+    detail.value = await intelligenceApi.dashboards.detail(detail.value.id)
   } catch (err) {
     chartError.value = describeError(err)
   } finally {

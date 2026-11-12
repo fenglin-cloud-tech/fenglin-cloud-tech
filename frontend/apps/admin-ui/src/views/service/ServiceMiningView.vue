@@ -48,11 +48,11 @@ async function load() {
 
 async function openModel(row: ServiceRecord) {
   try {
-    detail.value = await serviceApi.mining.model(Number(row.id))
+    detail.value = await serviceApi.mining.model(row.id)
     const [bottleneckResult, loadResult, candidateResult] = await Promise.all([
-      serviceApi.mining.bottlenecks(Number(row.id)).catch(() => [] as ServiceRecord[]),
-      serviceApi.mining.resourceLoad(Number(row.id)).catch(() => [] as ServiceRecord[]),
-      serviceApi.mining.candidates(Number(row.id)).catch(() => [] as ServiceRecord[]),
+      serviceApi.mining.bottlenecks(row.id).catch(() => [] as ServiceRecord[]),
+      serviceApi.mining.resourceLoad(row.id).catch(() => [] as ServiceRecord[]),
+      serviceApi.mining.candidates(row.id).catch(() => [] as ServiceRecord[]),
     ])
     bottlenecks.value = Array.isArray(bottleneckResult) ? bottleneckResult : [bottleneckResult]
     resourceLoad.value = Array.isArray(loadResult) ? loadResult : [loadResult]
@@ -87,7 +87,7 @@ async function discover() {
 async function runConformance() {
   if (!detail.value) return
   try {
-    conformance.value = await serviceApi.mining.conformance(Number(detail.value.id))
+    conformance.value = await serviceApi.mining.conformance(detail.value.id)
     ElMessage.success('一致性分析完成')
   } catch (err) {
     ElMessage.error(describeError(err))
@@ -97,7 +97,7 @@ async function runConformance() {
 async function archive() {
   if (!detail.value) return
   try {
-    await serviceApi.mining.archive(Number(detail.value.id))
+    await serviceApi.mining.archive(detail.value.id)
     ElMessage.success('模型已归档')
     await load()
   } catch (err) {
@@ -107,7 +107,7 @@ async function archive() {
 
 async function toAutomation(row: ServiceRecord) {
   try {
-    const created = await serviceApi.mining.toAutomation(Number(row.id), {})
+    const created = await serviceApi.mining.toAutomation(row.id, {})
     ElMessage.success(`已生成 RPA 自动化草稿（ID ${created.id ?? '-'}）`)
   } catch (err) {
     ElMessage.error(describeError(err))

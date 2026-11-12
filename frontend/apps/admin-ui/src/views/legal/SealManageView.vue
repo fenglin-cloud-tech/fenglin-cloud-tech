@@ -82,7 +82,7 @@ async function create() {
 async function revoke(row: LegalRecord) {
   try {
     await ElMessageBox.confirm(`确认停用印章 ${row.seal_no}？`, '停用确认', { type: 'warning' })
-    await legalApi.seals.revoke(Number(row.id))
+    await legalApi.seals.revoke(row.id)
     ElMessage.success('印章已停用')
     await load()
   } catch (err) {

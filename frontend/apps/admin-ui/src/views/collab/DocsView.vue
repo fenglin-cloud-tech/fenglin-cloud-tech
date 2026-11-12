@@ -271,8 +271,8 @@ async function loadCollaborators() {
 
 async function addCollaborator() {
   if (!collabDoc.value) return
-  const subjectId = Number(collabForm.subject_id)
-  if (!collabForm.subject_id || !Number.isInteger(subjectId) || subjectId <= 0) {
+  const subjectId = String(collabForm.subject_id ?? '').trim()
+  if (!/^\d+$/.test(subjectId) || subjectId === '0') {
     addError.value = '主体 ID 需为正整数'
     return
   }

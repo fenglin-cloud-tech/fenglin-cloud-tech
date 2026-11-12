@@ -61,7 +61,7 @@ const channelOptions = [
   { value: 'IM', label: '即时消息' },
 ]
 
-const subscribeTask = computed(() => tasks.value.find((item) => Number(item.id) === subscribeForm.task_id))
+const subscribeTask = computed(() => tasks.value.find((item) => item.id === subscribeForm.task_id))
 
 const nlRows = computed<AiRecord[]>(() => {
   const data = nlResult.value
@@ -128,7 +128,7 @@ async function openResults(task: AiRecord) {
   resultsLoading.value = true
   resultsError.value = ''; results.value = []
   try {
-    results.value = await intelligenceApi.insight.results(Number(task.id))
+    results.value = await intelligenceApi.insight.results(task.id)
   } catch (err) {
     resultsError.value = describeError(err)
   } finally {
@@ -137,7 +137,7 @@ async function openResults(task: AiRecord) {
 }
 
 function openSubscribe(task?: AiRecord) {
-  subscribeForm.task_id = task ? Number(task.id) : undefined
+  subscribeForm.task_id = task ? task.id : undefined
   subscribeForm.frequency = 'DAILY'; subscribeForm.channels = ['STATION']; subscribeForm.receivers = ''
   subscribeVisible.value = true
 }
@@ -152,7 +152,7 @@ async function submitSubscribe() {
     const task = subscribeTask.value
     await intelligenceApi.insight.subscribe({
       task_id: subscribeForm.task_id,
-      metric_id: task?.target_type === 'METRIC' ? Number(task.target_id) : undefined,
+      metric_id: task?.target_type === 'METRIC' ? task.target_id : undefined,
       frequency: subscribeForm.frequency,
       channels: subscribeForm.channels.join(',') || 'STATION',
       receivers: subscribeForm.receivers || undefined,
@@ -257,7 +257,7 @@ onMounted(async () => {
       <template #header><span>自然语言问数</span></template>
       <el-form label-width="80px" size="small">
         <el-form-item label="数据集">
-          <el-select v-model="nlForm.dataset_id" clearable filterable style="width: 300px" placeholder="选择数据集"><el-option v-for="item in datasets" :key="String(item.id)" :label="item.name || item.code" :value="Number(item.id)" /></el-select>
+          <el-select v-model="nlForm.dataset_id" clearable filterable style="width: 300px" placeholder="选择数据集"><el-option v-for="item in datasets" :key="String(item.id)" :label="item.name || item.code" :value="item.id" /></el-select>
         </el-form-item>
         <el-form-item label="问题">
           <el-input v-model="nlForm.question" type="textarea" :rows="3" maxlength="300" show-word-limit placeholder="例如：按渠道统计最近一个月各指标总量" />
@@ -305,7 +305,7 @@ onMounted(async () => {
     <el-dialog v-model="subscribeVisible" title="新建洞察订阅" width="520px">
       <el-form label-width="90px">
         <el-form-item label="洞察任务">
-          <el-select v-model="subscribeForm.task_id" filterable style="width: 100%" placeholder="选择订阅的洞察任务"><el-option v-for="item in tasks" :key="String(item.id)" :label="item.name || String(item.id)" :value="Number(item.id)" /></el-select>
+          <el-select v-model="subscribeForm.task_id" filterable style="width: 100%" placeholder="选择订阅的洞察任务"><el-option v-for="item in tasks" :key="String(item.id)" :label="item.name || String(item.id)" :value="item.id" /></el-select>
         </el-form-item>
         <el-form-item label="指标ID"><span>{{ subscribeTask?.target_type === 'METRIC' ? subscribeTask?.target_id : '该任务不是指标类型，可不传' }}</span></el-form-item>
         <el-form-item label="频率">

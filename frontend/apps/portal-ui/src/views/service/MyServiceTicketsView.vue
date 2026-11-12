@@ -51,9 +51,9 @@ async function load() {
 
 async function openTicket(row: ServiceRecord) {
   try {
-    detail.value = await serviceApi.tickets.get(Number(row.id))
-    comments.value = await serviceApi.tickets.comments(Number(row.id))
-    sla.value = await serviceApi.tickets.sla(Number(row.id)).catch(() => null)
+    detail.value = await serviceApi.tickets.get(row.id)
+    comments.value = await serviceApi.tickets.comments(row.id)
+    sla.value = await serviceApi.tickets.sla(row.id).catch(() => null)
     commentText.value = ''
     drawer.value = true
   } catch (err) {
@@ -65,9 +65,9 @@ async function addComment() {
   if (!detail.value || !commentText.value.trim()) return
   commentSaving.value = true
   try {
-    await serviceApi.tickets.addComment(Number(detail.value.id), { content: commentText.value.trim() })
+    await serviceApi.tickets.addComment(detail.value.id, { content: commentText.value.trim() })
     commentText.value = ''
-    comments.value = await serviceApi.tickets.comments(Number(detail.value.id))
+    comments.value = await serviceApi.tickets.comments(detail.value.id)
     ElMessage.success('评论已提交')
   } catch (err) {
     ElMessage.error(describeError(err))
@@ -78,11 +78,11 @@ async function addComment() {
 
 async function closeTicket(row: ServiceRecord) {
   try {
-    await serviceApi.tickets.selfClose(Number(row.id), '提交人确认关闭')
+    await serviceApi.tickets.selfClose(row.id, '提交人确认关闭')
     ElMessage.success('工单已关闭')
     await load()
-    if (detail.value && Number(detail.value.id) === Number(row.id)) {
-      detail.value = await serviceApi.tickets.get(Number(row.id))
+    if (detail.value && detail.value.id === row.id) {
+      detail.value = await serviceApi.tickets.get(row.id)
     }
   } catch (err) {
     ElMessage.error(describeError(err))
@@ -91,11 +91,11 @@ async function closeTicket(row: ServiceRecord) {
 
 async function reopenTicket(row: ServiceRecord) {
   try {
-    await serviceApi.tickets.selfReopen(Number(row.id), '提交人重新打开')
+    await serviceApi.tickets.selfReopen(row.id, '提交人重新打开')
     ElMessage.success('工单已重开')
     await load()
-    if (detail.value && Number(detail.value.id) === Number(row.id)) {
-      detail.value = await serviceApi.tickets.get(Number(row.id))
+    if (detail.value && detail.value.id === row.id) {
+      detail.value = await serviceApi.tickets.get(row.id)
     }
   } catch (err) {
     ElMessage.error(describeError(err))
@@ -130,7 +130,7 @@ async function createTicket() {
 }
 
 function openCsat(row: ServiceRecord) {
-  csatForm.ticket_id = Number(row.id)
+  csatForm.ticket_id = row.id
   csatForm.score = 5
   csatForm.comment = ''
   csatVisible.value = true
@@ -141,7 +141,7 @@ async function submitCsat() {
   csatSaving.value = true
   try {
     await serviceApi.csat.submit({
-      ticket_id: Number(csatForm.ticket_id),
+      ticket_id: csatForm.ticket_id,
       score: Number(csatForm.score),
       comment: csatForm.comment || undefined,
       channel: 'PORTAL',

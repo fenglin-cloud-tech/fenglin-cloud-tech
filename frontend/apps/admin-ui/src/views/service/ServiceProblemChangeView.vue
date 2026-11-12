@@ -98,7 +98,7 @@ async function loadChanges() {
 
 async function openProblem(row: ServiceRecord) {
   try {
-    detail.value = await serviceApi.problems.get(Number(row.id))
+    detail.value = await serviceApi.problems.get(row.id)
     detailTitle.value = `问题 ${detail.value.problem_no ?? detail.value.id}`
     detailVisible.value = true
   } catch (err) {
@@ -108,7 +108,7 @@ async function openProblem(row: ServiceRecord) {
 
 async function openChange(row: ServiceRecord) {
   try {
-    detail.value = await serviceApi.changes.get(Number(row.id))
+    detail.value = await serviceApi.changes.get(row.id)
     detailTitle.value = `变更 ${detail.value.change_no ?? detail.value.id}`
     detailVisible.value = true
   } catch (err) {
@@ -122,7 +122,10 @@ onMounted(() => {
 })
 
 function ids(text: string) {
-  return text.split(',').map((item) => Number(item.trim())).filter((item) => Number.isFinite(item) && item > 0)
+  return text
+    .split(',')
+    .map((item) => item.trim())
+    .filter((item) => /^\d+$/.test(item) && item !== '0')
 }
 
 async function createProblem() {
@@ -139,7 +142,7 @@ async function createProblem() {
       root_cause: problemForm.root_cause.trim() || undefined,
       workaround: problemForm.workaround.trim() || undefined,
       known_error: problemForm.known_error,
-      owner_id: problemForm.owner_id ? Number(problemForm.owner_id) : undefined,
+      owner_id: problemForm.owner_id ? problemForm.owner_id : undefined,
       ticket_ids: ids(problemForm.ticket_ids),
     })
     ElMessage.success(`问题已创建：${created.problem_no ?? created.id}`)
@@ -162,7 +165,7 @@ async function aggregate() {
   saving.value = true
   error.value = ''
   try {
-    await serviceApi.problems.aggregate(Number(aggregateForm.id), {
+    await serviceApi.problems.aggregate(aggregateForm.id, {
       ticket_ids: ids(aggregateForm.ticket_ids),
       status: aggregateForm.status,
       root_cause: aggregateForm.root_cause.trim() || undefined,
@@ -195,7 +198,7 @@ async function createChange() {
       planned_start: changeForm.planned_start || undefined,
       planned_end: changeForm.planned_end || undefined,
       approval_flow_key: changeForm.approval_flow_key.trim() || undefined,
-      owner_id: changeForm.owner_id ? Number(changeForm.owner_id) : undefined,
+      owner_id: changeForm.owner_id ? changeForm.owner_id : undefined,
     })
     ElMessage.success(`变更已创建：${created.change_no ?? created.id}`)
     changeForm.title = ''
@@ -215,7 +218,7 @@ async function approveChange() {
   saving.value = true
   error.value = ''
   try {
-    await serviceApi.changes.approve(Number(approveForm.id), {
+    await serviceApi.changes.approve(approveForm.id, {
       approved: approveForm.approved,
       comment: approveForm.comment.trim() || undefined,
     })

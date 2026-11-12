@@ -96,7 +96,7 @@ async function registerRobot() {
 
 async function governRobot(row: ServiceRecord, status: string) {
   try {
-    await serviceApi.rpa.governRobot({ robot_id: Number(row.id), status })
+    await serviceApi.rpa.governRobot({ robot_id: row.id, status })
     ElMessage.success(`机器人状态已更新为 ${status}`)
     await loadRobots()
   } catch (err) {
@@ -158,7 +158,7 @@ async function saveCredential() {
 
 async function issueToken(row: ServiceRecord) {
   try {
-    const result = await serviceApi.rpa.credentialToken(Number(row.id))
+    const result = await serviceApi.rpa.credentialToken(row.id)
     ElMessage.success(`短期令牌已签发，过期时间：${result.expires_at ?? '-'}`)
   } catch (err) {
     ElMessage.error(describeError(err))
@@ -224,7 +224,7 @@ async function saveAutomation() {
 
 async function publishAutomation(row: ServiceRecord) {
   try {
-    await serviceApi.rpa.publish(Number(row.id))
+    await serviceApi.rpa.publish(row.id)
     ElMessage.success('自动化已发布')
     await loadAutomations()
   } catch (err) {
@@ -267,7 +267,7 @@ async function createSchedule() {
   try {
     await serviceApi.rpa.createSchedule({
       name: scheduleForm.name.trim(),
-      automation_flow_id: Number(scheduleForm.automation_flow_id),
+      automation_flow_id: scheduleForm.automation_flow_id,
       trigger_type: scheduleForm.trigger_type,
       cron_expr: scheduleForm.cron_expr || undefined,
       event_topic: scheduleForm.event_topic || undefined,
@@ -314,8 +314,8 @@ async function loadTasks() {
 
 async function openTask(row: ServiceRecord) {
   try {
-    taskDetail.value = await serviceApi.rpa.task(Number(row.id))
-    taskLogs.value = await serviceApi.rpa.taskLogs(Number(row.id))
+    taskDetail.value = await serviceApi.rpa.task(row.id)
+    taskLogs.value = await serviceApi.rpa.taskLogs(row.id)
     taskDrawer.value = true
   } catch (err) {
     ElMessage.error(describeError(err))
@@ -324,7 +324,7 @@ async function openTask(row: ServiceRecord) {
 
 async function retryTask(row: ServiceRecord) {
   try {
-    await serviceApi.rpa.retry(Number(row.id))
+    await serviceApi.rpa.retry(row.id)
     ElMessage.success('已重新入队')
     await loadTasks()
   } catch (err) {
@@ -334,10 +334,10 @@ async function retryTask(row: ServiceRecord) {
 
 async function taskAction(row: ServiceRecord, action: string) {
   try {
-    await serviceApi.rpa.taskAction(Number(row.id), { action })
+    await serviceApi.rpa.taskAction(row.id, { action })
     ElMessage.success(`任务已 ${action}`)
     await loadTasks()
-    if (taskDetail.value && Number(taskDetail.value.id) === Number(row.id)) await openTask(row)
+    if (taskDetail.value && taskDetail.value.id === row.id) await openTask(row)
   } catch (err) {
     ElMessage.error(describeError(err))
   }

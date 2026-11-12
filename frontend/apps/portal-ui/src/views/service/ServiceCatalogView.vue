@@ -9,7 +9,7 @@ import { describeError } from '@/utils/error'
 const auth = useAuthStore()
 const catalogs = ref<ServiceRecord[]>([])
 const items = ref<ServiceRecord[]>([])
-const activeCatalog = ref<number | undefined>()
+const activeCatalog = ref<string | number | undefined>()
 const loading = ref(false)
 const error = ref('')
 
@@ -30,7 +30,7 @@ async function load() {
   try {
     catalogs.value = await serviceApi.catalog.tree()
     if (catalogs.value.length) {
-      await selectCatalog(Number(catalogs.value[0].id))
+      await selectCatalog(catalogs.value[0].id)
     } else {
       items.value = []
     }
@@ -41,7 +41,7 @@ async function load() {
   }
 }
 
-async function selectCatalog(id: number) {
+async function selectCatalog(id: string | number) {
   activeCatalog.value = id
   try {
     items.value = await serviceApi.catalog.items(id)
@@ -71,7 +71,7 @@ async function submitApply() {
   }
   applySaving.value = true
   try {
-    const result = await serviceApi.catalog.apply(Number(applyItem.value.id), {
+    const result = await serviceApi.catalog.apply(applyItem.value.id, {
       title: applyForm.title.trim() || undefined,
       description: applyForm.description || undefined,
       priority: applyForm.priority,
@@ -111,7 +111,7 @@ onMounted(load)
       <el-col :span="6">
         <el-card shadow="never">
           <template #header><span>服务目录</span></template>
-          <el-menu :default-active="String(activeCatalog ?? '')" @select="(key: string) => selectCatalog(Number(key))">
+          <el-menu :default-active="String(activeCatalog ?? '')" @select="(key: string) => selectCatalog(key)">
             <el-menu-item v-for="item in catalogs" :key="item.id" :index="String(item.id)">
               <span>{{ item.name }}</span>
             </el-menu-item>

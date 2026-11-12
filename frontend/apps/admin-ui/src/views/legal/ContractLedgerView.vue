@@ -47,7 +47,7 @@ async function load() {
       keyword: filters.keyword || undefined,
       status: filters.status || undefined,
       category: filters.category || undefined,
-      owner_id: filters.owner_id ? Number(filters.owner_id) : undefined,
+      owner_id: filters.owner_id ? filters.owner_id : undefined,
       page: page.value,
       size: size.value,
     })
@@ -65,7 +65,7 @@ async function openDetail(row: LegalRecord) {
   detailVisible.value = true
   detailLoading.value = true
   try {
-    detail.value = await legalApi.contracts.get(Number(row.id))
+    detail.value = await legalApi.contracts.get(row.id)
   } catch (err) {
     detail.value = null
     ElMessage.error(describeError(err))
@@ -77,7 +77,7 @@ async function openDetail(row: LegalRecord) {
 async function submit() {
   if (!detail.value) return
   try {
-    await legalApi.contracts.submit(Number(detail.value.id), {})
+    await legalApi.contracts.submit(detail.value.id, {})
     ElMessage.success('已提交审批')
     await openDetail(detail.value)
     await load()
@@ -89,7 +89,7 @@ async function submit() {
 async function approve() {
   if (!detail.value) return
   try {
-    await legalApi.contracts.approve(Number(detail.value.id), { action: 'APPROVE' })
+    await legalApi.contracts.approve(detail.value.id, { action: 'APPROVE' })
     ElMessage.success('审批已通过')
     await openDetail(detail.value)
     await load()
@@ -101,7 +101,7 @@ async function approve() {
 async function archive() {
   if (!detail.value) return
   try {
-    await legalApi.contracts.archive(Number(detail.value.id))
+    await legalApi.contracts.archive(detail.value.id)
     ElMessage.success('已归档')
     await openDetail(detail.value)
     await load()
@@ -113,7 +113,7 @@ async function archive() {
 async function terminate() {
   if (!detail.value) return
   try {
-    await legalApi.contracts.terminate(Number(detail.value.id), { reason: '管理端终止' })
+    await legalApi.contracts.terminate(detail.value.id, { reason: '管理端终止' })
     ElMessage.success('已终止')
     await openDetail(detail.value)
     await load()
@@ -125,7 +125,7 @@ async function terminate() {
 async function verifyIntegrity() {
   if (!detail.value) return
   try {
-    const result = await legalApi.contracts.verifyIntegrity(Number(detail.value.id))
+    const result = await legalApi.contracts.verifyIntegrity(detail.value.id)
     ElMessage.success(`完整性校验：${result.valid === false ? '不一致' : '通过'}`)
   } catch (err) {
     ElMessage.error(describeError(err))
@@ -135,7 +135,7 @@ async function verifyIntegrity() {
 async function removeDraft(row: LegalRecord) {
   try {
     await ElMessageBox.confirm(`确认删除草稿合同 ${row.contract_no}？`, '删除确认', { type: 'warning' })
-    await legalApi.contracts.remove(Number(row.id))
+    await legalApi.contracts.remove(row.id)
     ElMessage.success('已删除')
     await load()
   } catch (err) {

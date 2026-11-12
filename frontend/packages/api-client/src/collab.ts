@@ -2,10 +2,10 @@ import type { PageResult } from '@fenglin/shared'
 import { get, post, put, request } from './http'
 
 /** 云协（Collab）接口。字段全部为后端 SNAKE_CASE 原样返回，雪花 ID 以字符串透传。 */
-export type CollabId = string
+export type CollabId = string | number
 
 export interface CollabMember {
-  member_id: number
+  member_id: CollabId
   role: string
   mute: boolean
   pinned: boolean
@@ -34,13 +34,13 @@ export interface CollabConversationDetail {
 }
 
 export interface CollabMessage {
-  message_id: number
+  message_id: CollabId
   conversation_id: CollabId
-  sender_id: number
+  sender_id: CollabId
   msg_type: string
   summary?: string
   file_id?: string
-  reply_to_id?: number
+  reply_to_id?: CollabId
   seq: number
   revoked: boolean
   sent_at?: string
@@ -69,22 +69,22 @@ export interface CollabDoc {
 export interface CollabDocVersion {
   version_no: number
   version_type: string
-  editor_id?: number
+  editor_id?: CollabId
   created_at?: string
 }
 
 export interface CollabCollaborator {
-  id: number
+  id: CollabId
   subject_type: string
-  subject_id: number
+  subject_id: CollabId
   permission: string
   granted_by?: number
 }
 
 export interface CollabComment {
-  comment_id: number
-  parent_id?: number
-  author_id: number
+  comment_id: CollabId
+  parent_id?: CollabId
+  author_id: CollabId
   content: string
   resolved: boolean
   created_at?: string
@@ -106,7 +106,7 @@ export interface CollabCalendar {
 }
 
 export interface CollabAttendee {
-  attendee_id: number
+  attendee_id: CollabId
   response: string
   organizer: boolean
 }
@@ -148,7 +148,7 @@ export interface CollabMeeting {
   meeting_id: CollabId
   title: string
   organizer_id: CollabId
-  room_id?: number
+  room_id?: CollabId
   start_at: string
   end_at: string
   meeting_mode: string
@@ -158,7 +158,7 @@ export interface CollabMeeting {
 
 export interface CollabCheckinStats {
   checked_in: number
-  user_ids: number[]
+  user_ids: CollabId[]
 }
 
 export interface CollabMinutes {
@@ -182,11 +182,11 @@ export interface CollabInvite {
 }
 
 export interface CollabActionItem {
-  action_id: number
+  action_id: CollabId
   content: string
-  assignee_id?: number
+  assignee_id?: CollabId
   due_at?: string
-  todo_id?: number
+  todo_id?: CollabId
   status: string
 }
 
@@ -247,11 +247,11 @@ export interface CollabApprovalTemplate {
 }
 
 export interface CollabApprovalTask {
-  task_id: number
+  task_id: CollabId
   instance_id: CollabId
   node_key: string
   node_name: string
-  assignee_id?: number
+  assignee_id?: CollabId
   status: string
   action?: string
   handled_at?: string
@@ -261,7 +261,7 @@ export interface CollabApprovalInstance {
   instance_id: CollabId
   instance_no: string
   template_id: CollabId
-  initiator_id: number
+  initiator_id: CollabId
   form_data?: Record<string, unknown>
   status: string
   current_node?: string
@@ -288,7 +288,7 @@ export interface CollabConversationAuditPage {
 }
 
 export interface CollabSensitiveWordPolicy {
-  policy_id: number
+  policy_id: CollabId
   word_count: number
   action: string
   scope: string
@@ -330,16 +330,16 @@ export const collabApi = {
     conversations(params: { keyword?: string; page?: number; size?: number }) {
       return get<PageResult<CollabConversation>>('/api/collab/v1/im/conversations', params)
     },
-    createConversation(body: { conv_type: string; title: string; member_ids: number[]; announcement?: string }) {
+    createConversation(body: { conv_type: string; title: string; member_ids: CollabId[]; announcement?: string }) {
       return post<CollabConversationDetail>('/api/collab/v1/im/conversations', body)
     },
     conversation(convId: CollabId) {
       return get<CollabConversationDetail>(`/api/collab/v1/im/conversations/${convId}`)
     },
-    addMembers(convId: CollabId, memberIds: number[]) {
+    addMembers(convId: CollabId, memberIds: CollabId[]) {
       return post<CollabMember[]>(`/api/collab/v1/im/conversations/${convId}/members`, { member_ids: memberIds })
     },
-    removeMember(convId: CollabId, memberId: number) {
+    removeMember(convId: CollabId, memberId: CollabId) {
       return request<void>(`/api/collab/v1/im/conversations/${convId}/members/${memberId}`, { method: 'DELETE' })
     },
     leave(convId: CollabId) {
@@ -355,26 +355,26 @@ export const collabApi = {
       client_msg_id?: string
       msg_type?: string
       content?: string
-      reply_to_id?: number
-      mention_ids?: number[]
+      reply_to_id?: CollabId
+      mention_ids?: CollabId[]
       file_id?: string
     }) {
       return post<CollabMessage>(`/api/collab/v1/im/conversations/${convId}/messages`, body)
     },
-    revoke(messageId: number, reason?: string) {
+    revoke(messageId: CollabId, reason?: string) {
       return post<void>(`/api/collab/v1/im/messages/${messageId}/revoke`, { reason })
     },
-    read(messageId: number, conversationId: CollabId) {
+    read(messageId: CollabId, conversationId: CollabId) {
       return post<{ conversation_id: CollabId; unread_count: number }>(
         `/api/collab/v1/im/messages/${messageId}/read?conversationId=${encodeURIComponent(String(conversationId))}`,
       )
     },
-    react(messageId: number, emoji: string) {
+    react(messageId: CollabId, emoji: string) {
       return post<void>(`/api/collab/v1/im/messages/${messageId}/reactions`, { emoji })
     },
     search(params: {
       conversationId?: CollabId
-      senderId?: number
+      senderId?: CollabId
       msgType?: string
       keyword?: string
       startMs?: number
@@ -403,7 +403,7 @@ export const collabApi = {
       return get<PageResult<CollabDocVersion>>(`/api/collab/v1/docs/${docId}/versions`, params)
     },
     createVersion(docId: CollabId, body: { version_type?: string; comment?: string } = {}) {
-      return post<{ version_no: number; snapshot_file_id?: string; editor_id?: number }>(
+      return post<{ version_no: number; snapshot_file_id?: string; editor_id?: CollabId }>(
         `/api/collab/v1/docs/${docId}/versions`,
         body,
       )
@@ -416,7 +416,7 @@ export const collabApi = {
     collaborators(docId: CollabId) {
       return get<CollabCollaborator[]>(`/api/collab/v1/docs/${docId}/collaborators`)
     },
-    addCollaborator(docId: CollabId, body: { subject_type: string; subject_id: number; permission: string }) {
+    addCollaborator(docId: CollabId, body: { subject_type: string; subject_id: CollabId; permission: string }) {
       return post<CollabCollaborator>(`/api/collab/v1/docs/${docId}/collaborators`, body)
     },
     shareLink(docId: CollabId, body: { expire_days?: number; access_code?: string } = {}) {
@@ -425,7 +425,7 @@ export const collabApi = {
     comments(docId: CollabId) {
       return get<CollabComment[]>(`/api/collab/v1/docs/${docId}/comments`)
     },
-    createComment(docId: CollabId, body: { content: string; parent_id?: number; mention_ids?: number[] }) {
+    createComment(docId: CollabId, body: { content: string; parent_id?: CollabId; mention_ids?: CollabId[] }) {
       return post<CollabComment>(`/api/collab/v1/docs/${docId}/comments`, body)
     },
   },
@@ -434,7 +434,7 @@ export const collabApi = {
     calendars() {
       return get<CollabCalendar[]>('/api/collab/v1/calendars')
     },
-    createCalendar(body: { name: string; cal_type: string; color?: string; visible_scope?: string; dept_id?: number }) {
+    createCalendar(body: { name: string; cal_type: string; color?: string; visible_scope?: string; dept_id?: CollabId }) {
       return post<CollabCalendar>('/api/collab/v1/calendars', body)
     },
     events(params: { startTime: string; endTime: string; calendarId?: CollabId }) {
@@ -517,7 +517,7 @@ export const collabApi = {
       return post<{ checked_in: boolean; checkin_at?: string }>(`/api/collab/v1/meetings/${meetingId}/checkin`, body)
     },
     saveMinutes(meetingId: CollabId, body: {
-      template_id?: number
+      template_id?: CollabId
       topics?: string[]
       conclusions?: string[]
       content?: string
@@ -527,9 +527,9 @@ export const collabApi = {
     },
     addActions(meetingId: CollabId, body: {
       minutes_id?: CollabId
-      actions: Array<{ content: string; assignee_id?: number; due_at?: string }>
+      actions: Array<{ content: string; assignee_id?: CollabId; due_at?: string }>
     }) {
-      return post<{ todo_ids: number[] }>(`/api/collab/v1/meetings/${meetingId}/actions`, body)
+      return post<{ todo_ids: CollabId[] }>(`/api/collab/v1/meetings/${meetingId}/actions`, body)
     },
     cancel(meetingId: CollabId) {
       return post<void>(`/api/collab/v1/meetings/${meetingId}/cancel`)
@@ -561,7 +561,7 @@ export const collabApi = {
     createObjective(body: {
       period_id: CollabId
       obj_type: string
-      dept_id?: number
+      dept_id?: CollabId
       title: string
       description?: string
       visibility?: string
@@ -578,7 +578,7 @@ export const collabApi = {
       return post<CollabKr>(`/api/collab/v1/okr/objectives/${objectiveId}/key-results`, body)
     },
     align(objectiveId: CollabId, body: { parent_objective_id: CollabId; align_type?: string; weight?: number }) {
-      return post<{ alignment_id: number }>(`/api/collab/v1/okr/objectives/${objectiveId}/align`, body)
+      return post<{ alignment_id: CollabId }>(`/api/collab/v1/okr/objectives/${objectiveId}/align`, body)
     },
     progress(krId: CollabId, body: { progress: number; confidence?: string; note?: string }) {
       return post<{ progress: number; confidence?: string; reported_at?: string }>(
@@ -601,9 +601,9 @@ export const collabApi = {
     submit(body: {
       template_id: CollabId
       form_data?: Record<string, unknown>
-      approver_id?: number
+      approver_id?: CollabId
       idempotency_key?: string
-      cc_user_ids?: number[]
+      cc_user_ids?: CollabId[]
     }) {
       return post<CollabApprovalInstance>('/api/collab/v1/approvals/instances', body)
     },
@@ -637,10 +637,10 @@ export const collabApi = {
         { comment },
       )
     },
-    transfer(taskId: string | number, body: { assignee_id: number; reason?: string }) {
+    transfer(taskId: string | number, body: { assignee_id: CollabId; reason?: string }) {
       return post<void>(`/api/collab/v1/approvals/tasks/${taskId}/transfer`, body)
     },
-    addSign(taskId: string | number, body: { assignee_id: number; position?: string }) {
+    addSign(taskId: string | number, body: { assignee_id: CollabId; position?: string }) {
       return post<void>(`/api/collab/v1/approvals/tasks/${taskId}/add-sign`, body)
     },
     myCc(params: { page?: number; size?: number } = {}) {
@@ -700,7 +700,7 @@ export const collabApi = {
       cal_type: string
       color?: string
       visible_scope?: string
-      dept_id?: number
+      dept_id?: CollabId
     }) {
       return post<CollabCalendar>('/api/collab/v1/admin/calendars', body)
     },
@@ -709,7 +709,7 @@ export const collabApi = {
       location?: string
       capacity?: number
       equipments?: string[]
-      dept_id?: number
+      dept_id?: CollabId
       bookable?: boolean
     }) {
       return post<CollabRoom>('/api/collab/v1/admin/meeting-rooms', body)

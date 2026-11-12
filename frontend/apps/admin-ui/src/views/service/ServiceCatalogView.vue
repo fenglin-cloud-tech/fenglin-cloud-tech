@@ -74,7 +74,7 @@ async function load() {
 
 async function loadItems() {
   try {
-    items.value = await serviceApi.catalog.items(selectedCatalogId.value ? Number(selectedCatalogId.value) : undefined)
+    items.value = await serviceApi.catalog.items(selectedCatalogId.value ? selectedCatalogId.value : undefined)
   } catch (err) {
     items.value = []
     error.value = describeError(err)
@@ -90,8 +90,8 @@ async function submitCatalog() {
   catalogError.value = ''
   try {
     await serviceApi.admin.saveCatalog({
-      id: catalogForm.id ? Number(catalogForm.id) : undefined,
-      parent_id: catalogForm.parent_id ? Number(catalogForm.parent_id) : undefined,
+      id: catalogForm.id ? catalogForm.id : undefined,
+      parent_id: catalogForm.parent_id ? catalogForm.parent_id : undefined,
       name: catalogForm.name.trim(),
       sort_no: Number(catalogForm.sort_no),
       status: catalogForm.status,
@@ -110,13 +110,13 @@ async function submitCatalog() {
 
 function openItemEditor(row?: ServiceRecord) {
   itemError.value = ''
-  itemForm.id = row ? Number(row.id) : undefined
-  itemForm.catalog_id = row?.catalog_id ? Number(row.catalog_id) : Number(selectedCatalogId.value) || undefined
+  itemForm.id = row ? row.id : undefined
+  itemForm.catalog_id = row?.catalog_id ? row.catalog_id : selectedCatalogId.value || undefined
   itemForm.code = String(row?.code ?? '')
   itemForm.name = String(row?.name ?? '')
   itemForm.description = String(row?.description ?? '')
   itemForm.ticket_type = String(row?.ticket_type ?? 'REQUEST')
-  itemForm.sla_policy_id = row?.sla_policy_id ? Number(row.sla_policy_id) : undefined
+  itemForm.sla_policy_id = row?.sla_policy_id ? row.sla_policy_id : undefined
   itemForm.need_approval = Boolean(row?.need_approval)
   itemForm.sort_no = Number(row?.sort_no ?? 1)
   itemForm.status = String(row?.status ?? 'ACTIVE')
@@ -137,7 +137,7 @@ async function submitItem() {
   try {
     await serviceApi.admin.saveCatalogItem({
       id: itemForm.id,
-      catalog_id: Number(itemForm.catalog_id),
+      catalog_id: itemForm.catalog_id,
       code: itemForm.code.trim() || undefined,
       name: itemForm.name.trim(),
       description: itemForm.description || undefined,
@@ -160,8 +160,8 @@ async function submitItem() {
 async function disableItem(row: ServiceRecord) {
   try {
     await serviceApi.admin.saveCatalogItem({
-      id: Number(row.id),
-      catalog_id: Number(row.catalog_id),
+      id: row.id,
+      catalog_id: row.catalog_id,
       code: String(row.code ?? ''),
       name: String(row.name ?? ''),
       status: 'DISABLED',
@@ -307,7 +307,7 @@ onMounted(load)
       <el-form label-width="100px">
         <el-form-item label="所属目录" required>
           <el-select v-model="itemForm.catalog_id" style="width: 100%">
-            <el-option v-for="node in tree" :key="node.id" :label="node.name" :value="Number(node.id)" />
+            <el-option v-for="node in tree" :key="node.id" :label="node.name" :value="node.id" />
           </el-select>
         </el-form-item>
         <el-form-item label="编码"><el-input v-model="itemForm.code" placeholder="留空自动生成" maxlength="40" /></el-form-item>
@@ -322,7 +322,7 @@ onMounted(load)
         </el-form-item>
         <el-form-item label="SLA 策略">
           <el-select v-model="itemForm.sla_policy_id" clearable style="width: 100%">
-            <el-option v-for="p in policies" :key="p.id" :label="p.name" :value="Number(p.id)" />
+            <el-option v-for="p in policies" :key="p.id" :label="p.name" :value="p.id" />
           </el-select>
         </el-form-item>
         <el-form-item label="需审批"><el-switch v-model="itemForm.need_approval" /></el-form-item>

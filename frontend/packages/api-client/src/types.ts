@@ -138,7 +138,7 @@ export interface CreateRoleRequest {
   name: string
   role_type?: string
   data_scope?: string
-  parent_id?: number
+  parent_id?: string | number
 }
 
 export interface PermissionNode {
@@ -215,7 +215,7 @@ export interface MessageView {
 }
 
 export interface MessageChannelView {
-  id: number
+  id: string | number
   channel_type: string
   name: string
   config?: string
@@ -225,7 +225,7 @@ export interface MessageChannelView {
 }
 
 export interface MessageChannelRequest {
-  id?: number
+  id?: string | number
   channel_type: string
   name: string
   config?: Record<string, unknown>
@@ -616,7 +616,7 @@ export interface LeadView {
   grade?: string
   status: string
   owner_id?: string | number
-  dept_id?: number
+  dept_id?: string | number
   last_activity_at?: string
   converted_customer_id?: CrmId
   created_at?: string
@@ -675,8 +675,8 @@ export interface CustomerView {
   grade?: string
   segment?: string
   owner_id?: string | number
-  csm_id?: number
-  dept_id?: number
+  csm_id?: string | number
+  dept_id?: string | number
   mobile_masked?: string
   annual_revenue?: number
   arr?: number
@@ -714,7 +714,7 @@ export interface CustomerCreateRequest {
   grade?: string
   segment?: string
   owner_id?: string | number
-  csm_id?: number
+  csm_id?: string | number
   mobile?: string
   annual_revenue?: number
   arr?: number

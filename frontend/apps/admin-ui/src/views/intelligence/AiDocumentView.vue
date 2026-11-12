@@ -45,7 +45,7 @@ async function loadKb() {
     const result = await intelligenceApi.kb.list({ page: 1, size: 100 })
     kbOptions.value = result.records ?? []
     if (!selectedKb.value && kbOptions.value.length) {
-      selectedKb.value = Number(kbOptions.value[0].id)
+      selectedKb.value = kbOptions.value[0].id
       await loadDocuments()
     }
   } catch (err) {
@@ -93,7 +93,7 @@ async function openDetail(row: AiRecord) {
   detailError.value = ''
   detailLoading.value = true
   try {
-    detail.value = await intelligenceApi.documents.detail(Number(row.id))
+    detail.value = await intelligenceApi.documents.detail(row.id)
   } catch (err) {
     detailError.value = describeError(err)
   } finally {
@@ -135,7 +135,7 @@ async function submitCreate() {
       doc_type: form.doc_type,
       source_uri: form.source_uri.trim() || undefined,
       sec_level: form.sec_level,
-      data_source_id: form.data_source_id ? Number(form.data_source_id) : undefined,
+      data_source_id: form.data_source_id ? form.data_source_id : undefined,
     })
     ElMessage.success(`文档已创建：${created?.title ?? created?.id ?? ''}`)
     createVisible.value = false
@@ -150,7 +150,7 @@ async function submitCreate() {
 
 async function submitReview(row: AiRecord) {
   try {
-    await intelligenceApi.documents.submitReview(Number(row.id))
+    await intelligenceApi.documents.submitReview(row.id)
     ElMessage.success('已提交审核')
     await loadDocuments()
   } catch (err) {
@@ -160,7 +160,7 @@ async function submitReview(row: AiRecord) {
 
 async function review(row: AiRecord, action: 'APPROVE' | 'REJECT') {
   try {
-    await intelligenceApi.documents.review(Number(row.id), action)
+    await intelligenceApi.documents.review(row.id, action)
     ElMessage.success(action === 'APPROVE' ? '审核已通过，后端将生成索引任务' : '审核已驳回')
     await loadDocuments()
   } catch (err) {
@@ -170,7 +170,7 @@ async function review(row: AiRecord, action: 'APPROVE' | 'REJECT') {
 
 async function buildIndex(row: AiRecord) {
   try {
-    await intelligenceApi.documents.index(Number(row.id))
+    await intelligenceApi.documents.index(row.id)
     ElMessage.success('索引任务已提交')
     await loadDocuments()
   } catch (err) {
@@ -201,7 +201,7 @@ onMounted(loadKb)
             v-for="kb in kbOptions"
             :key="kb.id"
             :label="`${kb.name ?? kb.code ?? kb.id}`"
-            :value="Number(kb.id)"
+            :value="kb.id"
           />
         </el-select>
         <el-button v-perm="'tenant:ai:kb:review'" type="primary" :disabled="!selectedKb" @click="openCreate">新建文档</el-button>

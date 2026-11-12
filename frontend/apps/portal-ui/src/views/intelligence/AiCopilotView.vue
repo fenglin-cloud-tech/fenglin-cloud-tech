@@ -16,7 +16,7 @@ const conversationTotal = ref(0)
 const convPage = ref(1)
 const convSize = ref(10)
 const conversationLoading = ref(false)
-const activeId = ref<number | null>(null)
+const activeId = ref<string | number | null>(null)
 
 const messages = ref<AiRecord[]>([])
 const messageTotal = ref(0)
@@ -36,7 +36,7 @@ const sendForm = reactive({ content: '', sec_level: 2, model_code: '' })
 
 const feedbackVisible = ref(false)
 const feedbackSaving = ref(false)
-const feedbackForm = reactive({ messageId: 0, feedback_type: 'LIKE', rating: 0, comment: '' })
+const feedbackForm = reactive({ messageId: '' as string | number, feedback_type: 'LIKE', rating: 0, comment: '' })
 
 const gapItems = [
   '后端未提供流式输出（SSE）接口，发送消息后需同步等待完整回答返回。',
@@ -44,7 +44,7 @@ const gapItems = [
   '反馈接口 POST /copilot/messages/{id}/feedback 需要 ai:chat:feedback，无权限时不显示反馈按钮。',
 ]
 
-const activeConversation = computed(() => conversations.value.find((item) => Number(item.id) === activeId.value))
+const activeConversation = computed(() => conversations.value.find((item) => item.id === activeId.value))
 
 function kbText(value: unknown) {
   if (!value) return '-'
@@ -77,7 +77,7 @@ async function loadKbs() {
 }
 
 async function selectConversation(row: AiRecord) {
-  activeId.value = Number(row.id)
+  activeId.value = row.id
   msgPage.value = 1
   await loadMessages()
 }
@@ -112,7 +112,7 @@ async function createConversation() {
     createVisible.value = false
     createForm.title = ''
     createForm.kb_ids = []
-    activeId.value = Number(created.id)
+    activeId.value = created.id
     msgPage.value = 1
     messages.value = []
     messageTotal.value = 0
@@ -152,7 +152,7 @@ async function send() {
 }
 
 function openFeedback(message: AiRecord, type: 'LIKE' | 'DISLIKE') {
-  feedbackForm.messageId = Number(message.id)
+  feedbackForm.messageId = message.id
   feedbackForm.feedback_type = type
   feedbackForm.rating = type === 'LIKE' ? 5 : 1
   feedbackForm.comment = ''
@@ -209,7 +209,7 @@ onMounted(async () => {
               v-for="item in conversations"
               :key="String(item.id)"
               class="conversation-item"
-              :class="{ 'conversation-item--active': Number(item.id) === activeId }"
+              :class="{ 'conversation-item--active': item.id === activeId }"
               @click="selectConversation(item)"
             >
               <div class="conversation-item__main">
@@ -295,7 +295,7 @@ onMounted(async () => {
         </el-form-item>
         <el-form-item label="知识库">
           <el-select v-model="createForm.kb_ids" multiple collapse-tags style="width: 100%" placeholder="可选择多个知识库">
-            <el-option v-for="kb in kbOptions" :key="String(kb.id)" :label="kb.name || kb.code" :value="Number(kb.id)" />
+            <el-option v-for="kb in kbOptions" :key="String(kb.id)" :label="kb.name || kb.code" :value="kb.id" />
           </el-select>
         </el-form-item>
       </el-form>

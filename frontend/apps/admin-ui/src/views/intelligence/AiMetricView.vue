@@ -147,7 +147,7 @@ async function submitDataset() {
     const created = await intelligenceApi.datasets.create({
       code: datasetForm.code.trim(),
       name: datasetForm.name.trim(),
-      data_source_id: Number(datasetForm.data_source_id),
+      data_source_id: datasetForm.data_source_id,
       mode: datasetForm.mode,
       sql_text: datasetForm.sql_text.trim() || undefined,
       refresh_cron: datasetForm.refresh_cron.trim() || undefined,
@@ -174,7 +174,7 @@ async function selectDataset(row: AiRecord) {
   fieldsError.value = ''
   fieldsLoading.value = true
   try {
-    fields.value = await intelligenceApi.datasets.fields(Number(row.id))
+    fields.value = await intelligenceApi.datasets.fields(row.id)
   } catch (err) {
     fieldsError.value = describeError(err)
   } finally {
@@ -202,7 +202,7 @@ async function submitField() {
   }
   fieldSaving.value = true
   try {
-    await intelligenceApi.datasets.addField(Number(selectedDataset.value.id), {
+    await intelligenceApi.datasets.addField(selectedDataset.value.id, {
       field_name: fieldForm.field_name.trim(),
       field_type: fieldForm.field_type,
       data_type: fieldForm.data_type,

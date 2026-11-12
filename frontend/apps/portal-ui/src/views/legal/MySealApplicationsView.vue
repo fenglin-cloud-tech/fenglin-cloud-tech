@@ -141,7 +141,7 @@ onMounted(load)
               v-for="seal in seals"
               :key="String(seal.id)"
               :label="`${seal.name}（${seal.seal_type || seal.seal_no}）`"
-              :value="Number(seal.id)"
+              :value="seal.id"
             />
           </el-select>
         </el-form-item>

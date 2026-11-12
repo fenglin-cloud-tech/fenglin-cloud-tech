@@ -137,7 +137,7 @@ onMounted(loadKbs)
             :disabled="!canLoadKb"
             placeholder="不选择则查询全部"
           >
-            <el-option v-for="kb in kbOptions" :key="String(kb.id)" :label="kb.name || kb.code" :value="Number(kb.id)" />
+            <el-option v-for="kb in kbOptions" :key="String(kb.id)" :label="kb.name || kb.code" :value="kb.id" />
           </el-select>
           <span v-if="!canLoadKb" class="fl-muted" style="margin-left: 12px">
             缺少权限 ai:chat:use，无法加载知识库下拉，可直接使用接口默认范围

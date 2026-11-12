@@ -77,7 +77,7 @@ async function create() {
 }
 
 function openPublish(row: LegalRecord) {
-  publishForm.id = Number(row.id)
+  publishForm.id = row.id
   publishForm.content_ref = ''
   publishForm.change_summary = ''
   publishVisible.value = true
@@ -105,8 +105,8 @@ async function publish() {
 }
 
 function openVariables(row: LegalRecord) {
-  varForm.id = Number(row.id)
-  varForm.version_id = row.current_version_id ? Number(row.current_version_id) : undefined
+  varForm.id = row.id
+  varForm.version_id = row.current_version_id ? row.current_version_id : undefined
   varForm.variables = '[\n  { "var_key": "party_name", "var_label": "相对方名称", "data_type": "STRING", "required": true }\n]'
   varVisible.value = true
 }

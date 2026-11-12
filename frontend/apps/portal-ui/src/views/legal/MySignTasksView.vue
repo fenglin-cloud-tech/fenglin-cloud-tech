@@ -62,7 +62,7 @@ async function submitSign() {
   }
   signSaving.value = true
   try {
-    await legalApi.sign.sign(Number(current.value.id), {
+    await legalApi.sign.sign(current.value.id, {
       step_up: signForm.step_up,
       real_name_verified: signForm.real_name_verified,
       will_confirmed: signForm.will_confirmed,
@@ -89,7 +89,7 @@ async function submitReject() {
   if (!current.value) return
   rejectSaving.value = true
   try {
-    await legalApi.sign.reject(Number(current.value.id), { reason: rejectReason.value || undefined })
+    await legalApi.sign.reject(current.value.id, { reason: rejectReason.value || undefined })
     ElMessage.success('已拒签')
     rejectVisible.value = false
     await load()

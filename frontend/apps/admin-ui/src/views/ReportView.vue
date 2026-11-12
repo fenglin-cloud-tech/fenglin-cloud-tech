@@ -128,7 +128,7 @@ async function loadDashboard() {
   dashboardResult.value = null
   try {
     dashboardResult.value = await reportApi.dashboardData(dashboardId.value, {
-      chart_ids: chartIds.value ? chartIds.value.split(',').map((i) => Number(i.trim())).filter(Boolean) : undefined,
+      chart_ids: chartIds.value ? chartIds.value.split(',').map((i) => i.trim()).filter(Boolean) : undefined,
     })
   } catch (err) {
     dashboardError.value = describeError(err)

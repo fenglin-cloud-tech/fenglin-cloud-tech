@@ -79,7 +79,7 @@ async function createApp() {
 
 async function copyApp(row: ServiceRecord) {
   try {
-    await serviceApi.lowcode.copyApp(Number(row.id))
+    await serviceApi.lowcode.copyApp(row.id)
     ElMessage.success('已复制应用')
     await loadApps()
   } catch (err) {
@@ -89,7 +89,7 @@ async function copyApp(row: ServiceRecord) {
 
 async function archiveApp(row: ServiceRecord) {
   try {
-    await serviceApi.lowcode.archiveApp(Number(row.id))
+    await serviceApi.lowcode.archiveApp(row.id)
     ElMessage.success('应用已归档')
     await loadApps()
   } catch (err) {
@@ -99,7 +99,7 @@ async function archiveApp(row: ServiceRecord) {
 
 async function freezeApp(row: ServiceRecord) {
   try {
-    await serviceApi.lowcode.freezeApp(Number(row.id))
+    await serviceApi.lowcode.freezeApp(row.id)
     ElMessage.success('应用已冻结')
     await loadApps()
   } catch (err) {
@@ -142,7 +142,7 @@ async function submitRelease() {
   }
   releaseSaving.value = true
   try {
-    const created = await serviceApi.lowcode.submitRelease(Number(releaseAppId.value), {
+    const created = await serviceApi.lowcode.submitRelease(releaseAppId.value, {
       to_env: releaseForm.to_env,
       release_note: releaseForm.release_note || undefined,
     })
@@ -158,7 +158,7 @@ async function submitRelease() {
 
 async function approveRelease(row: ServiceRecord, approved: boolean) {
   try {
-    await serviceApi.lowcode.approveRelease(Number(row.id), { approved })
+    await serviceApi.lowcode.approveRelease(row.id, { approved })
     ElMessage.success(approved ? '已通过' : '已驳回')
     await loadReleases()
   } catch (err) {
