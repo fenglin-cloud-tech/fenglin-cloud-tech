@@ -70,7 +70,7 @@ export async function request<T>(path: string, options: RequestOptions = {}, ret
     throw new ApiError(`网络请求失败：${(error as Error).message}`, 'NETWORK_ERROR', 0)
   }
 
-  if (response.status === 401 && retry && getRefreshToken()) {
+  if (response.status === 401 && retry && !options.skipAuth && getRefreshToken()) {
     const ok = await ensureRefreshed()
     if (ok) return request<T>(path, options, false)
     clearTokens()
@@ -88,7 +88,7 @@ export async function request<T>(path: string, options: RequestOptions = {}, ret
 
   const body = (await response.json()) as ApiEnvelope<T>
   if (!response.ok || body.code !== '0') {
-    if (response.status === 401) {
+    if (response.status === 401 && !options.skipAuth) {
       clearTokens()
       onUnauthorized?.()
     }

@@ -173,7 +173,9 @@ export const iamApi = {
     return request<void>(`/api/hub/v1/admin/orgs/${orgId}/members/${userId}`, { method: 'DELETE' })
   },
   assignRoles(userId: string | number, roleIds: Array<string | number>) {
-    return put<UserView>(`/api/hub/v1/admin/users/${userId}/roles`, { role_ids: roleIds })
+    return put<UserView>(`/api/hub/v1/admin/users/${userId}/roles`, {
+      items: roleIds.map((roleId) => ({ role_id: roleId })),
+    })
   },
   listRoles(params: { page?: number; size?: number } = {}) {
     return get<PageResult<RoleView>>('/api/hub/v1/admin/roles', params)
