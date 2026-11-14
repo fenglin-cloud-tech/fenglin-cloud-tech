@@ -17,9 +17,32 @@ const gapItems = [
   '没有已办/抄送列表接口。',
 ]
 
-function formatCell(value: unknown): string {
+// 后端返回 Map 且键为驼峰/下划线混用，这里统一映射为中文列名
+const COLUMN_LABELS: Record<string, string> = {
+  taskId: '任务 ID', task_id: '任务 ID',
+  instanceId: '实例 ID', instance_id: '实例 ID',
+  instanceNo: '实例编号', instance_no: '实例编号',
+  nodeKey: '节点标识', node_key: '节点标识',
+  nodeName: '节点名称', node_name: '节点名称',
+  assigneeId: '处理人', assignee_id: '处理人',
+  instanceStatus: '实例状态', instance_status: '实例状态',
+  status: '状态',
+  createdAt: '创建时间', created_at: '创建时间',
+  initiatorId: '发起人', initiator_id: '发起人',
+  templateId: '模板 ID', template_id: '模板 ID',
+}
+
+function columnLabel(col: string): string {
+  return COLUMN_LABELS[col] ?? col
+}
+
+function formatCell(value: unknown, key?: string): string {
   if (value === null || value === undefined || value === '') return '-'
   if (typeof value === 'object') return JSON.stringify(value)
+  // 时间类字段后端返回毫秒时间戳，直接展示数字不可读
+  if (key && /(?:^|_)(?:created|updated|handled)(?:_at|At)$/i.test(key) && /^\d{13}$/.test(String(value))) {
+    return new Date(Number(value)).toLocaleString()
+  }
   return String(value)
 }
 
@@ -478,11 +501,11 @@ onMounted(() => {
           <el-table-column
             v-for="col in taskColumns"
             :key="col"
-            :label="col"
+            :label="columnLabel(col)"
             min-width="140"
             show-overflow-tooltip
           >
-            <template #default="{ row }">{{ formatCell(row[col]) }}</template>
+            <template #default="{ row }">{{ formatCell(row[col], col) }}</template>
           </el-table-column>
           <el-table-column label="操作" width="260" fixed="right">
             <template #default="{ row }">
@@ -505,11 +528,11 @@ onMounted(() => {
           <el-table-column
             v-for="col in instColumns"
             :key="col"
-            :label="col"
+            :label="columnLabel(col)"
             min-width="140"
             show-overflow-tooltip
           >
-            <template #default="{ row }">{{ formatCell(row[col]) }}</template>
+            <template #default="{ row }">{{ formatCell(row[col], col) }}</template>
           </el-table-column>
           <el-table-column label="操作" width="150" fixed="right">
             <template #default="{ row }">
