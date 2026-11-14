@@ -606,7 +606,11 @@ onMounted(() => {
                 <el-tag :type="statusTag(row.result_status)" size="small">{{ row.result_status }}</el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="published_at" label="发布时间" width="180" />
+            <el-table-column label="发布时间" width="180">
+              <template #default="{ row }">
+                {{ row.published_at ? new Date(row.published_at).toLocaleString() : '-' }}
+              </template>
+            </el-table-column>
           </el-table>
         </el-tab-pane>
       </el-tabs>
