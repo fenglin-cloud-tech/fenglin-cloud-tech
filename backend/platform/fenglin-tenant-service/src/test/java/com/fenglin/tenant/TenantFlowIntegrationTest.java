@@ -3,13 +3,17 @@ package com.fenglin.tenant;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fenglin.common.test.EmbeddedPostgresSupport;
+import com.fenglin.tenant.service.FinanceProvisioner;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -24,7 +28,9 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -36,6 +42,7 @@ class TenantFlowIntegrationTest {
 
     private static final String WRITE_PERMISSION = "platform:tenant:manage";
     private static final String JDBC_URL;
+    private static final List<Long> FINANCE_PROVISIONED = new CopyOnWriteArrayList<>();
 
     static {
         EmbeddedPostgresSupport postgres = EmbeddedPostgresSupport.start();
@@ -58,6 +65,22 @@ class TenantFlowIntegrationTest {
         registry.add("spring.datasource.hikari.connection-init-sql", () -> "SET ROLE fl_app");
     }
 
+    /** FIN-15 财务域初始化走 HTTP 调用，测试内不启动财务服务，用替身隔离并记录调用。 */
+    @TestConfiguration
+    static class TestDoublesConfig {
+
+        @Bean
+        @Primary
+        FinanceProvisioner recordingFinanceProvisioner() {
+            return new FinanceProvisioner("http://localhost:1", "test") {
+                @Override
+                public void initialize(long tenantId, String tenantName) {
+                    FINANCE_PROVISIONED.add(tenantId);
+                }
+            };
+        }
+    }
+
     @LocalServerPort
     private int port;
 
@@ -70,6 +93,7 @@ class TenantFlowIntegrationTest {
     @BeforeEach
     void resetData() throws Exception {
         restTemplate.getRestTemplate().setRequestFactory(new JdkClientHttpRequestFactory());
+        FINANCE_PROVISIONED.clear();
         try (Connection connection = ownerConnection(); Statement statement = connection.createStatement()) {
             statement.execute("""
                     TRUNCATE fenglin_hub.hub_subscription, fenglin_hub.hub_user_role,
@@ -101,6 +125,7 @@ class TenantFlowIntegrationTest {
         assertThat(tenantCode).startsWith("T");
         assertThat(data.get("status").asText()).isEqualTo("ACTIVE");
         assertThat(data.get("initial_password").asText()).hasSize(16);
+        assertThat(FINANCE_PROVISIONED).containsExactly(tenantId);
 
         try (Connection connection = ownerConnection(); Statement statement = connection.createStatement()) {
             ResultSet tenant = statement.executeQuery(
