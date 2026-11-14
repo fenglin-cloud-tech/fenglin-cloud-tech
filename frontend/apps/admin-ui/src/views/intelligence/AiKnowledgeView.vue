@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { GapNotice, PageHeader } from '@fenglin/ui-admin'
+import { GapNotice, PageHeader, ID_COLUMN_WIDTH, formatDateTime } from '@fenglin/ui-admin'
 import { intelligenceApi, type AiRecord } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 
@@ -117,7 +117,7 @@ onMounted(load)
 
     <el-card shadow="never">
       <el-table v-loading="loading" :data="rows" border stripe max-height="580" @row-click="openDetail">
-        <el-table-column prop="id" label="ID" width="170" />
+        <el-table-column prop="id" label="ID" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
         <el-table-column prop="code" label="编码" min-width="150" />
         <el-table-column prop="name" label="名称" min-width="180" />
         <el-table-column label="可见范围" width="110">
@@ -130,7 +130,7 @@ onMounted(load)
         <el-table-column prop="default_sec_level" label="默认密级" width="100" />
         <el-table-column prop="embedding_model" label="向量模型" min-width="160" />
         <el-table-column prop="status" label="状态" width="100" />
-        <el-table-column prop="created_at" label="创建时间" width="170" />
+        <el-table-column prop="created_at" label="创建时间" width="150" :formatter="(row: AiRecord) => formatDateTime(row.created_at)" />
         <el-table-column label="操作" width="90" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" @click.stop="openDetail(row)">详情</el-button>
@@ -162,8 +162,8 @@ onMounted(load)
         <el-descriptions-item label="向量集合">{{ detailRow.vector_collection ?? '-' }}</el-descriptions-item>
         <el-descriptions-item label="ES 索引">{{ detailRow.es_index ?? '-' }}</el-descriptions-item>
         <el-descriptions-item label="状态">{{ detailRow.status ?? '-' }}</el-descriptions-item>
-        <el-descriptions-item label="创建时间">{{ detailRow.created_at ?? '-' }}</el-descriptions-item>
-        <el-descriptions-item label="更新时间">{{ detailRow.updated_at ?? '-' }}</el-descriptions-item>
+        <el-descriptions-item label="创建时间">{{ formatDateTime(detailRow.created_at) }}</el-descriptions-item>
+        <el-descriptions-item label="更新时间">{{ formatDateTime(detailRow.updated_at) }}</el-descriptions-item>
       </el-descriptions>
       <el-empty v-else description="暂无详情" :image-size="60" />
       <el-alert

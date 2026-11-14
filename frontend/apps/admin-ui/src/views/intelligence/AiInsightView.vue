@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { GapNotice, PageHeader } from '@fenglin/ui-admin'
+import { GapNotice, PageHeader, ID_COLUMN_WIDTH, formatDateTime } from '@fenglin/ui-admin'
 import { intelligenceApi, type AiRecord } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 
@@ -222,16 +222,16 @@ onMounted(loadTasks)
     <el-card shadow="never" style="margin-bottom: 12px">
       <template #header>洞察任务</template>
       <el-table v-loading="loading" :data="tasks" border stripe max-height="360">
-        <el-table-column prop="id" label="ID" width="170" />
-        <el-table-column prop="name" label="名称" min-width="180" />
-        <el-table-column prop="target_type" label="目标类型" width="110" />
-        <el-table-column prop="target_id" label="目标 ID" width="170" />
-        <el-table-column prop="trigger_type" label="触发方式" width="110" />
-        <el-table-column prop="cron_expr" label="Cron" min-width="140" />
-        <el-table-column prop="status" label="状态" width="110" />
-        <el-table-column prop="last_run_at" label="最近运行" width="170" />
-        <el-table-column prop="created_at" label="创建时间" width="170" />
-        <el-table-column label="操作" width="140" fixed="right">
+        <el-table-column prop="id" label="ID" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
+        <el-table-column prop="name" label="名称" min-width="130" show-overflow-tooltip />
+        <el-table-column prop="target_type" label="目标类型" width="100" />
+        <el-table-column prop="target_id" label="目标 ID" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
+        <el-table-column prop="trigger_type" label="触发方式" width="100" />
+        <el-table-column prop="cron_expr" label="Cron" min-width="110" show-overflow-tooltip />
+        <el-table-column prop="status" label="状态" width="100" />
+        <el-table-column prop="last_run_at" label="最近运行" width="140" :formatter="(row: AiRecord) => formatDateTime(row.last_run_at)" />
+        <el-table-column prop="created_at" label="创建时间" width="140" :formatter="(row: AiRecord) => formatDateTime(row.created_at)" />
+        <el-table-column label="操作" width="120" fixed="right">
           <template #default="{ row }">
             <el-button v-perm="'ai:bi:insight:run'" link type="primary" @click="runTask(row)">运行</el-button>
             <el-button link type="primary" @click="openResults(row)">结果</el-button>
@@ -252,7 +252,7 @@ onMounted(loadTasks)
     </el-card>
 
     <el-row :gutter="12">
-      <el-col :xs="24" :lg="14">
+      <el-col :xs="24" :lg="16">
         <el-card shadow="never" style="margin-bottom: 12px">
           <template #header>归因分析</template>
           <el-alert v-if="attrError" type="error" :closable="false" show-icon :title="attrError" style="margin-bottom: 12px" />
@@ -273,17 +273,17 @@ onMounted(loadTasks)
           <pre v-if="attrResult" class="fl-mono result-json">{{ JSON.stringify(attrResult, null, 2) }}</pre>
           <el-alert v-if="historyError" type="error" :closable="false" show-icon :title="historyError" style="margin: 12px 0" />
           <el-table v-if="attrRows.length" :data="attrRows" border size="small" max-height="240">
-            <el-table-column prop="id" label="ID" width="170" />
-            <el-table-column prop="metric_id" label="指标" width="170" />
-            <el-table-column prop="dimension_field" label="维度" width="110" />
-            <el-table-column prop="algorithm" label="算法" width="120" />
-            <el-table-column prop="main_factor" label="主因" min-width="120" />
-            <el-table-column prop="created_at" label="时间" width="170" />
+            <el-table-column prop="id" label="ID" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
+            <el-table-column prop="metric_id" label="指标" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
+            <el-table-column prop="dimension_field" label="维度" width="100" show-overflow-tooltip />
+            <el-table-column prop="algorithm" label="算法" width="110" show-overflow-tooltip />
+            <el-table-column prop="main_factor" label="主因" min-width="120" show-overflow-tooltip />
+            <el-table-column prop="created_at" label="时间" width="140" :formatter="(row: AiRecord) => formatDateTime(row.created_at)" />
           </el-table>
         </el-card>
       </el-col>
 
-      <el-col :xs="24" :lg="10">
+      <el-col :xs="24" :lg="8">
         <el-card shadow="never">
           <template #header>报表导出</template>
           <el-alert v-if="exportError" type="error" :closable="false" show-icon :title="exportError" style="margin-bottom: 12px" />
@@ -307,17 +307,17 @@ onMounted(loadTasks)
       </el-col>
     </el-row>
 
-    <el-drawer v-model="resultsVisible" title="洞察结果" size="680px">
+    <el-drawer v-model="resultsVisible" title="洞察结果" size="900px">
       <el-alert v-if="resultsError" type="error" :closable="false" show-icon :title="resultsError" style="margin-bottom: 12px" />
       <div class="fl-muted" style="margin-bottom: 8px">任务：{{ resultsTask?.name ?? resultsTask?.id ?? '-' }}</div>
       <el-table v-loading="resultsLoading" :data="results" border size="small" max-height="520">
-        <el-table-column prop="id" label="ID" width="170" />
-        <el-table-column prop="anomaly_type" label="异常类型" width="110" />
-        <el-table-column prop="magnitude" label="幅度" width="90" />
-        <el-table-column prop="conclusion" label="结论" min-width="240" show-overflow-tooltip />
-        <el-table-column prop="suggestion" label="建议" min-width="240" show-overflow-tooltip />
-        <el-table-column prop="confidence" label="置信度" width="90" />
-        <el-table-column prop="created_at" label="时间" width="170" />
+        <el-table-column prop="id" label="ID" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
+        <el-table-column prop="anomaly_type" label="异常类型" width="90" show-overflow-tooltip />
+        <el-table-column prop="magnitude" label="幅度" width="70" />
+        <el-table-column prop="conclusion" label="结论" min-width="150" show-overflow-tooltip />
+        <el-table-column prop="suggestion" label="建议" min-width="150" show-overflow-tooltip />
+        <el-table-column prop="confidence" label="置信度" width="70" />
+        <el-table-column prop="created_at" label="时间" width="140" :formatter="(row: AiRecord) => formatDateTime(row.created_at)" />
         <template #empty>
           <el-empty description="暂无结果" :image-size="60" />
         </template>

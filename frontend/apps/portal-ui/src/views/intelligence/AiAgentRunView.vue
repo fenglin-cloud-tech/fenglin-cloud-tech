@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { GapNotice, PageHeader } from '@fenglin/ui-admin'
+import { GapNotice, PageHeader, formatDateTime } from '@fenglin/ui-admin'
 import { intelligenceApi, type AiRecord } from '@fenglin/api-client'
 import { useAuthStore } from '@/stores/auth'
 import { describeError } from '@/utils/error'
@@ -149,8 +149,10 @@ onMounted(load)
             <el-table-column prop="model_code" label="模型" width="130">
               <template #default="{ row }">{{ row.model_code || '-' }}</template>
             </el-table-column>
+            <template #empty>
+              <el-empty v-if="canUse" description="暂无智能体" :image-size="70" />
+            </template>
           </el-table>
-          <el-empty v-if="canUse && agents.length === 0 && !loading" description="暂无智能体" :image-size="70" />
           <el-pagination
             style="margin-top: 8px; justify-content: flex-end"
             layout="total, prev, pager, next"
@@ -220,7 +222,7 @@ onMounted(load)
           <el-descriptions-item label="Token">{{ runResult.token_total ?? '-' }}</el-descriptions-item>
           <el-descriptions-item label="智能体ID">{{ runResult.agent_id ?? '-' }}</el-descriptions-item>
           <el-descriptions-item label="追踪ID">{{ runResult.trace_id || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="执行时间">{{ runResult.created_at || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="执行时间">{{ formatDateTime(runResult.created_at) }}</el-descriptions-item>
         </el-descriptions>
         <div v-if="answerText" class="answer-box">{{ answerText }}</div>
         <el-empty v-else description="后端未返回文本回答，请查看下方原始结果" :image-size="60" />

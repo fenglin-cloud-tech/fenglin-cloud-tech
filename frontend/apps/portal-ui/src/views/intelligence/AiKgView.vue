@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { GapNotice, PageHeader } from '@fenglin/ui-admin'
+import { GapNotice, PageHeader, ID_COLUMN_WIDTH_COMFORT, formatDateTime } from '@fenglin/ui-admin'
 import { intelligenceApi, type AiRecord } from '@fenglin/api-client'
 import { useAuthStore } from '@/stores/auth'
 import { describeError } from '@/utils/error'
@@ -21,8 +21,8 @@ const error = ref('')
 const searched = ref(false)
 
 const pathForm = reactive({
-  from_id: undefined as number | undefined,
-  to_id: undefined as number | undefined,
+  from_id: undefined as string | undefined,
+  to_id: undefined as string | undefined,
   max_depth: 3,
 })
 const pathLoading = ref(false)
@@ -169,27 +169,28 @@ onMounted(loadKbs)
         <el-table-column label="置信度" width="100">
           <template #default="{ row }">{{ confidenceText(row.confidence) }}</template>
         </el-table-column>
-        <el-table-column prop="knowledge_base_id" label="知识库ID" width="140" />
-        <el-table-column prop="created_at" label="创建时间" width="170">
-          <template #default="{ row }">{{ row.created_at || '-' }}</template>
+        <el-table-column prop="knowledge_base_id" label="知识库ID" :width="ID_COLUMN_WIDTH_COMFORT" show-overflow-tooltip />
+        <el-table-column prop="created_at" label="创建时间" width="150">
+          <template #default="{ row }">{{ formatDateTime(row.created_at) }}</template>
         </el-table-column>
+        <template #empty>
+          <el-empty
+            v-if="canQuery"
+            :description="searched ? '没有匹配的实体，可调整关键词后重试' : '输入条件后点击查询'"
+            :image-size="70"
+          />
+        </template>
       </el-table>
-      <el-empty
-        v-if="searched && entities.length === 0 && !loading"
-        description="没有匹配的实体，可调整关键词后重试"
-        :image-size="70"
-      />
-      <el-empty v-if="!searched && canQuery" description="输入条件后点击查询" :image-size="70" />
     </el-card>
 
     <el-card shadow="never">
       <template #header><span>关系路径</span></template>
       <el-form label-width="90px" size="small" :disabled="!canQuery">
         <el-form-item label="起始实体">
-          <el-input-number v-model="pathForm.from_id" :min="1" :controls="false" placeholder="from_id" />
+          <el-input v-model="pathForm.from_id" placeholder="19 位实体 ID" maxlength="25" />
         </el-form-item>
         <el-form-item label="目标实体">
-          <el-input-number v-model="pathForm.to_id" :min="1" :controls="false" placeholder="to_id" />
+          <el-input v-model="pathForm.to_id" placeholder="19 位实体 ID" maxlength="25" />
         </el-form-item>
         <el-form-item label="最大深度">
           <el-input-number v-model="pathForm.max_depth" :min="1" :max="5" size="small" />

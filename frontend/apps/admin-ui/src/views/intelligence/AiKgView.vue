@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { GapNotice, PageHeader } from '@fenglin/ui-admin'
+import { GapNotice, PageHeader, ID_COLUMN_WIDTH, formatDateTime } from '@fenglin/ui-admin'
 import { intelligenceApi, type AiRecord } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 
@@ -183,14 +183,14 @@ onMounted(loadEntities)
         <el-button type="primary" :loading="loading" @click="loadEntities">查询</el-button>
       </div>
       <el-table v-loading="loading" :data="entities" border stripe max-height="420">
-        <el-table-column prop="id" label="实体 ID" width="170" />
-        <el-table-column prop="knowledge_base_id" label="知识库" width="170" />
+        <el-table-column prop="id" label="实体 ID" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
+        <el-table-column prop="knowledge_base_id" label="知识库" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
         <el-table-column prop="name" label="名称" min-width="180" />
         <el-table-column prop="entity_type" label="类型" width="130" />
         <el-table-column prop="normalized_name" label="归一名称" min-width="150" />
         <el-table-column prop="aliases" label="别名" min-width="180" show-overflow-tooltip />
         <el-table-column prop="confidence" label="置信度" width="100" />
-        <el-table-column prop="created_at" label="创建时间" width="170" />
+        <el-table-column prop="created_at" label="创建时间" width="150" :formatter="(row: AiRecord) => formatDateTime(row.created_at)" />
         <template #empty>
           <el-empty description="暂无实体" :image-size="60" />
         </template>

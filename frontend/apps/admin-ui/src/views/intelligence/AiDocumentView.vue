@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { GapNotice, PageHeader } from '@fenglin/ui-admin'
+import { GapNotice, PageHeader, ID_COLUMN_WIDTH, formatDateTime } from '@fenglin/ui-admin'
 import { intelligenceApi, type AiRecord } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 
@@ -215,14 +215,14 @@ onMounted(loadKb)
     <el-card shadow="never">
       <el-empty v-if="!selectedKb" description="请选择知识库后查看文档" :image-size="70" />
       <el-table v-else v-loading="loading" :data="rows" border stripe max-height="560">
-        <el-table-column prop="id" label="ID" width="170" />
-        <el-table-column prop="title" label="标题" min-width="220" show-overflow-tooltip />
+        <el-table-column prop="id" label="ID" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
+        <el-table-column prop="title" label="标题" min-width="190" show-overflow-tooltip />
         <el-table-column prop="doc_type" label="类型" width="90" />
         <el-table-column prop="sec_level" label="密级" width="80" />
         <el-table-column prop="review_status" label="审核状态" width="120" />
         <el-table-column prop="index_status" label="索引状态" width="120" />
         <el-table-column prop="chunk_count" label="分块数" width="90" />
-        <el-table-column prop="created_at" label="创建时间" width="170" />
+        <el-table-column prop="created_at" label="创建时间" width="150" :formatter="(row: AiRecord) => formatDateTime(row.created_at)" />
         <el-table-column label="操作" width="280" fixed="right">
           <template #default="{ row }">
             <el-button v-perm="'tenant:ai:kb:review'" link type="primary" @click="openDetail(row)">详情</el-button>
@@ -260,8 +260,8 @@ onMounted(loadKb)
           <el-descriptions-item label="索引状态">{{ detail.index_status ?? '-' }}</el-descriptions-item>
           <el-descriptions-item label="来源 URI" :span="2">{{ detail.source_uri ?? '-' }}</el-descriptions-item>
           <el-descriptions-item label="标签" :span="2">{{ detail.tags ?? '-' }}</el-descriptions-item>
-          <el-descriptions-item label="发布时间">{{ detail.published_at ?? '-' }}</el-descriptions-item>
-          <el-descriptions-item label="创建时间">{{ detail.created_at ?? '-' }}</el-descriptions-item>
+          <el-descriptions-item label="发布时间">{{ formatDateTime(detail.published_at) }}</el-descriptions-item>
+          <el-descriptions-item label="创建时间">{{ formatDateTime(detail.created_at) }}</el-descriptions-item>
         </el-descriptions>
         <el-empty v-else-if="!detailLoading" description="暂无详情" :image-size="60" />
       </div>

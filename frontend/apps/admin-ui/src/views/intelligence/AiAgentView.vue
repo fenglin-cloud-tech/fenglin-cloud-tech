@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { GapNotice, PageHeader } from '@fenglin/ui-admin'
+import { GapNotice, PageHeader, ID_COLUMN_WIDTH, formatDateTime } from '@fenglin/ui-admin'
 import { intelligenceApi, type AiRecord } from '@fenglin/api-client'
 import { useAuthStore } from '@/stores/auth'
 import { describeError } from '@/utils/error'
@@ -193,19 +193,19 @@ onMounted(loadAgents)
       <el-tabs v-model="activeTab">
         <el-tab-pane label="智能体" name="agents">
           <el-table v-loading="loading" :data="rows" border stripe max-height="520">
-            <el-table-column prop="id" label="ID" width="170" />
-            <el-table-column prop="code" label="编码" min-width="150" />
-            <el-table-column prop="name" label="名称" min-width="160" />
-            <el-table-column prop="description" label="描述" min-width="200" show-overflow-tooltip />
-            <el-table-column prop="model_code" label="模型" width="150" />
-            <el-table-column prop="version_no" label="版本" width="80" />
-            <el-table-column label="状态" width="110">
+            <el-table-column prop="id" label="ID" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
+            <el-table-column prop="code" label="编码" min-width="130" show-overflow-tooltip />
+            <el-table-column prop="name" label="名称" min-width="150" show-overflow-tooltip />
+            <el-table-column prop="description" label="描述" min-width="180" show-overflow-tooltip />
+            <el-table-column prop="model_code" label="模型" width="140" show-overflow-tooltip />
+            <el-table-column prop="version_no" label="版本" width="70" />
+            <el-table-column label="状态" width="100">
               <template #default="{ row }">
                 <el-tag size="small" :type="row.status === 'PUBLISHED' ? 'success' : 'info'">{{ row.status ?? '-' }}</el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="max_steps" label="最大步数" width="100" />
-            <el-table-column prop="created_at" label="创建时间" width="170" />
+            <el-table-column prop="max_steps" label="最大步数" width="90" />
+            <el-table-column prop="created_at" label="创建时间" width="150" :formatter="(row: AiRecord) => formatDateTime(row.created_at)" />
             <el-table-column label="操作" width="90" fixed="right">
               <template #default="{ row }">
                 <el-button v-perm="'ai:agent:run'" link type="primary" @click="openRun(row)">运行</el-button>

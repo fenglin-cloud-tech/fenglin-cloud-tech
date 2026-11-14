@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { GapNotice, PageHeader } from '@fenglin/ui-admin'
+import { GapNotice, PageHeader, ID_COLUMN_WIDTH, formatDateTime } from '@fenglin/ui-admin'
 import { intelligenceApi, type AiRecord } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 
@@ -138,23 +138,23 @@ onMounted(load)
 
     <el-card shadow="never">
       <el-table v-loading="loading" :data="rows" border stripe max-height="580">
-        <el-table-column prop="id" label="ID" width="170" />
-        <el-table-column prop="code" label="编码" min-width="150" />
-        <el-table-column prop="name" label="名称" min-width="170" />
-        <el-table-column prop="category" label="分类" width="100" />
-        <el-table-column prop="connector_type" label="连接器" min-width="140" />
-        <el-table-column prop="endpoint" label="Endpoint" min-width="200" show-overflow-tooltip />
-        <el-table-column prop="sync_mode" label="同步模式" width="110" />
-        <el-table-column prop="sync_cron" label="同步计划" min-width="140" />
-        <el-table-column label="凭据" width="90">
+        <el-table-column prop="id" label="ID" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
+        <el-table-column prop="code" label="编码" min-width="130" show-overflow-tooltip />
+        <el-table-column prop="name" label="名称" min-width="140" show-overflow-tooltip />
+        <el-table-column prop="category" label="分类" width="90" />
+        <el-table-column prop="connector_type" label="连接器" min-width="110" show-overflow-tooltip />
+        <el-table-column prop="endpoint" label="Endpoint" min-width="120" show-overflow-tooltip />
+        <el-table-column prop="sync_mode" label="同步模式" width="100" />
+        <el-table-column prop="sync_cron" label="同步计划" min-width="110" show-overflow-tooltip />
+        <el-table-column label="凭据" width="80">
           <template #default="{ row }">
             <el-tag size="small" :type="row.has_credential ? 'success' : 'info'">
               {{ row.has_credential ? '已配置' : '无' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="status" label="状态" width="100" />
-        <el-table-column prop="created_at" label="创建时间" width="170" />
+        <el-table-column prop="status" label="状态" width="90" />
+        <el-table-column prop="created_at" label="创建时间" width="150" :formatter="(row: AiRecord) => formatDateTime(row.created_at)" />
         <template #empty>
           <el-empty description="暂无数据源" :image-size="60" />
         </template>

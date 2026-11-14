@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { GapNotice, PageHeader } from '@fenglin/ui-admin'
+import { GapNotice, PageHeader, ID_COLUMN_WIDTH_COMFORT, formatDateTime } from '@fenglin/ui-admin'
 import { intelligenceApi, type AiRecord } from '@fenglin/api-client'
 import { useAuthStore } from '@/stores/auth'
 import { describeError } from '@/utils/error'
@@ -209,18 +209,20 @@ onMounted(async () => {
       <el-table v-loading="loading" :data="tasks" border stripe size="small">
         <el-table-column prop="name" label="任务名称" min-width="200" />
         <el-table-column prop="target_type" label="对象" width="100" />
-        <el-table-column prop="target_id" label="对象ID" width="140" />
+        <el-table-column prop="target_id" label="对象ID" :width="ID_COLUMN_WIDTH_COMFORT" show-overflow-tooltip />
         <el-table-column prop="trigger_type" label="触发方式" width="120" />
         <el-table-column prop="status" label="状态" width="110" />
-        <el-table-column prop="last_run_at" label="最近运行" width="170" :formatter="(row: AiRecord) => row.last_run_at || '-'" />
+        <el-table-column prop="last_run_at" label="最近运行" width="150" :formatter="(row: AiRecord) => formatDateTime(row.last_run_at)" />
         <el-table-column label="操作" width="180">
           <template #default="{ row }">
             <el-button link type="primary" @click="openResults(row)">结果</el-button>
             <el-button v-if="canSubscribe" link type="success" @click="openSubscribe(row)">订阅</el-button>
           </template>
         </el-table-column>
+        <template #empty>
+          <el-empty v-if="canView" description="暂无洞察任务" :image-size="70" />
+        </template>
       </el-table>
-      <el-empty v-if="canView && tasks.length === 0 && !loading" description="暂无洞察任务" :image-size="70" />
       <el-pagination style="margin-top: 8px; justify-content: flex-end" layout="total, prev, pager, next"
         :total="total" :page-size="size" :current-page="page"
         @current-change="(next: number) => { page = next; loadTasks() }" />
@@ -235,8 +237,8 @@ onMounted(async () => {
       </template>
       <el-alert v-if="subError" type="error" :closable="false" show-icon :title="subError" style="margin-bottom: 8px" />
       <el-table v-loading="subLoading" :data="subscriptions" border stripe size="small">
-        <el-table-column prop="id" label="订阅ID" width="140" />
-        <el-table-column prop="task_id" label="任务ID" width="140" />
+        <el-table-column prop="id" label="订阅ID" :width="ID_COLUMN_WIDTH_COMFORT" show-overflow-tooltip />
+        <el-table-column prop="task_id" label="任务ID" :width="ID_COLUMN_WIDTH_COMFORT" show-overflow-tooltip />
         <el-table-column label="渠道" width="130">
           <template #default="{ row }">{{ channelText(row.channels) }}</template>
         </el-table-column>
@@ -245,11 +247,13 @@ onMounted(async () => {
         </el-table-column>
         <el-table-column label="频率" width="100" :formatter="(row: AiRecord) => frequencyText(row.frequency)" />
         <el-table-column prop="status" label="状态" width="100" />
-        <el-table-column prop="created_at" label="创建时间" width="170">
-          <template #default="{ row }">{{ row.created_at || '-' }}</template>
+        <el-table-column prop="created_at" label="创建时间" width="150">
+          <template #default="{ row }">{{ formatDateTime(row.created_at) }}</template>
         </el-table-column>
+        <template #empty>
+          <el-empty v-if="canView" description="暂无订阅" :image-size="70" />
+        </template>
       </el-table>
-      <el-empty v-if="canView && subscriptions.length === 0 && !subLoading" description="暂无订阅" :image-size="70" />
       <span v-if="!canSubscribe" class="fl-muted">缺少权限 ai:bi:insight:subscribe，不显示新建订阅入口。</span>
     </el-card>
 
@@ -292,7 +296,7 @@ onMounted(async () => {
         <div v-for="item in results" :key="String(item.id)" class="result-item">
           <div class="result-item__head">
             <el-tag size="small" type="warning">{{ item.anomaly_type || '-' }}</el-tag>
-            <span class="fl-muted">置信度 {{ item.confidence ?? '-' }} · {{ item.created_at || '-' }}</span>
+            <span class="fl-muted">置信度 {{ item.confidence ?? '-' }} · {{ formatDateTime(item.created_at) }}</span>
           </div>
           <div class="result-item__text">{{ item.conclusion || '-' }}</div>
           <div class="fl-muted">建议：{{ item.suggestion || '-' }}</div>

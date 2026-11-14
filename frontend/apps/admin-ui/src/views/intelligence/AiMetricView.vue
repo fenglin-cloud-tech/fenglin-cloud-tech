@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { GapNotice, PageHeader } from '@fenglin/ui-admin'
+import { GapNotice, PageHeader, ID_COLUMN_WIDTH, formatDateTime } from '@fenglin/ui-admin'
 import { intelligenceApi, type AiRecord } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 const activeTab = ref('metrics')
@@ -274,13 +274,13 @@ onMounted(() => {
         <el-tab-pane label="数据集" name="datasets">
           <el-alert v-if="datasetError" type="error" :closable="false" show-icon :title="datasetError" style="margin-bottom: 12px" />
           <el-table v-loading="datasetLoading" :data="datasetRows" border stripe max-height="360" @row-click="selectDataset">
-            <el-table-column prop="id" label="ID" width="170" />
+            <el-table-column prop="id" label="ID" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
             <el-table-column prop="code" label="编码" min-width="140" />
             <el-table-column prop="name" label="名称" min-width="160" />
-            <el-table-column prop="data_source_id" label="数据源" width="170" />
+            <el-table-column prop="data_source_id" label="数据源" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
             <el-table-column prop="mode" label="模式" width="100" />
             <el-table-column prop="status" label="状态" width="100" />
-            <el-table-column prop="created_at" label="创建时间" width="170" />
+            <el-table-column prop="created_at" label="创建时间" width="150" :formatter="(row: AiRecord) => formatDateTime(row.created_at)" />
             <template #empty><el-empty description="暂无数据集" :image-size="60" /></template>
           </el-table>
           <el-pagination

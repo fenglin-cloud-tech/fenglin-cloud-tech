@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { GapNotice, PageHeader } from '@fenglin/ui-admin'
+import { GapNotice, PageHeader, formatDateTime } from '@fenglin/ui-admin'
 import { intelligenceApi, type AiRecord } from '@fenglin/api-client'
 import { useAuthStore } from '@/stores/auth'
 import { describeError } from '@/utils/error'
@@ -159,7 +159,7 @@ onMounted(load)
                 <el-descriptions-item label="主题">{{ detail.theme || '-' }}</el-descriptions-item>
                 <el-descriptions-item label="共享范围">{{ detail.share_type || '-' }}</el-descriptions-item>
                 <el-descriptions-item label="移动端">{{ detail.mobile_enabled ? '启用' : '未启用' }}</el-descriptions-item>
-                <el-descriptions-item label="创建时间">{{ detail.created_at || '-' }}</el-descriptions-item>
+                <el-descriptions-item label="创建时间">{{ formatDateTime(detail.created_at) }}</el-descriptions-item>
                 <el-descriptions-item label="布局" :span="2">{{ layoutText(detail.layout) }}</el-descriptions-item>
               </el-descriptions>
 

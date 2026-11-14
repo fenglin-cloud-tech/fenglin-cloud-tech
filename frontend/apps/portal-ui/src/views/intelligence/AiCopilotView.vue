@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { GapNotice, PageHeader } from '@fenglin/ui-admin'
+import { GapNotice, PageHeader, formatDateTime } from '@fenglin/ui-admin'
 import { intelligenceApi, type AiRecord } from '@fenglin/api-client'
 import { useAuthStore } from '@/stores/auth'
 import { describeError } from '@/utils/error'
@@ -239,7 +239,7 @@ onMounted(async () => {
             <div v-for="message in messages" :key="String(message.id)" class="message-item">
               <div class="message-item__head">
                 <el-tag size="small" :type="message.role === 'ASSISTANT' ? 'success' : 'info'">{{ message.role || '-' }}</el-tag>
-                <span class="fl-muted">{{ message.created_at || '-' }}</span>
+                <span class="fl-muted">{{ formatDateTime(message.created_at) }}</span>
                 <template v-if="message.role === 'ASSISTANT' && canFeedback">
                   <el-button link type="primary" @click="openFeedback(message, 'LIKE')">点赞</el-button>
                   <el-button link type="danger" @click="openFeedback(message, 'DISLIKE')">点踩</el-button>

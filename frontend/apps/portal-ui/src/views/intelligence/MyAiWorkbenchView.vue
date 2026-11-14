@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { GapNotice, PageHeader } from '@fenglin/ui-admin'
+import { GapNotice, PageHeader, ID_COLUMN_WIDTH_COMFORT, formatDateTime } from '@fenglin/ui-admin'
 import { intelligenceApi, type AiRecord } from '@fenglin/api-client'
 import { useAuthStore } from '@/stores/auth'
 import { describeError } from '@/utils/error'
@@ -119,7 +119,7 @@ onMounted(load)
                   <span class="row-item__title">{{ item.title || '未命名会话' }}</span>
                   <span class="fl-muted">{{ item.type || '-' }} · {{ item.message_count ?? 0 }} 条消息</span>
                 </div>
-                <span class="fl-muted">{{ item.updated_at || item.created_at || '-' }}</span>
+                <span class="fl-muted">{{ formatDateTime(item.updated_at || item.created_at) }}</span>
               </div>
               <el-empty v-if="conversations.length === 0" description="暂无会话" :image-size="60" />
             </div>
@@ -152,7 +152,7 @@ onMounted(load)
                   <span class="row-item__title">{{ item.name || '未命名看板' }}</span>
                   <span class="fl-muted">{{ item.code || '-' }} · {{ item.status || '-' }}</span>
                 </div>
-                <span class="fl-muted">{{ item.created_at || '-' }}</span>
+                <span class="fl-muted">{{ formatDateTime(item.created_at) }}</span>
               </div>
               <el-empty v-if="dashboards.length === 0" description="暂无看板" :image-size="60" />
             </div>
@@ -182,14 +182,16 @@ onMounted(load)
         <el-table v-loading="loading" :data="tasks" border stripe size="small">
           <el-table-column prop="name" label="任务名称" min-width="180" />
           <el-table-column prop="target_type" label="对象" width="110" />
-          <el-table-column prop="target_id" label="对象ID" width="140" />
+          <el-table-column prop="target_id" label="对象ID" :width="ID_COLUMN_WIDTH_COMFORT" show-overflow-tooltip />
           <el-table-column prop="trigger_type" label="触发方式" width="120" />
           <el-table-column prop="status" label="状态" width="110" />
-          <el-table-column prop="last_run_at" label="最近运行" width="170">
-            <template #default="{ row }">{{ row.last_run_at || '-' }}</template>
+          <el-table-column prop="last_run_at" label="最近运行" width="150">
+            <template #default="{ row }">{{ formatDateTime(row.last_run_at) }}</template>
           </el-table-column>
+          <template #empty>
+            <el-empty description="暂无洞察任务" :image-size="60" />
+          </template>
         </el-table>
-        <el-empty v-if="tasks.length === 0" description="暂无洞察任务" :image-size="60" />
       </template>
     </el-card>
   </div>
