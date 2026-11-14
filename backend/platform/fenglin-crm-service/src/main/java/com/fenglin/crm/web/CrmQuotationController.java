@@ -3,6 +3,7 @@ package com.fenglin.crm.web;
 import com.fenglin.common.core.ApiResponse;
 import com.fenglin.common.core.PageResult;
 import com.fenglin.common.security.PermissionGuard;
+import com.fenglin.crm.support.CrmContext;
 import com.fenglin.crm.service.ContractService;
 import com.fenglin.crm.service.QuotationService;
 import com.fenglin.crm.web.dto.CrmDtos.ContractView;
@@ -54,6 +55,28 @@ public class CrmQuotationController {
             @RequestParam(value = "size", required = false) Integer size) {
         PermissionGuard.require(permissions, "crm:quotation:view");
         return ApiResponse.success(quotationService.list(status, ownerId, customerId, keyword, page, size));
+    }
+
+    /** 员工自助：只返回 owner_id = 当前登录用户的报价。 */
+    @GetMapping("/api/crm/v1/quotations/my")
+    public ApiResponse<PageResult<QuotationListItemView>> myQuotations(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "customerId", required = false) Long customerId,
+            @RequestParam(value = "keyword", required = false) String keyword,
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false) Integer size) {
+        PermissionGuard.require(permissions, "crm:quotation:self:view");
+        return ApiResponse.success(quotationService.list(status, CrmContext.userId(), customerId, keyword, page, size));
+    }
+
+    /** 员工自助：仅允许读取本人的报价详情。 */
+    @GetMapping("/api/crm/v1/quotations/my/{id}")
+    public ApiResponse<QuotationView> myQuotation(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id) {
+        PermissionGuard.require(permissions, "crm:quotation:self:view");
+        return ApiResponse.success(quotationService.detail(id, CrmContext.userId()));
     }
 
     @GetMapping("/api/crm/v1/quotations/{id}")

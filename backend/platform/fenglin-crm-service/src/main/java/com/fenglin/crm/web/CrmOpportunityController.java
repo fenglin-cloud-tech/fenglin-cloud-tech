@@ -3,6 +3,7 @@ package com.fenglin.crm.web;
 import com.fenglin.common.core.ApiResponse;
 import com.fenglin.common.core.PageResult;
 import com.fenglin.common.security.PermissionGuard;
+import com.fenglin.crm.support.CrmContext;
 import com.fenglin.crm.service.OpportunityService;
 import com.fenglin.crm.web.dto.CrmDtos.OpportunityCreateRequest;
 import com.fenglin.crm.web.dto.CrmDtos.OpportunityView;
@@ -58,6 +59,37 @@ public class CrmOpportunityController {
             @RequestHeader(value = "X-Permissions", required = false) String permissions) {
         PermissionGuard.require(permissions, "crm:report:sales");
         return ApiResponse.success(opportunityService.pipeline());
+    }
+
+    /** 员工自助：只返回 owner_id = 当前登录用户的商机。 */
+    @GetMapping("/api/crm/v1/opportunities/my")
+    public ApiResponse<PageResult<OpportunityView>> myOpportunities(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(value = "stage", required = false) String stage,
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "customerId", required = false) Long customerId,
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false) Integer size) {
+        PermissionGuard.require(permissions, "crm:opportunity:self:view");
+        return ApiResponse.success(opportunityService.list(stage, status, customerId, CrmContext.userId(), page, size));
+    }
+
+    /** 员工自助：仅允许读取本人的商机详情。 */
+    @GetMapping("/api/crm/v1/opportunities/my/{id}")
+    public ApiResponse<OpportunityView> myOpportunity(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id) {
+        PermissionGuard.require(permissions, "crm:opportunity:self:view");
+        return ApiResponse.success(opportunityService.detail(id, CrmContext.userId()));
+    }
+
+    /** 员工自助：仅允许读取本人商机的阶段记录。 */
+    @GetMapping("/api/crm/v1/opportunities/my/{id}/stage-logs")
+    public ApiResponse<List<StageLogView>> myStageLogs(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id) {
+        PermissionGuard.require(permissions, "crm:opportunity:self:view");
+        return ApiResponse.success(opportunityService.stageLogs(id, CrmContext.userId()));
     }
 
     @GetMapping("/api/crm/v1/opportunities/{id}")

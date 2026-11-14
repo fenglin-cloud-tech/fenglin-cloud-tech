@@ -3,6 +3,7 @@ package com.fenglin.crm.web;
 import com.fenglin.common.core.ApiResponse;
 import com.fenglin.common.core.PageResult;
 import com.fenglin.common.security.PermissionGuard;
+import com.fenglin.crm.support.CrmContext;
 import com.fenglin.crm.service.LeadService;
 import com.fenglin.crm.web.dto.CrmDtos.AssignRequest;
 import com.fenglin.crm.web.dto.CrmDtos.ConvertRequest;
@@ -60,6 +61,27 @@ public class CrmLeadController {
             @RequestParam(value = "size", required = false) Integer size) {
         PermissionGuard.require(permissions, "crm:lead:view");
         return ApiResponse.success(leadService.list(status, ownerId, keyword, page, size));
+    }
+
+    /** 员工自助：只返回 owner_id = 当前登录用户的线索。 */
+    @GetMapping("/my")
+    public ApiResponse<PageResult<LeadView>> myLeads(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "keyword", required = false) String keyword,
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false) Integer size) {
+        PermissionGuard.require(permissions, "crm:lead:self:view");
+        return ApiResponse.success(leadService.list(status, CrmContext.userId(), keyword, page, size));
+    }
+
+    /** 员工自助：仅允许读取本人的线索详情。 */
+    @GetMapping("/my/{id}")
+    public ApiResponse<LeadDetailView> myLead(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id) {
+        PermissionGuard.require(permissions, "crm:lead:self:view");
+        return ApiResponse.success(leadService.detail(id, CrmContext.userId()));
     }
 
     @GetMapping("/{id}")

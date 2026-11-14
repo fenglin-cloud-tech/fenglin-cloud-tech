@@ -69,8 +69,7 @@ async function loadQuotations() {
   quotationLoading.value = true
   quotationError.value = ''
   try {
-    const result = await crmApi.quotations.list({
-      owner_id: auth.userId,
+    const result = await crmApi.quotations.my({
       status: quotationQuery.status || undefined,
       keyword: quotationQuery.keyword || undefined,
       page: quotationQuery.page,
@@ -93,8 +92,7 @@ async function loadContracts() {
   contractLoading.value = true
   contractError.value = ''
   try {
-    const result = await crmApi.contracts.list({
-      owner_id: auth.userId,
+    const result = await crmApi.contracts.my({
       status: contractQuery.status || undefined,
       keyword: contractQuery.keyword || undefined,
       page: contractQuery.page,
@@ -114,7 +112,7 @@ async function openQuotation(row: QuotationListItemView) {
   quotationDetailLoading.value = true
   quotationDetail.value = null
   try {
-    quotationDetail.value = await crmApi.quotations.detail(row.quotation_id)
+    quotationDetail.value = await crmApi.quotations.myDetail(row.quotation_id)
   } catch (err) {
     quotationError.value = describeError(err)
   } finally {
@@ -143,8 +141,8 @@ async function openContract(row: ContractListItemView) {
   contractDetail.value = null
   contractChanges.value = []
   try {
-    contractDetail.value = await crmApi.contracts.detail(row.contract_id)
-    contractChanges.value = await crmApi.contracts.changes(row.contract_id)
+    contractDetail.value = await crmApi.contracts.myDetail(row.contract_id)
+    contractChanges.value = await crmApi.contracts.myChanges(row.contract_id)
   } catch (err) {
     contractError.value = describeError(err)
   } finally {

@@ -32,8 +32,7 @@ async function load() {
   loading.value = true
   error.value = ''
   try {
-    const result = await crmApi.customers.list({
-      owner_id: auth.userId,
+    const result = await crmApi.customers.my({
       keyword: query.keyword || undefined,
       segment: query.segment || undefined,
       page: query.page,
@@ -53,7 +52,7 @@ async function openDetail(row: CustomerView) {
   detailLoading.value = true
   detail.value = null
   try {
-    detail.value = await crmApi.customers.detail(row.customer_id)
+    detail.value = await crmApi.customers.myDetail(row.customer_id)
   } catch (err) {
     error.value = describeError(err)
   } finally {

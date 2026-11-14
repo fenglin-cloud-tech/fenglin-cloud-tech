@@ -430,6 +430,12 @@ export const crmApi = {
     detail(id: CrmId) {
       return get<LeadDetailView>(`/api/crm/v1/leads/${id}`)
     },
+    my(params: { status?: string; keyword?: string; page?: number; size?: number } = {}) {
+      return get<PageResult<LeadView>>('/api/crm/v1/leads/my', params)
+    },
+    myDetail(id: CrmId) {
+      return get<LeadDetailView>(`/api/crm/v1/leads/my/${id}`)
+    },
     create(body: LeadCreateRequest) {
       return post<LeadView>('/api/crm/v1/leads', body)
     },
@@ -453,6 +459,12 @@ export const crmApi = {
     },
     detail(id: CrmId) {
       return get<CustomerDetailView>(`/api/crm/v1/customers/${id}`)
+    },
+    my(params: { keyword?: string; segment?: string; status?: string; page?: number; size?: number } = {}) {
+      return get<PageResult<CustomerView>>('/api/crm/v1/customers/my', params)
+    },
+    myDetail(id: CrmId) {
+      return get<CustomerDetailView>(`/api/crm/v1/customers/my/${id}`)
     },
     create(body: CustomerCreateRequest) {
       return post<CustomerView>('/api/crm/v1/customers', body)
@@ -487,6 +499,15 @@ export const crmApi = {
     detail(id: CrmId) {
       return get<OpportunityView>(`/api/crm/v1/opportunities/${id}`)
     },
+    my(params: { stage?: string; status?: string; customer_id?: CrmId; page?: number; size?: number } = {}) {
+      return get<PageResult<OpportunityView>>('/api/crm/v1/opportunities/my', params)
+    },
+    myDetail(id: CrmId) {
+      return get<OpportunityView>(`/api/crm/v1/opportunities/my/${id}`)
+    },
+    myStageLogs(id: CrmId) {
+      return get<StageLogView[]>(`/api/crm/v1/opportunities/my/${id}/stage-logs`)
+    },
     create(body: OpportunityCreateRequest) {
       return post<OpportunityView>('/api/crm/v1/opportunities', body)
     },
@@ -517,6 +538,12 @@ export const crmApi = {
     detail(id: CrmId) {
       return get<QuotationView>(`/api/crm/v1/quotations/${id}`)
     },
+    my(params: { status?: string; customer_id?: CrmId; keyword?: string; page?: number; size?: number } = {}) {
+      return get<PageResult<QuotationListItemView>>('/api/crm/v1/quotations/my', params)
+    },
+    myDetail(id: CrmId) {
+      return get<QuotationView>(`/api/crm/v1/quotations/my/${id}`)
+    },
     create(body: QuotationCreateRequest) {
       return post<QuotationView>('/api/crm/v1/quotations', body)
     },
@@ -544,6 +571,15 @@ export const crmApi = {
     detail(id: CrmId) {
       return get<ContractView>(`/api/crm/v1/contracts/${id}`)
     },
+    my(params: { status?: string; customer_id?: CrmId; keyword?: string; page?: number; size?: number } = {}) {
+      return get<PageResult<ContractListItemView>>('/api/crm/v1/contracts/my', params)
+    },
+    myDetail(id: CrmId) {
+      return get<ContractView>(`/api/crm/v1/contracts/my/${id}`)
+    },
+    myChanges(id: CrmId) {
+      return get<ContractChangeView[]>(`/api/crm/v1/contracts/my/${id}/changes`)
+    },
     create(body: ContractCreateRequest) {
       return post<ContractView>('/api/crm/v1/contracts', body)
     },
@@ -569,6 +605,9 @@ export const crmApi = {
     },
     reminders(params: { owner_id?: string | number; upcoming_days?: number; page?: number; size?: number }) {
       return get<PageResult<PaymentReminderView>>('/api/crm/v1/payment-plans/reminders', params)
+    },
+    myReminders(params: { upcoming_days?: number; page?: number; size?: number } = {}) {
+      return get<PageResult<PaymentReminderView>>('/api/crm/v1/payment-plans/reminders/my', params)
     },
     markCollection(planId: CrmId, body: CollectionFlagRequest) {
       return request<void>(`/api/crm/v1/payment-plans/${planId}/collection`, {

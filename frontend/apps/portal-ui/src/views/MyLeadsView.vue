@@ -55,8 +55,7 @@ async function load() {
   loading.value = true
   error.value = ''
   try {
-    const result = await crmApi.leads.list({
-      owner_id: auth.userId,
+    const result = await crmApi.leads.my({
       status: query.status || undefined,
       keyword: query.keyword || undefined,
       page: query.page,
@@ -77,7 +76,7 @@ async function openDetail(row: LeadView) {
   detail.value = null
   activities.value = []
   try {
-    const result = await crmApi.leads.detail(row.lead_id)
+    const result = await crmApi.leads.myDetail(row.lead_id)
     detail.value = result.lead
     activities.value = result.activities
   } catch (err) {

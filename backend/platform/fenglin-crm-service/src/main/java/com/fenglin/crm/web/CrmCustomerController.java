@@ -3,6 +3,7 @@ package com.fenglin.crm.web;
 import com.fenglin.common.core.ApiResponse;
 import com.fenglin.common.core.PageResult;
 import com.fenglin.common.security.PermissionGuard;
+import com.fenglin.crm.support.CrmContext;
 import com.fenglin.crm.service.ContractService;
 import com.fenglin.crm.service.CustomerService;
 import com.fenglin.crm.web.dto.CrmDtos.ContactCreateRequest;
@@ -69,6 +70,28 @@ public class CrmCustomerController {
             @RequestParam(value = "size", required = false) Integer size) {
         PermissionGuard.require(permissions, "crm:customer:view");
         return ApiResponse.success(customerService.list(keyword, ownerId, segment, status, page, size));
+    }
+
+    /** 员工自助：只返回 owner_id = 当前登录用户的客户。 */
+    @GetMapping("/api/crm/v1/customers/my")
+    public ApiResponse<PageResult<CustomerView>> myCustomers(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(value = "keyword", required = false) String keyword,
+            @RequestParam(value = "segment", required = false) String segment,
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false) Integer size) {
+        PermissionGuard.require(permissions, "crm:customer:self:view");
+        return ApiResponse.success(customerService.list(keyword, CrmContext.userId(), segment, status, page, size));
+    }
+
+    /** 员工自助：仅允许读取本人的客户详情。 */
+    @GetMapping("/api/crm/v1/customers/my/{id}")
+    public ApiResponse<CustomerDetailView> myCustomer(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id) {
+        PermissionGuard.require(permissions, "crm:customer:self:view");
+        return ApiResponse.success(customerService.detail(id, CrmContext.userId()));
     }
 
     @GetMapping("/api/crm/v1/customers/{id}")

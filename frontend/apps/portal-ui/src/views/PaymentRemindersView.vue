@@ -32,8 +32,7 @@ async function load() {
   loading.value = true
   error.value = ''
   try {
-    const result = await crmApi.payments.reminders({
-      owner_id: auth.userId,
+    const result = await crmApi.payments.myReminders({
       upcoming_days: query.upcoming_days,
       page: query.page,
       size: query.size,

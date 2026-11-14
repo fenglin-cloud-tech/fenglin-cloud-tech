@@ -3,6 +3,7 @@ package com.fenglin.crm.web;
 import com.fenglin.common.core.ApiResponse;
 import com.fenglin.common.core.PageResult;
 import com.fenglin.common.security.PermissionGuard;
+import com.fenglin.crm.support.CrmContext;
 import com.fenglin.crm.service.PaymentService;
 import com.fenglin.crm.web.dto.CrmDtos.CollectionFlagRequest;
 import com.fenglin.crm.web.dto.CrmDtos.OverduePlanView;
@@ -72,6 +73,17 @@ public class CrmPaymentController {
             @RequestParam(value = "size", required = false) Integer size) {
         PermissionGuard.require(permissions, "crm:contract:view");
         return ApiResponse.success(paymentService.reminders(ownerId, upcomingDays, page, size));
+    }
+
+    /** 员工自助：只看本人负责合同的回款提醒。 */
+    @GetMapping("/api/crm/v1/payment-plans/reminders/my")
+    public ApiResponse<PageResult<PaymentReminderView>> myReminders(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(value = "upcomingDays", required = false) Integer upcomingDays,
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false) Integer size) {
+        PermissionGuard.require(permissions, "crm:payment:self:view");
+        return ApiResponse.success(paymentService.reminders(CrmContext.userId(), upcomingDays, page, size));
     }
 
     /** 扩展：设置催收标记。 */

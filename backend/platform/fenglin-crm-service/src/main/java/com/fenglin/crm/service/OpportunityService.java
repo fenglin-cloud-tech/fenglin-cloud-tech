@@ -108,6 +108,29 @@ public class OpportunityService {
     }
 
     @Transactional(readOnly = true)
+    public OpportunityView detail(long opportunityId, long ownerId) {
+        Map<String, Object> row = requireOpportunity(CrmContext.tenantId(), opportunityId);
+        if (!Long.valueOf(ownerId).equals(Rows.lngVal(row, "ownerId"))) {
+            throw new BizException(CommonErrorCode.NOT_FOUND, "商机不存在");
+        }
+        return toView(row);
+    }
+
+    @Transactional(readOnly = true)
+    public List<StageLogView> stageLogs(long opportunityId, long ownerId) {
+        long tenantId = CrmContext.tenantId();
+        Map<String, Object> row = requireOpportunity(tenantId, opportunityId);
+        if (!Long.valueOf(ownerId).equals(Rows.lngVal(row, "ownerId"))) {
+            throw new BizException(CommonErrorCode.NOT_FOUND, "商机不存在");
+        }
+        return opportunityMapper.listStageLogs(tenantId, opportunityId).stream()
+                .map(r -> new StageLogView(Rows.str(r, "fromStage"), Rows.str(r, "toStage"),
+                        Rows.dec(r, "amountSnapshot"), Rows.lng(r, "changedBy"),
+                        Rows.instant(r, "changedMs"), Rows.str(r, "opinion")))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
     public List<StageLogView> stageLogs(long opportunityId) {
         long tenantId = CrmContext.tenantId();
         requireOpportunity(tenantId, opportunityId);

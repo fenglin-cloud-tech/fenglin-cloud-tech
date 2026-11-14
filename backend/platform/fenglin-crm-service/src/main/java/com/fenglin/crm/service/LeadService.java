@@ -117,6 +117,15 @@ public class LeadService {
     }
 
     @Transactional(readOnly = true)
+    public LeadDetailView detail(long id, long ownerId) {
+        LeadDetailView detail = detail(id);
+        if (detail.lead().ownerId() == null || detail.lead().ownerId() != ownerId) {
+            throw new BizException(CommonErrorCode.NOT_FOUND, "线索不存在");
+        }
+        return detail;
+    }
+
+    @Transactional(readOnly = true)
     public PageResult<LeadView> list(String status, Long ownerId, String keyword, Integer page, Integer size) {
         long tenantId = CrmContext.tenantId();
         int safePage = CrmContext.page(page);

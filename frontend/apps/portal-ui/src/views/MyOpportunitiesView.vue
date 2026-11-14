@@ -50,8 +50,7 @@ async function load() {
   loading.value = true
   error.value = ''
   try {
-    const result = await crmApi.opportunities.list({
-      owner_id: auth.userId,
+    const result = await crmApi.opportunities.my({
       stage: query.stage || undefined,
       status: query.status || undefined,
       page: query.page,
@@ -72,8 +71,8 @@ async function openDetail(row: OpportunityView) {
   detail.value = null
   logs.value = []
   try {
-    detail.value = await crmApi.opportunities.detail(row.opportunity_id)
-    logs.value = await crmApi.opportunities.stageLogs(row.opportunity_id)
+    detail.value = await crmApi.opportunities.myDetail(row.opportunity_id)
+    logs.value = await crmApi.opportunities.myStageLogs(row.opportunity_id)
   } catch (err) {
     error.value = describeError(err)
   } finally {

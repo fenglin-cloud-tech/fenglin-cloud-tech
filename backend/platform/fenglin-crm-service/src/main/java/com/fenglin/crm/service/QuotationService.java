@@ -140,6 +140,15 @@ public class QuotationService {
         return PageResult.of(records, total, safePage, safeSize);
     }
 
+    @Transactional(readOnly = true)
+    public QuotationView detail(long quotationId, long ownerId) {
+        Map<String, Object> row = requireQuotation(CrmContext.tenantId(), quotationId);
+        if (!Long.valueOf(ownerId).equals(Rows.lngVal(row, "ownerId"))) {
+            throw new BizException(CommonErrorCode.NOT_FOUND, "报价单不存在");
+        }
+        return detail(quotationId);
+    }
+
     /**
      * 提交审批：综合折扣 > 20% 或含税总额 > 100 万走工作流中心；否则自动通过。
      */

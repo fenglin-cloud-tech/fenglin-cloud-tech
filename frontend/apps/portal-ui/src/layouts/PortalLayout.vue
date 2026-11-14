@@ -44,11 +44,11 @@ const passwordForm = ref({ oldPassword: '', newPassword: '', confirmPassword: ''
 
 const navItems = [
   { path: '/overview', title: '我的工作台', icon: Grid, perm: '' },
-  { path: '/my-leads', title: '我的线索', icon: Aim, perm: 'crm:lead:view' },
-  { path: '/my-customers', title: '我的客户', icon: UserFilled, perm: 'crm:customer:view' },
-  { path: '/my-opportunities', title: '我的商机', icon: TrendCharts, perm: 'crm:opportunity:view' },
-  { path: '/my-quotations', title: '我的报价/合同', icon: Tickets, perm: 'crm:quotation:view' },
-  { path: '/payment-reminders', title: '回款提醒', icon: AlarmClock, perm: 'crm:contract:view' },
+  { path: '/my-leads', title: '我的线索', icon: Aim, perm: 'crm:lead:self:view' },
+  { path: '/my-customers', title: '我的客户', icon: UserFilled, perm: 'crm:customer:self:view' },
+  { path: '/my-opportunities', title: '我的商机', icon: TrendCharts, perm: 'crm:opportunity:self:view' },
+  { path: '/my-quotations', title: '我的报价/合同', icon: Tickets, perm: 'crm:quotation:self:view' },
+  { path: '/payment-reminders', title: '回款提醒', icon: AlarmClock, perm: 'crm:payment:self:view' },
 ]
 
 const collabItems = [

@@ -3,6 +3,7 @@ package com.fenglin.crm.web;
 import com.fenglin.common.core.ApiResponse;
 import com.fenglin.common.core.PageResult;
 import com.fenglin.common.security.PermissionGuard;
+import com.fenglin.crm.support.CrmContext;
 import com.fenglin.crm.service.ContractService;
 import com.fenglin.crm.web.dto.CrmDtos.ContractAmendRequest;
 import com.fenglin.crm.web.dto.CrmDtos.ContractChangeView;
@@ -55,6 +56,37 @@ public class CrmContractController {
             @RequestParam(value = "size", required = false) Integer size) {
         PermissionGuard.require(permissions, "crm:contract:view");
         return ApiResponse.success(contractService.list(status, ownerId, customerId, keyword, page, size));
+    }
+
+    /** 员工自助：只返回 owner_id = 当前登录用户的合同。 */
+    @GetMapping("/api/crm/v1/contracts/my")
+    public ApiResponse<PageResult<ContractListItemView>> myContracts(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "customerId", required = false) Long customerId,
+            @RequestParam(value = "keyword", required = false) String keyword,
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false) Integer size) {
+        PermissionGuard.require(permissions, "crm:contract:self:view");
+        return ApiResponse.success(contractService.list(status, CrmContext.userId(), customerId, keyword, page, size));
+    }
+
+    /** 员工自助：仅允许读取本人的合同详情。 */
+    @GetMapping("/api/crm/v1/contracts/my/{id}")
+    public ApiResponse<ContractView> myContract(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id) {
+        PermissionGuard.require(permissions, "crm:contract:self:view");
+        return ApiResponse.success(contractService.detail(id, CrmContext.userId()));
+    }
+
+    /** 员工自助：仅允许读取本人合同的变更记录。 */
+    @GetMapping("/api/crm/v1/contracts/my/{id}/changes")
+    public ApiResponse<List<ContractChangeView>> myContractChanges(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id) {
+        PermissionGuard.require(permissions, "crm:contract:self:view");
+        return ApiResponse.success(contractService.changes(id, CrmContext.userId()));
     }
 
     /** 扩展：合同详情（含回款计划）。 */

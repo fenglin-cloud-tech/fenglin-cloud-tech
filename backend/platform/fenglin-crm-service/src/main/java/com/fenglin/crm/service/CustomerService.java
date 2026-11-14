@@ -154,6 +154,15 @@ public class CustomerService {
     }
 
     @Transactional(readOnly = true)
+    public CustomerDetailView detail(long customerId, long ownerId) {
+        CustomerDetailView detail = detail(customerId);
+        if (detail.customer().ownerId() == null || detail.customer().ownerId() != ownerId) {
+            throw new BizException(CommonErrorCode.NOT_FOUND, "客户不存在");
+        }
+        return detail;
+    }
+
+    @Transactional(readOnly = true)
     public List<ContactView> contacts(long customerId) {
         long tenantId = CrmContext.tenantId();
         requireCustomer(tenantId, customerId);

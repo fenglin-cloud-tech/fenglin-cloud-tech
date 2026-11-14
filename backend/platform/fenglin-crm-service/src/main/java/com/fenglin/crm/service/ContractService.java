@@ -87,6 +87,16 @@ public class ContractService {
                 Rows.instant(row, "createdMs"));
     }
 
+    /** 员工自助：合同详情，仅允许 owner_id 等于当前登录用户。 */
+    @Transactional(readOnly = true)
+    public ContractView detail(long contractId, long ownerId) {
+        Map<String, Object> row = requireContract(CrmContext.tenantId(), contractId);
+        if (!Long.valueOf(ownerId).equals(Rows.lngVal(row, "ownerId"))) {
+            throw new BizException(CommonErrorCode.NOT_FOUND, "合同不存在");
+        }
+        return detail(contractId);
+    }
+
     /** 扩展：合同分页列表（可按状态/负责人/客户过滤，支持员工端「我的合同」）。 */
     @Transactional(readOnly = true)
     public PageResult<ContractListItemView> list(String status, Long ownerId, Long customerId, String keyword,
@@ -197,6 +207,16 @@ public class ContractService {
                         Rows.date(row, "afterStartDate"), Rows.date(row, "afterEndDate"), Rows.str(row, "reason"),
                         Rows.lng(row, "newContractId"), Rows.str(row, "status"), Rows.instant(row, "createdMs")))
                 .toList();
+    }
+
+    /** 员工自助：合同变更记录，仅允许 owner_id 等于当前登录用户。 */
+    @Transactional(readOnly = true)
+    public List<ContractChangeView> changes(long contractId, long ownerId) {
+        Map<String, Object> row = requireContract(CrmContext.tenantId(), contractId);
+        if (!Long.valueOf(ownerId).equals(Rows.lngVal(row, "ownerId"))) {
+            throw new BizException(CommonErrorCode.NOT_FOUND, "合同不存在");
+        }
+        return changes(contractId);
     }
 
     /**

@@ -21,14 +21,13 @@ const gaps = ref<string[]>([])
 async function load() {
   loading.value = true
   error.value = ''
-  const owner = auth.userId
   const results = await Promise.allSettled([
-    crmApi.leads.list({ owner_id: owner, page: 1, size: 1 }),
-    crmApi.customers.list({ owner_id: owner, page: 1, size: 1 }),
-    crmApi.opportunities.list({ owner_id: owner, page: 1, size: 1 }),
-    crmApi.quotations.list({ owner_id: owner, page: 1, size: 1 }),
-    crmApi.contracts.list({ owner_id: owner, page: 1, size: 1 }),
-    crmApi.payments.reminders({ owner_id: owner, upcoming_days: 30, page: 1, size: 1 }),
+    crmApi.leads.my({ page: 1, size: 1 }),
+    crmApi.customers.my({ page: 1, size: 1 }),
+    crmApi.opportunities.my({ page: 1, size: 1 }),
+    crmApi.quotations.my({ page: 1, size: 1 }),
+    crmApi.contracts.my({ page: 1, size: 1 }),
+    crmApi.payments.myReminders({ upcoming_days: 30, page: 1, size: 1 }),
   ])
   const keys = ['leads', 'customers', 'opportunities', 'quotations', 'contracts', 'reminders'] as const
   const failures: string[] = []

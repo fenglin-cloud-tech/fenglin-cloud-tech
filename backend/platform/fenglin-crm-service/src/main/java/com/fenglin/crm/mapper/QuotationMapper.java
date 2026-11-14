@@ -18,7 +18,7 @@ public interface QuotationMapper {
             + "opportunity_id AS \"opportunityId\", customer_id AS \"customerId\", version_no AS \"versionNo\", "
             + "total_amount AS \"totalAmount\", discount_rate AS \"discountRate\", tax_rate AS \"taxRate\", "
             + "to_char(valid_until, 'YYYY-MM-DD') AS \"validUntil\", status AS \"status\", "
-            + "approve_instance_id AS \"approveInstanceId\", "
+            + "owner_id AS \"ownerId\", approve_instance_id AS \"approveInstanceId\", "
             + "(EXTRACT(EPOCH FROM created_at) * 1000)::bigint AS \"createdMs\" ";
 
     @Select("SELECT nextval('fenglin_crm.crm_quotation_no_seq')")

@@ -17,7 +17,7 @@ public interface ContractMapper {
     String VIEW_COLUMNS = " id AS \"contractId\", contract_no AS \"contractNo\", customer_id AS \"customerId\", "
             + "sla_level AS \"slaLevel\", service_package AS \"servicePackage\", amount AS \"amount\", "
             + "to_char(start_date, 'YYYY-MM-DD') AS \"startDate\", "
-            + "to_char(end_date, 'YYYY-MM-DD') AS \"endDate\", status AS \"status\", "
+            + "to_char(end_date, 'YYYY-MM-DD') AS \"endDate\", status AS \"status\", owner_id AS \"ownerId\", "
             + "parent_contract_id AS \"parentContractId\", quotation_id AS \"quotationId\", "
             + "(EXTRACT(EPOCH FROM created_at) * 1000)::bigint AS \"createdMs\" ";
 
