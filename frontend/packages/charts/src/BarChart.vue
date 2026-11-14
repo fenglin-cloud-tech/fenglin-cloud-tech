@@ -20,7 +20,10 @@ const barWidth = computed(() => {
 
 <template>
   <div class="fl-bar-chart" :style="{ height: `${height}px` }">
-    <div v-if="data.length === 0" class="fl-bar-chart__empty">{{ emptyText }}</div>
+    <div v-if="data.length === 0" class="fl-bar-chart__empty">
+      <span class="fl-bar-chart__empty-ring" aria-hidden="true"></span>
+      <span>{{ emptyText }}</span>
+    </div>
     <div v-else class="fl-bar-chart__plot">
       <div v-for="item in data" :key="item.label" class="fl-bar-chart__item">
         <span class="fl-bar-chart__value">{{ item.value }}</span>
@@ -79,7 +82,29 @@ const barWidth = computed(() => {
   white-space: nowrap;
 }
 .fl-bar-chart__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
   color: var(--fl-color-text-secondary);
   font-size: var(--fl-font-size-sm);
+}
+/* 与表格、el-empty 保持同一套空态语言：浅蓝圆环 + 蓝点 */
+.fl-bar-chart__empty-ring {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border: 1px solid #e0e9fb;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 50%, rgba(31, 94, 255, 0.12) 0 38%, transparent 39% 55%, #eef3fd 56% 100%);
+  box-shadow: 0 14px 28px -24px rgba(31, 94, 255, 0.55);
+}
+.fl-bar-chart__empty-ring::after {
+  content: '';
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #1f5eff;
 }
 </style>

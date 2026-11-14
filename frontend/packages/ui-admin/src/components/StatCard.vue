@@ -25,11 +25,11 @@ withDefaults(
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: var(--fl-space-md);
+  padding: var(--fl-card-padding);
   background: var(--fl-color-surface);
-  border: 1px solid var(--fl-color-border);
-  border-radius: var(--fl-radius-md);
-  box-shadow: var(--fl-shadow-sm);
+  border: 1px solid #e7ecf5;
+  border-radius: var(--fl-card-radius);
+  box-shadow: var(--fl-card-shadow);
   min-height: 92px;
 }
 .fl-stat-card__label {
@@ -37,10 +37,11 @@ withDefaults(
   font-size: var(--fl-font-size-sm);
 }
 .fl-stat-card__value {
-  font-size: 26px;
+  font-size: var(--fl-stat-value-size);
   font-weight: var(--fl-font-weight-bold);
   color: var(--fl-color-text-primary);
-  line-height: 1.2;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
 }
 .fl-stat-card__value--loading {
   font-size: var(--fl-font-size-base);

@@ -7,6 +7,8 @@
   "types": "src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./tokens.css": "./src/tokens.css"
+    "./tokens.css": "./src/tokens.css",
+    "./themes/float.css": "./src/themes/float.css",
+    "./themes/float-compact.css": "./src/themes/float-compact.css"
   }
 }

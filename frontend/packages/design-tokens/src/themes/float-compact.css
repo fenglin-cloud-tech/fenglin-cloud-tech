@@ -1,0 +1,44 @@
+/**
+ * B · 浮光 / 管理端紧凑密度
+ * 保留白卡层级、软圆角与投影，只收紧字号、行高、内边距与间距，
+ * 让 86 个管理页里的大量密集表格与表单维持可见条数。
+ * 正文最小 12px，表头与辅助文字 11px，不再向下压。
+ */
+:root {
+  --fl-font-size-xs: 11px;
+  --fl-font-size-sm: 12px;
+  --fl-font-size-base: 13px;
+  --fl-font-size-lg: 15px;
+  --fl-font-size-xl: 22px;
+  --fl-font-weight-bold: 600;
+  --fl-page-title-size: 22px;
+  --fl-page-title-weight: 600;
+  --fl-stat-value-size: 24px;
+
+  --fl-radius-sm: 7px;
+  --fl-radius-md: 12px;
+  --fl-radius-lg: 16px;
+  --fl-card-radius: 14px;
+  --fl-card-padding: 14px;
+  --fl-shadow-sm: 0 1px 2px rgba(23, 43, 77, 0.04), 0 10px 22px -20px rgba(23, 43, 77, 0.3);
+  --fl-shadow-md: 0 1px 2px rgba(23, 43, 77, 0.04), 0 18px 40px -30px rgba(23, 43, 77, 0.26);
+
+  --fl-space-xs: 3px;
+  --fl-space-sm: 6px;
+  --fl-space-md: 12px;
+  --fl-space-lg: 18px;
+  --fl-space-xl: 24px;
+
+  --fl-table-header-height: 34px;
+  --fl-table-row-height: 40px;
+  --fl-table-cell-padding: 8px 0;
+  --fl-table-font-size: 12px;
+  --fl-table-header-font-size: 11px;
+  --fl-table-cell-inline: 10px;
+
+  --el-font-size-base: 13px;
+  --el-border-radius-base: 9px;
+  --el-border-radius-small: 7px;
+  --el-component-size: 30px;
+  --el-component-size-small: 26px;
+}

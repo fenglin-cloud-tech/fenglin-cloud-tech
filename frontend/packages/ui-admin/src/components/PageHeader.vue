@@ -38,23 +38,28 @@ defineProps<{
 }
 .fl-page-header__module {
   display: inline-block;
-  padding: 2px 8px;
+  padding: 3px 10px;
   border-radius: 999px;
-  background: rgba(31, 94, 255, 0.1);
+  background: #e9efff;
   color: var(--fl-color-primary);
   font-size: var(--fl-font-size-xs);
   font-weight: var(--fl-font-weight-medium);
 }
 h1 {
   margin: 0;
-  font-size: var(--fl-font-size-xl);
-  font-weight: var(--fl-font-weight-bold);
+  font-family: var(--fl-font-family);
+  font-size: var(--fl-page-title-size);
+  font-weight: var(--fl-page-title-weight);
+  line-height: 1.2;
+  letter-spacing: 0.01em;
   color: var(--fl-color-text-primary);
 }
 p {
+  max-width: 760px;
   margin: var(--fl-space-xs) 0 0;
   color: var(--fl-color-text-secondary);
-  font-size: var(--fl-font-size-base);
+  font-size: var(--fl-font-size-sm);
+  line-height: 1.65;
 }
 .fl-page-header__actions {
   display: flex;

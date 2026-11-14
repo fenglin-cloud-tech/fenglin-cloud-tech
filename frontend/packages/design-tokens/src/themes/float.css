@@ -1,0 +1,126 @@
+/**
+ * B · 浮光（两端统一）
+ * 主色锁定 #1F5EFF，不引入第二套蓝。
+ * 差异手段：冷灰蓝画布 + 白色浮卡 + 软圆角 + 交互时才点亮的蓝光。
+ * 本文件只声明令牌，Element Plus 组件覆盖放在各应用的 styles/theme-float.css。
+ */
+:root {
+  /* 主色与派生：hover 只用 #3D78FF，浅蓝只用 rgba(31,94,255,α) */
+  --fl-color-primary: #1f5eff;
+  --fl-color-primary-hover: #3d78ff;
+  --fl-color-primary-soft: #e9efff;
+  --fl-color-primary-glow: rgba(31, 94, 255, 0.16);
+
+  /* 中性色 */
+  --fl-color-text-primary: #17202e;
+  --fl-color-text-secondary: #6f7d92;
+  --fl-color-text-tertiary: #8b98ac;
+  --fl-color-bg: #eef2f9;
+  --fl-color-surface: #ffffff;
+  --fl-color-surface-2: #f5f8fe;
+  --fl-color-border: #e3e9f3;
+  --fl-color-border-strong: #cfd9ea;
+  --fl-color-line-soft: #eef1f8;
+
+  /* 语义色 */
+  --fl-color-success: #17936b;
+  --fl-color-warning: #b57612;
+  --fl-color-danger: #cf3b3b;
+  --fl-color-info: #6f7d92;
+  --fl-color-quota-warn: #b57612;
+  --fl-color-quota-danger: #cf3b3b;
+
+  /* 域标识色（沿用规范，不用于交互） */
+  --fl-color-platform: #0f3d91;
+  --fl-color-tenant: #1f5eff;
+  --fl-color-biz: #0ea5e9;
+
+  /* 字体：仅系统字体回退链，不打包任何商业字体 */
+  --fl-font-family: "PingFang SC", "Microsoft YaHei", -apple-system, "Segoe UI", Roboto, sans-serif;
+  --fl-font-size-xs: 12px;
+  --fl-font-size-sm: 13px;
+  --fl-font-size-base: 14px;
+  --fl-font-size-lg: 16px;
+  --fl-font-size-xl: 25px;
+  --fl-font-weight-normal: 400;
+  --fl-font-weight-medium: 500;
+  --fl-font-weight-bold: 700;
+
+  /* 圆角与阴影 */
+  --fl-radius-sm: 8px;
+  --fl-radius-md: 16px;
+  --fl-radius-lg: 20px;
+  --fl-radius-pill: 999px;
+  --fl-shadow-sm: 0 1px 2px rgba(23, 43, 77, 0.04), 0 12px 26px -22px rgba(23, 43, 77, 0.3);
+  --fl-shadow-md: 0 1px 2px rgba(23, 43, 77, 0.04), 0 22px 48px -30px rgba(23, 43, 77, 0.28);
+  --fl-shadow-float: 0 1px 2px rgba(23, 43, 77, 0.04), 0 26px 48px -34px rgba(23, 43, 77, 0.45);
+  --fl-shadow-glow: 0 12px 24px -12px rgba(31, 94, 255, 0.6);
+
+  /* 间距与动效 */
+  --fl-space-xs: 4px;
+  --fl-space-sm: 8px;
+  --fl-space-md: 16px;
+  --fl-space-lg: 24px;
+  --fl-space-xl: 32px;
+  --fl-ease-float: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --fl-duration-float: 280ms;
+
+  /* 页头 / 卡片 / 表格：由紧凑密度层覆盖 */
+  --fl-page-title-size: 25px;
+  --fl-page-title-weight: 700;
+  --fl-stat-value-size: 30px;
+  --fl-card-radius: 18px;
+  --fl-card-shadow: var(--fl-shadow-md);
+  --fl-card-padding: 20px;
+  --fl-table-header-height: 40px;
+  --fl-table-row-height: 48px;
+  --fl-table-cell-padding: 11px 0;
+  --fl-table-font-size: 13px;
+  --fl-table-header-font-size: 12px;
+  --fl-table-cell-inline: 12px;
+
+  /* Element Plus 主题映射 */
+  --el-color-primary: var(--fl-color-primary);
+  --el-color-primary-light-3: #5c8bff;
+  --el-color-primary-light-5: #8fb0ff;
+  --el-color-primary-light-7: #c2d4ff;
+  --el-color-primary-light-8: #d9e4ff;
+  --el-color-primary-light-9: #ecf2ff;
+  --el-color-primary-dark-2: #1a4fd8;
+  --el-color-success: var(--fl-color-success);
+  --el-color-success-light-9: #e8f6ee;
+  --el-color-success-light-8: #d2eddf;
+  --el-color-warning: var(--fl-color-warning);
+  --el-color-warning-light-9: #fcf4e6;
+  --el-color-warning-light-8: #f7e6c8;
+  --el-color-danger: var(--fl-color-danger);
+  --el-color-danger-light-9: #fdeeed;
+  --el-color-danger-light-8: #f9d8d6;
+  --el-color-error: var(--fl-color-danger);
+  --el-color-info: var(--fl-color-info);
+  --el-color-info-light-9: #f1f4f8;
+  --el-color-info-light-8: #e2e8f0;
+
+  --el-font-family: var(--fl-font-family);
+  --el-font-size-base: var(--fl-font-size-base);
+  --el-text-color-primary: var(--fl-color-text-primary);
+  --el-text-color-regular: #3b4759;
+  --el-text-color-secondary: var(--fl-color-text-secondary);
+  --el-text-color-placeholder: #97a4b8;
+  --el-border-color: var(--fl-color-border);
+  --el-border-color-light: #e7ecf5;
+  --el-border-color-lighter: var(--fl-color-line-soft);
+  --el-border-color-extra-light: #f3f6fc;
+  --el-bg-color: #ffffff;
+  --el-bg-color-page: var(--fl-color-bg);
+  --el-fill-color-blank: #ffffff;
+  --el-fill-color-light: #f5f8fe;
+  --el-fill-color-lighter: #f8faff;
+  --el-border-radius-base: 10px;
+  --el-border-radius-small: 8px;
+  --el-border-radius-round: 999px;
+  --el-box-shadow-light: var(--fl-shadow-sm);
+  --el-box-shadow: var(--fl-shadow-md);
+  --el-transition-duration: var(--fl-duration-float);
+  --el-transition-duration-fast: 180ms;
+}
