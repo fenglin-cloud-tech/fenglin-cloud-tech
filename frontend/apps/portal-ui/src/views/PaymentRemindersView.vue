@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { crmApi, type PaymentReminderView } from '@fenglin/api-client'
+import { formatMoney } from '@fenglin/ui-admin'
 import { useAuthStore } from '@/stores/auth'
 import { describeError } from '@/utils/error'
 
@@ -76,20 +77,20 @@ onMounted(load)
       <el-alert v-if="error" type="error" :closable="false" show-icon :title="error" style="margin-bottom: 12px" />
 
       <el-table :data="rows" v-loading="loading" border stripe>
-        <el-table-column prop="contract_no" label="合同编号" width="170" />
-        <el-table-column prop="customer_name" label="客户" min-width="170" />
+        <el-table-column prop="contract_no" label="合同编号" width="160" />
+        <el-table-column prop="customer_name" label="客户" min-width="160" />
         <el-table-column prop="period_no" label="期次" width="80" />
         <el-table-column prop="due_date" label="到期日" width="120" />
-        <el-table-column prop="amount" label="计划金额" width="130" />
-        <el-table-column prop="paid_amount" label="已回款" width="130" />
-        <el-table-column prop="remaining_amount" label="未回款" width="130" />
-        <el-table-column label="提醒状态" width="120">
+        <el-table-column prop="amount" label="计划金额" width="120" />
+        <el-table-column prop="paid_amount" label="已回款" width="120" />
+        <el-table-column prop="remaining_amount" label="未回款" width="120" />
+        <el-table-column label="提醒状态" width="110">
           <template #default="{ row }">
             <el-tag :type="stateTag(row.state)" size="small">{{ stateLabel(row.state) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="overdue_days" label="逾期天数" width="100" />
-        <el-table-column label="催收状态" width="120">
+        <el-table-column prop="overdue_days" label="逾期天数" width="90" />
+        <el-table-column label="催收状态" width="110">
           <template #default="{ row }">{{ flagLabel(row.collection_flag) }}</template>
         </el-table-column>
       </el-table>

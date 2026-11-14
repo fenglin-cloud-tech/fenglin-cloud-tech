@@ -2,6 +2,7 @@
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { crmApi, type OpportunityView, type StageLogView } from '@fenglin/api-client'
+import { formatMoney } from '@fenglin/ui-admin'
 import { useAuthStore } from '@/stores/auth'
 import { describeError } from '@/utils/error'
 

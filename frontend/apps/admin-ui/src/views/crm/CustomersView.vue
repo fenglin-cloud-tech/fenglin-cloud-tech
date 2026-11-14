@@ -282,7 +282,7 @@ onMounted(load)
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="owner_id" label="负责人" width="90" />
+        <el-table-column prop="owner_id" label="负责人" width="90" show-overflow-tooltip />
         <el-table-column prop="arr" label="ARR" width="120" />
         <el-table-column label="创建时间" width="170">
           <template #default="{ row }">{{ row.created_at ? new Date(row.created_at).toLocaleString() : '-' }}</template>

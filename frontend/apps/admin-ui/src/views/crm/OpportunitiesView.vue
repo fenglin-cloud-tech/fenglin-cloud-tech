@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { PageHeader, GapNotice } from '@fenglin/ui-admin'
+import { PageHeader, GapNotice, ID_COLUMN_WIDTH } from '@fenglin/ui-admin'
 import { crmApi, type OpportunityView, type PipelineView, type StageLogView } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 
@@ -227,15 +227,15 @@ onMounted(load)
       <el-alert v-if="error" type="error" :closable="false" show-icon :title="error" style="margin-bottom: 12px" />
 
       <el-table :data="rows" v-loading="loading" border stripe>
-        <el-table-column prop="opportunity_no" label="商机编号" width="170" />
-        <el-table-column prop="name" label="商机名称" min-width="160" />
-        <el-table-column prop="customer_id" label="客户 ID" width="90" />
-        <el-table-column prop="stage" label="阶段" width="90" />
+        <el-table-column prop="opportunity_no" label="商机编号" width="150" show-overflow-tooltip />
+        <el-table-column prop="name" label="商机名称" min-width="140" show-overflow-tooltip />
+        <el-table-column prop="customer_id" label="客户 ID" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
+        <el-table-column prop="stage" label="阶段" width="80" />
         <el-table-column prop="amount" label="金额" width="120" />
-        <el-table-column prop="win_rate" label="赢率" width="90" />
-        <el-table-column prop="expected_close_date" label="预计成交" width="120" />
-        <el-table-column prop="owner_id" label="负责人" width="90" />
-        <el-table-column prop="status" label="状态" width="100" />
+        <el-table-column prop="win_rate" label="赢率" width="80" />
+        <el-table-column prop="expected_close_date" label="预计成交" width="110" />
+        <el-table-column prop="owner_id" label="负责人" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
+        <el-table-column prop="status" label="状态" width="90" />
         <el-table-column label="操作" width="150" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" @click="openDetail(row)">阶段日志</el-button>
@@ -359,7 +359,7 @@ onMounted(load)
   gap: 2px;
   min-width: 120px;
   padding: 10px 14px;
-  background: #fff;
+  background: var(--fl-color-surface);
   border: 1px solid var(--fl-color-border);
   border-radius: var(--fl-radius-md);
 }
@@ -374,6 +374,6 @@ onMounted(load)
   color: var(--fl-color-text-secondary);
 }
 .pipe-item.total {
-  background: #eef2ff;
+  background: var(--fl-color-primary-soft);
 }
 </style>

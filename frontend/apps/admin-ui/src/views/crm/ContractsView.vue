@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { PageHeader, GapNotice } from '@fenglin/ui-admin'
+import { PageHeader, GapNotice, ID_COLUMN_WIDTH } from '@fenglin/ui-admin'
 import { crmApi, type ContractChangeView, type ContractListItemView, type ContractView, type CrmId } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 
@@ -269,7 +269,7 @@ onMounted(load)
       <el-alert v-if="error" type="error" :closable="false" show-icon :title="error" style="margin-bottom: 12px" />
 
       <el-table :data="rows" v-loading="loading" border stripe>
-        <el-table-column prop="contract_no" label="合同编号" width="190" />
+        <el-table-column prop="contract_no" label="合同编号" width="180" show-overflow-tooltip />
         <el-table-column prop="customer_name" label="客户" min-width="150" />
         <el-table-column prop="sla_level" label="SLA" width="80" />
         <el-table-column prop="service_package" label="服务包" width="120" />
@@ -283,7 +283,7 @@ onMounted(load)
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="owner_id" label="负责人" width="90" />
+        <el-table-column prop="owner_id" label="负责人" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
         <el-table-column label="操作" width="150" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" @click="openDetail(row)">详情</el-button>

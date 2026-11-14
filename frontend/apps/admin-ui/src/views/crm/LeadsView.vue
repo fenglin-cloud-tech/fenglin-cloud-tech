@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { CrmActivityDialog as ActivityDialog, PageHeader, GapNotice } from '@fenglin/ui-admin'
+import { CrmActivityDialog as ActivityDialog, PageHeader, GapNotice, ID_COLUMN_WIDTH } from '@fenglin/ui-admin'
 import { crmApi, type CrmId, type LeadView } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 
@@ -253,29 +253,30 @@ onMounted(load)
         <el-input-number v-model="query.owner_id" :min="1" placeholder="负责人 ID" :controls="false" style="width: 140px" />
         <el-button type="primary" plain @click="query.page = 1; load()">查询</el-button>
         <el-button @click="query.keyword = ''; query.status = ''; query.owner_id = undefined; query.page = 1; load()">重置</el-button>
+        <span class="fl-muted">共 {{ total }} 条线索</span>
       </div>
 
       <el-alert v-if="error" type="error" :closable="false" show-icon :title="error" style="margin-bottom: 12px" />
 
       <el-table :data="rows" v-loading="loading" border stripe>
-        <el-table-column prop="lead_no" label="线索编号" width="170" />
-        <el-table-column prop="name" label="线索名称" min-width="150" />
-        <el-table-column prop="contact_name" label="联系人" width="110" />
-        <el-table-column prop="mobile_masked" label="手机号" width="130" />
-        <el-table-column prop="source" label="来源" width="100" />
-        <el-table-column prop="grade" label="等级" width="80" />
-        <el-table-column prop="status" label="状态" width="110">
+        <el-table-column prop="lead_no" label="线索编号" width="130" show-overflow-tooltip />
+        <el-table-column prop="name" label="线索名称" min-width="120" show-overflow-tooltip />
+        <el-table-column prop="contact_name" label="联系人" width="90" show-overflow-tooltip />
+        <el-table-column prop="mobile_masked" label="手机号" width="120" />
+        <el-table-column prop="source" label="来源" width="90" />
+        <el-table-column prop="grade" label="等级" width="70" />
+        <el-table-column prop="status" label="状态" width="100">
           <template #default="{ row }">
             <el-tag :type="row.status === 'CONVERTED' ? 'success' : row.status === 'INVALID' ? 'info' : 'primary'" size="small">
               {{ statusOptions.find((o) => o.value === row.status)?.label || row.status }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="owner_id" label="负责人" width="90" />
-        <el-table-column label="创建时间" width="170">
+        <el-table-column prop="owner_id" label="负责人" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
+        <el-table-column label="创建时间" width="140">
           <template #default="{ row }">{{ row.created_at ? new Date(row.created_at).toLocaleString() : '-' }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="280" fixed="right">
+        <el-table-column label="操作" width="250" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" @click="openDetail(row)">详情</el-button>
             <el-button v-perm="'crm:lead:assign'" link type="primary" @click="openAssign(row)">分配</el-button>

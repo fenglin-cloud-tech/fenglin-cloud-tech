@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { PageHeader, GapNotice } from '@fenglin/ui-admin'
+import { PageHeader, GapNotice, CODE_COLUMN_WIDTH, ID_COLUMN_WIDTH } from '@fenglin/ui-admin'
 import { crmApi, type CrmId, type QuotationListItemView, type QuotationView } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 
@@ -253,12 +253,12 @@ onMounted(load)
       <el-alert v-if="error" type="error" :closable="false" show-icon :title="error" style="margin-bottom: 12px" />
 
       <el-table :data="rows" v-loading="loading" border stripe>
-        <el-table-column prop="quotation_no" label="报价单号" width="180" />
-        <el-table-column prop="customer_name" label="客户" min-width="150" />
-        <el-table-column prop="opportunity_id" label="商机 ID" width="90" />
-        <el-table-column prop="version_no" label="版本" width="80" />
-        <el-table-column prop="total_amount" label="含税总额" width="130" />
-        <el-table-column prop="status" label="审批状态" width="110">
+        <el-table-column prop="quotation_no" label="报价单号" :width="CODE_COLUMN_WIDTH" show-overflow-tooltip />
+        <el-table-column prop="customer_name" label="客户" min-width="130" show-overflow-tooltip />
+        <el-table-column prop="opportunity_id" label="商机 ID" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
+        <el-table-column prop="version_no" label="版本" width="70" />
+        <el-table-column prop="total_amount" label="含税总额" width="110" />
+        <el-table-column prop="status" label="审批状态" width="100">
           <template #default="{ row }">
             <el-tag
               :type="row.status === 'APPROVED' ? 'success' : row.status === 'REJECTED' ? 'danger' : row.status === 'CONVERTED' ? 'info' : 'warning'"
@@ -268,11 +268,11 @@ onMounted(load)
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="owner_id" label="负责人" width="90" />
-        <el-table-column label="创建时间" width="170">
+        <el-table-column prop="owner_id" label="负责人" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
+        <el-table-column label="创建时间" width="140">
           <template #default="{ row }">{{ row.created_at ? new Date(row.created_at).toLocaleString() : '-' }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="280" fixed="right">
+        <el-table-column label="操作" width="240" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" @click="openDetail(row)">详情</el-button>
             <el-button
