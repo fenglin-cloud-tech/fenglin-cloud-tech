@@ -293,7 +293,7 @@ onMounted(() => {
             <span class="fl-muted" v-if="row.course_code">（{{ row.course_code }}）</span>
           </template>
         </el-table-column>
-        <el-table-column label="班次时间" width="220">
+        <el-table-column label="班次时间" width="300">
           <template #default="{ row }">{{ formatTime(row.start_at) }} ~ {{ formatTime(row.end_at) }}</template>
         </el-table-column>
         <el-table-column label="地点" width="120">

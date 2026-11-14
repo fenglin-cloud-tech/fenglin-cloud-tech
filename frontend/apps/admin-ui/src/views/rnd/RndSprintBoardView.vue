@@ -188,7 +188,7 @@ onMounted(loadProducts)
         <el-table-column label="任务" width="110">
           <template #default="{ row }">{{ row.done_task_count ?? 0 }}/{{ row.task_count ?? 0 }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="240">
+        <el-table-column label="操作" width="220">
           <template #default="{ row }">
             <el-button v-perm="'biz:devops:sprint:manage'" v-if="row.status !== 'ACTIVE'" link type="primary" @click="sprintAction(row, 'start')">开始</el-button>
             <el-button v-perm="'biz:devops:sprint:manage'" v-if="row.status === 'ACTIVE'" link type="warning" @click="sprintAction(row, 'complete')">完成</el-button>

@@ -81,9 +81,15 @@ onMounted(load)
         <el-table-column prop="customer_name" label="客户" min-width="160" />
         <el-table-column prop="period_no" label="期次" width="80" />
         <el-table-column prop="due_date" label="到期日" width="120" />
-        <el-table-column prop="amount" label="计划金额" width="120" />
-        <el-table-column prop="paid_amount" label="已回款" width="120" />
-        <el-table-column prop="remaining_amount" label="未回款" width="120" />
+        <el-table-column prop="amount" label="计划金额" width="120" align="right">
+          <template #default="{ row }">{{ formatMoney(row.amount) }}</template>
+        </el-table-column>
+        <el-table-column prop="paid_amount" label="已回款" width="120" align="right">
+          <template #default="{ row }">{{ formatMoney(row.paid_amount) }}</template>
+        </el-table-column>
+        <el-table-column prop="remaining_amount" label="未回款" width="120" align="right">
+          <template #default="{ row }">{{ formatMoney(row.remaining_amount) }}</template>
+        </el-table-column>
         <el-table-column label="提醒状态" width="110">
           <template #default="{ row }">
             <el-tag :type="stateTag(row.state)" size="small">{{ stateLabel(row.state) }}</el-tag>

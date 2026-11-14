@@ -212,7 +212,7 @@ onMounted(loadProducts)
         <el-table-column prop="window_start" label="窗口开始" width="170" />
         <el-table-column prop="window_end" label="窗口结束" width="170" />
         <el-table-column prop="deployed_at" label="部署时间" width="170" />
-        <el-table-column label="操作" width="300">
+        <el-table-column label="操作" width="290">
           <template #default="{ row }">
             <el-button v-if="row.status === 'draft'" v-perm="'biz:devops:release:create'" link type="primary" @click="releaseAction(row, 'submit')">提交审批</el-button>
             <el-button v-if="row.status === 'pending_approval'" v-perm="'biz:devops:release:approve'" link type="success" @click="releaseAction(row, 'approve')">通过</el-button>

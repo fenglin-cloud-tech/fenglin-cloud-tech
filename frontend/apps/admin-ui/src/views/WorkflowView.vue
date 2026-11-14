@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { PageHeader, GapNotice, StatCard } from '@fenglin/ui-admin'
+import { PageHeader, GapNotice, StatCard, ID_COLUMN_WIDTH } from '@fenglin/ui-admin'
 import { BarChart } from '@fenglin/charts'
 import { workflowApi, type DeployDefinitionRequest, type DefinitionView, type MonitorStatsResult } from '@/api'
 import { useAuthStore } from '@/stores/auth'
@@ -145,7 +145,7 @@ onMounted(() => {
       </div>
       <el-alert v-if="error" type="error" :closable="false" show-icon :title="error" style="margin-bottom: 12px" />
       <el-table :data="rows" v-loading="loading" border stripe>
-        <el-table-column prop="definition_id" label="定义 ID" width="100" />
+        <el-table-column prop="definition_id" label="定义 ID" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
         <el-table-column prop="process_key" label="流程标识" min-width="170" />
         <el-table-column prop="name" label="名称" min-width="160" />
         <el-table-column prop="category" label="分类" width="120" />

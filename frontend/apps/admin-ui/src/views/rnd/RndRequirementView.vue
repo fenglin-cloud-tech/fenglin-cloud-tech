@@ -187,8 +187,8 @@ onMounted(loadProducts)
         </el-table-column>
         <el-table-column prop="assignee_id" label="负责人" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
         <el-table-column prop="estimate_hours" label="预估工时" width="110" />
-        <el-table-column prop="plan_end_at" label="计划完成" width="140" />
-        <el-table-column label="操作" width="260">
+        <el-table-column prop="plan_end_at" label="计划完成" width="130" />
+        <el-table-column label="操作" width="220">
           <template #default="{ row }">
             <el-button
               v-if="row.status_code === 'TODO'"

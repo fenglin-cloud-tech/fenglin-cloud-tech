@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { PageHeader, GapNotice, ID_COLUMN_WIDTH } from '@fenglin/ui-admin'
+import { PageHeader, GapNotice, ID_COLUMN_WIDTH, formatMoney } from '@fenglin/ui-admin'
 import { crmApi, type OpportunityView, type PipelineView, type StageLogView } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 
@@ -231,7 +231,9 @@ onMounted(load)
         <el-table-column prop="name" label="商机名称" min-width="140" show-overflow-tooltip />
         <el-table-column prop="customer_id" label="客户 ID" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
         <el-table-column prop="stage" label="阶段" width="80" />
-        <el-table-column prop="amount" label="金额" width="120" />
+        <el-table-column prop="amount" label="金额" width="120" align="right">
+          <template #default="{ row }">{{ formatMoney(row.amount) }}</template>
+        </el-table-column>
         <el-table-column prop="win_rate" label="赢率" width="80" />
         <el-table-column prop="expected_close_date" label="预计成交" width="110" />
         <el-table-column prop="owner_id" label="负责人" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { PageHeader, GapNotice } from '@fenglin/ui-admin'
+import { PageHeader, GapNotice, ID_COLUMN_WIDTH } from '@fenglin/ui-admin'
 import { toIsoOrUndefined } from '@fenglin/shared'
 import {
   auditApi,
@@ -260,7 +260,7 @@ onMounted(loadLogs)
           </div>
           <el-alert v-if="error" type="error" :closable="false" show-icon :title="error" style="margin-bottom: 12px" />
           <el-table :data="rows" v-loading="loading" border stripe @row-click="openDetail">
-            <el-table-column prop="log_id" label="ID" width="80" />
+            <el-table-column prop="log_id" label="ID" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
             <el-table-column prop="log_no" label="日志号" width="180" />
             <el-table-column prop="event_type" label="事件类型" width="170" />
             <el-table-column prop="module" label="模块" width="110" />
@@ -370,7 +370,7 @@ onMounted(loadLogs)
         <el-tab-pane label="我的操作记录" name="mine">
           <el-alert v-if="error" type="error" :closable="false" show-icon :title="error" style="margin-bottom: 12px" />
           <el-table :data="rows" v-loading="loading" border stripe>
-            <el-table-column prop="log_id" label="ID" width="80" />
+            <el-table-column prop="log_id" label="ID" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
             <el-table-column prop="event_type" label="事件类型" width="180" />
             <el-table-column prop="module" label="模块" width="110" />
             <el-table-column prop="action" label="动作" min-width="160" />

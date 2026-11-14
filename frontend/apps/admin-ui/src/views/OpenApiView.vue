@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { PageHeader, GapNotice } from '@fenglin/ui-admin'
+import { PageHeader, GapNotice, ID_COLUMN_WIDTH } from '@fenglin/ui-admin'
 import { openApi, type OpenApiCallLogView, type OpenApiKeyResponse, type OpenAppCreateResponse, type PortalQuotaRequestView } from '@/api'
 import { toIsoOrUndefined } from '@fenglin/shared'
 import { useAuthStore } from '@/stores/auth'
@@ -292,17 +292,17 @@ onMounted(() => {
       </div>
       <el-alert v-if="quotaReqError" type="error" :closable="false" show-icon :title="quotaReqError" style="margin-bottom: 12px" />
       <el-table :data="quotaReqRows" v-loading="quotaReqLoading" border stripe size="small">
-        <el-table-column prop="id" label="申请 ID" width="90" />
-        <el-table-column prop="app_id" label="应用" width="80" />
-        <el-table-column prop="api_path" label="接口路径" min-width="200" show-overflow-tooltip />
-        <el-table-column label="申请 QPS" width="90">
+        <el-table-column prop="id" label="申请 ID" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
+        <el-table-column prop="app_id" label="应用" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
+        <el-table-column prop="api_path" label="接口路径" min-width="160" show-overflow-tooltip />
+        <el-table-column label="申请 QPS" width="80">
           <template #default="{ row }">{{ row.requested_qps ?? '-' }}</template>
         </el-table-column>
-        <el-table-column label="申请日配额" width="110">
+        <el-table-column label="申请日配额" width="100">
           <template #default="{ row }">{{ row.requested_daily ?? '-' }}</template>
         </el-table-column>
-        <el-table-column prop="reason" label="申请理由" min-width="180" show-overflow-tooltip />
-        <el-table-column label="状态" width="100">
+        <el-table-column prop="reason" label="申请理由" min-width="150" show-overflow-tooltip />
+        <el-table-column label="状态" width="90">
           <template #default="{ row }">
             <el-tag :type="row.status === 'APPROVED' ? 'success' : row.status === 'REJECTED' ? 'danger' : 'warning'" size="small">
               {{ row.status }}
@@ -310,10 +310,10 @@ onMounted(() => {
           </template>
         </el-table-column>
         <el-table-column prop="applied_by" label="申请人" width="90" />
-        <el-table-column label="审批意见" min-width="160" show-overflow-tooltip>
+        <el-table-column label="审批意见" min-width="140" show-overflow-tooltip>
           <template #default="{ row }">{{ row.decision_comment || '-' }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="140" fixed="right">
+        <el-table-column label="操作" width="120" fixed="right">
           <template #default="{ row }">
             <template v-if="row.status === 'PENDING'">
               <el-button v-perm="'platform:openapi:quota:approve'" link type="primary" @click="reviewQuotaRequest(row, 'APPROVE')">通过</el-button>
@@ -347,15 +347,15 @@ onMounted(() => {
       </div>
       <el-alert v-if="logError" type="error" :closable="false" show-icon :title="logError" style="margin-bottom: 12px" />
       <el-table :data="logs" v-loading="logLoading" border stripe>
-        <el-table-column prop="id" label="ID" width="80" />
-        <el-table-column prop="app_id" label="应用" width="90" />
-        <el-table-column prop="app_key" label="app_key" width="190" />
+        <el-table-column prop="id" label="ID" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
+        <el-table-column prop="app_id" label="应用" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
+        <el-table-column prop="app_key" label="app_key" width="170" />
         <el-table-column prop="method" label="方法" width="90" />
-        <el-table-column prop="api_path" label="路径" min-width="220" />
+        <el-table-column prop="api_path" label="路径" min-width="180" />
         <el-table-column prop="http_status" label="状态" width="90" />
-        <el-table-column prop="biz_code" label="业务码" width="130" />
-        <el-table-column prop="latency_ms" label="耗时(ms)" width="100" />
-        <el-table-column label="调用时间" width="180">
+        <el-table-column prop="biz_code" label="业务码" width="110" />
+        <el-table-column prop="latency_ms" label="耗时(ms)" width="90" />
+        <el-table-column label="调用时间" width="150">
           <template #default="{ row }">{{ row.called_at ? new Date(row.called_at).toLocaleString() : '-' }}</template>
         </el-table-column>
       </el-table>

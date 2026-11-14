@@ -330,7 +330,7 @@ onMounted(loadRules)
             <el-table-column prop="rule_no" label="规则编号" width="160" />
             <el-table-column prop="name" label="名称" min-width="150" show-overflow-tooltip />
             <el-table-column prop="rule_type" label="类型" width="110" />
-            <el-table-column prop="expression" label="表达式" min-width="180" show-overflow-tooltip />
+            <el-table-column prop="expression" label="表达式" min-width="150" show-overflow-tooltip />
             <el-table-column label="级别" width="100">
               <template #default="{ row }">{{ label(dataLevel, row.data_level) }}</template>
             </el-table-column>

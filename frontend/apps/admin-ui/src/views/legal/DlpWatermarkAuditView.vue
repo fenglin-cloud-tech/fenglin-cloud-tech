@@ -188,15 +188,15 @@ onMounted(loadWatermarks)
             <el-button :loading="watermarkLoading" @click="loadWatermarks">查询</el-button>
           </div>
           <el-table :data="watermarks" v-loading="watermarkLoading" border stripe max-height="520">
-            <el-table-column prop="watermark_no" label="水印编号" width="180" show-overflow-tooltip />
+            <el-table-column prop="watermark_no" label="水印编号" width="160" show-overflow-tooltip />
             <el-table-column prop="biz_type" label="业务类型" width="110" />
-            <el-table-column prop="biz_id" label="业务ID" width="170" />
+            <el-table-column prop="biz_id" label="业务ID" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
             <el-table-column prop="watermark_type" label="水印类型" width="110" />
-            <el-table-column prop="embed_code" label="嵌入码" min-width="200" show-overflow-tooltip />
+            <el-table-column prop="embed_code" label="嵌入码" min-width="170" show-overflow-tooltip />
             <el-table-column prop="user_id" label="用户" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
-            <el-table-column prop="terminal_id" label="终端" width="160" show-overflow-tooltip />
+            <el-table-column prop="terminal_id" label="终端" width="140" show-overflow-tooltip />
             <el-table-column prop="trace_status" label="溯源状态" width="110" />
-            <el-table-column label="生成时间" width="170">
+            <el-table-column label="生成时间" width="150">
               <template #default="{ row }">{{ fmtTime(row.applied_at) }}</template>
             </el-table-column>
           </el-table>

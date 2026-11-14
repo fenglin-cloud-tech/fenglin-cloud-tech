@@ -306,27 +306,27 @@ onMounted(load)
 
       <el-table :data="rows" v-loading="loading" border stripe>
         <el-table-column prop="meeting_id" label="会议 ID" width="160" show-overflow-tooltip />
-        <el-table-column prop="title" label="主题" min-width="170" show-overflow-tooltip />
+        <el-table-column prop="title" label="主题" min-width="140" show-overflow-tooltip />
         <el-table-column prop="organizer_id" label="组织者" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
-        <el-table-column prop="room_id" label="会议室" width="80" show-overflow-tooltip>
+        <el-table-column prop="room_id" label="会议室" :width="ID_COLUMN_WIDTH" show-overflow-tooltip>
           <template #default="{ row }">{{ row.room_id ?? '-' }}</template>
         </el-table-column>
-        <el-table-column label="开始时间" width="160">
+        <el-table-column label="开始时间" width="150">
           <template #default="{ row }">{{ row.start_at ? new Date(row.start_at).toLocaleString() : '-' }}</template>
         </el-table-column>
-        <el-table-column label="结束时间" width="160">
+        <el-table-column label="结束时间" width="150">
           <template #default="{ row }">{{ row.end_at ? new Date(row.end_at).toLocaleString() : '-' }}</template>
         </el-table-column>
-        <el-table-column prop="meeting_mode" label="形式" width="90" />
-        <el-table-column prop="status" label="状态" width="100">
+        <el-table-column prop="meeting_mode" label="形式" width="80" />
+        <el-table-column prop="status" label="状态" width="90">
           <template #default="{ row }">
             <el-tag :type="row.status === 'CANCELLED' ? 'info' : 'primary'" size="small">{{ row.status }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="join_code" label="入会码" width="110">
+        <el-table-column prop="join_code" label="入会码" width="100">
           <template #default="{ row }">{{ row.join_code || '-' }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="90" fixed="right">
+        <el-table-column label="操作" width="80" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" @click="openDetail(row)">详情</el-button>
           </template>

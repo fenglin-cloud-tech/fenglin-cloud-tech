@@ -8,7 +8,7 @@ import {
   type PortalQuotaRequestView,
   type PortalQuotaView,
 } from '@fenglin/api-client'
-import { GapNotice, PageHeader } from '@fenglin/ui-admin'
+import { GapNotice, PageHeader, formatDateTime } from '@fenglin/ui-admin'
 import { useAuthStore } from '@/stores/auth'
 import { describeError } from '@/utils/error'
 
@@ -267,8 +267,8 @@ function statusTag(status: PortalQuotaView['limit_status']) {
         <el-table-column label="审批意见" min-width="180" show-overflow-tooltip>
           <template #default="{ row }">{{ row.decision_comment || '-' }}</template>
         </el-table-column>
-        <el-table-column label="提交时间" width="170">
-          <template #default="{ row }">{{ row.created_at || '-' }}</template>
+        <el-table-column label="提交时间" width="150">
+          <template #default="{ row }">{{ formatDateTime(row.created_at) }}</template>
         </el-table-column>
         <template #empty><el-empty description="暂无申请记录" /></template>
       </el-table>

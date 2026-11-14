@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { PageHeader, GapNotice } from '@fenglin/ui-admin'
+import { PageHeader, GapNotice, formatMoney } from '@fenglin/ui-admin'
 import { crmApi, type ContractListItemView, type ContractView, type CrmId, type PaymentRecordView } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 
@@ -122,7 +122,9 @@ onMounted(searchContracts)
       <el-table :data="contracts" v-loading="contractLoading" border stripe highlight-current-row @row-click="selectContract">
         <el-table-column prop="contract_no" label="合同编号" width="190" />
         <el-table-column prop="customer_name" label="客户" min-width="160" />
-        <el-table-column prop="amount" label="合同金额" width="130" />
+        <el-table-column prop="amount" label="合同金额" width="130" align="right">
+          <template #default="{ row }">{{ formatMoney(row.amount) }}</template>
+        </el-table-column>
         <el-table-column prop="status" label="状态" width="100" />
         <el-table-column label="操作" width="120">
           <template #default="{ row }">

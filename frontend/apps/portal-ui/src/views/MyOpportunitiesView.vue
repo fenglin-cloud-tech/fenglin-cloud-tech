@@ -143,19 +143,23 @@ onMounted(load)
       <el-alert v-if="error" type="error" :closable="false" show-icon :title="error" style="margin-bottom: 12px" />
 
       <el-table :data="rows" v-loading="loading" border stripe>
-        <el-table-column prop="opportunity_no" label="商机编号" width="170" />
+        <el-table-column prop="opportunity_no" label="商机编号" width="160" />
         <el-table-column prop="name" label="商机名称" min-width="170" />
-        <el-table-column label="阶段" width="130">
+        <el-table-column label="阶段" width="110">
           <template #default="{ row }">
             <el-tag :type="stageTag(row.stage)" size="small">{{ stageLabel(row.stage) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="amount" label="金额" width="130" />
-        <el-table-column prop="weighted_amount" label="加权金额" width="130" />
+        <el-table-column prop="amount" label="金额" width="130" align="right">
+          <template #default="{ row }">{{ formatMoney(row.amount) }}</template>
+        </el-table-column>
+        <el-table-column prop="weighted_amount" label="加权金额" width="130" align="right">
+          <template #default="{ row }">{{ formatMoney(row.weighted_amount) }}</template>
+        </el-table-column>
         <el-table-column prop="win_rate" label="赢率(%)" width="100" />
         <el-table-column prop="expected_close_date" label="预计成交" width="120" />
         <el-table-column prop="next_step" label="下一步" min-width="150" />
-        <el-table-column label="操作" width="170" fixed="right">
+        <el-table-column label="操作" width="150" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" @click="openDetail(row)">详情</el-button>
             <el-button v-perm="'crm:opportunity:manage'" link type="warning" @click="openStage(row)">推进阶段</el-button>

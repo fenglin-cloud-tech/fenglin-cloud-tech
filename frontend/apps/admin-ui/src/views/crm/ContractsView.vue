@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { PageHeader, GapNotice, ID_COLUMN_WIDTH } from '@fenglin/ui-admin'
+import { PageHeader, GapNotice, ID_COLUMN_WIDTH, formatMoney } from '@fenglin/ui-admin'
 import { crmApi, type ContractChangeView, type ContractListItemView, type ContractView, type CrmId } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 
@@ -273,7 +273,9 @@ onMounted(load)
         <el-table-column prop="customer_name" label="客户" min-width="150" />
         <el-table-column prop="sla_level" label="SLA" width="80" />
         <el-table-column prop="service_package" label="服务包" width="120" />
-        <el-table-column prop="amount" label="金额" width="120" />
+        <el-table-column prop="amount" label="金额" width="120" align="right">
+          <template #default="{ row }">{{ formatMoney(row.amount) }}</template>
+        </el-table-column>
         <el-table-column prop="start_date" label="开始" width="110" />
         <el-table-column prop="end_date" label="结束" width="110" />
         <el-table-column prop="status" label="状态" width="100">

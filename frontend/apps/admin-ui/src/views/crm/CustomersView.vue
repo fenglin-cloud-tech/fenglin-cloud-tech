@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { CrmActivityDialog as ActivityDialog, PageHeader, GapNotice } from '@fenglin/ui-admin'
+import { CrmActivityDialog as ActivityDialog, PageHeader, GapNotice, ID_COLUMN_WIDTH, formatMoney } from '@fenglin/ui-admin'
 import { crmApi, type ContractView, type CustomerDetailView, type CustomerView } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 
@@ -270,8 +270,8 @@ onMounted(load)
       <el-alert v-if="error" type="error" :closable="false" show-icon :title="error" style="margin-bottom: 12px" />
 
       <el-table :data="rows" v-loading="loading" border stripe>
-        <el-table-column prop="customer_no" label="客户编号" width="170" />
-        <el-table-column prop="name" label="客户名称" min-width="170" />
+        <el-table-column prop="customer_no" label="客户编号" width="160" />
+        <el-table-column prop="name" label="客户名称" min-width="140" />
         <el-table-column prop="industry" label="行业" width="120" />
         <el-table-column prop="segment" label="分层" width="80" />
         <el-table-column prop="grade" label="等级" width="80" />
@@ -282,12 +282,14 @@ onMounted(load)
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="owner_id" label="负责人" width="90" show-overflow-tooltip />
-        <el-table-column prop="arr" label="ARR" width="120" />
-        <el-table-column label="创建时间" width="170">
+        <el-table-column prop="owner_id" label="负责人" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
+        <el-table-column prop="arr" label="ARR" width="120" align="right">
+          <template #default="{ row }">{{ formatMoney(row.arr) }}</template>
+        </el-table-column>
+        <el-table-column label="创建时间" width="150">
           <template #default="{ row }">{{ row.created_at ? new Date(row.created_at).toLocaleString() : '-' }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="150" fixed="right">
+        <el-table-column label="操作" width="130" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" @click="openDetail(row)">详情</el-button>
             <el-button v-perm="'crm:customer:manage'" link type="warning" @click="openDetail(row).then(() => openOwner())">变更归属</el-button>
