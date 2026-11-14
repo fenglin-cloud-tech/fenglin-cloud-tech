@@ -39,6 +39,13 @@ function statusType(value?: string) {
   return 'info'
 }
 
+// 活动数据量不是金额，但同样按千分位 + 两位小数展示，避免 12345.6000 直出。
+function qty(value?: string | number | null) {
+  if (value === undefined || value === null || value === '') return '-'
+  const num = Number(value)
+  return Number.isNaN(num) ? String(value) : num.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
 const today = new Date().toISOString().slice(0, 10)
 const form = reactive({
   activity_type: 'ELECTRICITY',
@@ -119,8 +126,8 @@ onMounted(loadActivities)
           <el-table-column prop="scope" label="范围" width="100" />
           <el-table-column prop="activity_date" label="活动日期" width="120" />
           <el-table-column prop="period_code" label="期间" width="100" />
-          <el-table-column label="数据量" width="130">
-            <template #default="{ row }">{{ row.amount }} {{ row.unit }}</template>
+          <el-table-column label="数据量" width="150" align="right">
+            <template #default="{ row }">{{ qty(row.amount) }} {{ row.unit }}</template>
           </el-table-column>
           <el-table-column prop="data_source" label="数据来源" min-width="140" />
           <el-table-column label="状态" width="110">

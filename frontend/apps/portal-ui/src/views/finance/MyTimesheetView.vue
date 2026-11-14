@@ -20,6 +20,12 @@ const totalHours = computed(() =>
   myTimesheets.value.reduce((sum, item) => sum + (Number(item.hours) || 0), 0).toFixed(2),
 )
 
+// 金额口径与后台一致：千分位 + 两位小数 + 右对齐。
+function money(value?: string | number | null) {
+  if (value === undefined || value === null || value === '') return '-'
+  return Number(value).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
 const gapItems = [
   '员工端只能填报与查看，审批 /projects/timesheets/approve 需要 biz:finance:timesheet:approve，不在本页提供。',
   '项目下拉依赖 biz:finance:project:view；若员工账号未授予该权限，页面只显示接口真实 403 提示。',
@@ -130,8 +136,12 @@ onMounted(loadAll)
           </el-table-column>
           <el-table-column prop="work_date" label="工作日期" width="120" />
           <el-table-column prop="hours" label="工时" width="90" />
-          <el-table-column prop="cost_rate" label="成本单价" width="110" />
-          <el-table-column prop="cost_amount" label="成本金额" width="120" />
+          <el-table-column label="成本单价" width="110" align="right">
+            <template #default="{ row }">{{ money(row.cost_rate) }}</template>
+          </el-table-column>
+          <el-table-column label="成本金额" width="120" align="right">
+            <template #default="{ row }">{{ money(row.cost_amount) }}</template>
+          </el-table-column>
           <el-table-column label="状态" width="110">
             <template #default="{ row }">
               <el-tag size="small" :type="statusType(row.status)">{{ statusLabel(row.status) }}</el-tag>

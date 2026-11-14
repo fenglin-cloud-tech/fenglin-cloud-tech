@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { GapNotice, PageHeader } from '@fenglin/ui-admin'
+import { GapNotice, PageHeader, ID_COLUMN_WIDTH } from '@fenglin/ui-admin'
 import {
   financeApi,
   type FinanceId,
@@ -30,7 +30,7 @@ const receiptForm = reactive({
   amount: '',
   receipt_date: new Date().toISOString().slice(0, 10),
   pay_method: 'BANK_TRANSFER',
-  receivable_ids: [] as number[],
+  receivable_ids: [] as FinanceId[],
 })
 
 const paymentVisible = ref(false)
@@ -40,7 +40,7 @@ const paymentForm = reactive({
   amount: '',
   payment_date: new Date().toISOString().slice(0, 10),
   pay_method: 'BANK_TRANSFER',
-  payable_ids: [] as number[],
+  payable_ids: [] as FinanceId[],
 })
 
 const writeOffVisible = ref(false)
@@ -256,19 +256,19 @@ onMounted(async () => {
       <el-tabs v-model="activeTab">
         <el-tab-pane label="应收账款" name="ar">
           <el-table :data="receivables" v-loading="loading" border stripe>
-            <el-table-column prop="ar_no" label="应收单号" width="170" />
-            <el-table-column prop="customer_name" label="客户" min-width="160" />
-            <el-table-column prop="bill_date" label="单据日期" width="120" />
-            <el-table-column prop="due_date" label="到期日" width="120" />
-            <el-table-column prop="currency_code" label="币种" width="80" />
-            <el-table-column label="应收金额" width="130" align="right"><template #default="{ row }">{{ money(row.amount) }}</template></el-table-column>
-            <el-table-column label="已核销" width="130" align="right"><template #default="{ row }">{{ money(row.settled_amount) }}</template></el-table-column>
-            <el-table-column label="未核销" width="130" align="right"><template #default="{ row }">{{ money(row.outstanding) }}</template></el-table-column>
-            <el-table-column prop="aging_bucket" label="账龄" width="100" />
-            <el-table-column label="状态" width="100">
+            <el-table-column prop="ar_no" label="应收单号" width="150" show-overflow-tooltip />
+            <el-table-column prop="customer_name" label="客户" min-width="140" show-overflow-tooltip />
+            <el-table-column prop="bill_date" label="单据日期" width="110" />
+            <el-table-column prop="due_date" label="到期日" width="110" />
+            <el-table-column prop="currency_code" label="币种" width="70" />
+            <el-table-column label="应收金额" width="120" align="right"><template #default="{ row }">{{ money(row.amount) }}</template></el-table-column>
+            <el-table-column label="已核销" width="120" align="right"><template #default="{ row }">{{ money(row.settled_amount) }}</template></el-table-column>
+            <el-table-column label="未核销" width="120" align="right"><template #default="{ row }">{{ money(row.outstanding) }}</template></el-table-column>
+            <el-table-column prop="aging_bucket" label="账龄" width="90" />
+            <el-table-column label="状态" width="90">
               <template #default="{ row }"><el-tag size="small">{{ statusLabel(row.status) }}</el-tag></template>
             </el-table-column>
-            <el-table-column label="操作" width="180" fixed="right">
+            <el-table-column label="操作" width="160" fixed="right">
               <template #default="{ row }">
                 <el-button v-perm="'biz:finance:receipt:create'" link type="primary" @click="openReceipt(row)">收款</el-button>
                 <el-button v-perm="'biz:finance:arap:writeoff'" link type="warning" @click="openWriteOff(row, 'AR')">核销</el-button>
@@ -279,18 +279,18 @@ onMounted(async () => {
 
         <el-tab-pane label="应付账款" name="ap">
           <el-table :data="payables" v-loading="loading" border stripe>
-            <el-table-column prop="ap_no" label="应付单号" width="170" />
-            <el-table-column prop="supplier_name" label="供应商" min-width="160" />
-            <el-table-column prop="bill_date" label="单据日期" width="120" />
-            <el-table-column prop="due_date" label="到期日" width="120" />
-            <el-table-column prop="currency_code" label="币种" width="80" />
-            <el-table-column label="应付金额" width="130" align="right"><template #default="{ row }">{{ money(row.amount) }}</template></el-table-column>
-            <el-table-column label="已核销" width="130" align="right"><template #default="{ row }">{{ money(row.settled_amount) }}</template></el-table-column>
-            <el-table-column label="未核销" width="130" align="right"><template #default="{ row }">{{ money(row.outstanding) }}</template></el-table-column>
-            <el-table-column label="状态" width="100">
+            <el-table-column prop="ap_no" label="应付单号" width="150" show-overflow-tooltip />
+            <el-table-column prop="supplier_name" label="供应商" min-width="140" show-overflow-tooltip />
+            <el-table-column prop="bill_date" label="单据日期" width="110" />
+            <el-table-column prop="due_date" label="到期日" width="110" />
+            <el-table-column prop="currency_code" label="币种" width="70" />
+            <el-table-column label="应付金额" width="120" align="right"><template #default="{ row }">{{ money(row.amount) }}</template></el-table-column>
+            <el-table-column label="已核销" width="120" align="right"><template #default="{ row }">{{ money(row.settled_amount) }}</template></el-table-column>
+            <el-table-column label="未核销" width="120" align="right"><template #default="{ row }">{{ money(row.outstanding) }}</template></el-table-column>
+            <el-table-column label="状态" width="90">
               <template #default="{ row }"><el-tag size="small">{{ statusLabel(row.status) }}</el-tag></template>
             </el-table-column>
-            <el-table-column label="操作" width="180" fixed="right">
+            <el-table-column label="操作" width="160" fixed="right">
               <template #default="{ row }">
                 <el-button v-perm="'biz:finance:payment:create'" link type="primary" @click="openPayment(row)">付款</el-button>
                 <el-button v-perm="'biz:finance:arap:writeoff'" link type="warning" @click="openWriteOff(row, 'AP')">核销</el-button>
@@ -328,7 +328,7 @@ onMounted(async () => {
           />
           <el-table v-if="settlementKind === 'receipt'" v-loading="settlementLoading" :data="receiptDocs" border stripe>
             <el-table-column prop="receipt_no" label="收款单号" min-width="170" show-overflow-tooltip />
-            <el-table-column prop="customer_id" label="客户ID" min-width="150" show-overflow-tooltip />
+            <el-table-column prop="customer_id" label="客户ID" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
             <el-table-column prop="receipt_date" label="收款日期" width="120" />
             <el-table-column prop="currency_code" label="币种" width="80" />
             <el-table-column label="金额" width="130" align="right">
@@ -338,11 +338,11 @@ onMounted(async () => {
             <el-table-column label="状态" width="100">
               <template #default="{ row }"><el-tag size="small">{{ statusLabel(row.status) }}</el-tag></template>
             </el-table-column>
-            <el-table-column prop="voucher_id" label="凭证ID" min-width="150" show-overflow-tooltip />
+            <el-table-column prop="voucher_id" label="凭证ID" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
           </el-table>
           <el-table v-else v-loading="settlementLoading" :data="paymentDocs" border stripe>
             <el-table-column prop="payment_no" label="付款单号" min-width="170" show-overflow-tooltip />
-            <el-table-column prop="supplier_id" label="供应商ID" min-width="150" show-overflow-tooltip />
+            <el-table-column prop="supplier_id" label="供应商ID" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
             <el-table-column prop="payment_date" label="付款日期" width="120" />
             <el-table-column prop="currency_code" label="币种" width="80" />
             <el-table-column label="金额" width="130" align="right">
@@ -352,7 +352,7 @@ onMounted(async () => {
             <el-table-column label="状态" width="100">
               <template #default="{ row }"><el-tag size="small">{{ statusLabel(row.status) }}</el-tag></template>
             </el-table-column>
-            <el-table-column prop="voucher_id" label="凭证ID" min-width="150" show-overflow-tooltip />
+            <el-table-column prop="voucher_id" label="凭证ID" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
           </el-table>
         </el-tab-pane>
 

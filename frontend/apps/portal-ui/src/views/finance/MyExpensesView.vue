@@ -40,7 +40,7 @@ function statusType(value?: string) {
 }
 
 function money(value?: string) {
-  return value === undefined || value === null ? '-' : Number(value).toFixed(2)
+  return value === undefined || value === null ? '-' : Number(value).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
 const today = new Date().toISOString().slice(0, 10)
@@ -180,10 +180,10 @@ onMounted(loadExpenses)
           <el-table-column prop="claim_no" label="单号" width="180" />
           <el-table-column prop="claim_date" label="报销日期" width="120" />
           <el-table-column prop="claim_type" label="类型" width="110" />
-          <el-table-column label="金额" width="130">
+          <el-table-column label="金额" width="130" align="right">
             <template #default="{ row }">{{ money(row.total_amount) }} {{ row.currency_code }}</template>
           </el-table-column>
-          <el-table-column label="税额" width="110">
+          <el-table-column label="税额" width="110" align="right">
             <template #default="{ row }">{{ money(row.tax_amount) }}</template>
           </el-table-column>
           <el-table-column label="状态" width="110">

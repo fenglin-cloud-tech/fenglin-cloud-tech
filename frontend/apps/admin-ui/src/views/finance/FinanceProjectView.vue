@@ -372,15 +372,15 @@ onMounted(loadProjects)
 
     <el-card shadow="never">
       <el-table :data="projects" v-loading="loading" border stripe>
-        <el-table-column prop="project_no" label="项目编号" width="150" />
-        <el-table-column prop="project_name" label="项目名称" min-width="180" show-overflow-tooltip />
-        <el-table-column prop="project_type" label="类型" width="110" />
-        <el-table-column prop="customer_name" label="客户" min-width="140" />
+        <el-table-column prop="project_no" label="项目编号" width="130" />
+        <el-table-column prop="project_name" label="项目名称" min-width="160" show-overflow-tooltip />
+        <el-table-column prop="project_type" label="类型" width="90" />
+        <el-table-column prop="customer_name" label="客户" min-width="140" show-overflow-tooltip />
         <el-table-column label="合同额" width="130" align="right"><template #default="{ row }">{{ money(row.contract_amount) }}</template></el-table-column>
         <el-table-column label="预算" width="130" align="right"><template #default="{ row }">{{ money(row.budget_amount) }}</template></el-table-column>
         <el-table-column label="实际成本" width="130" align="right"><template #default="{ row }">{{ money(row.actual_cost) }}</template></el-table-column>
         <el-table-column label="确认收入" width="130" align="right"><template #default="{ row }">{{ money(row.recognized_revenue) }}</template></el-table-column>
-        <el-table-column label="状态" width="110">
+        <el-table-column label="状态" width="100">
           <template #default="{ row }"><el-tag size="small">{{ statusLabel(row.status) }}</el-tag></template>
         </el-table-column>
         <el-table-column label="操作" width="150" fixed="right">
@@ -470,15 +470,15 @@ onMounted(loadProjects)
                 <el-table-column prop="cost_no" label="成本单号" width="160" />
                 <el-table-column prop="cost_type" label="类型" width="120" />
                 <el-table-column prop="cost_date" label="日期" width="120" />
-                <el-table-column prop="amount" label="金额" width="120" align="right" />
+                <el-table-column label="金额" width="120" align="right"><template #default="{ row }">{{ money(row.amount) }}</template></el-table-column>
                 <el-table-column prop="description" label="说明" min-width="160" />
               </el-table>
             </el-tab-pane>
             <el-tab-pane :label="`结算 ${detail.settlements.length}`" name="settlements">
               <el-table :data="detail.settlements" border size="small">
                 <el-table-column prop="settlement_no" label="结算单号" width="170" />
-                <el-table-column prop="settlement_amount" label="结算金额" width="130" align="right" />
-                <el-table-column prop="settled_amount" label="已结算" width="130" align="right" />
+                <el-table-column label="结算金额" width="130" align="right"><template #default="{ row }">{{ money(row.settlement_amount) }}</template></el-table-column>
+                <el-table-column label="已结算" width="130" align="right"><template #default="{ row }">{{ money(row.settled_amount) }}</template></el-table-column>
                 <el-table-column prop="status" label="状态" width="110" />
                 <el-table-column label="操作" width="110">
                   <template #default="{ row }">
