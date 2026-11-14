@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { GapNotice, PageHeader } from '@fenglin/ui-admin'
+import { GapNotice, PageHeader, ID_COLUMN_WIDTH, formatDateTime } from '@fenglin/ui-admin'
 import { rndApi, type RndId, type RndMember, type RndProduct, type RndStatus } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 
@@ -183,11 +183,13 @@ onMounted(loadProducts)
             <span class="fl-muted">共 {{ members.length }} 名成员</span>
           </div>
           <el-table :data="members" border stripe max-height="420">
-            <el-table-column prop="id" label="成员ID" width="110" />
-            <el-table-column prop="user_id" label="用户ID" width="140" />
+            <el-table-column prop="id" label="成员ID" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
+            <el-table-column prop="user_id" label="用户ID" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
             <el-table-column prop="role_code" label="角色" width="140" />
             <el-table-column prop="data_scope" label="数据范围" width="130" />
-            <el-table-column prop="created_at" label="加入时间" min-width="180" />
+            <el-table-column label="加入时间" min-width="170">
+              <template #default="{ row }">{{ formatDateTime(row.created_at) }}</template>
+            </el-table-column>
             <el-table-column label="操作" width="120">
               <template #default="{ row }">
                 <el-button v-perm="'tenant:devops:member:manage'" link type="danger" @click="removeMember(row)">移除</el-button>

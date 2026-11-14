@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { GapNotice, PageHeader } from '@fenglin/ui-admin'
+import { GapNotice, PageHeader, ID_COLUMN_WIDTH_COMFORT, formatDateTime } from '@fenglin/ui-admin'
 import { rndApi, type RndWorklog } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 
@@ -88,12 +88,14 @@ onMounted(loadWorklogs)
         <span class="fl-muted">共 {{ worklogs.length }} 条记录</span>
       </div>
       <el-table :data="worklogs" v-loading="loading" border stripe max-height="520">
-        <el-table-column prop="id" label="记录ID" width="100" />
-        <el-table-column prop="task_id" label="任务ID" width="120" />
+        <el-table-column prop="id" label="记录ID" :width="ID_COLUMN_WIDTH_COMFORT" show-overflow-tooltip />
+        <el-table-column prop="task_id" label="任务ID" :width="ID_COLUMN_WIDTH_COMFORT" show-overflow-tooltip />
         <el-table-column prop="work_date" label="工作日期" width="130" />
         <el-table-column prop="hours" label="工时" width="100" />
         <el-table-column prop="remark" label="说明" min-width="220" />
-        <el-table-column prop="created_at" label="登记时间" width="180" />
+        <el-table-column label="登记时间" width="170">
+          <template #default="{ row }">{{ formatDateTime(row.created_at) }}</template>
+        </el-table-column>
       </el-table>
     </el-card>
 

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { GapNotice, PageHeader } from '@fenglin/ui-admin'
+import { GapNotice, PageHeader, ID_COLUMN_WIDTH } from '@fenglin/ui-admin'
 import { rndApi, type RndDefect, type RndId, type RndProduct } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 
@@ -188,7 +188,7 @@ onMounted(loadProducts)
           </template>
         </el-table-column>
         <el-table-column prop="env" label="环境" width="90" />
-        <el-table-column prop="assignee_id" label="负责人" width="100" />
+        <el-table-column prop="assignee_id" label="负责人" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
         <el-table-column prop="reopen_count" label="重开" width="80" />
         <el-table-column label="操作" width="130">
           <template #default="{ row }">

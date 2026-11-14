@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { GapNotice, PageHeader } from '@fenglin/ui-admin'
+import { GapNotice, PageHeader, ID_COLUMN_WIDTH } from '@fenglin/ui-admin'
 import {
   rndApi,
   type RndAlert,
@@ -245,7 +245,7 @@ onMounted(async () => {
 
         <el-tab-pane label="贡献度" name="contributions">
           <el-table :data="contributions" border stripe size="small" max-height="420">
-            <el-table-column prop="user_id" label="用户ID" width="110" />
+            <el-table-column prop="user_id" label="用户ID" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
             <el-table-column prop="commit_count" label="提交数" width="100" />
             <el-table-column prop="effective_commits" label="有效提交" width="110" />
             <el-table-column prop="effective_commit_rate" label="有效率" width="110" />

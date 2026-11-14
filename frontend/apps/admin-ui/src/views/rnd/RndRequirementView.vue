@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { GapNotice, PageHeader } from '@fenglin/ui-admin'
+import { GapNotice, PageHeader, ID_COLUMN_WIDTH } from '@fenglin/ui-admin'
 import { rndApi, type RndId, type RndProduct, type RndRequirement } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 
@@ -185,7 +185,7 @@ onMounted(loadProducts)
             <el-tag size="small" :type="statusType(row.status_code)">{{ row.status_name ?? statusLabel(row.status_code) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="assignee_id" label="负责人" width="100" />
+        <el-table-column prop="assignee_id" label="负责人" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
         <el-table-column prop="estimate_hours" label="预估工时" width="110" />
         <el-table-column prop="plan_end_at" label="计划完成" width="140" />
         <el-table-column label="操作" width="260">

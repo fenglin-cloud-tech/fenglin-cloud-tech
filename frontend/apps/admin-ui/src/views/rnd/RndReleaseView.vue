@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { GapNotice, PageHeader } from '@fenglin/ui-admin'
+import { GapNotice, PageHeader, ID_COLUMN_WIDTH, formatDateTime } from '@fenglin/ui-admin'
 import {
   rndApi,
   type RndBuild,
@@ -228,13 +228,17 @@ onMounted(loadProducts)
     <el-card shadow="never">
       <template #header><span>部署记录</span></template>
       <el-table :data="deployments" border stripe size="small" max-height="300">
-        <el-table-column prop="id" label="部署ID" width="100" />
+        <el-table-column prop="id" label="部署ID" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
         <el-table-column prop="env" label="环境" width="100" />
         <el-table-column prop="result" label="结果" width="120" />
         <el-table-column prop="strategy" label="策略" width="120" />
-        <el-table-column prop="operator_id" label="操作人" width="110" />
-        <el-table-column prop="started_at" label="开始" width="170" />
-        <el-table-column prop="finished_at" label="结束" width="170" />
+        <el-table-column prop="operator_id" label="操作人" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
+        <el-table-column label="开始" width="170">
+          <template #default="{ row }">{{ formatDateTime(row.started_at) }}</template>
+        </el-table-column>
+        <el-table-column label="结束" width="170">
+          <template #default="{ row }">{{ formatDateTime(row.finished_at) }}</template>
+        </el-table-column>
       </el-table>
     </el-card>
 

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { GapNotice, PageHeader } from '@fenglin/ui-admin'
+import { GapNotice, PageHeader, ID_COLUMN_WIDTH } from '@fenglin/ui-admin'
 import { rndApi, type RndId, type RndProduct, type RndTask, type RndWorklog } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 
@@ -209,7 +209,7 @@ onMounted(async () => {
             <el-tag size="small" :type="statusType(row.status)">{{ statusLabel(row.status) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="assignee_id" label="负责人" width="100" />
+        <el-table-column prop="assignee_id" label="负责人" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
         <el-table-column prop="estimate_hours" label="预估" width="90" />
         <el-table-column prop="actual_hours" label="实际" width="90" />
         <el-table-column prop="due_date" label="截止" width="120" />
@@ -233,11 +233,11 @@ onMounted(async () => {
     <el-card shadow="never">
       <template #header><span>最近工时记录</span></template>
       <el-table :data="worklogs" border stripe size="small" max-height="300">
-        <el-table-column prop="id" label="记录ID" width="100" />
+        <el-table-column prop="id" label="记录ID" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
         <el-table-column label="任务" min-width="200">
           <template #default="{ row }">{{ taskTitle(row.task_id) }}</template>
         </el-table-column>
-        <el-table-column prop="user_id" label="用户ID" width="110" />
+        <el-table-column prop="user_id" label="用户ID" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
         <el-table-column prop="work_date" label="日期" width="120" />
         <el-table-column prop="hours" label="工时" width="90" />
         <el-table-column prop="remark" label="说明" min-width="180" />

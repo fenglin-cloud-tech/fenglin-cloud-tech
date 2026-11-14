@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { GapNotice, PageHeader } from '@fenglin/ui-admin'
+import { GapNotice, PageHeader, ID_COLUMN_WIDTH_COMFORT, formatDateTime } from '@fenglin/ui-admin'
 import { rndApi, type RndDefect, type RndId, type RndProduct } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 
@@ -133,8 +133,8 @@ onMounted(async () => {
 
     <el-card shadow="never">
       <el-table :data="defects" v-loading="loading" border stripe max-height="560">
-        <el-table-column prop="defect_no" label="缺陷编号" width="140" />
-        <el-table-column prop="title" label="标题" min-width="220" />
+        <el-table-column prop="defect_no" label="缺陷编号" width="120" show-overflow-tooltip />
+        <el-table-column prop="title" label="标题" min-width="190" show-overflow-tooltip />
         <el-table-column prop="severity" label="严重度" width="100" />
         <el-table-column prop="priority" label="优先级" width="90" />
         <el-table-column label="状态" width="110">
@@ -143,9 +143,11 @@ onMounted(async () => {
           </template>
         </el-table-column>
         <el-table-column prop="env" label="环境" width="90" />
-        <el-table-column prop="reporter_id" label="上报人" width="100" />
-        <el-table-column prop="assignee_id" label="负责人" width="100" />
-        <el-table-column prop="created_at" label="创建时间" width="180" />
+        <el-table-column prop="reporter_id" label="上报人" :width="ID_COLUMN_WIDTH_COMFORT" show-overflow-tooltip />
+        <el-table-column prop="assignee_id" label="负责人" :width="ID_COLUMN_WIDTH_COMFORT" show-overflow-tooltip />
+        <el-table-column label="创建时间" width="170">
+          <template #default="{ row }">{{ formatDateTime(row.created_at) }}</template>
+        </el-table-column>
       </el-table>
     </el-card>
 
