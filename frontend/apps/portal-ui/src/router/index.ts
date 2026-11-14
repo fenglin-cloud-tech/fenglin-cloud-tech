@@ -192,7 +192,7 @@ const routes: RouteRecordRaw[] = [
         path: 'my-service-assets',
         name: 'my-service-assets',
         component: () => import('@/views/service/MyServiceAssetsView.vue'),
-        meta: { title: '我的资产', perm: 'service:asset:view' },
+        meta: { title: '我的资产', perm: 'service:asset:self:view' },
       },
       {
         path: 'ai-workbench',

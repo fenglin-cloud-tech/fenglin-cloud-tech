@@ -190,6 +190,20 @@ public class CsatAssetService {
         return configMapper.assetSummary(ServiceContext.tenantId(), ownerId);
     }
 
+    /**
+     * 员工自助：只查询当前登录用户名下资产。
+     */
+    public PageResult<Map<String, Object>> myAssets(String status, String assetType, Integer page, Integer size) {
+        return listAssets(status, ServiceContext.userId(), assetType, page, size);
+    }
+
+    /**
+     * 员工自助：只汇总当前登录用户名下资产。
+     */
+    public Map<String, Object> myAssetReminder() {
+        return configMapper.assetSummary(ServiceContext.tenantId(), ServiceContext.userId());
+    }
+
     public Map<String, Object> now() {
         return ServiceMaps.of("now", commonsMapper.now());
     }

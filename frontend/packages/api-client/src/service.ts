@@ -222,6 +222,12 @@ export const serviceApi = {
     reminders() {
       return get<ServiceRecord>(`${BASE}/assets/reminders`)
     },
+    myAssets(params: { status?: string; assetType?: string; page?: number; size?: number } = {}) {
+      return get<ServicePage>(`${BASE}/assets/my`, params)
+    },
+    myReminders() {
+      return get<ServiceRecord>(`${BASE}/assets/reminders/my`)
+    },
   },
   admin: {
     config(configType: string) {

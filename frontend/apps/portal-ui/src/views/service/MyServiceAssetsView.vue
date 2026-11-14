@@ -18,28 +18,22 @@ const reminder = ref<ServiceRecord | null>(null)
 const returning = ref(false)
 
 const gapItems = [
-  '资产提醒接口 /assets/reminders 返回租户级汇总（总量/借出/逾期），不支持按本人过滤。',
   '自助归还直接置为在库（IDLE），不经过资产管理员确认；若产品需要确认环节，可在此处加一步，不改本接口契约。',
-  '资产台账按 ownerId 过滤，仅显示负责人为当前登录用户的资产。',
+  '列表与汇总均由服务端按当前登录用户收敛，页面不再传 ownerId。',
 ]
 
 async function load() {
-  if (!auth.userId) {
-    error.value = '当前登录用户缺少用户 ID，无法查询“我的资产”'
-    return
-  }
   loading.value = true
   error.value = ''
   try {
-    const result = await serviceApi.assets.list({
-      ownerId: auth.userId,
+    const result = await serviceApi.assets.myAssets({
       status: status.value || undefined,
       page: page.value,
       size: size.value,
     })
     assets.value = result.records
     total.value = result.total
-    reminder.value = await serviceApi.assets.reminders().catch(() => null)
+    reminder.value = await serviceApi.assets.myReminders().catch(() => null)
   } catch (err) {
     error.value = describeError(err)
   } finally {
@@ -70,7 +64,7 @@ onMounted(load)
     <PageHeader
       module="云服服务台"
       title="我的资产"
-      description="本人名下 IT 资产与逾期提醒；数据来自 /api/service/v1/assets。"
+      description="本人名下 IT 资产与逾期提醒；数据来自 /api/service/v1/assets/my。"
     >
       <template #actions>
         <el-button :loading="loading" @click="load">刷新</el-button>
@@ -89,7 +83,7 @@ onMounted(load)
       </el-col>
       <el-col :span="16">
         <el-card shadow="never">
-          <template #header><span>租户资产提醒</span></template>
+          <template #header><span>我的资产提醒</span></template>
           <el-descriptions v-if="reminder" :column="3" border size="small">
             <el-descriptions-item label="资产总量">{{ reminder.total ?? '-' }}</el-descriptions-item>
             <el-descriptions-item label="借出中">{{ reminder.borrowed ?? '-' }}</el-descriptions-item>

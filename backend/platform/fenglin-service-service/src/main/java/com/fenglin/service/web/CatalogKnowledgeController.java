@@ -32,6 +32,8 @@ public class CatalogKnowledgeController {
     private static final String CATALOG_VIEW = "service:catalog:view";
     private static final String CATALOG_APPLY = "service:catalog:apply";
     private static final String ASSET_REMINDER_VIEW = "service:asset:reminder:view";
+    private static final String ASSET_SELF_VIEW = "service:asset:self:view";
+    private static final String ASSET_SELF_RETURN = "service:asset:self:return";
     private static final String KB_VIEW = "service:kb:view";
     private static final String KB_EDIT = "service:kb:edit";
     private static final String KB_PUBLISH = "service:kb:publish";
@@ -300,7 +302,7 @@ public class CatalogKnowledgeController {
     public ApiResponse<Map<String, Object>> returnSelf(
             @RequestHeader(value = "X-Permissions", required = false) String permissions,
             @PathVariable("id") long id) {
-        PermissionGuard.require(permissions, ASSET_VIEW);
+        PermissionGuard.requireAny(permissions, ASSET_VIEW, ASSET_SELF_RETURN);
         return ApiResponse.success(csatAssetService.returnSelf(id));
     }
 
@@ -309,5 +311,29 @@ public class CatalogKnowledgeController {
             @RequestHeader(value = "X-Permissions", required = false) String permissions) {
         PermissionGuard.require(permissions, ASSET_REMINDER_VIEW);
         return ApiResponse.success(csatAssetService.assetReminder(permissions));
+    }
+
+    /**
+     * 员工自助：只返回当前登录用户名下资产，owner 由服务端固定，不接受调用方传 ownerId。
+     */
+    @GetMapping("/assets/my")
+    public ApiResponse<PageResult<Map<String, Object>>> myAssets(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "assetType", required = false) String assetType,
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false) Integer size) {
+        PermissionGuard.require(permissions, ASSET_SELF_VIEW);
+        return ApiResponse.success(csatAssetService.myAssets(status, assetType, page, size));
+    }
+
+    /**
+     * 员工自助：本人名下资产汇总（总量/借出/逾期）。
+     */
+    @GetMapping("/assets/reminders/my")
+    public ApiResponse<Map<String, Object>> myAssetReminders(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions) {
+        PermissionGuard.require(permissions, ASSET_SELF_VIEW);
+        return ApiResponse.success(csatAssetService.myAssetReminder());
     }
 }

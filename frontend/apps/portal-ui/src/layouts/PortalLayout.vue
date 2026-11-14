@@ -87,7 +87,7 @@ const serviceItems = [
   { path: '/my-service-tickets', title: '我的工单', icon: Tickets, perm: 'service:ticket:view' },
   { path: '/service-catalog', title: '服务申请', icon: Grid, perm: 'service:catalog:view' },
   { path: '/service-kb', title: '知识库', icon: Reading, perm: 'service:kb:view' },
-  { path: '/my-service-assets', title: '我的资产', icon: Box, perm: 'service:asset:view' },
+  { path: '/my-service-assets', title: '我的资产', icon: Box, perm: 'service:asset:self:view' },
 ]
 
 const intelligenceItems = [
