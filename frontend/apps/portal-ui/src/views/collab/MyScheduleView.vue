@@ -273,7 +273,7 @@ onMounted(async () => {
             <el-tag :type="row.status === 'CANCELLED' ? 'info' : 'primary'" size="small">{{ row.status }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="参会人" min-width="180">
+        <el-table-column label="参会人" min-width="180" show-overflow-tooltip>
           <template #default="{ row }">
             <template v-if="row.attendees && row.attendees.length">
               <el-tag v-for="att in row.attendees" :key="att.attendee_id" size="small" style="margin: 2px 4px 2px 0">

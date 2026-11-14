@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { PageHeader, GapNotice } from '@fenglin/ui-admin'
+import { PageHeader, GapNotice, ID_COLUMN_WIDTH } from '@fenglin/ui-admin'
 import { iamApi, type RoleView, type UserView } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 
@@ -134,7 +134,7 @@ onMounted(() => {
       <el-alert v-if="error" type="error" :closable="false" show-icon :title="error" style="margin-bottom: 12px" />
 
       <el-table :data="users" v-loading="loading" border stripe row-key="user_id">
-        <el-table-column prop="user_id" label="用户 ID" width="100" />
+        <el-table-column prop="user_id" label="用户 ID" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
         <el-table-column prop="username" label="用户名" width="140" />
         <el-table-column prop="real_name" label="姓名" width="120">
           <template #default="{ row }">{{ row.real_name || '-' }}</template>

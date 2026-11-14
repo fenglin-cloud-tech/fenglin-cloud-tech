@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ApprovalFormFields, GapNotice, PageHeader } from '@fenglin/ui-admin'
+import { ApprovalFormFields, GapNotice, PageHeader, ID_COLUMN_WIDTH } from '@fenglin/ui-admin'
 import {
   collabApi,
   type CollabApprovalInstance,
@@ -51,6 +51,17 @@ function formatTime(value?: string): string {
   if (!value) return '-'
   const date = new Date(value)
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString()
+}
+
+// 与后台列表同一套列宽规约：纯数字长 ID 整列显示，UUID 等临时标识允许省略 + tooltip。
+const LONG_NUMERIC_ID = /^\d{15,}$/
+function columnWidth(col: string, sample?: CollabApprovalRow): number {
+  if (LONG_NUMERIC_ID.test(String(sample?.[col] ?? ''))) return ID_COLUMN_WIDTH
+  if (/_id$/i.test(col)) return 140
+  if (/_no$/i.test(col)) return 120
+  if (/(_key|_name)$/i.test(col)) return 100
+  if (/(_status|status)$/i.test(col)) return 110
+  return 100
 }
 
 function pickId(row: CollabApprovalRow, keys: string[]): string | undefined {
@@ -458,12 +469,12 @@ onMounted(() => {
             v-for="col in taskColumns"
             :key="col"
             :label="columnLabel(col)"
-            min-width="140"
+            :min-width="columnWidth(col, taskRows[0])"
             show-overflow-tooltip
           >
             <template #default="{ row }">{{ formatCell(row[col], col) }}</template>
           </el-table-column>
-          <el-table-column label="操作" width="260" fixed="right">
+          <el-table-column label="操作" width="220" fixed="right">
             <template #default="{ row }">
               <template v-if="rowTaskId(row) !== undefined">
                 <el-button v-perm="'biz:collab:approval:handle'" link type="success" @click="openAction('approve', row)">
@@ -502,7 +513,7 @@ onMounted(() => {
             v-for="col in doneColumns"
             :key="col"
             :label="columnLabel(col)"
-            min-width="140"
+            :min-width="columnWidth(col, doneRows[0])"
             show-overflow-tooltip
           >
             <template #default="{ row }">{{ formatCell(row[col], col) }}</template>
@@ -534,7 +545,7 @@ onMounted(() => {
             v-for="col in instColumns"
             :key="col"
             :label="columnLabel(col)"
-            min-width="140"
+            :min-width="columnWidth(col, instRows[0])"
             show-overflow-tooltip
           >
             <template #default="{ row }">{{ formatCell(row[col], col) }}</template>

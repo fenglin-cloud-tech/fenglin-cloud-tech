@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ApprovalFormFields, GapNotice, PageHeader } from '@fenglin/ui-admin'
+import { ApprovalFormFields, GapNotice, PageHeader, ID_COLUMN_WIDTH } from '@fenglin/ui-admin'
 import {
   collabApi,
   type CollabApprovalInstance,
@@ -34,6 +34,17 @@ const COLUMN_LABELS: Record<string, string> = {
 
 function columnLabel(col: string): string {
   return COLUMN_LABELS[col] ?? col
+}
+
+// 动态列宽按同一套规约：纯数字长 ID 整列显示；UUID 等可变长标识允许省略 + tooltip。
+const LONG_NUMERIC_ID = /^\d{15,}$/
+function columnWidth(col: string, sample?: CollabApprovalRow): number {
+  if (LONG_NUMERIC_ID.test(String(sample?.[col] ?? ''))) return ID_COLUMN_WIDTH
+  if (/_id$/i.test(col)) return 150
+  if (/_no$/i.test(col)) return 130
+  if (/(_key|_name)$/i.test(col)) return 110
+  if (/(_status|status)$/i.test(col)) return 110
+  return 110
 }
 
 function formatCell(value: unknown, key?: string): string {
@@ -502,12 +513,12 @@ onMounted(() => {
             v-for="col in taskColumns"
             :key="col"
             :label="columnLabel(col)"
-            min-width="140"
+            :min-width="columnWidth(col, taskRows[0])"
             show-overflow-tooltip
           >
             <template #default="{ row }">{{ formatCell(row[col], col) }}</template>
           </el-table-column>
-          <el-table-column label="操作" width="260" fixed="right">
+          <el-table-column label="操作" width="250" fixed="right">
             <template #default="{ row }">
               <template v-if="rowTaskId(row) !== undefined">
                 <el-button v-perm="'biz:collab:approval:handle'" link type="success" @click="openAction('approve', row)">通过</el-button>
@@ -529,7 +540,7 @@ onMounted(() => {
             v-for="col in instColumns"
             :key="col"
             :label="columnLabel(col)"
-            min-width="140"
+            :min-width="columnWidth(col, instRows[0])"
             show-overflow-tooltip
           >
             <template #default="{ row }">{{ formatCell(row[col], col) }}</template>

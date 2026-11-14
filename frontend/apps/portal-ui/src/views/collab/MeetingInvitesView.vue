@@ -261,7 +261,7 @@ onMounted(load)
       <el-alert v-if="error" type="error" :closable="false" show-icon :title="error" style="margin-bottom: 12px" />
 
       <el-table :data="rows" v-loading="loading" border stripe row-key="meeting_id">
-        <el-table-column prop="title" label="主题" min-width="180" show-overflow-tooltip />
+        <el-table-column prop="title" label="主题" min-width="160" show-overflow-tooltip />
         <el-table-column prop="organizer_id" label="组织者" width="100">
           <template #default="{ row }">
             {{ row.organizer_id }}
@@ -271,10 +271,10 @@ onMounted(load)
         <el-table-column label="会议室" width="100">
           <template #default="{ row }">{{ row.room_id ?? '-' }}</template>
         </el-table-column>
-        <el-table-column label="开始时间" width="170">
+        <el-table-column label="开始时间" width="160">
           <template #default="{ row }">{{ fmt(row.start_at) }}</template>
         </el-table-column>
-        <el-table-column label="结束时间" width="170">
+        <el-table-column label="结束时间" width="160">
           <template #default="{ row }">{{ fmt(row.end_at) }}</template>
         </el-table-column>
         <el-table-column prop="meeting_mode" label="形式" width="100" />
@@ -283,7 +283,7 @@ onMounted(load)
             <el-tag :type="row.status === 'CANCELLED' ? 'info' : 'primary'" size="small">{{ row.status }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="我的响应" width="110">
+        <el-table-column label="我的响应" width="100">
           <template #default="{ row }">
             <el-tag
               size="small"

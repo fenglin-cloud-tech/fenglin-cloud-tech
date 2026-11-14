@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { GapNotice, PageHeader } from '@fenglin/ui-admin'
+import { GapNotice, PageHeader, ID_COLUMN_WIDTH } from '@fenglin/ui-admin'
 import { collabApi, type CollabMeeting, type CollabMeetingDetail } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 
@@ -305,16 +305,16 @@ onMounted(load)
       <el-alert v-if="error" type="error" :closable="false" show-icon :title="error" style="margin-bottom: 12px" />
 
       <el-table :data="rows" v-loading="loading" border stripe>
-        <el-table-column prop="meeting_id" label="会议 ID" width="190" show-overflow-tooltip />
+        <el-table-column prop="meeting_id" label="会议 ID" width="160" show-overflow-tooltip />
         <el-table-column prop="title" label="主题" min-width="170" show-overflow-tooltip />
-        <el-table-column prop="organizer_id" label="组织者" width="90" />
-        <el-table-column prop="room_id" label="会议室" width="90">
+        <el-table-column prop="organizer_id" label="组织者" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
+        <el-table-column prop="room_id" label="会议室" width="80" show-overflow-tooltip>
           <template #default="{ row }">{{ row.room_id ?? '-' }}</template>
         </el-table-column>
-        <el-table-column label="开始时间" width="170">
+        <el-table-column label="开始时间" width="160">
           <template #default="{ row }">{{ row.start_at ? new Date(row.start_at).toLocaleString() : '-' }}</template>
         </el-table-column>
-        <el-table-column label="结束时间" width="170">
+        <el-table-column label="结束时间" width="160">
           <template #default="{ row }">{{ row.end_at ? new Date(row.end_at).toLocaleString() : '-' }}</template>
         </el-table-column>
         <el-table-column prop="meeting_mode" label="形式" width="90" />
@@ -439,7 +439,7 @@ onMounted(load)
           <template v-if="minutesHistory.length">
             <div class="section-head"><h3>纪要历史（{{ minutesHistory.length }} 个版本）</h3></div>
             <el-table :data="minutesHistory" size="small" border>
-              <el-table-column prop="minutes_id" label="版本 ID" width="120" />
+              <el-table-column prop="minutes_id" label="版本 ID" width="120" show-overflow-tooltip />
               <el-table-column prop="status" label="状态" width="100" />
               <el-table-column label="创建时间" width="170">
                 <template #default="{ row }">{{ row.created_at ? new Date(row.created_at).toLocaleString() : '-' }}</template>
@@ -453,9 +453,9 @@ onMounted(load)
             <el-button v-perm="'biz:collab:meeting:manage'" size="small" type="primary" @click="openActions">添加行动项</el-button>
           </div>
           <el-table :data="detail.actions" size="small" border>
-            <el-table-column prop="action_id" label="行动项 ID" width="120" />
+            <el-table-column prop="action_id" label="行动项 ID" width="120" show-overflow-tooltip />
             <el-table-column prop="content" label="内容" min-width="180" show-overflow-tooltip />
-            <el-table-column prop="assignee_id" label="负责人" width="90">
+            <el-table-column prop="assignee_id" label="负责人" :width="ID_COLUMN_WIDTH" show-overflow-tooltip>
               <template #default="{ row }">{{ row.assignee_id ?? '-' }}</template>
             </el-table-column>
             <el-table-column label="截止时间" width="170">

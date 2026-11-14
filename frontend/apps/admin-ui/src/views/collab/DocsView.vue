@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { PageHeader, GapNotice } from '@fenglin/ui-admin'
+import { PageHeader, GapNotice, ID_COLUMN_WIDTH } from '@fenglin/ui-admin'
 import {
   collabApi,
   type CollabCollaborator,
@@ -384,26 +384,26 @@ onMounted(() => {
       <el-alert v-if="error" type="error" :closable="false" show-icon :title="error" style="margin-bottom: 12px" />
 
       <el-table :data="rows" v-loading="loading" border stripe row-key="doc_id">
-        <el-table-column prop="doc_id" label="文档 ID" min-width="170" show-overflow-tooltip />
-        <el-table-column prop="title" label="标题" min-width="180" show-overflow-tooltip />
+        <el-table-column prop="doc_id" label="文档 ID" min-width="150" show-overflow-tooltip />
+        <el-table-column prop="title" label="标题" min-width="140" show-overflow-tooltip />
         <el-table-column prop="doc_type" label="类型" width="90" />
-        <el-table-column prop="secret_level" label="密级" width="130">
+        <el-table-column prop="secret_level" label="密级" width="100">
           <template #default="{ row }">
             <el-tag :type="row.secret_level === 'CONFIDENTIAL' ? 'danger' : row.secret_level === 'INTERNAL' ? 'warning' : 'success'" size="small">
               {{ row.secret_level }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="current_version" label="当前版本" width="100">
+        <el-table-column prop="current_version" label="当前版本" width="80">
           <template #default="{ row }">v{{ row.current_version }}</template>
         </el-table-column>
-        <el-table-column prop="status" label="状态" width="100" />
-        <el-table-column prop="my_permission" label="我的权限" width="110" />
-        <el-table-column prop="owner_id" label="所有者" width="90" />
-        <el-table-column label="更新时间" width="180">
+        <el-table-column prop="status" label="状态" width="90" />
+        <el-table-column prop="my_permission" label="我的权限" width="90" />
+        <el-table-column prop="owner_id" label="所有者" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
+        <el-table-column label="更新时间" width="140">
           <template #default="{ row }">{{ row.updated_at ? new Date(row.updated_at).toLocaleString() : '-' }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="260" fixed="right">
+        <el-table-column label="操作" width="230" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" @click="openDetail(row)">详情</el-button>
             <el-button link type="primary" @click="openVersions(row)">版本</el-button>
