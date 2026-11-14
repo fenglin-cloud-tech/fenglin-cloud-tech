@@ -75,10 +75,8 @@ async function submit() {
   padding: 32px;
   background: #fff;
   border: 1px solid #e7ecf5;
-  border-radius: 20px;
-  box-shadow:
-    0 1px 2px rgba(23, 43, 77, 0.04),
-    0 34px 70px -48px rgba(23, 43, 77, 0.5);
+  border-radius: var(--fl-radius-lg);
+  box-shadow: var(--fl-shadow-login-elevated);
 }
 .login-brand {
   display: flex;
@@ -91,9 +89,9 @@ async function submit() {
   place-items: center;
   width: 44px;
   height: 44px;
-  border-radius: 14px;
+  border-radius: var(--fl-radius-14);
   background: linear-gradient(135deg, #1f5eff, #3d78ff);
-  box-shadow: 0 10px 22px -12px rgba(31, 94, 255, 0.75);
+  box-shadow: var(--fl-shadow-brand-lg);
   color: #fff;
   font-size: 20px;
   font-weight: 700;

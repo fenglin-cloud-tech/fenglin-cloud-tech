@@ -51,10 +51,21 @@
   --fl-radius-md: 16px;
   --fl-radius-lg: 20px;
   --fl-radius-pill: 999px;
+  /* 中间档位：壳层控件与品牌标识，值固定，不随密度层覆盖 */
+  --fl-radius-10: 10px;
+  --fl-radius-11: 11px;
+  --fl-radius-14: 14px;
   --fl-shadow-sm: 0 1px 2px rgba(23, 43, 77, 0.04), 0 12px 26px -22px rgba(23, 43, 77, 0.3);
   --fl-shadow-md: 0 1px 2px rgba(23, 43, 77, 0.04), 0 22px 48px -30px rgba(23, 43, 77, 0.28);
   --fl-shadow-float: 0 1px 2px rgba(23, 43, 77, 0.04), 0 26px 48px -34px rgba(23, 43, 77, 0.45);
   --fl-shadow-glow: 0 12px 24px -12px rgba(31, 94, 255, 0.6);
+  --fl-shadow-brand: 0 8px 18px -10px rgba(31, 94, 255, 0.7);
+  --fl-shadow-brand-strong: 0 8px 18px -10px rgba(31, 94, 255, 0.75);
+  --fl-shadow-brand-lg: 0 10px 22px -12px rgba(31, 94, 255, 0.75);
+  --fl-shadow-focus: 0 0 0 3px rgba(31, 94, 255, 0.14);
+  --fl-shadow-header: 0 10px 30px -26px rgba(23, 43, 77, 0.45);
+  --fl-shadow-login: 0 18px 48px rgba(15, 27, 51, 0.12);
+  --fl-shadow-login-elevated: 0 1px 2px rgba(23, 43, 77, 0.04), 0 34px 70px -48px rgba(23, 43, 77, 0.5);
 
   /* 间距与动效 */
   --fl-space-xs: 4px;
@@ -62,6 +73,9 @@
   --fl-space-md: 16px;
   --fl-space-lg: 24px;
   --fl-space-xl: 32px;
+  --fl-space-10: 10px;
+  --fl-space-11: 11px;
+  --fl-space-14: 14px;
   --fl-ease-float: cubic-bezier(0.22, 0.61, 0.36, 1);
   --fl-duration-float: 280ms;
 

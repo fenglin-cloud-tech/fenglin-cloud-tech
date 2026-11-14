@@ -53,7 +53,7 @@ async function handleLogout() {
 .brand {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--fl-space-10);
   flex-shrink: 0;
 }
 .brand__logo {
@@ -61,9 +61,9 @@ async function handleLogout() {
   place-items: center;
   width: 32px;
   height: 32px;
-  border-radius: 11px;
+  border-radius: var(--fl-radius-11);
   background: linear-gradient(135deg, #1f5eff, #3d78ff);
-  box-shadow: 0 8px 18px -10px rgba(31, 94, 255, 0.7);
+  box-shadow: var(--fl-shadow-brand);
   color: #fff;
   font-weight: 700;
 }
@@ -85,7 +85,7 @@ async function handleLogout() {
   line-height: 36px;
   margin: 0 2px;
   padding: 0 12px;
-  border-radius: 10px;
+  border-radius: var(--fl-radius-10);
   border-bottom: none !important;
   color: #55637a;
   font-size: 13px;
@@ -105,7 +105,7 @@ async function handleLogout() {
 .header-right {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--fl-space-10);
   font-size: 12px;
   flex-shrink: 0;
 }

@@ -73,7 +73,7 @@ async function submit() {
   padding: 32px;
   background: #fff;
   border-radius: var(--fl-radius-lg, 12px);
-  box-shadow: 0 18px 48px rgba(15, 27, 51, 0.12);
+  box-shadow: var(--fl-shadow-login);
 }
 .login-brand {
   display: flex;
@@ -86,7 +86,7 @@ async function submit() {
   place-items: center;
   width: 44px;
   height: 44px;
-  border-radius: 10px;
+  border-radius: var(--fl-radius-10);
   background: var(--fl-color-primary);
   color: #fff;
   font-size: 20px;

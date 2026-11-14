@@ -340,7 +340,7 @@ async function submitPasswordChange() {
 .brand {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--fl-space-10);
   flex-shrink: 0;
 }
 .brand__logo {
@@ -348,9 +348,9 @@ async function submitPasswordChange() {
   place-items: center;
   width: 32px;
   height: 32px;
-  border-radius: 11px;
+  border-radius: var(--fl-radius-11);
   background: linear-gradient(135deg, #1f5eff, #3d78ff);
-  box-shadow: 0 8px 18px -10px rgba(31, 94, 255, 0.7);
+  box-shadow: var(--fl-shadow-brand);
   color: #fff;
   font-weight: 700;
 }
@@ -379,8 +379,8 @@ async function submitPasswordChange() {
   height: 36px;
   line-height: 36px;
   margin: 0 2px;
-  padding: 0 11px;
-  border-radius: 10px;
+  padding: 0 var(--fl-space-11);
+  border-radius: var(--fl-radius-10);
   border-bottom: none !important;
   color: #55637a;
   font-size: 13px;
@@ -426,13 +426,13 @@ async function submitPasswordChange() {
   width: 100%;
   max-width: 1320px;
   margin: 0 auto;
-  padding: 24px 24px 40px;
+  padding: var(--fl-space-lg) var(--fl-space-lg) 40px;
 }
 .crumb {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-bottom: 10px;
+  margin-bottom: var(--fl-space-10);
   font-size: 12px;
   line-height: 1.4;
 }
@@ -451,7 +451,7 @@ async function submitPasswordChange() {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin: 16px 0;
+  margin: var(--fl-space-md) 0;
 }
 .fl-muted {
   color: #8b98ac;

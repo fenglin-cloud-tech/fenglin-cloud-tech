@@ -115,7 +115,7 @@ async function submit() {
 .login-hero__brand {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--fl-space-md);
   font-weight: 600;
   letter-spacing: 0.5px;
 }
@@ -124,7 +124,7 @@ async function submit() {
   place-items: center;
   width: 36px;
   height: 36px;
-  border-radius: 10px;
+  border-radius: var(--fl-radius-10);
   background: var(--fl-color-primary);
   color: #fff;
   font-weight: 700;
