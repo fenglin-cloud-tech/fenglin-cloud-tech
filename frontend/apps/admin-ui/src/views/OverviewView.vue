@@ -100,7 +100,9 @@ onMounted(refresh)
       :items="[
         '后端未提供统一运营概览聚合接口，本页通过租户、IAM、审计、消息、流程、低代码、报表、AI、开放平台 9 个真实接口聚合。',
         '任一指标接口 403/404 时显示“不可用”，不使用模拟数据；租户套餐、账单、计量等运营接口当前后端未实现。',
-        '当前账号权限码：' + (auth.permissions.join('，') || '空') + '。',
+        '当前账号权限码：' + (auth.permissions.length
+          ? `共 ${auth.permissions.length} 项（如 ${auth.permissions.slice(0, 5).join('、')}${auth.permissions.length > 5 ? ' 等' : ''}）`
+          : '空') + '。',
       ]"
     />
 

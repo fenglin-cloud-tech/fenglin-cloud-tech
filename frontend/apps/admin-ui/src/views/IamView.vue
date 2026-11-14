@@ -181,7 +181,14 @@ async function loadPermissions() {
   permissionLoading.value = true
   permissionError.value = ''
   try {
-    permissionGroups.value = await iamApi.permissionTree()
+    // 后端返回 { nodes } 单棵树，按节点 domain 分组展示
+    const tree = await iamApi.permissionTree()
+    const groups: Record<string, PermissionNode[]> = {}
+    for (const node of tree.nodes ?? []) {
+      const key = node.domain || '未分组'
+      ;(groups[key] ??= []).push(node)
+    }
+    permissionGroups.value = groups
   } catch (err) {
     permissionError.value = describeError(err)
   } finally {

@@ -187,7 +187,7 @@ export const iamApi = {
     return put<RoleView>(`/api/hub/v1/admin/roles/${roleId}/permissions`, { permission_codes: permissionCodes })
   },
   permissionTree() {
-    return get<Record<string, PermissionNode[]>>('/api/hub/v1/admin/permissions/tree')
+    return get<{ nodes: PermissionNode[] }>('/api/hub/v1/admin/permissions/tree')
   },
   menus(clientType = 'ADMIN') {
     return get<MenuNode[]>('/api/hub/v1/admin/menus', { clientType })
