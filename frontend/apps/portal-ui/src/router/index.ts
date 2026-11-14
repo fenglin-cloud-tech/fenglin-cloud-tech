@@ -54,19 +54,19 @@ const routes: RouteRecordRaw[] = [
         path: 'messages',
         name: 'messages',
         component: () => import('@/views/collab/MessagesView.vue'),
-        meta: { title: '消息', perm: 'biz:collab:im:chat' },
+        meta: { title: '消息', perm: 'biz:collab:im:self:chat' },
       },
       {
         path: 'docs',
         name: 'docs',
         component: () => import('@/views/collab/DocsView.vue'),
-        meta: { title: '文档', perm: 'biz:collab:doc:read' },
+        meta: { title: '文档', perm: 'biz:collab:doc:self:read' },
       },
       {
         path: 'my-schedule',
         name: 'my-schedule',
         component: () => import('@/views/collab/MyScheduleView.vue'),
-        meta: { title: '我的日程', perm: 'biz:collab:calendar:read' },
+        meta: { title: '我的日程', perm: 'biz:collab:calendar:self:read' },
       },
       {
         path: 'meetings',
@@ -78,7 +78,7 @@ const routes: RouteRecordRaw[] = [
         path: 'my-okr',
         name: 'my-okr',
         component: () => import('@/views/collab/MyOkrView.vue'),
-        meta: { title: '我的 OKR', perm: 'biz:collab:okr:read' },
+        meta: { title: '我的 OKR', perm: 'biz:collab:okr:self:read' },
       },
       {
         path: 'approvals',

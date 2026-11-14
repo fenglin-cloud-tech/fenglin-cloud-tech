@@ -161,6 +161,14 @@ public class CalendarService {
                 .toList();
     }
 
+    /**
+     * 员工自助：只返回本人名下日历或本人参会的日程。
+     */
+    @Transactional(readOnly = true)
+    public List<EventView> myEvents(OffsetDateTime startAt, OffsetDateTime endAt) {
+        return listEvents(startAt, endAt, null);
+    }
+
     @Transactional
     public EventView updateEvent(String eventId, EventUpdateRequest request) {
         long tenantId = CollabContext.tenantId();

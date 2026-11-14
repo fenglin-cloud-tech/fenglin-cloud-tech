@@ -40,7 +40,7 @@ async function loadConversations() {
   convLoading.value = true
   error.value = ''
   try {
-    const result = await collabApi.im.conversations({
+    const result = await collabApi.im.myConversations({
       keyword: convQuery.keyword || undefined,
       page: 1,
       size: 50,

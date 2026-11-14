@@ -78,7 +78,10 @@ public interface CalendarMapper {
                    e.all_day AS "allDay", e.status AS "status"
             FROM collab_event e
             WHERE e.tenant_id = #{tenantId} AND e.deleted = 0
-              AND (e.calendar_id = CAST(#{calendarId,jdbcType=VARCHAR} AS uuid)
+              AND ((e.calendar_id = CAST(#{calendarId,jdbcType=VARCHAR} AS uuid)
+                    AND EXISTS (SELECT 1 FROM collab_calendar vc
+                                WHERE vc.id = e.calendar_id AND vc.tenant_id = e.tenant_id AND vc.deleted = 0
+                                  AND (vc.owner_id = #{userId} OR vc.cal_type IN ('PUBLIC', 'HOLIDAY'))))
                    OR (CAST(#{calendarId,jdbcType=VARCHAR} AS uuid) IS NULL
                        AND (e.calendar_id IN (SELECT id FROM collab_calendar
                                               WHERE tenant_id = #{tenantId} AND owner_id = #{userId} AND deleted = 0)

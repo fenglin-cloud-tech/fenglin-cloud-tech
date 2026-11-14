@@ -35,6 +35,7 @@ import java.util.List;
 public class CollabImController {
 
     private static final String CHAT = "biz:collab:im:chat";
+    private static final String SELF_CHAT = "biz:collab:im:self:chat";
     private static final String GROUP = "biz:collab:im:group:manage";
 
     private final ImService imService;
@@ -58,6 +59,19 @@ public class CollabImController {
             @RequestParam(value = "page", required = false) Integer page,
             @RequestParam(value = "size", required = false) Integer size) {
         PermissionGuard.require(permissions, CHAT);
+        return ApiResponse.success(imService.listConversations(keyword, page, size));
+    }
+
+    /**
+     * 员工自助：只返回当前登录用户所在的会话，成员范围由服务端收敛。
+     */
+    @GetMapping("/conversations/my")
+    public ApiResponse<PageResult<ConversationView>> myConversations(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(value = "keyword", required = false) String keyword,
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false) Integer size) {
+        PermissionGuard.require(permissions, SELF_CHAT);
         return ApiResponse.success(imService.listConversations(keyword, page, size));
     }
 

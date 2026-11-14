@@ -174,6 +174,17 @@ public class OkrService {
     }
 
     /**
+     * 员工自助：只返回 owner_id 等于当前登录用户的目标。
+     */
+    @Transactional(readOnly = true)
+    public List<ObjectiveView> myObjectives(String periodId) {
+        long tenantId = CollabContext.tenantId();
+        long userId = CollabContext.userId();
+        return okrMapper.listObjectives(tenantId, userId, periodId, userId).stream()
+                .map(row -> objectiveView(tenantId, row)).toList();
+    }
+
+    /**
      * 缺口补齐 API-OKR-006：为对齐后的目标创建关键结果。
      */
     @Transactional

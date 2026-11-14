@@ -33,6 +33,7 @@ import java.util.List;
 public class CollabCalendarController {
 
     private static final String READ = "biz:collab:calendar:read";
+    private static final String SELF_READ = "biz:collab:calendar:self:read";
     private static final String MANAGE = "biz:collab:calendar:manage";
 
     private final CalendarService calendarService;
@@ -72,6 +73,18 @@ public class CollabCalendarController {
             @RequestParam(value = "calendarId", required = false) String calendarId) {
         PermissionGuard.require(permissions, READ);
         return ApiResponse.success(calendarService.listEvents(startTime, endTime, calendarId));
+    }
+
+    /**
+     * 员工自助：只返回本人日历或本人参会的日程，不接受 calendarId 指定他人日历。
+     */
+    @GetMapping("/events/my")
+    public ApiResponse<List<EventView>> myEvents(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam("startTime") OffsetDateTime startTime,
+            @RequestParam("endTime") OffsetDateTime endTime) {
+        PermissionGuard.require(permissions, SELF_READ);
+        return ApiResponse.success(calendarService.myEvents(startTime, endTime));
     }
 
     @GetMapping("/events/{eventId}")

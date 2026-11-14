@@ -52,11 +52,11 @@ const navItems = [
 ]
 
 const collabItems = [
-  { path: '/messages', title: '消息', icon: ChatDotRound, perm: 'biz:collab:im:chat' },
-  { path: '/docs', title: '文档', icon: Document, perm: 'biz:collab:doc:read' },
-  { path: '/my-schedule', title: '我的日程', icon: Calendar, perm: 'biz:collab:calendar:read' },
+  { path: '/messages', title: '消息', icon: ChatDotRound, perm: 'biz:collab:im:self:chat' },
+  { path: '/docs', title: '文档', icon: Document, perm: 'biz:collab:doc:self:read' },
+  { path: '/my-schedule', title: '我的日程', icon: Calendar, perm: 'biz:collab:calendar:self:read' },
   { path: '/meetings', title: '会议邀请', icon: VideoCamera, perm: 'biz:collab:meeting:join' },
-  { path: '/my-okr', title: '我的 OKR', icon: Flag, perm: 'biz:collab:okr:read' },
+  { path: '/my-okr', title: '我的 OKR', icon: Flag, perm: 'biz:collab:okr:self:read' },
   { path: '/approvals', title: '审批', icon: Stamp, perm: 'biz:collab:approval:read' },
   { path: '/notifications', title: '通知中心', icon: Bell, perm: 'biz:collab:workbench:personal' },
 ]

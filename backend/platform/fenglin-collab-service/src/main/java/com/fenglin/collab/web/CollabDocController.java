@@ -37,6 +37,7 @@ import java.util.List;
 public class CollabDocController {
 
     private static final String READ = "biz:collab:doc:read";
+    private static final String SELF_READ = "biz:collab:doc:self:read";
     private static final String EDIT = "biz:collab:doc:edit";
     private static final String COMMENT = "biz:collab:doc:comment";
     private static final String MANAGE = "biz:collab:doc:manage";
@@ -63,6 +64,19 @@ public class CollabDocController {
             @RequestParam(value = "size", required = false) Integer size) {
         PermissionGuard.require(permissions, READ);
         return ApiResponse.success(docService.list(keyword, page, size));
+    }
+
+    /**
+     * 员工自助：只返回当前登录用户创建的文档，owner 由服务端固定。
+     */
+    @GetMapping("/my")
+    public ApiResponse<PageResult<DocView>> myDocuments(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(value = "keyword", required = false) String keyword,
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false) Integer size) {
+        PermissionGuard.require(permissions, SELF_READ);
+        return ApiResponse.success(docService.myDocuments(keyword, page, size));
     }
 
     @GetMapping("/{docId}")

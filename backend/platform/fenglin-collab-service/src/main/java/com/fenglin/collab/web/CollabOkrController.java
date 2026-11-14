@@ -32,6 +32,7 @@ import java.util.List;
 public class CollabOkrController {
 
     private static final String READ = "biz:collab:okr:read";
+    private static final String SELF_READ = "biz:collab:okr:self:read";
     private static final String MANAGE = "biz:collab:okr:manage";
     private static final String PROGRESS = "biz:collab:okr:progress";
     private static final String PERIOD_ADMIN = "tenant:collab:okr:period:manage";
@@ -46,6 +47,16 @@ public class CollabOkrController {
     public ApiResponse<List<PeriodView>> periods(
             @RequestHeader(value = "X-Permissions", required = false) String permissions) {
         PermissionGuard.require(permissions, READ);
+        return ApiResponse.success(okrService.listPeriods());
+    }
+
+    /**
+     * 员工自助：OKR 周期属于租户公共配置，供“我的 OKR”筛选使用。
+     */
+    @GetMapping("/periods/my")
+    public ApiResponse<List<PeriodView>> myPeriods(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions) {
+        PermissionGuard.require(permissions, SELF_READ);
         return ApiResponse.success(okrService.listPeriods());
     }
 
@@ -73,6 +84,17 @@ public class CollabOkrController {
             @RequestParam(value = "ownerId", required = false) Long ownerId) {
         PermissionGuard.require(permissions, READ);
         return ApiResponse.success(okrService.listObjectives(periodId, ownerId));
+    }
+
+    /**
+     * 员工自助：只返回当前登录用户的目标，owner 由服务端固定。
+     */
+    @GetMapping("/objectives/my")
+    public ApiResponse<List<ObjectiveView>> myObjectives(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(value = "periodId", required = false) String periodId) {
+        PermissionGuard.require(permissions, SELF_READ);
+        return ApiResponse.success(okrService.myObjectives(periodId));
     }
 
     @PostMapping("/objectives/{objectiveId}/key-results")

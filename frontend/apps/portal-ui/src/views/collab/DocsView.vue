@@ -80,7 +80,7 @@ async function load() {
   loading.value = true
   error.value = ''
   try {
-    const result = await collabApi.docs.list({
+    const result = await collabApi.docs.my({
       keyword: query.keyword || undefined,
       page: query.page,
       size: query.size,
@@ -276,7 +276,7 @@ onMounted(load)
 
 <template>
   <div>
-    <PageHeader title="文档" description="文档列表与详情，支持正文编辑、版本、协作者与评论查看。">
+    <PageHeader title="文档" description="我创建的文档与详情，支持正文编辑、版本、协作者与评论查看；列表来自 /api/collab/v1/docs/my。">
       <template #actions>
         <el-button v-perm="'biz:collab:doc:edit'" type="primary" @click="openCreate">新建文档</el-button>
         <el-button :loading="loading" @click="load">刷新</el-button>

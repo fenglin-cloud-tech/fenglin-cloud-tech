@@ -35,7 +35,7 @@ const createForm = reactive({
 })
 
 const gapItems = [
-  '日程接口按时间范围查询，没有“仅我参与”过滤；页面展示所选日历内全部日程。',
+  '列表由服务端按「本人日历 + 本人参会」收敛，不接受 calendarId 指定他人日历；日历下拉仅用于新建日程时的默认日历。',
   '重复日程 rrule 仅透传保存，前端不展开。',
   '没有日程接受/拒绝/提醒设置接口。',
 ]
@@ -89,10 +89,9 @@ async function loadEvents() {
   loading.value = true
   error.value = ''
   try {
-    events.value = await collabApi.calendar.events({
+    events.value = await collabApi.calendar.myEvents({
       startTime: new Date(start).toISOString(),
       endTime: new Date(end).toISOString(),
-      calendarId: calendarId.value || undefined,
     })
   } catch (err) {
     error.value = describeError(err)
@@ -220,7 +219,7 @@ onMounted(async () => {
 
 <template>
   <div>
-    <PageHeader title="我的日程" description="按日历与时间范围查看日程，并可创建、取消与查询个人忙闲。">
+    <PageHeader title="我的日程" description="查看本人日历与本人参会的日程（服务端按当前账号收敛），并可创建、取消与查询个人忙闲。">
       <template #actions>
         <el-button v-perm="'biz:collab:calendar:manage'" type="primary" @click="openCreate">新建日程</el-button>
         <el-button :loading="loading" @click="refresh">刷新</el-button>
@@ -233,10 +232,9 @@ onMounted(async () => {
       <div class="fl-toolbar">
         <el-select
           v-model="calendarId"
-          placeholder="选择日历"
+          placeholder="默认日历"
           :loading="calendarsLoading"
           style="width: 220px"
-          @change="refresh"
         >
           <el-option
             v-for="cal in calendars"

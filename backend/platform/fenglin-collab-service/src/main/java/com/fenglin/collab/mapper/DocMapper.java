@@ -84,6 +84,33 @@ public interface DocMapper {
     long countDocuments(@Param("tenantId") long tenantId, @Param("userId") long userId,
                         @Param("keyword") String keyword);
 
+    /**
+     * 员工自助：只返回 owner_id 等于当前登录用户的文档。
+     */
+    @Select("""
+            SELECT d.id AS "docId", d.title AS "title", d.doc_type AS "docType", d.owner_id AS "ownerId",
+                   d.current_version AS "currentVersion", d.secret_level AS "secretLevel",
+                   d.share_scope AS "shareScope", d.status AS "status",
+                   (EXTRACT(EPOCH FROM d.updated_at) * 1000)::bigint AS "updatedAt"
+            FROM collab_document d
+            WHERE d.tenant_id = #{tenantId} AND d.owner_id = #{userId} AND d.deleted = 0
+              AND (CAST(#{keyword,jdbcType=VARCHAR} AS varchar) IS NULL OR d.title ILIKE '%' || #{keyword} || '%')
+            ORDER BY d.updated_at DESC
+            LIMIT #{size} OFFSET #{offset}
+            """)
+    List<Map<String, Object>> listDocumentsByOwner(@Param("tenantId") long tenantId, @Param("userId") long userId,
+                                                   @Param("keyword") String keyword, @Param("offset") int offset,
+                                                   @Param("size") int size);
+
+    @Select("""
+            SELECT count(1)
+            FROM collab_document d
+            WHERE d.tenant_id = #{tenantId} AND d.owner_id = #{userId} AND d.deleted = 0
+              AND (CAST(#{keyword,jdbcType=VARCHAR} AS varchar) IS NULL OR d.title ILIKE '%' || #{keyword} || '%')
+            """)
+    long countDocumentsByOwner(@Param("tenantId") long tenantId, @Param("userId") long userId,
+                               @Param("keyword") String keyword);
+
     @Update("""
             UPDATE collab_document
             SET title = COALESCE(#{title,jdbcType=VARCHAR}, title),

@@ -330,6 +330,9 @@ export const collabApi = {
     conversations(params: { keyword?: string; page?: number; size?: number }) {
       return get<PageResult<CollabConversation>>('/api/collab/v1/im/conversations', params)
     },
+    myConversations(params: { keyword?: string; page?: number; size?: number } = {}) {
+      return get<PageResult<CollabConversation>>('/api/collab/v1/im/conversations/my', params)
+    },
     createConversation(body: { conv_type: string; title: string; member_ids: CollabId[]; announcement?: string }) {
       return post<CollabConversationDetail>('/api/collab/v1/im/conversations', body)
     },
@@ -390,6 +393,9 @@ export const collabApi = {
     list(params: { keyword?: string; page?: number; size?: number }) {
       return get<PageResult<CollabDoc>>('/api/collab/v1/docs', params)
     },
+    my(params: { keyword?: string; page?: number; size?: number } = {}) {
+      return get<PageResult<CollabDoc>>('/api/collab/v1/docs/my', params)
+    },
     create(body: { title: string; doc_type?: string; folder_id?: string; secret_level?: string }) {
       return post<CollabDoc>('/api/collab/v1/docs', body)
     },
@@ -439,6 +445,9 @@ export const collabApi = {
     },
     events(params: { startTime: string; endTime: string; calendarId?: CollabId }) {
       return get<CollabEvent[]>('/api/collab/v1/events', params)
+    },
+    myEvents(params: { startTime: string; endTime: string }) {
+      return get<CollabEvent[]>('/api/collab/v1/events/my', params)
     },
     createEvent(body: {
       calendar_id: CollabId
@@ -552,11 +561,17 @@ export const collabApi = {
     periods() {
       return get<CollabPeriod[]>('/api/collab/v1/okr/periods')
     },
+    myPeriods() {
+      return get<CollabPeriod[]>('/api/collab/v1/okr/periods/my')
+    },
     closePeriod(periodId: CollabId) {
       return post<void>(`/api/collab/v1/okr/periods/${periodId}/close`)
     },
     objectives(params: { periodId?: CollabId; ownerId?: CollabId } = {}) {
       return get<CollabObjective[]>('/api/collab/v1/okr/objectives', params)
+    },
+    myObjectives(params: { periodId?: CollabId } = {}) {
+      return get<CollabObjective[]>('/api/collab/v1/okr/objectives/my', params)
     },
     createObjective(body: {
       period_id: CollabId

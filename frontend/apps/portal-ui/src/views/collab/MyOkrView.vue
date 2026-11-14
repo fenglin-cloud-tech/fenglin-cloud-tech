@@ -98,7 +98,7 @@ async function loadPeriods() {
   loading.value = true
   error.value = ''
   try {
-    periods.value = await collabApi.okr.periods()
+    periods.value = await collabApi.okr.myPeriods()
     if (!periodId.value) {
       const preferred = periods.value.find((item) => item.status === 'OPEN') ?? periods.value[0]
       periodId.value = String(preferred?.period_id ?? '')
@@ -111,17 +111,11 @@ async function loadPeriods() {
 }
 
 async function loadObjectives() {
-  if (!auth.userId) {
-    error.value = '当前令牌未返回用户 ID，无法按负责人过滤 OKR'
-    loading.value = false
-    return
-  }
   loading.value = true
   error.value = ''
   try {
-    objectives.value = await collabApi.okr.objectives({
+    objectives.value = await collabApi.okr.myObjectives({
       periodId: periodId.value || undefined,
-      ownerId: auth.userId,
     })
   } catch (err) {
     error.value = describeError(err)

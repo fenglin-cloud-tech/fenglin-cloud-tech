@@ -94,6 +94,21 @@ public class DocService {
         return PageResult.of(records, docMapper.countDocuments(tenantId, userId, keyword), safePage, safeSize);
     }
 
+    /**
+     * 员工自助：只返回当前登录用户创建的文档，owner 由服务端固定。
+     */
+    @Transactional(readOnly = true)
+    public PageResult<DocView> myDocuments(String keyword, Integer page, Integer size) {
+        long tenantId = CollabContext.tenantId();
+        long userId = CollabContext.userId();
+        int safePage = CollabContext.page(page);
+        int safeSize = CollabContext.size(size);
+        List<DocView> records = docMapper
+                .listDocumentsByOwner(tenantId, userId, keyword, (safePage - 1) * safeSize, safeSize)
+                .stream().map(row -> toDocView(row, tenantId, userId, false)).toList();
+        return PageResult.of(records, docMapper.countDocumentsByOwner(tenantId, userId, keyword), safePage, safeSize);
+    }
+
     @Transactional(readOnly = true)
     public DocView detail(String docId) {
         long tenantId = CollabContext.tenantId();
