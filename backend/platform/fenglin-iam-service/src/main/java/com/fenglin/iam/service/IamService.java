@@ -210,12 +210,14 @@ public class IamService {
         if (!codes.isEmpty() && permissionMapper.countByCodes(codes) != codes.size()) {
             throw new BizException(CommonErrorCode.BAD_REQUEST, "存在未定义的权限码");
         }
+        int beforeCount = roleMapper.listPermissionCodes(tenantId, roleId).size();
         roleMapper.clearPermissions(tenantId, roleId);
         for (String code : codes) {
             roleMapper.grantPermission(IdWorker.getId(), tenantId, roleId, code);
         }
         userMapper.bumpPermissionVersionByRole(tenantId, roleId);
-        audit("IAM_ROLE_PERMISSIONS_GRANTED", "ROLE", String.valueOf(roleId));
+        audit("IAM_ROLE_PERMISSIONS_GRANTED", "ROLE", String.valueOf(roleId),
+                GrantAuditDetail.of(beforeCount, codes));
         return toRoleView(tenantId, roleMapper.findById(tenantId, roleId));
     }
 
@@ -689,6 +691,10 @@ public class IamService {
     }
 
     private void audit(String eventType, String resourceType, String resourceId) {
+        audit(eventType, resourceType, resourceId, null);
+    }
+
+    private void audit(String eventType, String resourceType, String resourceId, Map<String, Object> detail) {
         TenantContext.Snapshot snapshot = TenantContext.get();
         auditSink.publish(new AuditEvent(
                 UUID.randomUUID().toString(),
@@ -702,7 +708,8 @@ public class IamService {
                 RequestContext.requestId(),
                 resourceType,
                 resourceId,
-                Instant.now()));
+                Instant.now(),
+                detail));
     }
 
     private static final class OrgNode {

@@ -2,12 +2,15 @@ package com.fenglin.iam;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fenglin.common.audit.AuditEvent;
+import com.fenglin.common.audit.AuditSink;
 import com.fenglin.common.security.PasswordPolicy;
 import com.fenglin.common.test.EmbeddedPostgresSupport;
 import com.fenglin.iam.client.AuthSessionClient;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -33,6 +36,7 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 /**
@@ -83,6 +87,9 @@ class IamFlowIntegrationTest {
 
     @MockBean
     private AuthSessionClient authSessionClient;
+
+    @MockBean
+    private AuditSink auditSink;
 
     @BeforeEach
     void resetData() throws Exception {
@@ -264,6 +271,35 @@ class IamFlowIntegrationTest {
                 Map.of("permission_codes", List.of(CREATE_USER_PERMISSION)), headers);
         assertThat(restored.status()).isEqualTo(200);
         assertThat(rolePermissionCount(ROLE_ADMIN_A)).isEqualTo(1);
+    }
+
+    @Test
+    void roleGrantAuditCarriesBeforeAfterCountsAndCodesHash() {
+        HttpHeaders headers = headers(Map.of("X-Tenant-Id", String.valueOf(TENANT_A),
+                "X-Permissions", MANAGE_ROLE_PERMISSION));
+        String path = "/api/hub/v1/admin/roles/" + ROLE_ADMIN_A + "/permissions";
+
+        HttpResult granted = exchange(HttpMethod.PUT, path,
+                Map.of("permission_codes", List.of(CREATE_USER_PERMISSION, "hub:audit:read")), headers);
+        assertThat(granted.status()).isEqualTo(200);
+        HttpResult cleared = exchange(HttpMethod.PUT, path, Map.of("permission_codes", List.of()), headers);
+        assertThat(cleared.status()).isEqualTo(200);
+
+        ArgumentCaptor<AuditEvent> captor = ArgumentCaptor.forClass(AuditEvent.class);
+        verify(auditSink, times(2)).publish(captor.capture());
+        List<AuditEvent> grants = captor.getAllValues().stream()
+                .filter(event -> "IAM_ROLE_PERMISSIONS_GRANTED".equals(event.eventType()))
+                .toList();
+        assertThat(grants).hasSize(2);
+
+        Map<String, Object> first = grants.get(0).detail();
+        assertThat(first).containsEntry("before_count", 0).containsEntry("after_count", 2);
+        assertThat((String) first.get("after_codes_hash")).startsWith("sha256:").hasSize(71);
+        assertThat(first.toString()).doesNotContain(CREATE_USER_PERMISSION);
+
+        Map<String, Object> second = grants.get(1).detail();
+        assertThat(second).containsEntry("before_count", 2).containsEntry("after_count", 0);
+        assertThat(second.get("after_codes_hash")).isNotEqualTo(first.get("after_codes_hash"));
     }
 
     @Test

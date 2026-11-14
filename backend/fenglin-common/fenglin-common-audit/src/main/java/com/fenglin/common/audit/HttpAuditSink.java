@@ -39,6 +39,9 @@ public class HttpAuditSink implements AuditSink {
         body.put("target_type", event.resourceType());
         body.put("target_id", event.resourceId());
         body.put("result", "SUCCESS");
+        if (event.detail() != null && !event.detail().isEmpty()) {
+            body.put("detail", event.detail());
+        }
         Instant occurredAt = event.occurredAt() == null ? Instant.now() : event.occurredAt();
         body.put("occurred_at", occurredAt.toString());
         try {

@@ -111,7 +111,7 @@ const userEditForm = reactive({
 const roleDialog = ref(false)
 const roleSaving = ref(false)
 const roleFormError = ref('')
-const roleForm = reactive<CreateRoleRequest>({ code: '', name: '', role_type: 'TENANT', data_scope: 'SELF' })
+const roleForm = reactive<CreateRoleRequest>({ code: '', name: '', role_type: 'BIZ', data_scope: 'SELF' })
 
 const grantVisible = ref(false)
 const grantSaving = ref(false)
@@ -429,7 +429,7 @@ async function submitAssign() {
 }
 
 function openCreateRole() {
-  Object.assign(roleForm, { code: '', name: '', role_type: 'TENANT', data_scope: 'SELF' })
+  Object.assign(roleForm, { code: '', name: '', role_type: 'BIZ', data_scope: 'SELF' })
   roleFormError.value = ''
   roleDialog.value = true
 }
@@ -772,15 +772,18 @@ onMounted(async () => {
         <el-form-item label="角色名称" required><el-input v-model="roleForm.name" /></el-form-item>
         <el-form-item label="角色类型">
           <el-select v-model="roleForm.role_type" style="width: 100%">
-            <el-option label="TENANT" value="TENANT" />
-            <el-option label="PLATFORM" value="PLATFORM" />
+            <el-option label="SYS（系统内置）" value="SYS" />
+            <el-option label="BIZ（业务角色）" value="BIZ" />
+            <el-option label="APP（应用角色）" value="APP" />
           </el-select>
         </el-form-item>
         <el-form-item label="数据范围">
           <el-select v-model="roleForm.data_scope" style="width: 100%">
-            <el-option label="SELF" value="SELF" />
-            <el-option label="ORG" value="ORG" />
-            <el-option label="TENANT" value="TENANT" />
+            <el-option label="SELF（仅本人）" value="SELF" />
+            <el-option label="DEPT（本部门）" value="DEPT" />
+            <el-option label="DEPT_AND_CHILD（本部门及下级）" value="DEPT_AND_CHILD" />
+            <el-option label="CUSTOM（自定义）" value="CUSTOM" />
+            <el-option label="ALL（全部）" value="ALL" />
           </el-select>
         </el-form-item>
       </el-form>
