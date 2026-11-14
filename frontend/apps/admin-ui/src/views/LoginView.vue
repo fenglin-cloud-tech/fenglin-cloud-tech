@@ -145,7 +145,7 @@ async function submit() {
 }
 .login-hero__content ul {
   margin: 0;
-  padding-left: 20px;
+  padding-left: var(--fl-space-20);
   line-height: 2;
   color: #3b4759;
 }

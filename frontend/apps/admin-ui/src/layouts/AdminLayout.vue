@@ -283,7 +283,7 @@ watch(
   flex-direction: column;
   background: var(--fl-color-surface);
   border: 1px solid #e7ecf5;
-  border-radius: 20px;
+  border-radius: var(--fl-radius-20);
   box-shadow: var(--fl-shadow-float);
   color: var(--fl-color-text-primary);
   transition: width 0.28s cubic-bezier(0.22, 0.61, 0.36, 1);
@@ -461,7 +461,7 @@ watch(
   overflow-y: auto;
 }
 .permission-block {
-  margin-bottom: 20px;
+  margin-bottom: var(--fl-space-20);
 }
 .permission-block h3 {
   margin: 0 0 var(--fl-space-10);

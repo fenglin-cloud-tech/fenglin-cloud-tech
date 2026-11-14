@@ -108,7 +108,7 @@ h1 {
   color: var(--fl-color-text-secondary);
 }
 .login-tip {
-  margin-top: 20px;
+  margin-top: var(--fl-space-20);
   font-size: 12px;
   color: var(--fl-color-text-secondary);
   line-height: 1.6;

@@ -330,7 +330,7 @@ async function submitPasswordChange() {
   z-index: 20;
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: var(--fl-space-20);
   height: 60px;
   background: rgba(255, 255, 255, 0.82);
   border-bottom: 1px solid #e7ecf5;

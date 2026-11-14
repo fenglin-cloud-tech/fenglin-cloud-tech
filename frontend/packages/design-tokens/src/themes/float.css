@@ -55,6 +55,7 @@
   --fl-radius-10: 10px;
   --fl-radius-11: 11px;
   --fl-radius-14: 14px;
+  --fl-radius-20: 20px;
   --fl-shadow-sm: 0 1px 2px rgba(23, 43, 77, 0.04), 0 12px 26px -22px rgba(23, 43, 77, 0.3);
   --fl-shadow-md: 0 1px 2px rgba(23, 43, 77, 0.04), 0 22px 48px -30px rgba(23, 43, 77, 0.28);
   --fl-shadow-float: 0 1px 2px rgba(23, 43, 77, 0.04), 0 26px 48px -34px rgba(23, 43, 77, 0.45);
@@ -76,6 +77,7 @@
   --fl-space-10: 10px;
   --fl-space-11: 11px;
   --fl-space-14: 14px;
+  --fl-space-20: 20px;
   --fl-ease-float: cubic-bezier(0.22, 0.61, 0.36, 1);
   --fl-duration-float: 280ms;
 
