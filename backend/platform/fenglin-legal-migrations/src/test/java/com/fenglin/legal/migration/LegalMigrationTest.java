@@ -6,9 +6,18 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.Statement;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -19,9 +28,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class LegalMigrationTest {
 
     private static EmbeddedPostgresSupport postgres;
+    private static long expectedTables;
 
     @BeforeAll
-    static void migrate() {
+    static void migrate() throws Exception {
+        expectedTables = countCreateTableStatements();
         postgres = EmbeddedPostgresSupport.start();
         Flyway.configure()
                 .dataSource(postgres.dataSource())
@@ -41,9 +52,9 @@ class LegalMigrationTest {
 
     @Test
     void createsAllBusinessTables() throws Exception {
-        // 文档业务表 + 租户盐表 + 幂等记录表 = 33
+        assertThat(expectedTables).isGreaterThan(0);
         assertThat(count("SELECT count(1) FROM pg_tables WHERE schemaname = 'fenglin_legal' "
-                + "AND tablename LIKE 'legal\\_%' ESCAPE '\\'")).isEqualTo(33);
+                + "AND tablename LIKE 'legal\\_%' ESCAPE '\\'")).isEqualTo(expectedTables);
         assertThat(count("SELECT count(1) FROM pg_tables WHERE schemaname = 'fenglin_legal' "
                 + "AND tablename IN ('legal_contract', 'legal_contract_version', 'legal_contract_clause', "
                 + "'legal_signatory', 'legal_approval_record', 'legal_seal_record', 'legal_sign_record', "
@@ -55,15 +66,15 @@ class LegalMigrationTest {
     void enablesRlsOnEveryTable() throws Exception {
         assertThat(count("SELECT count(1) FROM pg_tables t JOIN pg_class c ON c.relname = t.tablename "
                 + "WHERE t.schemaname = 'fenglin_legal' AND t.tablename LIKE 'legal\\_%' ESCAPE '\\' "
-                + "AND c.relrowsecurity = true")).isEqualTo(33);
+                + "AND c.relrowsecurity = true")).isEqualTo(expectedTables);
         assertThat(count("SELECT count(1) FROM pg_policies WHERE schemaname = 'fenglin_legal' "
-                + "AND policyname LIKE 'p\\_legal\\_%\\_tenant' ESCAPE '\\'")).isEqualTo(33);
+                + "AND policyname LIKE 'p\\_legal\\_%\\_tenant' ESCAPE '\\'")).isEqualTo(expectedTables);
     }
 
     @Test
     void createsUpdatedAtAndImmutableTriggers() throws Exception {
         assertThat(count("SELECT count(1) FROM pg_trigger WHERE tgname LIKE 'trg\\_legal\\_%\\_updated' ESCAPE '\\' "
-                + "AND NOT tgisinternal")).isEqualTo(33);
+                + "AND NOT tgisinternal")).isEqualTo(expectedTables);
         assertThat(count("SELECT count(1) FROM pg_trigger "
                 + "WHERE tgname LIKE 'trg\\_legal\\_%\\_immutable\\_del' ESCAPE '\\' AND NOT tgisinternal"))
                 .isEqualTo(11);
@@ -119,6 +130,28 @@ class LegalMigrationTest {
 
             statement.execute("SET app.tenant_id = '9902'");
             assertThat(countOn(connection, "SELECT count(1) FROM fenglin_legal.legal_contract")).isZero();
+        }
+    }
+
+    private static long countCreateTableStatements() throws Exception {
+        URL directory = LegalMigrationTest.class.getClassLoader().getResource("db/legal-migration");
+        assertThat(directory).as("db/legal-migration 不在测试 classpath 上").isNotNull();
+        Pattern pattern = Pattern.compile("(?i)CREATE\\s+TABLE\\s+(IF\\s+NOT\\s+EXISTS\\s+)?legal_");
+        try (Stream<Path> files = Files.list(Paths.get(directory.toURI()))) {
+            return files.filter(file -> file.getFileName().toString().endsWith(".sql"))
+                    .mapToLong(file -> {
+                        try {
+                            Matcher matcher = pattern.matcher(Files.readString(file));
+                            long count = 0;
+                            while (matcher.find()) {
+                                count++;
+                            }
+                            return count;
+                        } catch (IOException ex) {
+                            throw new UncheckedIOException(ex);
+                        }
+                    })
+                    .sum();
         }
     }
 

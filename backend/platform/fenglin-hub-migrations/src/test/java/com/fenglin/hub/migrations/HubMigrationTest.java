@@ -7,12 +7,17 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -38,9 +43,11 @@ class HubMigrationTest {
 
     private static EmbeddedPostgresSupport postgres;
     private static MigrateResult migrateResult;
+    private static int expectedMigrations;
 
     @BeforeAll
-    static void migrate() {
+    static void migrate() throws Exception {
+        expectedMigrations = countMigrationScripts();
         postgres = EmbeddedPostgresSupport.start();
         Flyway flyway = Flyway.configure()
                 .dataSource(postgres.jdbcUrl(), "postgres", "")
@@ -59,7 +66,8 @@ class HubMigrationTest {
     @Test
     void appliesAllMigrationsOnEmptyDatabase() {
         assertThat(migrateResult.success).isTrue();
-        assertThat(migrateResult.migrationsExecuted).isEqualTo(39);
+        assertThat(expectedMigrations).isGreaterThan(0);
+        assertThat(migrateResult.migrationsExecuted).isEqualTo(expectedMigrations);
     }
 
     @Test
@@ -139,7 +147,17 @@ class HubMigrationTest {
                      "SELECT count(*) FROM fenglin_hub.flyway_schema_history "
                              + "WHERE success = true AND type = 'SQL'")) {
             assertThat(resultSet.next()).isTrue();
-            assertThat(resultSet.getInt(1)).isEqualTo(39);
+            assertThat(resultSet.getInt(1)).isEqualTo(expectedMigrations);
+        }
+    }
+
+    private static int countMigrationScripts() throws Exception {
+        URL directory = HubMigrationTest.class.getClassLoader().getResource("db/migration");
+        assertThat(directory).as("db/migration 不在测试 classpath 上").isNotNull();
+        try (Stream<Path> files = Files.list(Paths.get(directory.toURI()))) {
+            return (int) files
+                    .filter(file -> file.getFileName().toString().matches("V.*__.*\\.sql"))
+                    .count();
         }
     }
 
