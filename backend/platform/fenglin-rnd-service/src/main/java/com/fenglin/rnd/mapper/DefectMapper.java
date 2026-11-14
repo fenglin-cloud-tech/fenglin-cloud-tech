@@ -65,6 +65,36 @@ public interface DefectMapper {
                                           @Param("status") String status, @Param("severity") String severity,
                                           @Param("limit") int limit, @Param("offset") int offset);
 
+    /**
+     * 员工自助：跨产品按 owner 收敛，默认 reporter_id 或 assignee_id 等于当前用户。
+     */
+    @Select("""
+            <script>
+            SELECT id AS "id", product_id AS "productId", defect_no AS "defectNo", title AS "title",
+                   severity AS "severity", priority AS "priority", status AS "status", env AS "env",
+                   found_stage AS "foundStage", sprint_id AS "sprintId", requirement_id AS "requirementId",
+                   assignee_id AS "assigneeId", reporter_id AS "reporterId",
+                   reproduce_steps AS "reproduceSteps", reopen_count AS "reopenCount",
+                   fixed_at::text AS "fixedAt", closed_at::text AS "closedAt", created_at::text AS "createdAt"
+            FROM devops_defect
+            WHERE tenant_id = #{tenantId} AND deleted = 0
+              AND (reporter_id = #{userId} OR assignee_id = #{userId})
+              <if test="scope == 'reported'">AND reporter_id = #{userId}</if>
+              <if test="scope == 'assigned'">AND assignee_id = #{userId}</if>
+              <if test="status != null">AND status = #{status}</if>
+              <if test="severity != null">AND severity = #{severity}</if>
+            ORDER BY id DESC
+            LIMIT #{limit} OFFSET #{offset}
+            </script>
+            """)
+    List<Map<String, Object>> listDefectsByOwner(@Param("tenantId") long tenantId,
+                                                 @Param("userId") long userId,
+                                                 @Param("scope") String scope,
+                                                 @Param("status") String status,
+                                                 @Param("severity") String severity,
+                                                 @Param("limit") int limit,
+                                                 @Param("offset") int offset);
+
     @Update("""
             UPDATE devops_defect
             SET status = #{status},

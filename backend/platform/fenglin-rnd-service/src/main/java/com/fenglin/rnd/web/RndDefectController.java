@@ -25,9 +25,11 @@ import java.util.List;
 public class RndDefectController {
 
     private static final String CREATE = "biz:devops:defect:create";
+    private static final String SELF_CREATE = "biz:devops:defect:self:create";
     private static final String TRANSITION = "biz:devops:defect:transition";
     private static final String VERIFY = "biz:devops:defect:verify";
     private static final String VIEW = "biz:devops:defect:view";
+    private static final String SELF_VIEW = "biz:devops:defect:self:view";
 
     private final DefectService defectService;
 
@@ -39,8 +41,23 @@ public class RndDefectController {
     public ApiResponse<DefectView> create(
             @RequestHeader(value = "X-Permissions", required = false) String permissions,
             @RequestBody DefectCreateRequest request) {
-        PermissionGuard.require(permissions, CREATE);
+        PermissionGuard.requireAny(permissions, CREATE, SELF_CREATE);
         return ApiResponse.success(defectService.create(request));
+    }
+
+    /**
+     * 员工自助：跨产品返回本人上报或被指派的缺陷，范围由服务端按当前登录账号收敛。
+     */
+    @GetMapping("/my")
+    public ApiResponse<List<DefectView>> myDefects(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(value = "scope", required = false) String scope,
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "severity", required = false) String severity,
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false) Integer size) {
+        PermissionGuard.require(permissions, SELF_VIEW);
+        return ApiResponse.success(defectService.listMine(scope, status, severity, page, size));
     }
 
     @GetMapping

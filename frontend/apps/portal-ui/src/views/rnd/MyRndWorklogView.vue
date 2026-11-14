@@ -74,7 +74,7 @@ onMounted(loadWorklogs)
       description="登记研发工时并查看本人记录；数据来自 /api/rnd/v1/worklogs/my。"
     >
       <template #actions>
-        <el-button v-perm="'biz:devops:worklog:submit'" type="primary" @click="dialogVisible = true">登记工时</el-button>
+        <el-button v-perm="'biz:devops:worklog:self:submit'" type="primary" @click="dialogVisible = true">登记工时</el-button>
         <el-button :loading="loading" @click="loadWorklogs">刷新</el-button>
       </template>
     </PageHeader>

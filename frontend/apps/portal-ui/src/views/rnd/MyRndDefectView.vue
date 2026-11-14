@@ -1,12 +1,10 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { GapNotice, PageHeader } from '@fenglin/ui-admin'
 import { rndApi, type RndDefect, type RndId, type RndProduct } from '@fenglin/api-client'
-import { useAuthStore } from '@/stores/auth'
 import { describeError } from '@/utils/error'
 
-const auth = useAuthStore()
 const products = ref<RndProduct[]>([])
 const defects = ref<RndDefect[]>([])
 const selectedProductId = ref<RndId | ''>('')
@@ -26,16 +24,9 @@ const form = reactive({
 })
 
 const gapItems = [
-  '缺陷列表不支持按上报人/负责人过滤，本页拉取产品缺陷后在浏览器按当前用户筛选。',
-  '缺“我的缺陷”自助接口，跨产品需要先选择产品。',
-  '提交缺陷后默认状态为 new，后续流转由研发/测试处理，员工端不提供关闭权限。',
+  '缺陷流转由研发/测试处理，员工端不提供关闭权限。',
+  '选择产品仅用于提报缺陷，列表已由服务端按当前账号返回本人上报/被指派的数据。',
 ]
-
-const visibleDefects = computed(() => {
-  if (scope.value === 'reported') return defects.value.filter((item) => String(item.reporter_id) === String(auth.userId))
-  if (scope.value === 'assigned') return defects.value.filter((item) => String(item.assignee_id) === String(auth.userId))
-  return defects.value
-})
 
 const statusLabels: Record<string, string> = {
   new: '新建',
@@ -63,22 +54,16 @@ async function loadProducts() {
   try {
     products.value = await rndApi.products.list({ page: 1, size: 100 })
     if (!selectedProductId.value && products.value.length) selectedProductId.value = products.value[0].id
-    await loadDefects()
   } catch (err) {
     error.value = describeError(err)
   }
 }
 
 async function loadDefects() {
-  if (!selectedProductId.value) {
-    defects.value = []
-    return
-  }
-  const productId = selectedProductId.value
   loading.value = true
   error.value = ''
   try {
-    defects.value = await rndApi.defects.list({ productId, page: 1, size: 200 })
+    defects.value = await rndApi.defects.my({ scope: scope.value, page: 1, size: 200 })
   } catch (err) {
     defects.value = []
     error.value = describeError(err)
@@ -117,7 +102,10 @@ async function submitCreate() {
   }
 }
 
-onMounted(loadProducts)
+onMounted(async () => {
+  await loadProducts()
+  await loadDefects()
+})
 </script>
 
 <template>
@@ -125,18 +113,18 @@ onMounted(loadProducts)
     <PageHeader
       module="云研 R&D"
       title="缺陷提报"
-      description="提报缺陷并跟踪我上报/指派给我的缺陷；数据来自 /api/rnd/v1/defects。"
+      description="提报缺陷并跟踪我上报/指派给我的缺陷；数据来自 /api/rnd/v1/defects/my。"
     >
       <template #actions>
-        <el-select v-model="selectedProductId" placeholder="选择产品" style="width: 200px" @change="loadDefects">
+        <el-select v-model="selectedProductId" placeholder="选择产品" style="width: 200px">
           <el-option v-for="product in products" :key="product.id" :label="`${product.product_code} ${product.name}`" :value="product.id" />
         </el-select>
-        <el-radio-group v-model="scope">
+        <el-radio-group v-model="scope" @change="loadDefects">
           <el-radio-button label="reported">我上报的</el-radio-button>
           <el-radio-button label="assigned">指派给我</el-radio-button>
           <el-radio-button label="all">全部</el-radio-button>
         </el-radio-group>
-        <el-button v-perm="'biz:devops:defect:create'" type="primary" @click="createVisible = true">提报缺陷</el-button>
+        <el-button v-perm="'biz:devops:defect:self:create'" type="primary" @click="createVisible = true">提报缺陷</el-button>
       </template>
     </PageHeader>
 
@@ -144,7 +132,7 @@ onMounted(loadProducts)
     <GapNotice :items="gapItems" />
 
     <el-card shadow="never">
-      <el-table :data="visibleDefects" v-loading="loading" border stripe max-height="560">
+      <el-table :data="defects" v-loading="loading" border stripe max-height="560">
         <el-table-column prop="defect_no" label="缺陷编号" width="140" />
         <el-table-column prop="title" label="标题" min-width="220" />
         <el-table-column prop="severity" label="严重度" width="100" />

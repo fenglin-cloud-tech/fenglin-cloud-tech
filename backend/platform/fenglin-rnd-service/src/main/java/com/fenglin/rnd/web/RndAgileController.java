@@ -43,8 +43,11 @@ public class RndAgileController {
     private static final String TASK_CREATE = "biz:devops:task:create";
     private static final String TASK_TRANSITION = "biz:devops:task:transition";
     private static final String TASK_VIEW = "biz:devops:task:view";
+    private static final String TASK_SELF_VIEW = "biz:devops:task:self:view";
     private static final String WORKLOG_SUBMIT = "biz:devops:worklog:submit";
+    private static final String WORKLOG_SELF_SUBMIT = "biz:devops:worklog:self:submit";
     private static final String WORKLOG_VIEW = "biz:devops:worklog:view";
+    private static final String WORKLOG_SELF_VIEW = "biz:devops:worklog:self:view";
 
     private final SprintService sprintService;
     private final BoardService boardService;
@@ -157,7 +160,7 @@ public class RndAgileController {
             @RequestParam(value = "status", required = false) String status,
             @RequestParam(value = "page", required = false) Integer page,
             @RequestParam(value = "size", required = false) Integer size) {
-        PermissionGuard.require(permissions, TASK_VIEW);
+        PermissionGuard.require(permissions, TASK_SELF_VIEW);
         return ApiResponse.success(taskService.listMine(status, page, size));
     }
 
@@ -182,7 +185,7 @@ public class RndAgileController {
     public ApiResponse<WorklogView> addWorklog(
             @RequestHeader(value = "X-Permissions", required = false) String permissions,
             @RequestBody WorklogCreateRequest request) {
-        PermissionGuard.require(permissions, WORKLOG_SUBMIT);
+        PermissionGuard.requireAny(permissions, WORKLOG_SUBMIT, WORKLOG_SELF_SUBMIT);
         return ApiResponse.success(taskService.addWorklog(request));
     }
 
@@ -204,7 +207,7 @@ public class RndAgileController {
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             @RequestParam(value = "page", required = false) Integer page,
             @RequestParam(value = "size", required = false) Integer size) {
-        PermissionGuard.require(permissions, WORKLOG_VIEW);
+        PermissionGuard.require(permissions, WORKLOG_SELF_VIEW);
         return ApiResponse.success(taskService.listMyWorklogs(from, to, page, size));
     }
 }

@@ -199,15 +199,30 @@ public class MetricService {
         return metricMapper.listContributions(RndContext.tenantId(), productId,
                         RndContext.text(periodType), RndContext.text(periodKey))
                 .stream()
-                .map(row -> {
-                    int commits = Rows.intVal(row, "commitCount");
-                    int effective = Rows.intVal(row, "effectiveCommits");
-                    return new ContributionView(Rows.lng(row, "userId"), Rows.lng(row, "productId"),
-                            Rows.str(row, "periodType"), Rows.str(row, "periodKey"), commits,
-                            Rows.intVal(row, "addLines"), Rows.intVal(row, "delLines"), effective,
-                            ratio(effective, commits), Rows.dec(row, "complexityScore"));
-                })
+                .map(MetricService::toContributionView)
                 .toList();
+    }
+
+    /**
+     * 员工自助：只返回当前登录账号的贡献度，跨产品，tenant_id + user_id 双重收敛。
+     */
+    public List<ContributionView> myContributions(Long productId, String periodType, String periodKey,
+                                                  Integer page, Integer size) {
+        return metricMapper.listContributionsByUser(RndContext.tenantId(), RndContext.userId(), productId,
+                        RndContext.text(periodType), RndContext.text(periodKey),
+                        RndContext.size(size), RndContext.offset(page, size))
+                .stream()
+                .map(MetricService::toContributionView)
+                .toList();
+    }
+
+    private static ContributionView toContributionView(Map<String, Object> row) {
+        int commits = Rows.intVal(row, "commitCount");
+        int effective = Rows.intVal(row, "effectiveCommits");
+        return new ContributionView(Rows.lng(row, "userId"), Rows.lng(row, "productId"),
+                Rows.str(row, "periodType"), Rows.str(row, "periodKey"), commits,
+                Rows.intVal(row, "addLines"), Rows.intVal(row, "delLines"), effective,
+                ratio(effective, commits), Rows.dec(row, "complexityScore"));
     }
 
     public DoraView dora(long productId, String periodType, String periodKey) {

@@ -38,6 +38,7 @@ import java.util.List;
 public class RndMetricController {
 
     private static final String METRIC_VIEW = "biz:devops:metric:view";
+    private static final String CONTRIBUTION_SELF_VIEW = "biz:devops:contribution:self:view";
     private static final String INSIGHT_VIEW = "biz:devops:metric:insight";
     private static final String CONFIG_MANAGE = "tenant:devops:metric:manage";
     private static final String ALERT_MANAGE = "tenant:devops:alert:manage";
@@ -74,6 +75,21 @@ public class RndMetricController {
             @RequestParam(value = "periodKey", required = false) String periodKey) {
         PermissionGuard.require(permissions, METRIC_VIEW);
         return ApiResponse.success(metricService.contributions(productId, periodType, periodKey));
+    }
+
+    /**
+     * 员工自助：只返回当前登录账号的贡献度，范围由服务端按 user_id 收敛。
+     */
+    @GetMapping("/metrics/contributions/my")
+    public ApiResponse<List<ContributionView>> myContributions(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(value = "productId", required = false) Long productId,
+            @RequestParam(value = "periodType", required = false) String periodType,
+            @RequestParam(value = "periodKey", required = false) String periodKey,
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false) Integer size) {
+        PermissionGuard.require(permissions, CONTRIBUTION_SELF_VIEW);
+        return ApiResponse.success(metricService.myContributions(productId, periodType, periodKey, page, size));
     }
 
     @GetMapping("/metrics/dora")

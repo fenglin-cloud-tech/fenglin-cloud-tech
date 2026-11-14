@@ -225,6 +225,32 @@ public interface MetricMapper {
                                                 @Param("periodType") String periodType,
                                                 @Param("periodKey") String periodKey);
 
+    /**
+     * 员工自助：只按 user_id 返回本人贡献度，productId 可选。
+     */
+    @Select("""
+            <script>
+            SELECT user_id AS "userId", product_id AS "productId", period_type AS "periodType",
+                   period_key AS "periodKey", commit_count AS "commitCount", add_lines AS "addLines",
+                   del_lines AS "delLines", effective_commits AS "effectiveCommits",
+                   complexity_score AS "complexityScore"
+            FROM devops_contribution
+            WHERE tenant_id = #{tenantId} AND user_id = #{userId} AND deleted = 0
+              <if test="productId != null">AND product_id = #{productId}</if>
+              <if test="periodType != null">AND period_type = #{periodType}</if>
+              <if test="periodKey != null">AND period_key = #{periodKey}</if>
+            ORDER BY period_key DESC, product_id
+            LIMIT #{limit} OFFSET #{offset}
+            </script>
+            """)
+    List<Map<String, Object>> listContributionsByUser(@Param("tenantId") long tenantId,
+                                                      @Param("userId") long userId,
+                                                      @Param("productId") Long productId,
+                                                      @Param("periodType") String periodType,
+                                                      @Param("periodKey") String periodKey,
+                                                      @Param("limit") int limit,
+                                                      @Param("offset") int offset);
+
     @Select("""
             SELECT c.author_user_id AS "userId", count(1) AS "commitCount",
                    COALESCE(sum(c.add_lines), 0) AS "addLines", COALESCE(sum(c.del_lines), 0) AS "delLines",

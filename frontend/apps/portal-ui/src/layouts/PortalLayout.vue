@@ -77,10 +77,10 @@ const financeItems = [
 ]
 
 const rndItems = [
-  { path: '/my-rnd-tasks', title: '我的任务', icon: Finished, perm: 'biz:devops:task:view' },
-  { path: '/my-rnd-worklogs', title: '工时填报', icon: Clock, perm: 'biz:devops:worklog:submit' },
-  { path: '/my-rnd-defects', title: '缺陷提报', icon: Warning, perm: 'biz:devops:defect:view' },
-  { path: '/my-rnd-contribution', title: '我的贡献', icon: TrendCharts, perm: 'biz:devops:metric:view' },
+  { path: '/my-rnd-tasks', title: '我的任务', icon: Finished, perm: 'biz:devops:task:self:view' },
+  { path: '/my-rnd-worklogs', title: '工时填报', icon: Clock, perm: 'biz:devops:worklog:self:view' },
+  { path: '/my-rnd-defects', title: '缺陷提报', icon: Warning, perm: 'biz:devops:defect:self:view' },
+  { path: '/my-rnd-contribution', title: '我的贡献', icon: TrendCharts, perm: 'biz:devops:contribution:self:view' },
 ]
 
 const serviceItems = [

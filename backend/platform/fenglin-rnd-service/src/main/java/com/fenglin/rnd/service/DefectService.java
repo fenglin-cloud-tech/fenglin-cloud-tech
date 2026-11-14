@@ -81,6 +81,22 @@ public class DefectService {
                 .stream().map(DefectService::toView).toList();
     }
 
+    /**
+     * 员工自助：跨产品返回本人上报或被指派的缺陷，tenant_id + owner 双重收敛。
+     *
+     * @param scope reported 仅本人上报、assigned 仅指派给本人，其余按两者并集
+     */
+    public List<DefectView> listMine(String scope, String status, String severity, Integer page, Integer size) {
+        String normalized = RndContext.text(scope);
+        if (!"reported".equals(normalized) && !"assigned".equals(normalized)) {
+            normalized = null;
+        }
+        return defectMapper.listDefectsByOwner(RndContext.tenantId(), RndContext.userId(), normalized,
+                        RndContext.text(status), RndContext.text(severity),
+                        RndContext.size(size), RndContext.offset(page, size))
+                .stream().map(DefectService::toView).toList();
+    }
+
     @Transactional
     public DefectView transition(long id, String status) {
         long tenantId = RndContext.tenantId();

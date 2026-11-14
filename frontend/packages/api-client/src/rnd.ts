@@ -602,6 +602,9 @@ export const rndApi = {
     get(id: RndId) {
       return get<RndDefect>(`${BASE}/defects/${id}`)
     },
+    my(params: { scope?: 'reported' | 'assigned' | 'all'; status?: string; severity?: string; page?: number; size?: number } = {}) {
+      return get<RndDefect[]>(`${BASE}/defects/my`, params)
+    },
     create(body: {
       product_id: RndId
       title: string
@@ -810,6 +813,9 @@ export const rndApi = {
     },
     contributions(params: { productId: RndId; periodType?: string; periodKey?: string }) {
       return get<RndContribution[]>(`${BASE}/metrics/contributions`, params)
+    },
+    myContributions(params: { productId?: RndId; periodType?: string; periodKey?: string; page?: number; size?: number } = {}) {
+      return get<RndContribution[]>(`${BASE}/metrics/contributions/my`, params)
     },
     dora(params: { productId: RndId; periodType?: string; periodKey?: string }) {
       return get<RndDora>(`${BASE}/metrics/dora`, params)
