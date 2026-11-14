@@ -122,6 +122,10 @@ const visibleLegalItems = computed(() => legalItems.filter((item) => !item.perm 
 
 const activeMenu = computed(() => route.path)
 const currentTitle = computed(() => String(route.meta.title ?? '员工门户'))
+// 这些页面的视图内没有 PageHeader，页头标题由布局补位；其余页面标题由 PageHeader 承担，
+// 布局只保留一条细面包屑，避免与页头 h1 重复。
+const LAYOUT_TITLED_ROUTES = new Set(['my-leads', 'my-customers', 'my-opportunities', 'my-quotations', 'payment-reminders'])
+const layoutTitle = computed(() => (LAYOUT_TITLED_ROUTES.has(String(route.name)) ? currentTitle.value : ''))
 
 async function handleLogout() {
   await auth.logout()
@@ -274,10 +278,10 @@ async function submitPasswordChange() {
     </el-header>
 
     <el-main class="portal-main">
-      <div class="crumb">
-        <strong>{{ currentTitle }}</strong>
-        <span>{{ route.path }}</span>
-      </div>
+      <nav class="crumb" aria-label="面包屑">
+        <span class="crumb__root">员工门户</span>
+      </nav>
+      <h1 v-if="layoutTitle" class="portal-page-title">{{ layoutTitle }}</h1>
       <router-view />
     </el-main>
 
@@ -321,13 +325,17 @@ async function submitPasswordChange() {
   background: var(--fl-color-bg);
 }
 .portal-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: 20px;
   height: 60px;
-  background: #fff;
-  border-bottom: 1px solid var(--fl-color-border);
+  background: rgba(255, 255, 255, 0.82);
+  border-bottom: 1px solid #e7ecf5;
   padding: 0 24px;
+  backdrop-filter: blur(12px);
 }
 .brand {
   display: flex;
@@ -340,53 +348,104 @@ async function submitPasswordChange() {
   place-items: center;
   width: 32px;
   height: 32px;
-  border-radius: 8px;
-  background: var(--fl-color-primary);
+  border-radius: 11px;
+  background: linear-gradient(135deg, #1f5eff, #3d78ff);
+  box-shadow: 0 8px 18px -10px rgba(31, 94, 255, 0.7);
   color: #fff;
   font-weight: 700;
 }
 .brand__text strong {
   display: block;
+  color: #17202e;
   font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
 .brand__text small {
-  color: var(--fl-color-text-secondary);
+  color: #8b98ac;
   font-size: 11px;
 }
 .portal-menu {
   flex: 1;
+  min-width: 0;
   border-bottom: none;
+  background: transparent;
+}
+:deep(.portal-menu.el-menu--horizontal) {
+  border-bottom: none;
+}
+:deep(.portal-menu .el-menu-item),
+:deep(.portal-menu .el-sub-menu__title) {
+  height: 36px;
+  line-height: 36px;
+  margin: 0 2px;
+  padding: 0 11px;
+  border-radius: 10px;
+  border-bottom: none !important;
+  color: #55637a;
+  font-size: 13px;
+  transition:
+    background 0.22s ease,
+    color 0.22s ease;
+}
+:deep(.portal-menu .el-menu-item:hover),
+:deep(.portal-menu .el-sub-menu__title:hover) {
+  background: #f2f6fd;
+  color: #17202e;
+}
+:deep(.portal-menu .el-menu-item.is-active) {
+  background: #e9efff;
+  color: #1f5eff;
+  font-weight: 600;
+}
+:deep(.portal-menu .el-sub-menu.is-active .el-sub-menu__title) {
+  background: #e9efff;
+  color: #1f5eff;
+  font-weight: 600;
 }
 .header-right {
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-shrink: 0;
 }
 .user-chip {
   display: flex;
   align-items: center;
   gap: 6px;
   cursor: pointer;
-  font-size: 13px;
+  color: #17202e;
+  font-size: 12px;
+}
+.user-chip :deep(.el-avatar) {
+  background: #e9efff;
+  color: #1f5eff;
+  font-weight: 600;
 }
 .portal-main {
   width: 100%;
   max-width: 1320px;
   margin: 0 auto;
-  padding: 20px 24px 40px;
+  padding: 24px 24px 40px;
 }
 .crumb {
   display: flex;
-  align-items: baseline;
-  gap: 10px;
-  margin-bottom: 16px;
-}
-.crumb strong {
-  font-size: 18px;
-}
-.crumb span {
-  color: var(--fl-color-text-secondary);
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
   font-size: 12px;
+  line-height: 1.4;
+}
+.crumb__root {
+  color: var(--fl-color-text-tertiary);
+}
+.portal-page-title {
+  margin: 0 0 18px;
+  font-size: var(--fl-page-title-size);
+  font-weight: var(--fl-page-title-weight);
+  line-height: 1.25;
+  letter-spacing: 0.01em;
+  color: var(--fl-color-text-primary);
 }
 .perm-tags {
   display: flex;
@@ -395,7 +454,7 @@ async function submitPasswordChange() {
   margin: 16px 0;
 }
 .fl-muted {
-  color: var(--fl-color-text-secondary);
+  color: #8b98ac;
   font-size: 12px;
 }
 </style>

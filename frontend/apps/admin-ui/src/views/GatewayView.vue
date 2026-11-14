@@ -79,7 +79,7 @@ onMounted(checkHealth)
       ]"
     />
 
-    <div class="fl-grid">
+    <div class="fl-grid fl-grid--4">
       <StatCard label="网关状态" :value="statusText" :hint="checkedAt ? `检测于 ${checkedAt}` : '尚未完成检测'" />
       <StatCard label="健康检测耗时" :value="latency != null ? `${latency} ms` : '-'" hint="经 Vite 代理 /actuator/health" />
       <StatCard label="路由条目" :value="String(routes.length)" hint="来自网关 application.yml" />

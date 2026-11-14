@@ -60,8 +60,9 @@ onMounted(load)
       <div v-for="(item, i) in gaps" :key="i">{{ item }}</div>
     </el-alert>
 
-    <el-card shadow="never" class="welcome">
+    <el-card shadow="never" class="welcome fl-hero">
       <div>
+        <span class="fl-portal-badge">我的工作台</span>
         <h2>你好，{{ auth.displayName }}</h2>
         <p>这里汇总你名下的线索、客户、商机、报价合同与近 30 天回款提醒，数据全部来自 CRM 服务实时接口。</p>
       </div>
@@ -94,7 +95,7 @@ onMounted(load)
 <style scoped>
 .welcome {
   display: flex;
-  margin-bottom: 16px;
+  margin-bottom: 18px;
 }
 .welcome :deep(.el-card__body) {
   display: flex;
@@ -102,19 +103,36 @@ onMounted(load)
   justify-content: space-between;
   gap: 24px;
   width: 100%;
+  padding: 26px;
+}
+.welcome .fl-portal-badge {
+  margin-bottom: 10px;
 }
 .welcome h2 {
   margin: 0 0 6px;
-  font-size: 20px;
+  font-size: var(--fl-font-size-xl);
+  font-weight: 700;
+  letter-spacing: 0.01em;
 }
 .welcome p {
   margin: 0;
-  color: var(--fl-color-text-secondary);
+  color: #5d6b80;
   font-size: 13px;
+  line-height: 1.7;
 }
 .stat-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+@media (max-width: 980px) {
+  .stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 640px) {
+  .stat-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

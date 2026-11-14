@@ -18,7 +18,7 @@ import { useAuthStore } from '@/stores/auth'
 import { describeError } from '@/utils/error'
 
 const auth = useAuthStore()
-const activeTab = ref<'users' | 'roles' | 'permissions' | 'menus'>('users')
+const activeTab = ref<'users' | 'roles' | 'orgs' | 'permissions' | 'menus'>('users')
 
 const users = ref<UserView[]>([])
 const userTotal = ref(0)
@@ -504,50 +504,7 @@ onMounted(async () => {
     <div class="fl-card">
       <el-tabs v-model="activeTab">
         <el-tab-pane label="用户" name="users">
-          <el-row :gutter="16">
-            <el-col :span="8">
-              <el-card shadow="never" v-loading="orgLoading">
-                <template #header>
-                  <div class="org-card-header">
-                    <span>组织架构</span>
-                    <div>
-                      <el-button v-perm="'tenant:iam:org:manage'" type="primary" plain size="small" @click="openCreateOrg(null)">新增根组织</el-button>
-                      <el-button size="small" @click="loadOrgs">刷新</el-button>
-                    </div>
-                  </div>
-                </template>
-                <el-alert v-if="orgError" type="error" :closable="false" show-icon :title="orgError" style="margin-bottom: 12px" />
-                <el-tree
-                  :data="orgs"
-                  node-key="id"
-                  :props="{ label: 'name', children: 'children' }"
-                  default-expand-all
-                  highlight-current
-                  :expand-on-click-node="false"
-                >
-                  <template #default="{ data }">
-                    <div class="org-node">
-                      <span class="org-node-name">{{ data.name }}</span>
-                      <el-tag size="small" effect="plain" :type="data.status === 'DISABLED' ? 'info' : 'success'">{{ data.member_count ?? 0 }} 人</el-tag>
-                      <el-dropdown v-if="canManageOrg" trigger="click" @command="handleOrgCommand($event, data)">
-                        <el-button link type="primary" size="small">操作</el-button>
-                        <template #dropdown>
-                          <el-dropdown-menu>
-                            <el-dropdown-item command="create">新增子组织</el-dropdown-item>
-                            <el-dropdown-item command="rename">重命名</el-dropdown-item>
-                            <el-dropdown-item command="move">移动</el-dropdown-item>
-                            <el-dropdown-item command="disable" :disabled="data.status === 'DISABLED'">停用</el-dropdown-item>
-                            <el-dropdown-item command="delete" divided>删除</el-dropdown-item>
-                          </el-dropdown-menu>
-                        </template>
-                      </el-dropdown>
-                    </div>
-                  </template>
-                </el-tree>
-                <el-empty v-if="!orgLoading && orgs.length === 0" description="暂无组织节点" />
-              </el-card>
-            </el-col>
-            <el-col :span="16">
+          <div class="iam-users-pane">
               <div class="fl-toolbar">
                 <el-input v-model="userQuery.keyword" placeholder="用户名/姓名关键词" clearable style="width: 190px" @keyup.enter="loadUsers" />
                 <el-select v-model="userQuery.status" placeholder="全部状态" clearable style="width: 130px">
@@ -559,21 +516,21 @@ onMounted(async () => {
               </div>
               <el-alert v-if="userError" type="error" :closable="false" show-icon :title="userError" style="margin-bottom: 12px" />
               <el-table :data="users" v-loading="userLoading" border stripe>
-                <el-table-column prop="user_id" label="用户 ID" width="90" />
-                <el-table-column prop="username" label="用户名" width="130" />
-                <el-table-column prop="real_name" label="姓名" width="110" />
-                <el-table-column prop="employee_no" label="工号" width="110" />
-                <el-table-column label="主组织" min-width="130" show-overflow-tooltip>
+                <el-table-column prop="user_id" label="用户 ID" width="168" show-overflow-tooltip />
+                <el-table-column prop="username" label="用户名" width="130" show-overflow-tooltip />
+                <el-table-column prop="real_name" label="姓名" width="100" />
+                <el-table-column prop="employee_no" label="工号" width="100" />
+                <el-table-column label="主组织" min-width="120" show-overflow-tooltip>
                   <template #default="{ row }">{{ orgName(row.primary_org_id) }}</template>
                 </el-table-column>
-                <el-table-column label="角色" min-width="150">
+                <el-table-column label="角色" min-width="130">
                   <template #default="{ row }">
                     <el-tag v-for="role in row.roles || []" :key="role" size="small" effect="plain" style="margin-right: 4px">{{ role }}</el-tag>
                     <span v-if="!row.roles?.length" class="fl-muted">-</span>
                   </template>
                 </el-table-column>
-                <el-table-column prop="status" label="状态" width="100" />
-                <el-table-column label="操作" width="170" fixed="right">
+                <el-table-column prop="status" label="状态" width="90" />
+                <el-table-column label="操作" width="160" fixed="right">
                   <template #default="{ row }">
                     <el-button v-perm="'tenant:iam:user:update'" link type="primary" @click="openEditUser(row)">编辑资料</el-button>
                     <el-button v-perm="'tenant:iam:role:assign'" link type="primary" @click="openAssign(row)">分配角色</el-button>
@@ -588,8 +545,7 @@ onMounted(async () => {
                 style="margin-top: 16px; justify-content: flex-end"
                 @change="loadUsers"
               />
-            </el-col>
-          </el-row>
+          </div>
         </el-tab-pane>
 
         <el-tab-pane label="角色" name="roles">
@@ -614,6 +570,49 @@ onMounted(async () => {
               </template>
             </el-table-column>
           </el-table>
+        </el-tab-pane>
+
+        <el-tab-pane label="组织架构" name="orgs">
+          <el-card shadow="never" v-loading="orgLoading" class="iam-org-card">
+            <template #header>
+              <div class="org-card-header">
+                <span>组织架构</span>
+                <div>
+                  <el-button v-perm="'tenant:iam:org:manage'" type="primary" plain size="small" @click="openCreateOrg(null)">新增根组织</el-button>
+                  <el-button size="small" @click="loadOrgs">刷新</el-button>
+                </div>
+              </div>
+            </template>
+            <el-alert v-if="orgError" type="error" :closable="false" show-icon :title="orgError" style="margin-bottom: 12px" />
+            <el-tree
+              :data="orgs"
+              node-key="id"
+              :props="{ label: 'name', children: 'children' }"
+              default-expand-all
+              highlight-current
+              :expand-on-click-node="false"
+            >
+              <template #default="{ data }">
+                <div class="org-node">
+                  <span class="org-node-name">{{ data.name }}</span>
+                  <el-tag size="small" effect="plain" :type="data.status === 'DISABLED' ? 'info' : 'success'">{{ data.member_count ?? 0 }} 人</el-tag>
+                  <el-dropdown v-if="canManageOrg" trigger="click" @command="handleOrgCommand($event, data)">
+                    <el-button link type="primary" size="small">操作</el-button>
+                    <template #dropdown>
+                      <el-dropdown-menu>
+                        <el-dropdown-item command="create">新增子组织</el-dropdown-item>
+                        <el-dropdown-item command="rename">重命名</el-dropdown-item>
+                        <el-dropdown-item command="move">移动</el-dropdown-item>
+                        <el-dropdown-item command="disable" :disabled="data.status === 'DISABLED'">停用</el-dropdown-item>
+                        <el-dropdown-item command="delete" divided>删除</el-dropdown-item>
+                      </el-dropdown-menu>
+                    </template>
+                  </el-dropdown>
+                </div>
+              </template>
+            </el-tree>
+            <el-empty v-if="!orgLoading && orgs.length === 0" description="暂无组织节点" />
+          </el-card>
         </el-tab-pane>
 
         <el-tab-pane label="权限树" name="permissions">
@@ -814,6 +813,9 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.iam-org-card {
+  max-width: 640px;
+}
 .org-card-header {
   display: flex;
   align-items: center;

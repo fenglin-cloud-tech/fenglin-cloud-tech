@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElScrollbar } from 'element-plus'
 import {
   Aim,
   AlarmClock,
@@ -82,6 +82,7 @@ const appStore = useAppStore()
 const auth = useAuthStore()
 const tenantStore = useTenantStore()
 const tenantChanging = ref(false)
+const menuScrollRef = ref<InstanceType<typeof ElScrollbar> | null>(null)
 
 const activeMenu = computed(() => route.path)
 const currentTitle = computed(() => String(route.meta.title ?? '中台管理台'))
@@ -111,7 +112,26 @@ async function refreshTenantContext() {
 
 onMounted(() => {
   void refreshTenantContext()
+  void scrollActiveMenuIntoView()
 })
+
+// 86 个菜单项超过一屏时，切换页面后把当前项滚回视野中部，避免“高亮了但看不见”。
+async function scrollActiveMenuIntoView() {
+  await nextTick()
+  const scrollbar = menuScrollRef.value
+  const wrap = scrollbar?.wrapRef as HTMLElement | undefined
+  const active = wrap?.querySelector('.el-menu-item.is-active') as HTMLElement | null
+  if (!scrollbar || !wrap || !active) return
+  const target = active.offsetTop - wrap.clientHeight / 2 + active.clientHeight / 2
+  scrollbar.setScrollTop(Math.max(0, target))
+}
+
+watch(
+  () => route.path,
+  () => {
+    void scrollActiveMenuIntoView()
+  },
+)
 </script>
 
 <template>
@@ -124,7 +144,7 @@ onMounted(() => {
           <small>中台管理台</small>
         </div>
       </div>
-      <el-scrollbar class="menu-scroll">
+      <el-scrollbar ref="menuScrollRef" class="menu-scroll">
         <el-menu
           :default-active="activeMenu"
           :collapse="appStore.sidebarCollapsed"
@@ -251,23 +271,33 @@ onMounted(() => {
 <style scoped>
 .admin-layout {
   height: 100vh;
+  padding: 12px;
+  gap: 12px;
   background: var(--fl-color-bg);
+}
+.admin-layout > .el-container {
+  min-width: 0;
 }
 .admin-aside {
   display: flex;
   flex-direction: column;
-  background: #0f1b33;
-  color: #cbd5e1;
-  transition: width 0.2s ease;
+  background: var(--fl-color-surface);
+  border: 1px solid #e7ecf5;
+  border-radius: 20px;
+  box-shadow:
+    0 1px 2px rgba(23, 43, 77, 0.04),
+    0 26px 48px -34px rgba(23, 43, 77, 0.45);
+  color: var(--fl-color-text-primary);
+  transition: width 0.28s cubic-bezier(0.22, 0.61, 0.36, 1);
   overflow: hidden;
 }
 .brand {
   display: flex;
   align-items: center;
   gap: 10px;
-  height: 60px;
-  padding: 0 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  height: 56px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--fl-color-line-soft);
   flex-shrink: 0;
 }
 .brand__logo {
@@ -275,41 +305,91 @@ onMounted(() => {
   place-items: center;
   width: 32px;
   height: 32px;
-  border-radius: 8px;
-  background: var(--fl-color-primary);
+  border-radius: 11px;
+  background: linear-gradient(135deg, #1f5eff, #3d78ff);
+  box-shadow: 0 8px 18px -10px rgba(31, 94, 255, 0.75);
   color: #fff;
   font-weight: 700;
   flex-shrink: 0;
 }
 .brand__text strong {
   display: block;
-  color: #fff;
+  color: #17202e;
   font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
 .brand__text small {
-  color: #94a3b8;
+  color: #8b98ac;
   font-size: 11px;
 }
 .menu-scroll {
   flex: 1;
+  min-height: 0;
 }
 .admin-menu {
   border-right: none;
   background: transparent;
+  padding: 6px 0 12px;
   --el-menu-bg-color: transparent;
-  --el-menu-text-color: #cbd5e1;
-  --el-menu-hover-bg-color: rgba(255, 255, 255, 0.08);
-  --el-menu-active-color: #ffffff;
+  --el-menu-text-color: #4c5a6e;
+  --el-menu-hover-bg-color: #f3f6fd;
+  --el-menu-active-color: #1f5eff;
+}
+:deep(.admin-menu .el-menu-item) {
+  height: 38px;
+  line-height: 38px;
+  margin: 2px 8px;
+  padding: 0 10px !important;
+  border-radius: 10px;
+  font-size: 13px;
+  color: #4c5a6e;
+  transition:
+    background 0.22s ease,
+    color 0.22s ease;
+}
+:deep(.admin-menu .el-menu-item .el-icon) {
+  color: #95a3b8;
+}
+:deep(.admin-menu .el-menu-item:hover) {
+  background: #f3f6fd;
+  color: #17202e;
 }
 :deep(.admin-menu .el-menu-item.is-active) {
-  background: var(--fl-color-primary);
+  background: #e9efff;
+  color: #1f5eff;
+  font-weight: 600;
+  position: relative;
+}
+:deep(.admin-menu .el-menu-item.is-active .el-icon) {
+  color: #1f5eff;
+}
+:deep(.admin-menu .el-menu-item.is-active::before) {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 3px;
+  height: 16px;
+  border-radius: 2px;
+  transform: translateY(-50%);
+  background: #1f5eff;
+  box-shadow: 0 0 0 3px rgba(31, 94, 255, 0.14);
+}
+:deep(.admin-menu.el-menu--collapse .el-menu-item) {
+  margin: 2px 6px;
+  padding: 0 !important;
+  justify-content: center;
+}
+:deep(.admin-menu.el-menu--collapse .el-menu-item.is-active::before) {
+  display: none;
 }
 .menu-title {
   flex: 1;
 }
 .menu-lock {
   margin-left: 6px;
-  color: #fbbf24;
+  color: #b57612;
   font-size: 13px;
 }
 .aside-footer {
@@ -317,20 +397,24 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 12px 16px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 10px 14px;
+  border-top: 1px solid var(--fl-color-line-soft);
   font-size: 11px;
-  color: #94a3b8;
+  color: #8b98ac;
   flex-shrink: 0;
 }
 .admin-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 60px;
-  background: #fff;
-  border-bottom: 1px solid var(--fl-color-border);
-  padding: 0 16px;
+  height: 56px;
+  margin-bottom: 12px;
+  padding: 0 14px;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid #e7ecf5;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px -26px rgba(23, 43, 77, 0.45);
+  backdrop-filter: blur(12px);
 }
 .header-left {
   display: flex;
@@ -344,6 +428,12 @@ onMounted(() => {
 }
 .header-title strong {
   font-size: 15px;
+  font-weight: 600;
+  color: #17202e;
+}
+.header-title .fl-muted {
+  color: #8b98ac;
+  font-size: 11px;
 }
 .header-right {
   display: flex;
@@ -353,26 +443,32 @@ onMounted(() => {
   justify-content: flex-end;
 }
 .tenant-select {
-  width: 240px;
+  width: 220px;
 }
 .user-chip {
   display: flex;
   align-items: center;
   gap: 8px;
   cursor: pointer;
-  color: var(--fl-color-text-primary);
-  font-size: 13px;
+  color: #17202e;
+  font-size: 12px;
+}
+.user-chip :deep(.el-avatar) {
+  background: #e9efff;
+  color: #1f5eff;
+  font-weight: 600;
 }
 .admin-main {
-  padding: 20px 24px 32px;
+  padding: 0 4px 28px;
   overflow-y: auto;
 }
 .permission-block {
-  margin-bottom: 24px;
+  margin-bottom: 20px;
 }
 .permission-block h3 {
-  margin: 0 0 12px;
-  font-size: 14px;
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: #17202e;
 }
 .permission-tags {
   display: flex;

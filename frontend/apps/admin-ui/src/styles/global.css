@@ -77,9 +77,10 @@ a {
 .fl-pre {
   margin: 0;
   padding: 12px;
+  border: 1px solid var(--fl-color-border);
   border-radius: var(--fl-radius-sm);
-  background: #0f172a;
-  color: #e2e8f0;
+  background: var(--fl-color-surface-2);
+  color: #26324a;
   font-size: 12px;
   line-height: 1.6;
   overflow: auto;

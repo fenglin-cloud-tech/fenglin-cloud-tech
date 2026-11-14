@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { PageHeader, GapNotice } from '@fenglin/ui-admin'
+import { PageHeader, GapNotice, ID_COLUMN_WIDTH } from '@fenglin/ui-admin'
 import { tenantApi, type CreateTenantRequest, type CreateTenantResult, type TenantView } from '@/api'
 import { useAuthStore } from '@/stores/auth'
 import { useTenantStore } from '@/stores/tenant'
@@ -167,7 +167,7 @@ onMounted(() => {
       <el-alert v-if="error" type="error" :closable="false" show-icon :title="error" style="margin-bottom: 12px" />
 
       <el-table :data="rows" v-loading="loading" border stripe>
-        <el-table-column prop="id" label="ID" width="80" />
+        <el-table-column prop="id" label="ID" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
         <el-table-column prop="code" label="租户编码" min-width="140" />
         <el-table-column prop="name" label="租户名称" min-width="160" />
         <el-table-column prop="status" label="状态" width="120">

@@ -218,8 +218,10 @@ async function validateMode() {
             <el-table-column prop="endpoint" label="Endpoint" min-width="200" />
             <el-table-column prop="api_key_fingerprint" label="密钥指纹" width="180" />
             <el-table-column prop="routing_weight" label="权重" width="90" />
+            <template #empty>
+              <el-empty description="尚无本次会话创建记录（后端无列表接口）" :image-size="60" />
+            </template>
           </el-table>
-          <el-empty v-if="!createdModels.length" description="尚无本次会话创建记录（后端无列表接口）" :image-size="60" />
         </el-tab-pane>
 
         <el-tab-pane label="提示词" name="prompt">
@@ -245,8 +247,10 @@ async function validateMode() {
             <el-table-column prop="scene" label="场景" width="140" />
             <el-table-column prop="prompt_version" label="版本" width="80" />
             <el-table-column prop="status" label="状态" width="110" />
+            <template #empty>
+              <el-empty description="尚无本次会话保存记录（后端无查询接口）" :image-size="60" />
+            </template>
           </el-table>
-          <el-empty v-if="!createdPrompts.length" description="尚无本次会话保存记录（后端无查询接口）" :image-size="60" />
         </el-tab-pane>
 
         <el-tab-pane label="能力授权" name="grant">
@@ -306,8 +310,10 @@ async function validateMode() {
             <el-table-column prop="token_in" label="输入 Token" width="120" />
             <el-table-column prop="token_out" label="输出 Token" width="120" />
             <el-table-column prop="cost" label="成本" width="110" />
+            <template #empty>
+              <el-empty description="暂无计量数据（未查询或该租户无记录）" :image-size="60" />
+            </template>
           </el-table>
-          <el-empty v-if="!metering?.records?.length" description="暂无计量数据（未查询或该租户无记录）" :image-size="60" />
         </el-tab-pane>
 
         <el-tab-pane label="双模式校验" name="mode">

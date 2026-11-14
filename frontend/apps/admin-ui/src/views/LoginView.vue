@@ -99,18 +99,18 @@ async function submit() {
   display: grid;
   grid-template-columns: 1.1fr 0.9fr;
   min-height: 100vh;
-  background: #0b1220;
+  background: var(--fl-color-bg);
 }
 .login-hero {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   padding: 48px;
-  color: #e2e8f0;
+  color: var(--fl-color-text-primary);
   background:
-    radial-gradient(circle at 18% 18%, rgba(31, 94, 255, 0.35), transparent 38%),
-    radial-gradient(circle at 82% 72%, rgba(14, 165, 233, 0.22), transparent 42%),
-    linear-gradient(145deg, #0b1220 0%, #101f3d 100%);
+    radial-gradient(circle at 16% 14%, rgba(31, 94, 255, 0.18), transparent 42%),
+    radial-gradient(circle at 84% 80%, rgba(14, 165, 233, 0.14), transparent 46%),
+    linear-gradient(152deg, #f8fbff 0%, #edf3fe 100%);
 }
 .login-hero__brand {
   display: flex;
@@ -136,35 +136,40 @@ async function submit() {
   margin: 0 0 16px;
   font-size: 34px;
   line-height: 1.3;
+  color: var(--fl-color-text-primary);
 }
 .login-hero__content p {
   margin: 0 0 24px;
-  color: #94a3b8;
+  color: var(--fl-color-text-secondary);
   line-height: 1.8;
 }
 .login-hero__content ul {
   margin: 0;
   padding-left: 20px;
   line-height: 2;
-  color: #cbd5e1;
+  color: #3b4759;
+}
+.login-hero__content li::marker {
+  color: var(--fl-color-primary);
 }
 .login-hero__footer {
   font-size: 12px;
-  color: #64748b;
+  color: var(--fl-color-text-tertiary);
 }
 .login-panel {
   display: grid;
   place-items: center;
   padding: 32px;
-  background: #f5f7fa;
+  background: transparent;
 }
 .login-card {
   width: 100%;
   max-width: 420px;
   padding: 32px;
-  background: #fff;
-  border-radius: 16px;
-  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.12);
+  background: var(--fl-color-surface);
+  border: 1px solid var(--fl-color-line-soft);
+  border-radius: var(--fl-radius-lg);
+  box-shadow: var(--fl-shadow-md);
 }
 .login-card h2 {
   margin: 0 0 6px;

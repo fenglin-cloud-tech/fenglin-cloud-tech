@@ -66,14 +66,19 @@ async function submit() {
   display: grid;
   place-items: center;
   min-height: 100vh;
-  background: linear-gradient(135deg, #ecfeff 0%, #f8fafc 60%, #eef2ff 100%);
+  background:
+    radial-gradient(900px 420px at 50% -10%, rgba(31, 94, 255, 0.16), transparent 64%),
+    var(--fl-color-bg);
 }
 .login-card {
   width: 420px;
   padding: 32px;
   background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 18px 48px rgba(15, 27, 51, 0.12);
+  border: 1px solid #e7ecf5;
+  border-radius: 20px;
+  box-shadow:
+    0 1px 2px rgba(23, 43, 77, 0.04),
+    0 34px 70px -48px rgba(23, 43, 77, 0.5);
 }
 .login-brand {
   display: flex;
@@ -86,15 +91,18 @@ async function submit() {
   place-items: center;
   width: 44px;
   height: 44px;
-  border-radius: 10px;
-  background: var(--fl-color-primary);
+  border-radius: 14px;
+  background: linear-gradient(135deg, #1f5eff, #3d78ff);
+  box-shadow: 0 10px 22px -12px rgba(31, 94, 255, 0.75);
   color: #fff;
   font-size: 20px;
   font-weight: 700;
 }
 h1 {
   margin: 0;
-  font-size: 18px;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
 }
 .login-brand p {
   margin: 4px 0 0;

@@ -27,7 +27,7 @@ async function handleLogout() {
           <div class="brand__sub">开发者门户</div>
         </div>
       </div>
-      <el-menu :default-active="activeMenu" mode="horizontal" router class="dev-menu">
+      <el-menu :default-active="activeMenu" mode="horizontal" router class="dev-menu" :ellipsis="false">
         <el-menu-item index="/apps">我的应用</el-menu-item>
         <el-menu-item index="/logs">调用日志</el-menu-item>
         <el-menu-item index="/quotas">配额与用量</el-menu-item>
@@ -54,30 +54,60 @@ async function handleLogout() {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-shrink: 0;
 }
 .brand__logo {
   display: grid;
   place-items: center;
   width: 32px;
   height: 32px;
-  border-radius: 8px;
-  background: var(--fl-color-primary);
+  border-radius: 11px;
+  background: linear-gradient(135deg, #1f5eff, #3d78ff);
+  box-shadow: 0 8px 18px -10px rgba(31, 94, 255, 0.7);
   color: #fff;
   font-weight: 700;
 }
 .brand__sub {
   font-size: 11px;
-  color: var(--fl-color-text-secondary);
+  color: var(--fl-color-text-tertiary);
 }
 .dev-menu {
   flex: 1;
+  min-width: 0;
   border-bottom: none;
+  background: transparent;
+}
+:deep(.dev-menu.el-menu--horizontal) {
+  border-bottom: none;
+}
+:deep(.dev-menu .el-menu-item) {
+  height: 36px;
+  line-height: 36px;
+  margin: 0 2px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border-bottom: none !important;
+  color: #55637a;
+  font-size: 13px;
+  transition:
+    background 0.22s ease,
+    color 0.22s ease;
+}
+:deep(.dev-menu .el-menu-item:hover) {
+  background: #f2f6fd;
+  color: #17202e;
+}
+:deep(.dev-menu .el-menu-item.is-active) {
+  background: #e9efff;
+  color: #1f5eff;
+  font-weight: 600;
 }
 .header-right {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 13px;
+  font-size: 12px;
+  flex-shrink: 0;
 }
 .user {
   color: var(--fl-color-text-secondary);

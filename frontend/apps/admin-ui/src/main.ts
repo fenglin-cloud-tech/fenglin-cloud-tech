@@ -4,11 +4,14 @@ import ElementPlus from 'element-plus'
 import zhCn from 'element-plus/es/locale/lang/zh-cn'
 import 'element-plus/dist/index.css'
 import '@fenglin/design-tokens/tokens.css'
+import '@fenglin/design-tokens/themes/float.css'
+import '@fenglin/design-tokens/themes/float-compact.css'
 import { permissionDirective } from '@fenglin/ui-admin'
 import App from './App.vue'
 import router from './router'
 import { setUnauthorizedHandler } from '@fenglin/api-client'
 import './styles/global.css'
+import './styles/theme-float.css'
 
 const app = createApp(App)
 app.use(createPinia())
