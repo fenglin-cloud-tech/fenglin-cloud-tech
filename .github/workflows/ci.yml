@@ -22,7 +22,26 @@ jobs:
         run: bash scripts/check-flyway-naming.sh
 
       - name: Build and test
-        run: mvn -B -T 4 -f backend/pom.xml clean install
+        run: mvn -B -T 4 -f backend/pom.xml clean verify
+
+  common-web-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+
+      - name: Install shared module
+        run: mvn -B -f backend/pom.xml -pl fenglin-common/fenglin-common-web -am install -DskipTests
+
+      - name: Package services without tests
+        run: mvn -B -T 4 -f backend/pom.xml -DskipTests package
 
       - name: Verify common-web handler set
         shell: pwsh
