@@ -22,4 +22,8 @@ jobs:
         run: bash scripts/check-flyway-naming.sh
 
       - name: Build and test
-        run: mvn -B -T 4 -f backend/pom.xml clean verify
+        run: mvn -B -T 4 -f backend/pom.xml clean install
+
+      - name: Verify common-web handler set
+        shell: pwsh
+        run: ./scripts/verify-common-web.ps1 -Root .
