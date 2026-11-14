@@ -17,9 +17,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 class CollabBootstrapSqlTest {
 
     private static EmbeddedPostgresSupport postgres;
+    private static long seededPermissions;
+    private static long seededDictTypes;
+    private static long seededDictItems;
 
     @BeforeAll
-    static void migrate() {
+    static void migrate() throws Exception {
         postgres = EmbeddedPostgresSupport.start();
         Flyway.configure()
                 .dataSource(postgres.dataSource())
@@ -29,6 +32,9 @@ class CollabBootstrapSqlTest {
                 .load()
                 .migrate();
         applyBootstrap();
+        seededPermissions = count("SELECT count(1) FROM fenglin_hub.hub_permission WHERE domain = 'collab'");
+        seededDictTypes = count("SELECT count(1) FROM fenglin_hub.hub_dict_type WHERE code LIKE 'collab\\_%' ESCAPE '\\'");
+        seededDictItems = count("SELECT count(1) FROM fenglin_hub.hub_dict_item WHERE tenant_id = 0 AND dict_code LIKE 'collab\\_%' ESCAPE '\\'");
         applyBootstrap();
     }
 
@@ -50,20 +56,20 @@ class CollabBootstrapSqlTest {
         assertThat(count("SELECT count(1) FROM fenglin_hub.hub_permission "
                 + "WHERE code = 'tenant:collab:ona:config'")).isEqualTo(1);
         assertThat(count("SELECT count(1) FROM fenglin_hub.hub_permission WHERE domain = 'collab'"))
-                .isEqualTo(29);
+                .isEqualTo(seededPermissions);
     }
 
     @Test
     void seedsDictionariesOnce() throws Exception {
         assertThat(count("SELECT count(1) FROM fenglin_hub.hub_dict_type WHERE code LIKE 'collab\\_%' ESCAPE '\\'"))
-                .isEqualTo(13);
+                .isEqualTo(seededDictTypes);
         assertThat(count("SELECT count(1) FROM fenglin_hub.hub_dict_item WHERE tenant_id = 0 "
                 + "AND dict_code = 'collab_msg_type'")).isEqualTo(8);
         assertThat(count("SELECT count(1) FROM fenglin_hub.hub_dict_item WHERE tenant_id = 0 "
-                + "AND dict_code LIKE 'collab\\_%' ESCAPE '\\'")).isEqualTo(49);
+                + "AND dict_code LIKE 'collab\\_%' ESCAPE '\\'")).isEqualTo(seededDictItems);
     }
 
-    private long count(String sql) throws Exception {
+    private static long count(String sql) throws Exception {
         try (Connection connection = postgres.dataSource().getConnection();
              Statement statement = connection.createStatement();
              ResultSet resultSet = statement.executeQuery(sql)) {

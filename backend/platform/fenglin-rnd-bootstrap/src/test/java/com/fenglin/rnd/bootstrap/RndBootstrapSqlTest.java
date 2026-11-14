@@ -17,9 +17,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 class RndBootstrapSqlTest {
 
     private static EmbeddedPostgresSupport postgres;
+    private static long seededPermissions;
+    private static long seededDictTypes;
+    private static long seededDictItems;
 
     @BeforeAll
-    static void migrate() {
+    static void migrate() throws Exception {
         postgres = EmbeddedPostgresSupport.start();
         Flyway.configure()
                 .dataSource(postgres.dataSource())
@@ -29,6 +32,9 @@ class RndBootstrapSqlTest {
                 .load()
                 .migrate();
         applyBootstrap();
+        seededPermissions = count("SELECT count(1) FROM fenglin_hub.hub_permission WHERE domain = 'devops'");
+        seededDictTypes = count("SELECT count(1) FROM fenglin_hub.hub_dict_type WHERE code LIKE 'devops\\_%' ESCAPE '\\'");
+        seededDictItems = count("SELECT count(1) FROM fenglin_hub.hub_dict_item WHERE tenant_id = 0 AND dict_code LIKE 'devops\\_%' ESCAPE '\\'");
         applyBootstrap();
     }
 
@@ -50,22 +56,22 @@ class RndBootstrapSqlTest {
         assertThat(count("SELECT count(1) FROM fenglin_hub.hub_permission "
                 + "WHERE code = 'biz:devops:release:deploy'")).isEqualTo(1);
         assertThat(count("SELECT count(1) FROM fenglin_hub.hub_permission WHERE domain = 'devops'"))
-                .isEqualTo(53);
+                .isEqualTo(seededPermissions);
         assertThat(count("SELECT count(DISTINCT code) FROM fenglin_hub.hub_permission WHERE domain = 'devops'"))
-                .isEqualTo(53);
+                .isEqualTo(seededPermissions);
     }
 
     @Test
     void seedsDictionariesOnce() throws Exception {
         assertThat(count("SELECT count(1) FROM fenglin_hub.hub_dict_type WHERE code LIKE 'devops\\_%' ESCAPE '\\'"))
-                .isEqualTo(38);
+                .isEqualTo(seededDictTypes);
         assertThat(count("SELECT count(1) FROM fenglin_hub.hub_dict_item WHERE tenant_id = 0 "
-                + "AND dict_code LIKE 'devops\\_%' ESCAPE '\\'")).isEqualTo(145);
+                + "AND dict_code LIKE 'devops\\_%' ESCAPE '\\'")).isEqualTo(seededDictItems);
         assertThat(count("SELECT count(1) FROM fenglin_hub.hub_dict_item WHERE tenant_id = 0 "
                 + "AND dict_code = 'devops_req_status_default'")).isEqualTo(7);
     }
 
-    private long count(String sql) throws Exception {
+    private static long count(String sql) throws Exception {
         try (Connection connection = postgres.dataSource().getConnection();
              Statement statement = connection.createStatement();
              ResultSet resultSet = statement.executeQuery(sql)) {

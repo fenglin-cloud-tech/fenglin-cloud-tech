@@ -881,8 +881,10 @@ class TalentIntegrationTest {
                 .getBody()).get("data");
         assertThat(finalApproval.get("flow_status").asText()).isEqualTo("PASSED");
 
-        JsonNode matches = read(get("/api/talent/v1/flow/demands/" + demandId + "/matches?topN=10", USER_HR,
-                ALL_PERMISSIONS).getBody()).get("data");
+        var matchesResponse = get("/api/talent/v1/flow/demands/" + demandId + "/matches?topN=10", USER_HR,
+                ALL_PERMISSIONS);
+        JsonNode matches = read(matchesResponse.getBody()).get("data");
+        assertThat(matches).as("matches response: %s", matchesResponse.getBody()).isNotNull();
         assertThat(matches.size()).isEqualTo(3);
         assertThat(matches.get(0).get("employee_id").asLong()).isEqualTo(employee1);
         assertThat(matches.get(0).get("skill_coverage").asDouble()).isEqualTo(1.0);

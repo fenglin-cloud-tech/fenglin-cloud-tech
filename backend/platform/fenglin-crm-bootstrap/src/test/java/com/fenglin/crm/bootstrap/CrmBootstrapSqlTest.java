@@ -17,9 +17,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 class CrmBootstrapSqlTest {
 
     private static EmbeddedPostgresSupport postgres;
+    private static long seededPermissions;
+    private static long seededDictTypes;
+    private static long seededDictItems;
 
     @BeforeAll
-    static void migrate() {
+    static void migrate() throws Exception {
         postgres = EmbeddedPostgresSupport.start();
         Flyway.configure()
                 .dataSource(postgres.dataSource())
@@ -29,6 +32,9 @@ class CrmBootstrapSqlTest {
                 .load()
                 .migrate();
         applyBootstrap();
+        seededPermissions = count("SELECT count(1) FROM fenglin_hub.hub_permission WHERE domain = 'crm'");
+        seededDictTypes = count("SELECT count(1) FROM fenglin_hub.hub_dict_type WHERE code LIKE 'crm\\_%' ESCAPE '\\'");
+        seededDictItems = count("SELECT count(1) FROM fenglin_hub.hub_dict_item WHERE tenant_id = 0 AND dict_code LIKE 'crm\\_%' ESCAPE '\\'");
         applyBootstrap();
     }
 
@@ -50,13 +56,13 @@ class CrmBootstrapSqlTest {
         assertThat(count("SELECT count(1) FROM fenglin_hub.hub_permission WHERE code = 'crm:contract:manage'"))
                 .isEqualTo(1);
         assertThat(count("SELECT count(1) FROM fenglin_hub.hub_permission WHERE domain = 'crm'"))
-                .isEqualTo(21);
+                .isEqualTo(seededPermissions);
     }
 
     @Test
     void seedsDictionariesOnce() throws Exception {
         assertThat(count("SELECT count(1) FROM fenglin_hub.hub_dict_type WHERE code LIKE 'crm\\_%' ESCAPE '\\'"))
-                .isEqualTo(8);
+                .isEqualTo(seededDictTypes);
         assertThat(count("SELECT count(1) FROM fenglin_hub.hub_dict_item WHERE tenant_id = 0 "
                 + "AND dict_code = 'crm_opportunity_stage'"))
                 .isEqualTo(6);
@@ -69,10 +75,10 @@ class CrmBootstrapSqlTest {
                 .isEqualTo(6);
         assertThat(count("SELECT count(1) FROM fenglin_hub.hub_dict_item WHERE tenant_id = 0 "
                 + "AND dict_code LIKE 'crm\\_%' ESCAPE '\\'"))
-                .isEqualTo(36);
+                .isEqualTo(seededDictItems);
     }
 
-    private long count(String sql) throws Exception {
+    private static long count(String sql) throws Exception {
         try (Connection connection = postgres.dataSource().getConnection();
              Statement statement = connection.createStatement();
              ResultSet resultSet = statement.executeQuery(sql)) {

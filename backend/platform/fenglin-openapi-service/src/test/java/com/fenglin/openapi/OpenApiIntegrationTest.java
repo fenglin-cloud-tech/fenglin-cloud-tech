@@ -85,8 +85,8 @@ class OpenApiIntegrationTest {
         registry.add("spring.datasource.username", () -> "postgres");
         registry.add("spring.datasource.password", () -> "");
         registry.add("spring.datasource.hikari.connection-init-sql", () -> "SET ROLE fl_app");
-        registry.add("spring.data.redis.host", () -> "localhost");
-        registry.add("spring.data.redis.port", () -> "6379");
+        registry.add("spring.data.redis.host", () -> System.getProperty("test.redis.host", "localhost"));
+        registry.add("spring.data.redis.port", () -> System.getProperty("test.redis.port", "6379"));
         registry.add("fenglin.openapi.partition-maintenance-enabled", () -> "false");
     }
 

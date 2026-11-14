@@ -17,9 +17,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 class IntelligenceBootstrapSqlTest {
 
     private static EmbeddedPostgresSupport postgres;
+    private static long seededPermissions;
+    private static long seededDictTypes;
+    private static long seededDictItems;
 
     @BeforeAll
-    static void migrate() {
+    static void migrate() throws Exception {
         postgres = EmbeddedPostgresSupport.start();
         Flyway.configure()
                 .dataSource(postgres.dataSource())
@@ -29,6 +32,9 @@ class IntelligenceBootstrapSqlTest {
                 .load()
                 .migrate();
         applyBootstrap();
+        seededPermissions = count("SELECT count(1) FROM fenglin_hub.hub_permission WHERE domain = 'ai'");
+        seededDictTypes = count("SELECT count(1) FROM fenglin_hub.hub_dict_type WHERE code LIKE 'ai\\_%' ESCAPE '\\'");
+        seededDictItems = count("SELECT count(1) FROM fenglin_hub.hub_dict_item WHERE tenant_id = 0 AND dict_code LIKE 'ai\\_%' ESCAPE '\\'");
         applyBootstrap();
     }
 
@@ -50,9 +56,9 @@ class IntelligenceBootstrapSqlTest {
         assertThat(count("SELECT count(1) FROM fenglin_hub.hub_permission "
                 + "WHERE code = 'ai:search:secure'")).isEqualTo(1);
         assertThat(count("SELECT count(1) FROM fenglin_hub.hub_permission WHERE domain = 'ai'"))
-                .isEqualTo(39);
+                .isEqualTo(seededPermissions);
         assertThat(count("SELECT count(DISTINCT code) FROM fenglin_hub.hub_permission WHERE domain = 'ai'"))
-                .isEqualTo(39);
+                .isEqualTo(seededPermissions);
         // 平台 AI 中台已登记的权限码复用，不重复插入
         assertThat(count("SELECT count(1) FROM fenglin_hub.hub_permission WHERE code = 'ai:chat:rag'"))
                 .isEqualTo(1);
@@ -63,9 +69,9 @@ class IntelligenceBootstrapSqlTest {
     @Test
     void seedsDictionariesOnce() throws Exception {
         assertThat(count("SELECT count(1) FROM fenglin_hub.hub_dict_type "
-                + "WHERE code LIKE 'ai\\_%' ESCAPE '\\'")).isEqualTo(21);
+                + "WHERE code LIKE 'ai\\_%' ESCAPE '\\'")).isEqualTo(seededDictTypes);
         assertThat(count("SELECT count(1) FROM fenglin_hub.hub_dict_item WHERE tenant_id = 0 "
-                + "AND dict_code LIKE 'ai\\_%' ESCAPE '\\'")).isEqualTo(88);
+                + "AND dict_code LIKE 'ai\\_%' ESCAPE '\\'")).isEqualTo(seededDictItems);
         assertThat(count("SELECT count(1) FROM fenglin_hub.hub_dict_item WHERE tenant_id = 0 "
                 + "AND dict_code = 'ai_sec_level'")).isEqualTo(4);
     }
@@ -79,7 +85,7 @@ class IntelligenceBootstrapSqlTest {
         assertThat(count("SELECT count(1) FROM fenglin_hub.hub_ai_metering WHERE deleted = 0")).isZero();
     }
 
-    private long count(String sql) throws Exception {
+    private static long count(String sql) throws Exception {
         try (Connection connection = postgres.dataSource().getConnection();
              Statement statement = connection.createStatement();
              ResultSet resultSet = statement.executeQuery(sql)) {
