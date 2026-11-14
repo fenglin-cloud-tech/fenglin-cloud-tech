@@ -1,5 +1,6 @@
 package com.fenglin.iam.web;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fenglin.common.core.ApiResponse;
 import com.fenglin.common.core.PageResult;
 import com.fenglin.common.security.PermissionGuard;
@@ -191,9 +192,9 @@ public class IamController {
     public ApiResponse<RoleView> grantPermissions(
             @RequestHeader(value = "X-Permissions", required = false) String permissions,
             @PathVariable long id,
-            @RequestBody GrantPermissionsRequest request) {
+            @RequestBody JsonNode body) {
         PermissionGuard.require(permissions, MANAGE_ROLE_PERMISSION);
-        return ApiResponse.success(iamService.grantPermissions(id, request));
+        return ApiResponse.success(iamService.grantPermissions(id, GrantPermissionsRequest.parse(body)));
     }
 
     @GetMapping("/api/hub/v1/admin/permissions/tree")

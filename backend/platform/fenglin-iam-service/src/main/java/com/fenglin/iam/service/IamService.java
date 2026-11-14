@@ -202,8 +202,11 @@ public class IamService {
     public RoleView grantPermissions(long roleId, GrantPermissionsRequest request) {
         long tenantId = TenantContext.requireTenantId();
         requireRole(tenantId, roleId);
-        List<String> codes = request.permissionCodes() == null ? List.of()
-                : new ArrayList<>(new LinkedHashSet<>(request.permissionCodes()));
+        List<String> codes;
+        if (request == null || request.permissionCodes() == null) {
+            throw new BizException(CommonErrorCode.BAD_REQUEST, "缺少必填字段: permission_codes");
+        }
+        codes = new ArrayList<>(new LinkedHashSet<>(request.permissionCodes()));
         if (!codes.isEmpty() && permissionMapper.countByCodes(codes) != codes.size()) {
             throw new BizException(CommonErrorCode.BAD_REQUEST, "存在未定义的权限码");
         }

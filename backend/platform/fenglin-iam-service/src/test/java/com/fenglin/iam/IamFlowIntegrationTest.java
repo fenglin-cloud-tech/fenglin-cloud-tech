@@ -223,6 +223,50 @@ class IamFlowIntegrationTest {
     }
 
     @Test
+    void grantPermissionsRejectsMissingOrUnknownFieldAndOnlyClearsOnExplicitEmptyArray() {
+        HttpHeaders headers = headers(Map.of("X-Tenant-Id", String.valueOf(TENANT_A),
+                "X-Permissions", MANAGE_ROLE_PERMISSION));
+        String path = "/api/hub/v1/admin/roles/" + ROLE_ADMIN_A + "/permissions";
+
+        HttpResult seeded = exchange(HttpMethod.PUT, path,
+                Map.of("permission_codes", List.of(CREATE_USER_PERMISSION, "hub:audit:read")), headers);
+        assertThat(seeded.status()).isEqualTo(200);
+        assertThat(rolePermissionCount(ROLE_ADMIN_A)).isEqualTo(2);
+
+        // PLAT-25：驼峰字段被当成未知字段，400 且权限数不变（修复前会被静默清空）
+        HttpResult camel = exchange(HttpMethod.PUT, path,
+                Map.of("permissionCodes", List.of(CREATE_USER_PERMISSION)), headers);
+        assertThat(camel.status()).isEqualTo(400);
+        assertThat(camel.body().get("code").asText()).isEqualTo("FL-COMMON-0400");
+        assertThat(camel.body().get("message").asText()).contains("permissionCodes");
+        assertThat(rolePermissionCount(ROLE_ADMIN_A)).isEqualTo(2);
+
+        // 缺少权限字段：400 并点名 permission_codes，权限数不变
+        HttpResult missing = exchange(HttpMethod.PUT, path, Map.of(), headers);
+        assertThat(missing.status()).isEqualTo(400);
+        assertThat(missing.body().get("message").asText()).contains("permission_codes");
+        assertThat(rolePermissionCount(ROLE_ADMIN_A)).isEqualTo(2);
+
+        // 显式 null 等同缺失，不按空数组处理
+        HttpResult nullField = exchange(HttpMethod.PUT, path,
+                java.util.Collections.singletonMap("permission_codes", null), headers);
+        assertThat(nullField.status()).isEqualTo(400);
+        assertThat(nullField.body().get("message").asText()).contains("permission_codes");
+        assertThat(rolePermissionCount(ROLE_ADMIN_A)).isEqualTo(2);
+
+        // 显式空数组才允许清空
+        HttpResult empty = exchange(HttpMethod.PUT, path, Map.of("permission_codes", List.of()), headers);
+        assertThat(empty.status()).isEqualTo(200);
+        assertThat(rolePermissionCount(ROLE_ADMIN_A)).isZero();
+
+        // 清空后可重新写入
+        HttpResult restored = exchange(HttpMethod.PUT, path,
+                Map.of("permission_codes", List.of(CREATE_USER_PERMISSION)), headers);
+        assertThat(restored.status()).isEqualTo(200);
+        assertThat(rolePermissionCount(ROLE_ADMIN_A)).isEqualTo(1);
+    }
+
+    @Test
     void disablingUserBumpsPermissionVersion() {
         HttpResult updated = exchange(HttpMethod.PUT, "/api/hub/v1/admin/users/" + USER_ADMIN_A,
                 Map.of("status", "DISABLED"),
@@ -399,6 +443,18 @@ class IamFlowIntegrationTest {
         try (Connection connection = ownerConnection(); Statement statement = connection.createStatement();
              ResultSet rs = statement.executeQuery(
                      "SELECT permission_version FROM fenglin_hub.hub_user WHERE id = " + userId)) {
+            assertThat(rs.next()).isTrue();
+            return rs.getLong(1);
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    private long rolePermissionCount(long roleId) {
+        try (Connection connection = ownerConnection(); Statement statement = connection.createStatement();
+             ResultSet rs = statement.executeQuery(
+                     "SELECT count(*) FROM fenglin_hub.hub_role_permission WHERE role_id = " + roleId
+                             + " AND deleted = 0")) {
             assertThat(rs.next()).isTrue();
             return rs.getLong(1);
         } catch (Exception e) {
