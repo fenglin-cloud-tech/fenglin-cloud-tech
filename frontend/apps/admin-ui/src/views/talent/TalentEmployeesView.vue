@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { GapNotice, PageHeader } from '@fenglin/ui-admin'
+import { GapNotice, PageHeader, CODE_COLUMN_WIDTH } from '@fenglin/ui-admin'
 import { talentApi, type TalentEmployeeDetail, type TalentEmployeeListItem } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 
@@ -254,7 +254,7 @@ onMounted(load)
       <el-alert v-if="error" type="error" :closable="false" show-icon :title="error" style="margin-bottom: 12px" />
 
       <el-table :data="rows" v-loading="loading" border stripe>
-        <el-table-column prop="emp_no" label="工号" width="130" />
+        <el-table-column prop="emp_no" label="工号" :width="CODE_COLUMN_WIDTH" show-overflow-tooltip />
         <el-table-column prop="name" label="姓名" width="120" />
         <el-table-column label="组织" min-width="150" show-overflow-tooltip>
           <template #default="{ row }">{{ row.org?.name ?? '-' }}</template>
