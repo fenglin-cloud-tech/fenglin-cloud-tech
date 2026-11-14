@@ -137,6 +137,7 @@ export interface CreateRoleRequest {
   code: string
   name: string
   role_type?: string
+  /** 保留字段：后端接受但不参与鉴权，前端表单不再提交 */
   data_scope?: string
   parent_id?: string | number
 }

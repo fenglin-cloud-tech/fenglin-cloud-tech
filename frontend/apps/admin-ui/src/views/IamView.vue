@@ -111,7 +111,8 @@ const userEditForm = reactive({
 const roleDialog = ref(false)
 const roleSaving = ref(false)
 const roleFormError = ref('')
-const roleForm = reactive<CreateRoleRequest>({ code: '', name: '', role_type: 'BIZ', data_scope: 'SELF' })
+// 数据范围（data_scope）为保留字段，当前不参与鉴权，表单不再提交该字段
+const roleForm = reactive<CreateRoleRequest>({ code: '', name: '', role_type: 'BIZ' })
 
 const grantVisible = ref(false)
 const grantSaving = ref(false)
@@ -429,7 +430,7 @@ async function submitAssign() {
 }
 
 function openCreateRole() {
-  Object.assign(roleForm, { code: '', name: '', role_type: 'BIZ', data_scope: 'SELF' })
+  Object.assign(roleForm, { code: '', name: '', role_type: 'BIZ' })
   roleFormError.value = ''
   roleDialog.value = true
 }
@@ -559,7 +560,13 @@ onMounted(async () => {
             <el-table-column prop="code" label="编码" width="180" />
             <el-table-column prop="name" label="名称" min-width="140" />
             <el-table-column prop="role_type" label="类型" width="110" />
-            <el-table-column prop="data_scope" label="数据范围" width="110" />
+            <el-table-column prop="data_scope" label="数据范围（未启用）" width="150">
+              <template #default="{ row }">
+                <el-tooltip content="保留字段，当前不生效；可见范围由权限码控制" placement="top">
+                  <span class="fl-muted">{{ row.data_scope }}（未启用）</span>
+                </el-tooltip>
+              </template>
+            </el-table-column>
             <el-table-column prop="status" label="状态" width="100" />
             <el-table-column label="权限数" width="90">
               <template #default="{ row }">{{ row.permission_codes?.length ?? 0 }}</template>
@@ -777,15 +784,14 @@ onMounted(async () => {
             <el-option label="APP（应用角色）" value="APP" />
           </el-select>
         </el-form-item>
-        <el-form-item label="数据范围">
-          <el-select v-model="roleForm.data_scope" style="width: 100%">
-            <el-option label="SELF（仅本人）" value="SELF" />
-            <el-option label="DEPT（本部门）" value="DEPT" />
-            <el-option label="DEPT_AND_CHILD（本部门及下级）" value="DEPT_AND_CHILD" />
-            <el-option label="CUSTOM（自定义）" value="CUSTOM" />
-            <el-option label="ALL（全部）" value="ALL" />
-          </el-select>
-        </el-form-item>
+        <el-alert
+          type="info"
+          :closable="false"
+          show-icon
+          title="数据范围能力暂未生效"
+          description="角色上的 data_scope 为保留字段，当前不参与鉴权，也不提供配置。实际可见范围由权限码决定：员工自助请使用 *:self:* 权限码。"
+          style="margin-bottom: 12px"
+        />
       </el-form>
       <template #footer>
         <el-button @click="roleDialog = false">取消</el-button>
