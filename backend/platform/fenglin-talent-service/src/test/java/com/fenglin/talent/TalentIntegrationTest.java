@@ -890,6 +890,42 @@ class TalentIntegrationTest {
         assertThat(matches.get(0).get("skill_coverage").asDouble()).isEqualTo(1.0);
     }
 
+    /**
+     * 全局 Long 序列化会把超过 JS 安全整数的 ID 写成字符串；skills_required 经 ObjectMapper
+     * 落库后，读回的 skillId 就是字符串形态。匹配结果必须按同一 long 值计算。
+     */
+    @Test
+    void matchesAcceptsStringSnowflakeSkillIdFromStoredJson() throws Exception {
+        long root = createOrg("字符串ID公司", "SID", null, "COMPANY");
+        long dept = createOrg("字符串ID部门", "SID.DEPT", root, "DEPT");
+        long employee = createEmployee("S2001", "沈一", dept);
+        long skillTag = read(post("/api/talent/v1/skills/tags", USER_HR, ALL_PERMISSIONS,
+                Map.of("name", "Kotlin", "category", "TECH")).getBody()).get("data").get("id").asLong();
+        assertThat(skillTag).isGreaterThan(9007199254740991L);
+        read(post("/api/talent/v1/skills/employees/" + employee, USER_HR, ALL_PERMISSIONS,
+                Map.of("skills", List.of(Map.of("skill_id", skillTag, "self_level", 4, "years", 3))))
+                .getBody());
+
+        JsonNode demand = read(post("/api/talent/v1/flow/demands", USER_HR, ALL_PERMISSIONS, Map.of(
+                "org_id", dept,
+                "skills_required", List.of(Map.of("skillId", String.valueOf(skillTag), "level", 3)),
+                "headcount", 1, "demand_type", "INTERNAL", "publish_scope", "ALL")).getBody()).get("data");
+        long demandId = demand.get("id").asLong();
+
+        // 前置条件：落库形态确实是字符串型雪花 ID
+        assertThat(queryString("SELECT skills_required::text FROM fenglin_talent.talent_talent_demand WHERE id = "
+                + demandId)).contains("\"skillId\": \"" + skillTag + "\"");
+
+        ResponseEntity<String> response = get("/api/talent/v1/flow/demands/" + demandId + "/matches?topN=10",
+                USER_HR, ALL_PERMISSIONS);
+        assertThat(response.getStatusCode().value()).as("matches response: %s", response.getBody()).isEqualTo(200);
+        JsonNode matches = read(response.getBody()).get("data");
+        assertThat(matches.size()).isEqualTo(1);
+        assertThat(matches.get(0).get("employee_id").asLong()).isEqualTo(employee);
+        assertThat(matches.get(0).get("skill_coverage").asDouble()).isEqualTo(1.0);
+        assertThat(matches.get(0).get("reasons").get(0).asText()).isEqualTo("技能覆盖 1/1");
+    }
+
     // ---------- 敬业度与离职预测 ----------
 
     @Test

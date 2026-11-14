@@ -360,8 +360,10 @@ public class SkillService {
             Map<Long, Integer> owned = ownedSkills(Rows.str(employee, "skills"));
             int matched = 0;
             for (Map<String, Object> need : required) {
-                long skillId = ((Number) need.getOrDefault("skillId", 0)).longValue();
-                int level = need.get("level") instanceof Number number ? number.intValue() : 1;
+                Long skillIdValue = Rows.toLong(need.get("skillId"));
+                long skillId = skillIdValue == null ? 0L : skillIdValue;
+                Integer levelValue = Rows.toInt(need.get("level"));
+                int level = levelValue == null ? 1 : levelValue;
                 Integer own = owned.get(skillId);
                 if (own != null && own >= level) {
                     matched++;
@@ -417,10 +419,10 @@ public class SkillService {
             List<?> list = objectMapper.readValue(json, List.class);
             for (Object item : list) {
                 if (item instanceof Map<?, ?> map) {
-                    Object skillId = map.get("skillId");
-                    Object level = map.get("level");
-                    if (skillId instanceof Number id && level instanceof Number lv) {
-                        owned.merge(id.longValue(), lv.intValue(), Math::max);
+                    Long skillId = Rows.toLong(map.get("skillId"));
+                    Integer level = Rows.toInt(map.get("level"));
+                    if (skillId != null && level != null) {
+                        owned.merge(skillId, level, Math::max);
                     }
                 }
             }
