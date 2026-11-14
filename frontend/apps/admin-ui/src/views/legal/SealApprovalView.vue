@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { GapNotice, PageHeader } from '@fenglin/ui-admin'
+import { GapNotice, PageHeader, ID_COLUMN_WIDTH } from '@fenglin/ui-admin'
 import { legalApi, type LegalRecord } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 import { fmtTime, label, sealAppStatus } from './labels'
@@ -109,22 +109,22 @@ onMounted(load)
 
     <el-card shadow="never">
       <el-table :data="rows" v-loading="loading" border stripe>
-        <el-table-column prop="apply_no" label="申请编号" width="170" />
+        <el-table-column prop="apply_no" label="申请编号" width="130" show-overflow-tooltip />
         <el-table-column prop="contract_id" label="合同ID" width="170" />
         <el-table-column prop="seal_id" label="印章ID" width="170" />
-        <el-table-column prop="seal_type" label="印章类型" width="110" />
-        <el-table-column prop="copies" label="份数" width="80" />
-        <el-table-column prop="applicant_id" label="申请人" width="90" />
-        <el-table-column prop="purpose" label="用途" min-width="140" show-overflow-tooltip />
-        <el-table-column label="状态" width="100">
+        <el-table-column prop="seal_type" label="印章类型" width="90" />
+        <el-table-column prop="copies" label="份数" width="70" />
+        <el-table-column prop="applicant_id" label="申请人" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
+        <el-table-column prop="purpose" label="用途" min-width="100" show-overflow-tooltip />
+        <el-table-column label="状态" width="90">
           <template #default="{ row }">
             <el-tag size="small">{{ label(sealAppStatus, row.status) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="申请时间" width="170">
+        <el-table-column label="申请时间" width="150">
           <template #default="{ row }">{{ fmtTime(row.created_at) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="190">
+        <el-table-column label="操作" width="150">
           <template #default="{ row }">
             <template v-if="row.status === 'PENDING'">
               <el-button v-perm="'legal:seal:approve'" link type="success" @click="openApprove(row, 'APPROVE')">通过</el-button>

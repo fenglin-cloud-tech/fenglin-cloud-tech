@@ -30,7 +30,7 @@ const signatoryError = ref('')
 
 const initiateVisible = ref(false)
 const initiateSaving = ref(false)
-const initiateForm = reactive({ contract_id: undefined as number | undefined, provider_code: 'ESIGN' })
+const initiateForm = reactive({ contract_id: undefined as string | undefined, provider_code: 'ESIGN' })
 
 const gapItems = [
   '签署发起 /contracts/{id}/sign/initiate 依赖工作流定义 legalContractSign；后端当前报 "Cannot resolve identifier \'signerId\'"，发起会失败，页面如实回显错误。',
@@ -171,7 +171,7 @@ onMounted(loadRecords)
             <el-button :loading="recordLoading" @click="loadRecords">查询</el-button>
           </div>
           <el-table :data="records" v-loading="recordLoading" border stripe max-height="520">
-            <el-table-column prop="sign_task_no" label="签署任务号" width="180" />
+            <el-table-column prop="sign_task_no" label="签署任务号" width="160" show-overflow-tooltip />
             <el-table-column prop="contract_id" label="合同ID" width="170" />
             <el-table-column prop="signatory_id" label="签署方ID" width="170" />
             <el-table-column prop="provider_code" label="服务商" width="100" />
@@ -181,14 +181,14 @@ onMounted(loadRecords)
             <el-table-column label="意愿" width="80">
               <template #default="{ row }">{{ row.will_confirmed ? '是' : '否' }}</template>
             </el-table-column>
-            <el-table-column prop="auth_mode" label="认证方式" width="110" />
+            <el-table-column prop="auth_mode" label="认证方式" width="100" show-overflow-tooltip />
             <el-table-column label="状态" width="100">
               <template #default="{ row }">{{ label(signTaskStatus, row.status) }}</template>
             </el-table-column>
             <el-table-column label="签署时间" width="170">
               <template #default="{ row }">{{ fmtTime(row.signed_at) }}</template>
             </el-table-column>
-            <el-table-column prop="doc_hash" label="文档哈希" width="170" show-overflow-tooltip />
+            <el-table-column prop="doc_hash" label="文档哈希" width="160" show-overflow-tooltip />
           </el-table>
           <el-pagination
             style="margin-top: 12px; justify-content: flex-end"
@@ -269,7 +269,7 @@ onMounted(loadRecords)
 
     <el-dialog v-model="initiateVisible" title="发起签署" width="480px">
       <el-form label-width="100px">
-        <el-form-item label="合同ID" required><el-input-number v-model="initiateForm.contract_id" :min="1" style="width: 100%" /></el-form-item>
+        <el-form-item label="合同ID" required><el-input v-model="initiateForm.contract_id" placeholder="19 位数字合同ID" maxlength="25" /></el-form-item>
         <el-form-item label="服务商"><el-input v-model="initiateForm.provider_code" /></el-form-item>
       </el-form>
       <el-alert type="warning" :closable="false" show-icon title="签署发起依赖工作流定义 legalContractSign，当前后端定义缺少 signerId 解析，提交可能失败。" />

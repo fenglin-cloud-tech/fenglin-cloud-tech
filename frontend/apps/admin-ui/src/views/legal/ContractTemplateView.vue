@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { GapNotice, PageHeader } from '@fenglin/ui-admin'
+import { GapNotice, PageHeader, ID_COLUMN_WIDTH } from '@fenglin/ui-admin'
 import { legalApi, type LegalRecord } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 import { contractCategory, fmtTime, label } from './labels'
@@ -169,14 +169,14 @@ onMounted(load)
 
     <el-card shadow="never">
       <el-table :data="rows" v-loading="loading" border stripe>
-        <el-table-column prop="template_no" label="模板编号" width="150" />
+        <el-table-column prop="template_no" label="模板编号" width="150" show-overflow-tooltip />
         <el-table-column prop="name" label="名称" min-width="200" show-overflow-tooltip />
         <el-table-column label="类别" width="110">
           <template #default="{ row }">{{ label(contractCategory, row.category) }}</template>
         </el-table-column>
         <el-table-column prop="status" label="状态" width="100" />
         <el-table-column prop="visible_scope" label="可见范围" width="110" />
-        <el-table-column prop="owner_id" label="负责人" width="90" />
+        <el-table-column prop="owner_id" label="负责人" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
         <el-table-column label="创建时间" width="170">
           <template #default="{ row }">{{ fmtTime(row.created_at) }}</template>
         </el-table-column>

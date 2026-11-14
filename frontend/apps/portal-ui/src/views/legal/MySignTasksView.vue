@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { GapNotice, PageHeader } from '@fenglin/ui-admin'
+import { GapNotice, PageHeader, ID_COLUMN_WIDTH_COMFORT } from '@fenglin/ui-admin'
 import { legalApi, type LegalRecord } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 import { fmtTime, label, signTaskStatus } from './labels'
@@ -121,8 +121,8 @@ onMounted(load)
     <el-card shadow="never">
       <el-table :data="rows" v-loading="loading" border stripe>
         <el-table-column prop="sign_task_no" label="签署任务号" width="180" />
-        <el-table-column prop="contract_id" label="合同ID" width="170" />
-        <el-table-column prop="signatory_id" label="签署方ID" width="170" />
+        <el-table-column prop="contract_id" label="合同ID" :width="ID_COLUMN_WIDTH_COMFORT" show-overflow-tooltip />
+        <el-table-column prop="signatory_id" label="签署方ID" :width="ID_COLUMN_WIDTH_COMFORT" show-overflow-tooltip />
         <el-table-column prop="provider_code" label="服务商" width="100" />
         <el-table-column prop="auth_mode" label="认证方式" width="110" />
         <el-table-column label="状态" width="100">

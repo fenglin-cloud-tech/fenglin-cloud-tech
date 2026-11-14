@@ -209,21 +209,21 @@ onMounted(load)
     <el-card shadow="never">
       <el-table :data="rows" v-loading="loading" border stripe>
         <el-table-column prop="name" label="名称" min-width="200" show-overflow-tooltip />
-        <el-table-column prop="uscc" label="统一社会信用代码" width="190" />
-        <el-table-column prop="contact_name" label="联系人" width="110" />
-        <el-table-column label="手机号" width="120">
+        <el-table-column prop="uscc" label="统一社会信用代码" width="170" show-overflow-tooltip />
+        <el-table-column prop="contact_name" label="联系人" width="100" />
+        <el-table-column label="手机号" width="110">
           <template #default="{ row }">{{ row.contact_mobile_tail ? `****${row.contact_mobile_tail}` : '-' }}</template>
         </el-table-column>
-        <el-table-column prop="email" label="邮箱" width="180" />
-        <el-table-column prop="legal_rep" label="法定代表人" width="120" />
-        <el-table-column label="风险" width="80">
+        <el-table-column prop="email" label="邮箱" width="150" show-overflow-tooltip />
+        <el-table-column prop="legal_rep" label="法定代表人" width="100" />
+        <el-table-column label="风险" width="70">
           <template #default="{ row }">{{ label(riskLevel, row.risk_level) }}</template>
         </el-table-column>
-        <el-table-column prop="status" label="状态" width="90" />
-        <el-table-column label="创建时间" width="170">
+        <el-table-column prop="status" label="状态" width="80" />
+        <el-table-column label="创建时间" width="150">
           <template #default="{ row }">{{ fmtTime(row.created_at) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="190" fixed="right">
+        <el-table-column label="操作" width="160" fixed="right">
           <template #default="{ row }">
             <el-button v-perm="'legal:party:pii:apply'" link type="primary" @click="openPii(row)">
               申请明文

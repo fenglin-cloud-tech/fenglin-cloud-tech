@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { GapNotice, PageHeader } from '@fenglin/ui-admin'
+import { GapNotice, PageHeader, ID_COLUMN_WIDTH } from '@fenglin/ui-admin'
 import { legalApi, type LegalRecord } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 import { contractCategory, contractStatus, fmtAmount, fmtTime, label, riskLevel, sealStatus as sealStatusName, signStatusMap as signStatusMapName } from './labels'
@@ -27,7 +27,7 @@ const form = reactive({
   currency: 'CNY',
   start_date: '',
   end_date: '',
-  owner_id: undefined as number | undefined,
+  owner_id: undefined as string | undefined,
   org_id: undefined as number | undefined,
   risk_level: 'LOW',
   remark: '',
@@ -209,7 +209,7 @@ onMounted(load)
 
     <el-card shadow="never">
       <el-table :data="rows" v-loading="loading" border stripe max-height="560" @row-click="openDetail">
-        <el-table-column prop="contract_no" label="合同编号" width="150" />
+        <el-table-column prop="contract_no" label="合同编号" width="150" show-overflow-tooltip />
         <el-table-column prop="name" label="名称" min-width="200" show-overflow-tooltip />
         <el-table-column label="类别" width="110">
           <template #default="{ row }">{{ label(contractCategory, row.category) }}</template>
@@ -225,7 +225,7 @@ onMounted(load)
         <el-table-column label="风险" width="80">
           <template #default="{ row }">{{ label(riskLevel, row.risk_level) }}</template>
         </el-table-column>
-        <el-table-column prop="owner_id" label="负责人" width="90" />
+        <el-table-column prop="owner_id" label="负责人" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
         <el-table-column prop="created_at" label="创建时间" width="170">
           <template #default="{ row }">{{ fmtTime(row.created_at) }}</template>
         </el-table-column>
@@ -284,7 +284,7 @@ onMounted(load)
 
           <el-divider content-position="left">审批记录（{{ (detail.approvals ?? []).length }}）</el-divider>
           <el-table :data="detail.approvals ?? []" size="small" border max-height="180">
-            <el-table-column prop="approver_id" label="审批人" width="90" />
+            <el-table-column prop="approver_id" label="审批人" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
             <el-table-column prop="action" label="动作" width="100" />
             <el-table-column prop="node_name" label="节点" width="130" />
             <el-table-column label="时间" width="170">
@@ -315,7 +315,7 @@ onMounted(load)
         <el-form-item label="币种"><el-input v-model="form.currency" /></el-form-item>
         <el-form-item label="开始日期"><el-date-picker v-model="form.start_date" type="date" value-format="YYYY-MM-DD" style="width: 100%" /></el-form-item>
         <el-form-item label="结束日期"><el-date-picker v-model="form.end_date" type="date" value-format="YYYY-MM-DD" style="width: 100%" /></el-form-item>
-        <el-form-item label="负责人ID"><el-input-number v-model="form.owner_id" :min="1" style="width: 100%" /></el-form-item>
+        <el-form-item label="负责人ID"><el-input v-model="form.owner_id" placeholder="19 位数字用户ID" maxlength="25" /></el-form-item>
         <el-form-item label="组织ID"><el-input-number v-model="form.org_id" :min="1" style="width: 100%" /></el-form-item>
         <el-form-item label="风险等级">
           <el-select v-model="form.risk_level" style="width: 100%">

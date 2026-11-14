@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { GapNotice, PageHeader } from '@fenglin/ui-admin'
+import { GapNotice, PageHeader, ID_COLUMN_WIDTH_COMFORT } from '@fenglin/ui-admin'
 import { legalApi, type LegalRecord } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 import { fmtTime } from './labels'
@@ -90,7 +90,7 @@ onMounted(load)
     <el-card shadow="never">
       <el-table :data="rows" v-loading="loading" border stripe>
         <el-table-column prop="evidence_no" label="存证编号" width="180" />
-        <el-table-column prop="contract_id" label="合同ID" width="170" />
+        <el-table-column prop="contract_id" label="合同ID" :width="ID_COLUMN_WIDTH_COMFORT" show-overflow-tooltip />
         <el-table-column prop="evidence_type" label="类型" width="100" />
         <el-table-column prop="content_hash" label="内容哈希" min-width="180" show-overflow-tooltip />
         <el-table-column prop="worm_ref" label="WORM 引用" min-width="160" show-overflow-tooltip />

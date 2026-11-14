@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { GapNotice, PageHeader } from '@fenglin/ui-admin'
+import { GapNotice, PageHeader, ID_COLUMN_WIDTH } from '@fenglin/ui-admin'
 import { legalApi, type LegalRecord } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 import { dataLevel, eventStatus, fmtTime, label } from './labels'
@@ -213,20 +213,20 @@ onMounted(loadEvents)
             <el-button :loading="eventLoading" @click="loadEvents">查询</el-button>
           </div>
           <el-table :data="events" v-loading="eventLoading" border stripe max-height="520">
-            <el-table-column prop="event_no" label="事件编号" width="170" />
-            <el-table-column prop="event_type" label="类型" width="140" />
-            <el-table-column label="级别" width="100">
+            <el-table-column prop="event_no" label="事件编号" width="130" show-overflow-tooltip />
+            <el-table-column prop="event_type" label="类型" width="120" show-overflow-tooltip />
+            <el-table-column label="级别" width="80">
               <template #default="{ row }">{{ label(dataLevel, row.data_level) }}</template>
             </el-table-column>
-            <el-table-column prop="channel_code" label="通道" width="120" />
-            <el-table-column prop="user_id" label="用户" width="90" />
-            <el-table-column prop="file_name" label="文件" min-width="150" show-overflow-tooltip />
-            <el-table-column prop="action_taken" label="处置动作" width="120" />
-            <el-table-column label="状态" width="110">
+            <el-table-column prop="channel_code" label="通道" width="70" show-overflow-tooltip />
+            <el-table-column prop="user_id" label="用户" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
+            <el-table-column prop="file_name" label="文件" min-width="120" show-overflow-tooltip />
+            <el-table-column prop="action_taken" label="处置动作" width="100" show-overflow-tooltip />
+            <el-table-column label="状态" width="90">
               <template #default="{ row }">{{ label(eventStatus, row.status) }}</template>
             </el-table-column>
-            <el-table-column prop="risk_score" label="风险分" width="90" />
-            <el-table-column label="发生时间" width="170">
+            <el-table-column prop="risk_score" label="风险分" width="60" />
+            <el-table-column label="发生时间" width="140">
               <template #default="{ row }">{{ fmtTime(row.occurred_at) }}</template>
             </el-table-column>
             <el-table-column label="操作" width="210">
@@ -258,7 +258,7 @@ onMounted(loadEvents)
           </div>
           <el-table :data="releases" v-loading="releaseLoading" border stripe max-height="520">
             <el-table-column prop="event_no" label="申请编号" width="170" />
-            <el-table-column prop="user_id" label="申请人" width="90" />
+            <el-table-column prop="user_id" label="申请人" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
             <el-table-column prop="file_name" label="文件" min-width="160" show-overflow-tooltip />
             <el-table-column label="级别" width="100">
               <template #default="{ row }">{{ label(dataLevel, row.data_level) }}</template>
@@ -285,7 +285,7 @@ onMounted(loadEvents)
       </el-tab-pane>
     </el-tabs>
 
-    <el-drawer v-model="eventDrawer" title="事件详情" size="600px">
+    <el-drawer v-model="eventDrawer" title="事件详情" size="760px">
       <div v-loading="eventDetailLoading">
         <el-descriptions v-if="eventDetail" :column="2" border size="small">
           <el-descriptions-item label="事件编号">{{ eventDetail.event_no }}</el-descriptions-item>
@@ -304,10 +304,10 @@ onMounted(loadEvents)
         <el-divider content-position="left">处置记录</el-divider>
         <el-table :data="eventDetail?.handles ?? eventDetail?.audit_logs ?? []" size="small" border>
           <el-table-column prop="action" label="动作" width="100" />
-          <el-table-column prop="handler_id" label="处理人" width="90" />
-          <el-table-column prop="conclusion" label="结论" min-width="150" />
-          <el-table-column prop="rectify_item" label="整改项" min-width="120" />
-          <el-table-column label="时间" width="170">
+          <el-table-column prop="handler_id" label="处理人" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
+          <el-table-column prop="conclusion" label="结论" min-width="150" show-overflow-tooltip />
+          <el-table-column prop="rectify_item" label="整改项" min-width="120" show-overflow-tooltip />
+          <el-table-column label="时间" width="150">
             <template #default="{ row }">{{ fmtTime(row.acted_at) }}</template>
           </el-table-column>
         </el-table>

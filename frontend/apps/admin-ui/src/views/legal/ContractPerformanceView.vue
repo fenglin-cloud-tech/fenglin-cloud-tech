@@ -25,18 +25,18 @@ const reminderFilter = reactive({ contract_id: '', status: '' })
 const nodeVisible = ref(false)
 const nodeSaving = ref(false)
 const nodeForm = reactive({
-  contract_id: undefined as number | undefined,
+  contract_id: undefined as string | undefined,
   node_type: 'PAYMENT',
   name: '',
   plan_date: '',
   amount: undefined as number | undefined,
-  owner_id: undefined as number | undefined,
+  owner_id: undefined as string | undefined,
   remark: '',
 })
 
 const reminderVisible = ref(false)
 const reminderSaving = ref(false)
-const reminderForm = reactive({ contract_id: undefined as number | undefined, offset_days: 30, channel: 'INBOX' })
+const reminderForm = reactive({ contract_id: undefined as string | undefined, offset_days: 30, channel: 'INBOX' })
 
 const gapItems = [
   '履约节点与到期提醒均为真实表（legal_performance_node / legal_expiry_reminder），不走消息中台自动发送。',
@@ -245,7 +245,7 @@ onMounted(() => {
 
     <el-dialog v-model="nodeVisible" title="新增履约节点" width="560px">
       <el-form label-width="100px">
-        <el-form-item label="合同ID" required><el-input-number v-model="nodeForm.contract_id" :min="1" style="width: 100%" /></el-form-item>
+        <el-form-item label="合同ID" required><el-input v-model="nodeForm.contract_id" placeholder="19 位数字合同ID" maxlength="25" /></el-form-item>
         <el-form-item label="节点类型" required>
           <el-select v-model="nodeForm.node_type" style="width: 100%">
             <el-option label="付款" value="PAYMENT" />
@@ -257,7 +257,7 @@ onMounted(() => {
         <el-form-item label="名称" required><el-input v-model="nodeForm.name" maxlength="200" /></el-form-item>
         <el-form-item label="计划日期"><el-date-picker v-model="nodeForm.plan_date" type="date" value-format="YYYY-MM-DD" style="width: 100%" /></el-form-item>
         <el-form-item label="金额"><el-input-number v-model="nodeForm.amount" :min="0" :precision="2" style="width: 100%" /></el-form-item>
-        <el-form-item label="负责人ID"><el-input-number v-model="nodeForm.owner_id" :min="1" style="width: 100%" /></el-form-item>
+        <el-form-item label="负责人ID"><el-input v-model="nodeForm.owner_id" placeholder="19 位数字用户ID" maxlength="25" /></el-form-item>
         <el-form-item label="备注"><el-input v-model="nodeForm.remark" type="textarea" :rows="3" /></el-form-item>
       </el-form>
       <template #footer>
@@ -268,7 +268,7 @@ onMounted(() => {
 
     <el-dialog v-model="reminderVisible" title="新增到期提醒" width="480px">
       <el-form label-width="100px">
-        <el-form-item label="合同ID" required><el-input-number v-model="reminderForm.contract_id" :min="1" style="width: 100%" /></el-form-item>
+        <el-form-item label="合同ID" required><el-input v-model="reminderForm.contract_id" placeholder="19 位数字合同ID" maxlength="25" /></el-form-item>
         <el-form-item label="提前天数"><el-input-number v-model="reminderForm.offset_days" :min="1" :max="365" style="width: 100%" /></el-form-item>
         <el-form-item label="通知渠道">
           <el-select v-model="reminderForm.channel" style="width: 100%">

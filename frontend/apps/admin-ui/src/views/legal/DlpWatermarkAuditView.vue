@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { GapNotice, PageHeader } from '@fenglin/ui-admin'
+import { GapNotice, PageHeader, ID_COLUMN_WIDTH } from '@fenglin/ui-admin'
 import { legalApi, type LegalRecord } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 import { fmtTime } from './labels'
@@ -41,7 +41,7 @@ const watermarkForm = reactive({
   watermark_type: 'BOTH',
   file_hash: '',
   terminal_id: undefined as number | undefined,
-  user_id: undefined as number | undefined,
+  user_id: undefined as string | undefined,
   ip: '',
 })
 
@@ -188,12 +188,12 @@ onMounted(loadWatermarks)
             <el-button :loading="watermarkLoading" @click="loadWatermarks">查询</el-button>
           </div>
           <el-table :data="watermarks" v-loading="watermarkLoading" border stripe max-height="520">
-            <el-table-column prop="watermark_no" label="水印编号" width="180" />
+            <el-table-column prop="watermark_no" label="水印编号" width="180" show-overflow-tooltip />
             <el-table-column prop="biz_type" label="业务类型" width="110" />
             <el-table-column prop="biz_id" label="业务ID" width="170" />
             <el-table-column prop="watermark_type" label="水印类型" width="110" />
             <el-table-column prop="embed_code" label="嵌入码" min-width="200" show-overflow-tooltip />
-            <el-table-column prop="user_id" label="用户" width="90" />
+            <el-table-column prop="user_id" label="用户" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
             <el-table-column prop="terminal_id" label="终端" width="160" show-overflow-tooltip />
             <el-table-column prop="trace_status" label="溯源状态" width="110" />
             <el-table-column label="生成时间" width="170">
@@ -214,7 +214,7 @@ onMounted(loadWatermarks)
           <el-table :data="terminals" v-loading="terminalLoading" border stripe max-height="520">
             <el-table-column prop="terminal_no" label="终端编号" width="170" />
             <el-table-column prop="hostname" label="主机名" width="150" />
-            <el-table-column prop="user_id" label="绑定用户" width="100" />
+            <el-table-column prop="user_id" label="绑定用户" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
             <el-table-column prop="os_type" label="操作系统" width="110" />
             <el-table-column prop="agent_version" label="客户端版本" width="130" />
             <el-table-column prop="status" label="状态" width="100" />
@@ -244,7 +244,7 @@ onMounted(loadWatermarks)
             <el-table-column prop="action" label="动作" width="140" />
             <el-table-column prop="target_type" label="对象类型" width="130" />
             <el-table-column prop="target_id" label="对象ID" width="170" />
-            <el-table-column prop="operator_id" label="操作人" width="90" />
+            <el-table-column prop="operator_id" label="操作人" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
             <el-table-column prop="result" label="结果" width="100" />
             <el-table-column prop="prev_hash" label="前序哈希" min-width="160" show-overflow-tooltip />
             <el-table-column prop="block_hash" label="本条哈希" min-width="160" show-overflow-tooltip />
@@ -296,7 +296,7 @@ onMounted(loadWatermarks)
           </el-select>
         </el-form-item>
         <el-form-item label="文件哈希"><el-input v-model="watermarkForm.file_hash" placeholder="可选，溯源用" /></el-form-item>
-        <el-form-item label="用户ID"><el-input-number v-model="watermarkForm.user_id" :min="1" style="width: 100%" /></el-form-item>
+        <el-form-item label="用户ID"><el-input v-model="watermarkForm.user_id" placeholder="19 位数字用户ID" maxlength="25" /></el-form-item>
         <el-form-item label="终端ID"><el-input-number v-model="watermarkForm.terminal_id" :min="1" style="width: 100%" /></el-form-item>
         <el-form-item label="IP"><el-input v-model="watermarkForm.ip" placeholder="可选" /></el-form-item>
       </el-form>

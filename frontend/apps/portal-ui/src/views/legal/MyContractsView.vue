@@ -4,7 +4,7 @@ import { ElMessage } from 'element-plus'
 import { GapNotice, PageHeader } from '@fenglin/ui-admin'
 import { legalApi, type LegalRecord } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
-import { contractStatus, fmtAmount, fmtTime, label } from './labels'
+import { contractStatus, fmtAmount, fmtTime, label, sealStatus, signStatusMap } from './labels'
 
 const rows = ref<LegalRecord[]>([])
 const total = ref(0)
@@ -81,7 +81,7 @@ onMounted(load)
 
     <el-card shadow="never">
       <el-table :data="rows" v-loading="loading" border stripe @row-click="openDetail">
-        <el-table-column prop="contract_no" label="合同编号" width="150" />
+        <el-table-column prop="contract_no" label="合同编号" width="150" show-overflow-tooltip />
         <el-table-column prop="name" label="名称" min-width="200" show-overflow-tooltip />
         <el-table-column label="状态" width="100">
           <template #default="{ row }">{{ label(contractStatus, row.status) }}</template>
@@ -89,8 +89,12 @@ onMounted(load)
         <el-table-column label="金额" width="140" align="right">
           <template #default="{ row }">{{ fmtAmount(row.amount, row.currency) }}</template>
         </el-table-column>
-        <el-table-column prop="seal_status" label="用印" width="100" />
-        <el-table-column prop="sign_status" label="签署" width="100" />
+        <el-table-column label="用印" width="100">
+          <template #default="{ row }">{{ label(sealStatus, row.seal_status) }}</template>
+        </el-table-column>
+        <el-table-column label="签署" width="100">
+          <template #default="{ row }">{{ label(signStatusMap, row.sign_status) }}</template>
+        </el-table-column>
         <el-table-column label="创建时间" width="170">
           <template #default="{ row }">{{ fmtTime(row.created_at) }}</template>
         </el-table-column>

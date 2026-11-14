@@ -147,7 +147,7 @@ onMounted(loadConfigs)
 </script>
 
 <template>
-  <div>
+  <div class="fl-config-page">
     <PageHeader
       module="云法 Legal"
       title="法务配置"
@@ -223,3 +223,15 @@ onMounted(loadConfigs)
     </el-tabs>
   </div>
 </template>
+
+<style scoped>
+.fl-config-page :deep(.el-tabs__header) {
+  margin-bottom: 16px;
+}
+.fl-config-page :deep(.el-tabs__content .el-card) {
+  max-width: 820px;
+}
+.fl-config-page :deep(.el-input-number) {
+  width: 180px;
+}
+</style>

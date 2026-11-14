@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { GapNotice, PageHeader } from '@fenglin/ui-admin'
+import { GapNotice, PageHeader, ID_COLUMN_WIDTH } from '@fenglin/ui-admin'
 import { legalApi, type LegalRecord } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 import { fmtTime } from './labels'
@@ -121,15 +121,15 @@ onMounted(load)
 
     <el-card shadow="never">
       <el-table :data="rows" v-loading="loading" border stripe>
-        <el-table-column prop="seal_no" label="印章编号" width="160" />
-        <el-table-column prop="name" label="名称" min-width="160" />
-        <el-table-column prop="seal_type" label="类型" width="110" />
+        <el-table-column prop="seal_no" label="印章编号" width="150" show-overflow-tooltip />
+        <el-table-column prop="name" label="名称" min-width="150" show-overflow-tooltip />
+        <el-table-column prop="seal_type" label="类型" width="90" />
         <el-table-column prop="subject_name" label="主体" min-width="160" show-overflow-tooltip />
-        <el-table-column prop="provider_code" label="服务商" width="100" />
-        <el-table-column prop="cert_serial" label="证书序列号" min-width="160" show-overflow-tooltip />
-        <el-table-column prop="keeper_id" label="保管人" width="90" />
+        <el-table-column prop="provider_code" label="服务商" width="90" />
+        <el-table-column prop="cert_serial" label="证书序列号" min-width="150" show-overflow-tooltip />
+        <el-table-column prop="keeper_id" label="保管人" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
         <el-table-column prop="status" label="状态" width="90" />
-        <el-table-column label="登记时间" width="170">
+        <el-table-column label="登记时间" width="150">
           <template #default="{ row }">{{ fmtTime(row.created_at) }}</template>
         </el-table-column>
         <el-table-column label="操作" width="90">

@@ -83,9 +83,10 @@ export function label(map: Record<string, string>, value?: string): string {
   return map[value] ?? value
 }
 
+import { formatDateTime } from '@fenglin/ui-admin'
+
 export function fmtTime(value?: string): string {
-  if (!value) return '-'
-  return String(value).replace('T', ' ').replace(/\.\d+/, '').replace(/\+.*$/, '').replace(/Z$/, '')
+  return formatDateTime(value)
 }
 
 export function fmtAmount(value?: number | string, currency = 'CNY'): string {
