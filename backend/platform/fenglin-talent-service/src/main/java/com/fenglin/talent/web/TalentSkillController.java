@@ -40,6 +40,7 @@ public class TalentSkillController {
 
     private static final String TAG_CREATE = "talent:admin:skill:tag:create";
     private static final String SKILL_VIEW = "talent:skill:view";
+    private static final String SELF_VIEW = "talent:self:profile:view";
     private static final String SKILL_UPDATE = "talent:skill:update";
     private static final String INVENTORY = "talent:admin:skill:inventory";
     private static final String DEMAND_CREATE = "talent:admin:demand:create";
@@ -69,6 +70,14 @@ public class TalentSkillController {
             @RequestHeader(value = "X-Permissions", required = false) String permissions) {
         PermissionGuard.require(permissions, SKILL_VIEW);
         return ApiResponse.success(skillService.listTags());
+    }
+
+    /** 员工自助：本人技能标签，按账号绑定的员工收敛。 */
+    @GetMapping("/skills/employees/my")
+    public ApiResponse<List<EmployeeSkillItem>> myEmployeeSkills(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions) {
+        PermissionGuard.require(permissions, SELF_VIEW);
+        return ApiResponse.success(skillService.myEmployeeSkills());
     }
 
     @GetMapping("/skills/employees/{id}")

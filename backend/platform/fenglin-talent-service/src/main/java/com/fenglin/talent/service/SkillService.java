@@ -59,14 +59,16 @@ public class SkillService {
     private final OrgMapper orgMapper;
     private final TalentAudit audit;
     private final ObjectMapper objectMapper;
+    private final EmployeeBindingService employeeBinding;
 
     public SkillService(SkillMapper skillMapper, EmployeeMapper employeeMapper, OrgMapper orgMapper,
-                        TalentAudit audit, ObjectMapper objectMapper) {
+                        TalentAudit audit, ObjectMapper objectMapper, EmployeeBindingService employeeBinding) {
         this.skillMapper = skillMapper;
         this.employeeMapper = employeeMapper;
         this.orgMapper = orgMapper;
         this.audit = audit;
         this.objectMapper = objectMapper;
+        this.employeeBinding = employeeBinding;
     }
 
     // ---------- 技能标签 / 员工技能 ----------
@@ -109,6 +111,12 @@ public class SkillService {
                         Rows.intg(row, "selfLevel"), Rows.intg(row, "certLevel"), Rows.dec(row, "years"),
                         Rows.date(row, "lastUsedAt"), Rows.lng(row, "verifiedBy")))
                 .toList();
+    }
+
+    /** 员工自助：按登录账号绑定的员工读取本人技能，服务端收敛，不接受调用方传 id。 */
+    @Transactional(readOnly = true)
+    public List<EmployeeSkillItem> myEmployeeSkills() {
+        return employeeSkills(employeeBinding.requireCurrentEmployeeId());
     }
 
     @Transactional

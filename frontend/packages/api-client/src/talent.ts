@@ -557,6 +557,10 @@ export const talentApi = {
     detail(id: TalentId) {
       return get<TalentEmployeeDetail>(`/api/talent/v1/employees/${id}`)
     },
+    /** 员工自助：本人档案，服务端按账号绑定的员工收敛。 */
+    myProfile() {
+      return get<TalentEmployeeDetail>('/api/talent/v1/employees/my')
+    },
     create(body: {
       emp_no: string
       name: string
@@ -977,6 +981,10 @@ export const talentApi = {
   skills: {
     employeeSkills(id: TalentId) {
       return get<TalentEmployeeSkill[]>(`/api/talent/v1/skills/employees/${id}`)
+    },
+    /** 员工自助：本人技能，服务端按账号绑定的员工收敛。 */
+    myEmployeeSkills() {
+      return get<TalentEmployeeSkill[]>('/api/talent/v1/skills/employees/my')
     },
   },
 }

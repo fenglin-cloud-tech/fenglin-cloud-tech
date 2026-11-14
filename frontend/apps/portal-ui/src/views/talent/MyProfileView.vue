@@ -2,10 +2,8 @@
 import { onMounted, ref } from 'vue'
 import { GapNotice, PageHeader } from '@fenglin/ui-admin'
 import { talentApi, type TalentEmployeeDetail, type TalentEmployeeSkill } from '@fenglin/api-client'
-import { useAuthStore } from '@/stores/auth'
 import { describeError } from '@/utils/error'
 
-const auth = useAuthStore()
 const detail = ref<TalentEmployeeDetail | null>(null)
 const skills = ref<TalentEmployeeSkill[]>([])
 const loading = ref(false)
@@ -15,7 +13,7 @@ const skillsError = ref('')
 const gapItems = [
   '员工端只开放本人档案只读视图；修改姓名、组织、岗位等字段走 HR 管理端（PUT /employees/{id} 需要 talent:admin:employee:manage）。',
   '手机号与身份证号由后端按权限脱敏返回（masked_phone / masked_id_card），页面不还原明文。',
-  '当前按登录令牌中的用户 ID 读取档案，要求账号与员工记录 ID 一致；若不一致会返回 404，需要管理员在 IAM 中绑定员工。',
+  '档案与技能均按登录账号绑定的员工在服务端收敛（GET /employees/my、/skills/employees/my），不接收前端传入的员工 ID；账号未绑定员工时返回 403（3001007）。',
 ]
 
 const statusLabels: Record<string, string> = {
@@ -31,21 +29,17 @@ function statusLabel(value?: string) {
 }
 
 async function load() {
-  if (!auth.userId) {
-    error.value = '当前令牌未返回用户 ID，无法定位本人档案'
-    return
-  }
   loading.value = true
   error.value = ''
   try {
-    detail.value = await talentApi.employees.detail(auth.userId)
+    detail.value = await talentApi.employees.myProfile()
   } catch (err) {
     error.value = describeError(err)
   } finally {
     loading.value = false
   }
   try {
-    skills.value = await talentApi.skills.employeeSkills(auth.userId)
+    skills.value = await talentApi.skills.myEmployeeSkills()
   } catch (err) {
     skillsError.value = describeError(err)
   }

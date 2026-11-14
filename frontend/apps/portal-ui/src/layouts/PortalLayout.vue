@@ -62,7 +62,7 @@ const collabItems = [
 ]
 
 const talentItems = [
-  { path: '/my-profile', title: '我的档案', icon: User, perm: 'talent:employee:view' },
+  { path: '/my-profile', title: '我的档案', icon: User, perm: 'talent:self:profile:view' },
   { path: '/my-attendance', title: '我的考勤与请假', icon: Clock, perm: 'talent:attendance:view' },
   { path: '/my-payslip', title: '我的薪酬单', icon: Money, perm: '' },
   { path: '/my-performance', title: '我的绩效', icon: TrendCharts, perm: '' },

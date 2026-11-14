@@ -35,6 +35,7 @@ public class TalentEmployeeController {
 
     private static final String LIST = "talent:admin:employee:list";
     private static final String VIEW = "talent:employee:view";
+    private static final String SELF_VIEW = "talent:self:profile:view";
     private static final String CREATE = "talent:admin:employee:create";
     private static final String UPDATE = "talent:admin:employee:update";
     private static final String IMPORT = "talent:admin:employee:import";
@@ -57,6 +58,14 @@ public class TalentEmployeeController {
             @RequestParam(value = "size", required = false) Integer size) {
         PermissionGuard.require(permissions, LIST);
         return ApiResponse.success(employeeService.list(orgId, includeSubOrg, empStatus, keyword, page, size));
+    }
+
+    /** 员工自助：本人档案，按账号绑定的员工收敛。 */
+    @GetMapping("/my")
+    public ApiResponse<EmployeeDetail> myProfile(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions) {
+        PermissionGuard.require(permissions, SELF_VIEW);
+        return ApiResponse.success(employeeService.myProfile());
     }
 
     @GetMapping("/{id}")

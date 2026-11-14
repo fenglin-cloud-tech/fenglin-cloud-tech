@@ -51,13 +51,15 @@ public class EmployeeService {
     private final OrgMapper orgMapper;
     private final TalentCrypto crypto;
     private final TalentAudit audit;
+    private final EmployeeBindingService employeeBinding;
 
     public EmployeeService(EmployeeMapper employeeMapper, OrgMapper orgMapper, TalentCrypto crypto,
-                           TalentAudit audit) {
+                           TalentAudit audit, EmployeeBindingService employeeBinding) {
         this.employeeMapper = employeeMapper;
         this.orgMapper = orgMapper;
         this.crypto = crypto;
         this.audit = audit;
+        this.employeeBinding = employeeBinding;
     }
 
     @Transactional(readOnly = true)
@@ -96,6 +98,25 @@ public class EmployeeService {
         if (row == null) {
             throw new BizException(TalentErrorCode.RESOURCE_NOT_FOUND, "员工不存在");
         }
+        return toDetail(tenantId, row);
+    }
+
+    /**
+     * 员工自助：按登录账号绑定的员工读取本人档案，服务端收敛，不接受调用方传 id。
+     * 未绑定返回 403 {@code 3001007}，绑定但记录不存在返回 404。
+     */
+    @Transactional(readOnly = true)
+    public EmployeeDetail myProfile() {
+        long tenantId = TalentContext.tenantId();
+        long employeeId = employeeBinding.requireCurrentEmployeeId();
+        Map<String, Object> row = employeeMapper.findEmployee(tenantId, employeeId);
+        if (row == null) {
+            throw new BizException(TalentErrorCode.RESOURCE_NOT_FOUND, "员工不存在");
+        }
+        return toDetail(tenantId, row);
+    }
+
+    private EmployeeDetail toDetail(long tenantId, Map<String, Object> row) {
         return new EmployeeDetail(
                 Rows.lngVal(row, "id"), Rows.str(row, "empNo"), Rows.str(row, "name"), Rows.str(row, "gender"),
                 Rows.date(row, "birthDate"), maskedPhone(tenantId, row), maskedIdCard(tenantId, row),
