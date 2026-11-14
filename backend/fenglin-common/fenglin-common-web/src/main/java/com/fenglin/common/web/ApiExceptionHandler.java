@@ -8,8 +8,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingPathVariableException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
@@ -32,6 +35,21 @@ public class ApiExceptionHandler {
                 .map(this::formatFieldError)
                 .collect(Collectors.joining("; "));
         return ResponseEntity.badRequest().body(ApiResponse.failure(CommonErrorCode.BAD_REQUEST, message));
+    }
+
+    @ExceptionHandler({MissingServletRequestParameterException.class, MissingPathVariableException.class})
+    public ResponseEntity<ApiResponse<Void>> handleMissingParameter(Exception ex) {
+        String name = ex instanceof MissingServletRequestParameterException missing
+                ? missing.getParameterName()
+                : ((MissingPathVariableException) ex).getVariableName();
+        return ResponseEntity.badRequest()
+                .body(ApiResponse.failure(CommonErrorCode.BAD_REQUEST, "缺少必填参数: " + name));
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiResponse<Void>> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
+        return ResponseEntity.badRequest()
+                .body(ApiResponse.failure(CommonErrorCode.BAD_REQUEST, "参数类型不合法: " + ex.getName()));
     }
 
     @ExceptionHandler({NoHandlerFoundException.class, NoResourceFoundException.class})
