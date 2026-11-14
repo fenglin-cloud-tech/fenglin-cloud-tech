@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { GapNotice, PageHeader } from '@fenglin/ui-admin'
+import { GapNotice, PageHeader, ID_COLUMN_WIDTH_COMFORT, formatDateTime } from '@fenglin/ui-admin'
 import { serviceApi, type ServiceRecord } from '@fenglin/api-client'
 import { useAuthStore } from '@/stores/auth'
 import { describeError } from '@/utils/error'
@@ -180,13 +180,15 @@ onMounted(load)
 
     <el-card shadow="never">
       <el-table :data="tickets" v-loading="loading" border stripe size="small">
-        <el-table-column prop="ticket_no" label="工单号" width="160" />
-        <el-table-column prop="title" label="标题" min-width="200" />
+        <el-table-column prop="ticket_no" label="工单号" width="160" show-overflow-tooltip />
+        <el-table-column prop="title" label="标题" min-width="180" show-overflow-tooltip />
         <el-table-column prop="ticket_type" label="类型" width="110" />
         <el-table-column prop="priority" label="优先级" width="90" />
         <el-table-column prop="status" label="状态" width="110" />
-        <el-table-column prop="assignee_id" label="处理人" width="100" />
-        <el-table-column prop="created_at" label="提交时间" width="170" />
+        <el-table-column prop="assignee_id" label="处理人" :width="ID_COLUMN_WIDTH_COMFORT" show-overflow-tooltip />
+        <el-table-column label="提交时间" width="170">
+          <template #default="{ row }">{{ formatDateTime(row.created_at) }}</template>
+        </el-table-column>
         <el-table-column label="操作" width="230">
           <template #default="{ row }">
             <el-button link type="primary" @click="openTicket(row)">详情</el-button>

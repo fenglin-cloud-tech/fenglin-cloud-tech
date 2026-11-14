@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { GapNotice, PageHeader } from '@fenglin/ui-admin'
+import { GapNotice, PageHeader, ID_COLUMN_WIDTH, formatDateTime } from '@fenglin/ui-admin'
 import { serviceApi, type ServiceRecord } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 
@@ -210,21 +210,25 @@ onMounted(load)
 
     <el-card shadow="never">
       <el-table :data="rows" v-loading="loading" border stripe max-height="560" @row-click="openDetail">
-        <el-table-column prop="ticket_no" label="工单号" width="150" />
-        <el-table-column prop="title" label="标题" min-width="220" />
-        <el-table-column prop="ticket_type" label="类型" width="110" />
+        <el-table-column prop="ticket_no" label="工单号" width="130" show-overflow-tooltip />
+        <el-table-column prop="title" label="标题" min-width="180" show-overflow-tooltip />
+        <el-table-column prop="ticket_type" label="类型" width="100" />
         <el-table-column label="优先级" width="90">
           <template #default="{ row }">
             <el-tag size="small" :type="priorityType[row.priority] ?? 'info'">{{ row.priority ?? '-' }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="status" label="状态" width="110">
+        <el-table-column prop="status" label="状态" width="100">
           <template #default="{ row }">{{ statusLabel(row.status) }}</template>
         </el-table-column>
-        <el-table-column prop="assignee_id" label="处理人" width="100" />
-        <el-table-column prop="requester_id" label="提单人" width="100" />
-        <el-table-column prop="sla_resolve_due_at" label="解决时限" width="170" />
-        <el-table-column prop="created_at" label="创建时间" width="170" />
+        <el-table-column prop="assignee_id" label="处理人" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
+        <el-table-column prop="requester_id" label="提单人" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
+        <el-table-column label="解决时限" width="150">
+          <template #default="{ row }">{{ formatDateTime(row.sla_resolve_due_at) }}</template>
+        </el-table-column>
+        <el-table-column label="创建时间" width="150">
+          <template #default="{ row }">{{ formatDateTime(row.created_at) }}</template>
+        </el-table-column>
       </el-table>
       <el-pagination
         style="margin-top: 12px; justify-content: flex-end"

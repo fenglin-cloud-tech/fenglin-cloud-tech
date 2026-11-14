@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { GapNotice, PageHeader } from '@fenglin/ui-admin'
+import { GapNotice, PageHeader, formatDateTime } from '@fenglin/ui-admin'
 import { serviceApi, type ServiceRecord } from '@fenglin/api-client'
 import { useAuthStore } from '@/stores/auth'
 import { describeError } from '@/utils/error'
@@ -102,12 +102,16 @@ onMounted(load)
         <span class="fl-muted">负责人：{{ auth.displayName }}（ID {{ auth.userId ?? '-' }}）</span>
       </div>
       <el-table :data="assets" v-loading="loading" border stripe size="small">
-        <el-table-column prop="asset_no" label="资产编号" width="170" />
-        <el-table-column prop="name" label="名称" min-width="180" />
+        <el-table-column prop="asset_no" label="资产编号" width="220" show-overflow-tooltip />
+        <el-table-column prop="name" label="名称" min-width="180" show-overflow-tooltip />
         <el-table-column prop="asset_type" label="类型" width="120" />
         <el-table-column prop="status" label="状态" width="110" />
-        <el-table-column prop="borrow_due_at" label="借用到期" width="170" />
-        <el-table-column prop="ext_ref" label="外部引用" min-width="140" />
+        <el-table-column label="借用到期" width="170">
+          <template #default="{ row }">{{ formatDateTime(row.borrow_due_at) }}</template>
+        </el-table-column>
+        <el-table-column label="外部引用" min-width="140" show-overflow-tooltip>
+          <template #default="{ row }">{{ formatDateTime(row.ext_ref) }}</template>
+        </el-table-column>
         <el-table-column label="操作" width="100" fixed="right">
           <template #default="{ row }">
             <el-button

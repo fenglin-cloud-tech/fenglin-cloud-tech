@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { GapNotice, PageHeader } from '@fenglin/ui-admin'
+import { GapNotice, PageHeader, ID_COLUMN_WIDTH } from '@fenglin/ui-admin'
 import { serviceApi, type ServiceRecord } from '@fenglin/api-client'
 import { useAuthStore } from '@/stores/auth'
 import { describeError } from '@/utils/error'
@@ -129,7 +129,7 @@ onMounted(load)
         <el-card shadow="never">
           <template #header><span>坐席负荷</span></template>
           <el-table :data="workload" border size="small" max-height="360">
-            <el-table-column prop="assignee_id" label="处理人ID" width="110" />
+            <el-table-column prop="assignee_id" label="处理人ID" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
             <el-table-column prop="total" label="总量" width="90" />
             <el-table-column prop="resolved" label="已解决" width="90" />
             <el-table-column prop="breached" label="超时" width="90" />

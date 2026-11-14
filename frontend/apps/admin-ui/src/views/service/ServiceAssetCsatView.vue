@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { GapNotice, PageHeader } from '@fenglin/ui-admin'
+import { GapNotice, PageHeader, ID_COLUMN_WIDTH, formatDateTime } from '@fenglin/ui-admin'
 import { serviceApi, type ServiceRecord } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 
@@ -174,14 +174,18 @@ onMounted(load)
 
     <el-card shadow="never">
       <el-table :data="assets" v-loading="loading" border stripe max-height="480">
-        <el-table-column prop="asset_no" label="资产编号" width="150" />
-        <el-table-column prop="name" label="名称" min-width="180" />
-        <el-table-column prop="asset_type" label="类型" width="120" />
-        <el-table-column prop="status" label="状态" width="110" />
-        <el-table-column prop="owner_id" label="使用人" width="100" />
+        <el-table-column prop="asset_no" label="资产编号" width="200" show-overflow-tooltip />
+        <el-table-column prop="name" label="名称" min-width="160" show-overflow-tooltip />
+        <el-table-column prop="asset_type" label="类型" width="90" />
+        <el-table-column prop="status" label="状态" width="100" />
+        <el-table-column prop="owner_id" label="使用人" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
         <el-table-column prop="dept_id" label="部门" width="100" />
-        <el-table-column prop="borrow_due_at" label="借用到期" width="170" />
-        <el-table-column prop="ext_ref" label="外部引用" min-width="150" />
+        <el-table-column label="借用到期" width="170">
+          <template #default="{ row }">{{ formatDateTime(row.borrow_due_at) }}</template>
+        </el-table-column>
+        <el-table-column label="外部引用" min-width="150" show-overflow-tooltip>
+          <template #default="{ row }">{{ formatDateTime(row.ext_ref) }}</template>
+        </el-table-column>
       </el-table>
       <el-pagination
         style="margin-top: 12px; justify-content: flex-end"

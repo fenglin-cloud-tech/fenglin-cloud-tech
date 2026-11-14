@@ -248,9 +248,9 @@ onMounted(load)
             >新增目录项</el-button>
           </template>
           <el-table :data="items" border stripe size="small" max-height="320">
-            <el-table-column prop="code" label="编码" width="130" />
+            <el-table-column prop="code" label="编码" width="120" />
             <el-table-column prop="name" label="名称" min-width="170" />
-            <el-table-column prop="ticket_type" label="工单类型" width="120" />
+            <el-table-column prop="ticket_type" label="工单类型" width="110" />
             <el-table-column prop="need_approval" label="需审批" width="90" />
             <el-table-column prop="sla_policy_id" label="SLA策略" width="100" />
             <el-table-column prop="status" label="状态" width="100" />

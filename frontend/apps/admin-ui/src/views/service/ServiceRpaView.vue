@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { GapNotice, PageHeader } from '@fenglin/ui-admin'
+import { GapNotice, PageHeader, ID_COLUMN_WIDTH, formatDateTime } from '@fenglin/ui-admin'
 import { serviceApi, type ServiceRecord } from '@fenglin/api-client'
 import { useAuthStore } from '@/stores/auth'
 import { describeError } from '@/utils/error'
@@ -484,12 +484,14 @@ onMounted(async () => {
       </div>
       <el-table :data="tasks" v-loading="taskLoading" border stripe size="small">
         <el-table-column prop="task_no" label="任务号" width="160" />
-        <el-table-column prop="automation_flow_id" label="流程ID" width="110" />
-        <el-table-column prop="robot_id" label="机器人ID" width="110" />
+        <el-table-column prop="automation_flow_id" label="流程ID" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
+        <el-table-column prop="robot_id" label="机器人ID" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
         <el-table-column prop="status" label="状态" width="130" />
         <el-table-column prop="priority" label="优先级" width="90" />
         <el-table-column prop="retry_count" label="重试" width="80" />
-        <el-table-column prop="started_at" label="开始" width="170" />
+        <el-table-column label="开始" width="170">
+          <template #default="{ row }">{{ formatDateTime(row.started_at) }}</template>
+        </el-table-column>
         <el-table-column prop="duration_sec" label="耗时(s)" width="90" />
         <el-table-column label="操作" width="220">
           <template #default="{ row }">

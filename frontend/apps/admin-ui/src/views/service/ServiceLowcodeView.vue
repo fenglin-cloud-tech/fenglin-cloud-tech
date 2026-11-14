@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { GapNotice, PageHeader } from '@fenglin/ui-admin'
+import { GapNotice, PageHeader, ID_COLUMN_WIDTH, formatDateTime } from '@fenglin/ui-admin'
 import { serviceApi, type ServiceRecord } from '@fenglin/api-client'
 import { useAuthStore } from '@/stores/auth'
 import { describeError } from '@/utils/error'
@@ -235,9 +235,11 @@ onMounted(async () => {
         <el-table-column prop="name" label="名称" min-width="160" />
         <el-table-column prop="env" label="环境" width="100" />
         <el-table-column prop="status" label="状态" width="110" />
-        <el-table-column prop="owner_id" label="负责人" width="110" />
+        <el-table-column prop="owner_id" label="负责人" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
         <el-table-column prop="script_risk_level" label="脚本风险" width="110" />
-        <el-table-column prop="created_at" label="创建时间" width="170" />
+        <el-table-column label="创建时间" width="170">
+          <template #default="{ row }">{{ formatDateTime(row.created_at) }}</template>
+        </el-table-column>
         <el-table-column label="操作" width="220">
           <template #default="{ row }">
             <el-button v-perm="'service:lowcode:app:create'" link type="primary" @click="copyApp(row)">复制</el-button>
@@ -266,7 +268,7 @@ onMounted(async () => {
       </div>
       <el-table :data="releases" v-loading="releaseLoading" border stripe size="small">
         <el-table-column prop="release_no" label="发布号" width="170" />
-        <el-table-column prop="app_id" label="应用ID" width="100" />
+        <el-table-column prop="app_id" label="应用ID" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
         <el-table-column prop="from_env" label="来源环境" width="110" />
         <el-table-column prop="to_env" label="目标环境" width="110" />
         <el-table-column prop="approval_status" label="审批" width="110" />

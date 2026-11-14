@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { GapNotice, PageHeader } from '@fenglin/ui-admin'
+import { GapNotice, PageHeader, ID_COLUMN_WIDTH, formatDateTime } from '@fenglin/ui-admin'
 import { serviceApi, type ServiceRecord } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 
@@ -263,8 +263,10 @@ async function approveChange() {
             <el-table-column prop="title" label="标题" min-width="220" />
             <el-table-column prop="status" label="状态" width="130" />
             <el-table-column prop="known_error" label="已知错误" width="90" />
-            <el-table-column prop="owner_id" label="负责人" width="110" />
-            <el-table-column prop="created_at" label="创建时间" width="170" />
+            <el-table-column prop="owner_id" label="负责人" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
+            <el-table-column label="创建时间" width="170">
+              <template #default="{ row }">{{ formatDateTime(row.created_at) }}</template>
+            </el-table-column>
           </el-table>
           <el-pagination
             v-model:current-page="problemQuery.page"
