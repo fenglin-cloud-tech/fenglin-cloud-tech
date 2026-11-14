@@ -96,7 +96,7 @@ const routes: RouteRecordRaw[] = [
         path: 'my-profile',
         name: 'my-profile',
         component: () => import('@/views/talent/MyProfileView.vue'),
-        meta: { title: '我的档案', perm: 'talent:employee:view' },
+        meta: { title: '我的档案', perm: 'talent:self:profile:view' },
       },
       {
         path: 'my-attendance',

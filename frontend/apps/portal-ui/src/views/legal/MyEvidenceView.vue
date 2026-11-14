@@ -15,8 +15,8 @@ const filters = reactive({ contract_id: '', evidence_type: '' })
 const chainResult = ref<LegalRecord | null>(null)
 
 const gapItems = [
-  '存证查询接口 /evidences 目前只校验 legal:evidence:view，没有本人范围过滤；因此菜单仅在具备该权限时展示，避免无权限用户进入。',
-  '如需做到“只看本人合同存证”，需后端补 owner 过滤；当前页面会明确标注这一缺口。',
+  '本页调用 /evidences；无 legal:contract:view 时后端按本人收敛（合同 owner_id、存证创建人或本人为签署方），不会下发租户全量存证。',
+  '单条核验与链式核验需要 legal:evidence:verify，员工默认不授予，按钮不展示。',
   '核验（单条 / 链式）调用后端真实哈希校验，前端不构造哈希。',
 ]
 
