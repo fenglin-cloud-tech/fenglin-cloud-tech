@@ -5,6 +5,7 @@ import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.postgresql.util.PSQLException;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -12,6 +13,7 @@ import java.sql.Statement;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowable;
 
 /**
  * 云智迁移校验：真实内嵌 PostgreSQL 上执行全部脚本，验证表/索引/RLS/触发器/种子与租户隔离。
@@ -103,10 +105,13 @@ class IntelligenceMigrationTest {
             statement.execute("SET app.tenant_id = '9901'");
             assertThat(countOn(connection, "SELECT count(1) FROM fenglin_intelligence.ai_metric_definition "
                     + "WHERE tenant_id = 0")).isEqualTo(5);
-            assertThatThrownBy(() -> statement.execute("INSERT INTO fenglin_intelligence.ai_metric_definition "
-                    + "(id, tenant_id, code, name, formula, created_by) "
-                    + "VALUES (900999, 0, 'x.y', '伪造平台指标', '1', 1)"))
-                    .hasMessageContaining("行级安全策略");
+            Throwable denied = catchThrowable(() -> statement.execute(
+                    "INSERT INTO fenglin_intelligence.ai_metric_definition "
+                            + "(id, tenant_id, code, name, formula, created_by) "
+                            + "VALUES (900999, 0, 'x.y', '伪造平台指标', '1', 1)"));
+            assertThat(denied).isInstanceOf(PSQLException.class);
+            assertThat(((PSQLException) denied).getSQLState()).isEqualTo("42501");
+            assertThat(denied.getMessage()).contains("ai_metric_definition");
         }
     }
 
