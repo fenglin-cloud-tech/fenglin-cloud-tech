@@ -18,8 +18,16 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import javax.sql.DataSource;
 import java.io.IOException;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.regex.Pattern;
@@ -37,17 +45,20 @@ public class SearchIndexTaskService {
     private final SearchIndexTaskMapper taskMapper;
     private final AuditSink auditSink;
     private final TransactionTemplate transactionTemplate;
+    private final DataSource dataSource;
     private final String indexPrefix;
 
     public SearchIndexTaskService(ElasticsearchClient client,
                                   SearchIndexTaskMapper taskMapper,
                                   AuditSink auditSink,
                                   PlatformTransactionManager transactionManager,
+                                  DataSource dataSource,
                                   @Value("${fenglin.search.index-prefix:hub}") String indexPrefix) {
         this.client = client;
         this.taskMapper = taskMapper;
         this.auditSink = auditSink;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
+        this.dataSource = dataSource;
         this.indexPrefix = indexPrefix;
     }
 
@@ -57,7 +68,7 @@ public class SearchIndexTaskService {
         String taskType = normalizeTaskType(request.taskType());
         long tenantId = TenantContext.requireTenantId();
 
-        if ("INCREMENTAL".equals(taskType) && !indexExists(physicalIndex(tenantId, indexName))) {
+        if ("INCREMENTAL".equals(taskType) && !indexExists(physicalIndex(indexName))) {
             throw new BizException(CommonErrorCode.NOT_FOUND, "0008001 索引不存在: " + indexName);
         }
         Map<String, Object> active = taskMapper.findActiveTask(tenantId, indexName, taskType);
@@ -97,9 +108,11 @@ public class SearchIndexTaskService {
                 if (task == null) {
                     return;
                 }
-                String physical = physicalIndex(tenantId, (String) task.get("index_name"));
+                String indexName = (String) task.get("index_name");
+                String physical = physicalIndex(indexName);
                 if ("FULL".equals(task.get("task_type"))) {
                     ensureIndex(physical);
+                    ingest(physical, indexName, tenantId);
                 }
                 client.indices().refresh(r -> r.index(physical));
                 long count = client.count(c -> c.index(physical)).count();
@@ -114,14 +127,15 @@ public class SearchIndexTaskService {
     }
 
     private void ensureIndex(String index) throws IOException {
+        // FULL 视为重建：旧 mapping 无法原地修改，先删后建，保证中文分词生效
         if (client.indices().exists(e -> e.index(index)).value()) {
-            return;
+            client.indices().delete(d -> d.index(index));
         }
         client.indices().create(c -> c.index(index).mappings(m -> m
                 .properties("doc_id", p -> p.keyword(k -> k))
                 .properties("tenant_id", p -> p.long_(l -> l))
-                .properties("title", p -> p.text(t -> t))
-                .properties("content", p -> p.text(t -> t))
+                .properties("title", p -> p.text(t -> t.analyzer("cjk")))
+                .properties("content", p -> p.text(t -> t.analyzer("cjk")))
                 .properties("secret_level", p -> p.integer(i -> i))
                 .properties("updated_at", p -> p.date(d -> d))));
     }
@@ -143,8 +157,77 @@ public class SearchIndexTaskService {
         }
     }
 
-    private String physicalIndex(long tenantId, String indexName) {
-        return indexPrefix + "_" + tenantId + "_" + indexName;
+    private String physicalIndex(String indexName) {
+        return indexPrefix + "_" + indexName;
+    }
+
+    /**
+     * FULL 任务灌数：先清掉该租户旧文档，再按域写入 {@code hub_<domain>}。
+     * 当前仅 hub 域在同库（fenglin_hub）有数据源；service / intelligence 的数据在独立库，无法跨库直读。
+     */
+    private void ingest(String index, String indexName, long tenantId) throws IOException {
+        if (!"hub".equals(indexName)) {
+            log.info("索引 {} 暂无同库数据源，跳过灌数", index);
+            return;
+        }
+        List<Map<String, Object>> docs = loadHubUsers(tenantId);
+        client.deleteByQuery(d -> d.index(index)
+                .query(q -> q.term(t -> t.field("tenant_id").value(tenantId))));
+        for (Map<String, Object> doc : docs) {
+            client.index(i -> i.index(index).id(String.valueOf(doc.get("doc_id"))).document(doc));
+        }
+        log.info("索引 {} 灌入 {} 条文档", index, docs.size());
+    }
+
+    private List<Map<String, Object>> loadHubUsers(long tenantId) {
+        String sql = "SELECT id, username, real_name, nickname, employee_no FROM fenglin_hub.hub_user "
+                + "WHERE tenant_id = ? AND deleted = 0";
+        List<Map<String, Object>> docs = new ArrayList<>();
+        try (Connection connection = dataSource.getConnection()) {
+            boolean autoCommit = connection.getAutoCommit();
+            // RLS 依赖事务级 GUC，必须在同一事务内设置后再查询
+            connection.setAutoCommit(false);
+            try {
+                try (PreparedStatement set = connection.prepareStatement(
+                        "SELECT set_config('app.tenant_id', ?, true), set_config('app.cross_tenant', 'false', true)")) {
+                    set.setString(1, String.valueOf(tenantId));
+                    set.execute();
+                }
+                try (PreparedStatement statement = connection.prepareStatement(sql)) {
+                    statement.setLong(1, tenantId);
+                    try (ResultSet rs = statement.executeQuery()) {
+                        while (rs.next()) {
+                            String username = rs.getString("username");
+                            String display = rs.getString("real_name");
+                            if (display == null || display.isBlank()) {
+                                display = rs.getString("nickname");
+                            }
+                            if (display == null || display.isBlank()) {
+                                display = username;
+                            }
+                            String employeeNo = rs.getString("employee_no");
+                            Map<String, Object> doc = new HashMap<>();
+                            doc.put("doc_id", String.valueOf(rs.getLong("id")));
+                            doc.put("tenant_id", tenantId);
+                            doc.put("title", display);
+                            doc.put("content", username + " " + (employeeNo == null ? "" : employeeNo));
+                            doc.put("secret_level", 0);
+                            doc.put("updated_at", Instant.now().toString());
+                            docs.add(doc);
+                        }
+                    }
+                }
+                connection.rollback();
+            } catch (SQLException ex) {
+                connection.rollback();
+                throw ex;
+            } finally {
+                connection.setAutoCommit(autoCommit);
+            }
+        } catch (SQLException ex) {
+            throw new IllegalStateException("读取 hub 域索引数据失败", ex);
+        }
+        return docs;
     }
 
     private String normalizeIndexName(String indexName) {

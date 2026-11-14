@@ -26,8 +26,8 @@ mybatis-plus:
 
 fenglin:
   search:
-    # Elasticsearch 8.x 容器（deploy/compose）
-    es-uri: ${FENGLIN_ES_URI:http://localhost:9200}
+    # Elasticsearch 8.x 容器（deploy/compose：宿主 9201 映射容器 9200）
+    es-uri: ${FENGLIN_ES_URI:http://localhost:9201}
     # 文档索引命名：{index-prefix}_{domain}（检索）与 {index-prefix}_{tenantId}_{indexName}（索引任务）
     index-prefix: hub
     index-task-job-enabled: ${FENGLIN_SEARCH_INDEX_JOB_ENABLED:true}
