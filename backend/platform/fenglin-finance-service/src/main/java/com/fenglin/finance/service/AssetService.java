@@ -10,18 +10,23 @@ import com.fenglin.finance.support.FinanceAudit;
 import com.fenglin.finance.support.FinanceContext;
 import com.fenglin.finance.support.Rows;
 import com.fenglin.finance.web.dto.FinanceDtos.AssetCardCreateRequest;
+import com.fenglin.finance.web.dto.FinanceDtos.AssetCardUpdateRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.AssetCardView;
 import com.fenglin.finance.web.dto.FinanceDtos.AssetCategoryCreateRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.AssetCategoryView;
+import com.fenglin.finance.web.dto.FinanceDtos.AssetTransferRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.DepreciationRunRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.DepreciationRunResult;
+import com.fenglin.finance.web.dto.FinanceDtos.DepreciationScheduleView;
 import com.fenglin.finance.web.dto.FinanceDtos.DisposeRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.DisposeResult;
+import com.fenglin.finance.web.dto.FinanceDtos.ItAssetBorrowRecordView;
 import com.fenglin.finance.web.dto.FinanceDtos.ItAssetBorrowRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.ItAssetSyncRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.ItAssetView;
 import com.fenglin.finance.web.dto.FinanceDtos.StocktakingCreateRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.StocktakingDetail;
+import com.fenglin.finance.web.dto.FinanceDtos.StocktakingItemCreateRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.StocktakingItemRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.StocktakingItemView;
 import com.fenglin.finance.web.dto.FinanceDtos.StocktakingView;
@@ -31,10 +36,12 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * D3 固定资产与 IT 资产：卡片、三种折旧、处置、盘点、借用归还与 CMDB 同步。
@@ -45,6 +52,9 @@ import java.util.Map;
 @Service
 @Transactional(readOnly = true)
 public class AssetService {
+
+    private static final Set<String> CARD_STATUSES = Set.of("IN_USE", "IDLE", "LENT", "MAINTENANCE");
+    private static final Set<String> STOCKTAKING_RESULTS = Set.of("NORMAL", "SURPLUS", "DEFICIT", "NOT_FOUND");
 
     private final AssetMapper assetMapper;
     private final CommonsMapper commonsMapper;
@@ -134,6 +144,64 @@ public class AssetService {
     }
 
     @Transactional
+    public AssetCardView updateCard(long assetId, AssetCardUpdateRequest request) {
+        long tenantId = FinanceContext.tenantId();
+        Map<String, Object> card = requireCard(tenantId, assetId);
+        if (request == null
+                || (request.assetName() != null && request.assetName().isBlank())
+                || (request.status() != null && !CARD_STATUSES.contains(request.status()))) {
+            throw new BizException(FinanceErrorCode.PARAM_INVALID);
+        }
+        if ("DISPOSED".equals(Rows.str(card, "status"))) {
+            throw new BizException(FinanceErrorCode.ASSET_STATE_INVALID);
+        }
+        String before = profileJson(Rows.str(card, "assetName"), Rows.lng(card, "deptId"),
+                Rows.str(card, "location"), Rows.lng(card, "custodianId"), Rows.str(card, "status"));
+        if (assetMapper.updateCardProfile(tenantId, assetId, request.assetName(), request.specification(),
+                request.location(), request.deptId(), request.custodianId(), request.status(),
+                FinanceContext.userId()) == 0) {
+            throw new BizException(FinanceErrorCode.STATE_CONFLICT);
+        }
+        Map<String, Object> updated = requireCard(tenantId, assetId);
+        String after = profileJson(Rows.str(updated, "assetName"), Rows.lng(updated, "deptId"),
+                Rows.str(updated, "location"), Rows.lng(updated, "custodianId"), Rows.str(updated, "status"));
+        assetMapper.insertChange(IdWorker.getId(), tenantId, nextChangeNo(), assetId, "UPDATE",
+                before, after, null, null, FinanceContext.userId());
+        audit.publish("fin_asset_card.updated", "UPDATE", "fin_asset_card", assetId, "MEDIUM");
+        return cardView(updated);
+    }
+
+    @Transactional
+    public AssetCardView transferAsset(long assetId, AssetTransferRequest request) {
+        long tenantId = FinanceContext.tenantId();
+        Map<String, Object> card = requireCard(tenantId, assetId);
+        if (request == null || (request.deptId() == null && request.location() == null
+                && request.custodianId() == null)) {
+            throw new BizException(FinanceErrorCode.PARAM_INVALID);
+        }
+        if ("DISPOSED".equals(Rows.str(card, "status"))) {
+            throw new BizException(FinanceErrorCode.ASSET_STATE_INVALID);
+        }
+        String before = profileJson(Rows.str(card, "assetName"), Rows.lng(card, "deptId"),
+                Rows.str(card, "location"), Rows.lng(card, "custodianId"), Rows.str(card, "status"));
+        if (assetMapper.updateCardProfile(tenantId, assetId, null, null, request.location(),
+                request.deptId(), request.custodianId(), null, FinanceContext.userId()) == 0) {
+            throw new BizException(FinanceErrorCode.STATE_CONFLICT);
+        }
+        Map<String, Object> updated = requireCard(tenantId, assetId);
+        String after = "{\"assetName\":" + jsonText(Rows.str(updated, "assetName"))
+                + ",\"deptId\":" + valueOrNull(Rows.lng(updated, "deptId"))
+                + ",\"location\":" + jsonText(Rows.str(updated, "location"))
+                + ",\"custodianId\":" + valueOrNull(Rows.lng(updated, "custodianId"))
+                + ",\"reason\":" + jsonText(request.reason()) + "}";
+        String changeNo = nextChangeNo();
+        assetMapper.insertChange(IdWorker.getId(), tenantId, changeNo, assetId, "TRANSFER",
+                before, after, null, null, FinanceContext.userId());
+        audit.publish("fin_asset_card.transferred", "TRANSFER", "fin_asset_card", assetId, "HIGH");
+        return cardView(updated);
+    }
+
+    @Transactional
     public DepreciationRunResult runDepreciation(DepreciationRunRequest request) {
         long tenantId = FinanceContext.tenantId();
         if (request.ledgerId() == null || request.periodCode() == null || request.periodCode().isBlank()) {
@@ -205,6 +273,22 @@ public class AssetService {
         }
         audit.publish("fin_depreciation.generated", "GENERATE", "fin_depreciation_schedule", 0L, "MEDIUM");
         return new DepreciationRunResult(batchNo, periodCode, count, FinanceContext.amount(total), voucherId);
+    }
+
+    public List<DepreciationScheduleView> listSchedules(String batchNo, String periodCode, Long assetId,
+                                                       int limit, int offset) {
+        long tenantId = FinanceContext.tenantId();
+        List<DepreciationScheduleView> views = new ArrayList<>();
+        for (Map<String, Object> row : assetMapper.listSchedules(tenantId, batchNo, periodCode, assetId,
+                limit, offset)) {
+            views.add(new DepreciationScheduleView(Rows.lngVal(row, "id"), Rows.str(row, "batchNo"),
+                    Rows.lngVal(row, "assetId"), Rows.str(row, "assetNo"), Rows.str(row, "assetName"),
+                    Rows.str(row, "periodCode"), Rows.str(row, "method"),
+                    Rows.dec(row, "originalValue"), Rows.dec(row, "depreciationAmount"),
+                    Rows.dec(row, "accumulatedAfter"), Rows.dec(row, "netValueAfter"),
+                    Rows.lng(row, "voucherId"), Rows.str(row, "status")));
+        }
+        return views;
     }
 
     @Transactional
@@ -328,6 +412,64 @@ public class AssetService {
     }
 
     @Transactional
+    public StocktakingDetail addStocktakingItem(long stocktakingId, StocktakingItemCreateRequest request) {
+        long tenantId = FinanceContext.tenantId();
+        Map<String, Object> stocktaking = assetMapper.findStocktaking(tenantId, stocktakingId);
+        if (stocktaking == null) {
+            throw new BizException(FinanceErrorCode.RESOURCE_NOT_FOUND);
+        }
+        if (!"IN_PROGRESS".equals(Rows.str(stocktaking, "status"))) {
+            throw new BizException(FinanceErrorCode.STATE_CONFLICT);
+        }
+        if (request == null || request.assetId() == null) {
+            throw new BizException(FinanceErrorCode.PARAM_INVALID);
+        }
+        Map<String, Object> card = requireCard(tenantId, request.assetId());
+        String result = request.result() == null || request.result().isBlank()
+                ? "NOT_FOUND" : request.result();
+        if (!STOCKTAKING_RESULTS.contains(result)) {
+            throw new BizException(FinanceErrorCode.PARAM_INVALID);
+        }
+        String expectedLocation = request.expectedLocation() == null
+                ? Rows.str(card, "location") : request.expectedLocation();
+        Long expectedCustodianId = request.expectedCustodianId() == null
+                ? Rows.lng(card, "custodianId") : request.expectedCustodianId();
+        boolean counted = !"NOT_FOUND".equals(result);
+        long itemId = IdWorker.getId();
+        if (assetMapper.insertStocktakingItem(itemId, tenantId, stocktakingId, request.assetId(),
+                Rows.str(card, "assetNo"), Rows.str(card, "assetName"), expectedLocation,
+                counted ? expectedLocation : null, expectedCustodianId,
+                counted ? expectedCustodianId : null, result, request.remark(),
+                counted ? LocalDateTime.now() : null, counted ? FinanceContext.userId() : null,
+                FinanceContext.userId()) == 0) {
+            throw new BizException(FinanceErrorCode.STATE_CONFLICT);
+        }
+        assetMapper.recountStocktaking(tenantId, stocktakingId);
+        audit.publish("fin_asset_stocktaking_item.added", "CREATE", "fin_asset_stocktaking_item",
+                itemId, "LOW");
+        return stocktakingDetail(stocktakingId);
+    }
+
+    @Transactional
+    public StocktakingDetail deleteStocktakingItem(long stocktakingId, long itemId) {
+        long tenantId = FinanceContext.tenantId();
+        Map<String, Object> stocktaking = assetMapper.findStocktaking(tenantId, stocktakingId);
+        if (stocktaking == null) {
+            throw new BizException(FinanceErrorCode.RESOURCE_NOT_FOUND);
+        }
+        if (!"IN_PROGRESS".equals(Rows.str(stocktaking, "status"))) {
+            throw new BizException(FinanceErrorCode.STATE_CONFLICT);
+        }
+        if (assetMapper.deleteStocktakingItem(tenantId, stocktakingId, itemId, FinanceContext.userId()) == 0) {
+            throw new BizException(FinanceErrorCode.RESOURCE_NOT_FOUND);
+        }
+        assetMapper.recountStocktaking(tenantId, stocktakingId);
+        audit.publish("fin_asset_stocktaking_item.deleted", "DELETE", "fin_asset_stocktaking_item",
+                itemId, "LOW");
+        return stocktakingDetail(stocktakingId);
+    }
+
+    @Transactional
     public StocktakingView completeStocktaking(long id) {
         long tenantId = FinanceContext.tenantId();
         if (assetMapper.findStocktaking(tenantId, id) == null) {
@@ -346,20 +488,56 @@ public class AssetService {
         if (request == null || request.borrowerId() == null) {
             throw new BizException(FinanceErrorCode.PARAM_INVALID);
         }
+        Map<String, Object> itAsset = assetMapper.findItAsset(tenantId, itAssetId);
+        if (itAsset == null) {
+            throw new BizException(FinanceErrorCode.RESOURCE_NOT_FOUND);
+        }
         if (assetMapper.borrowItAsset(tenantId, itAssetId, request.borrowerId(), LocalDate.now(),
                 request.dueDate()) == 0) {
             throw new BizException(FinanceErrorCode.STATE_CONFLICT);
         }
+        assetMapper.insertChange(IdWorker.getId(), tenantId, nextChangeNo(),
+                Rows.lngVal(itAsset, "assetId"), "BORROW",
+                borrowJson("AVAILABLE", null, null),
+                borrowJson("BORROWED", request.borrowerId(), request.dueDate()),
+                null, null, FinanceContext.userId());
+        audit.publish("fin_it_asset.borrowed", "BORROW", "fin_it_asset", itAssetId, "MEDIUM");
         return itAssetView(assetMapper.findItAsset(tenantId, itAssetId));
     }
 
     @Transactional
     public ItAssetView returnItAsset(long itAssetId) {
         long tenantId = FinanceContext.tenantId();
+        Map<String, Object> itAsset = assetMapper.findItAsset(tenantId, itAssetId);
+        if (itAsset == null) {
+            throw new BizException(FinanceErrorCode.RESOURCE_NOT_FOUND);
+        }
         if (assetMapper.returnItAsset(tenantId, itAssetId) == 0) {
             throw new BizException(FinanceErrorCode.STATE_CONFLICT);
         }
+        assetMapper.insertChange(IdWorker.getId(), tenantId, nextChangeNo(),
+                Rows.lngVal(itAsset, "assetId"), "RETURN",
+                borrowJson("BORROWED", Rows.lng(itAsset, "borrowerId"), Rows.date(itAsset, "dueDate")),
+                borrowJson("AVAILABLE", null, null), null, null, FinanceContext.userId());
+        audit.publish("fin_it_asset.returned", "RETURN", "fin_it_asset", itAssetId, "MEDIUM");
         return itAssetView(assetMapper.findItAsset(tenantId, itAssetId));
+    }
+
+    public List<ItAssetBorrowRecordView> listItBorrowRecords(long itAssetId) {
+        long tenantId = FinanceContext.tenantId();
+        Map<String, Object> itAsset = assetMapper.findItAsset(tenantId, itAssetId);
+        if (itAsset == null) {
+            throw new BizException(FinanceErrorCode.RESOURCE_NOT_FOUND);
+        }
+        List<ItAssetBorrowRecordView> views = new ArrayList<>();
+        for (Map<String, Object> row : assetMapper.listItBorrowRecords(tenantId,
+                Rows.lngVal(itAsset, "assetId"))) {
+            views.add(new ItAssetBorrowRecordView(Rows.lngVal(row, "id"), Rows.str(row, "changeNo"),
+                    Rows.lngVal(row, "assetId"), Rows.str(row, "changeType"),
+                    Rows.str(row, "beforeJson"), Rows.str(row, "afterJson"),
+                    Rows.lngVal(row, "operatorId"), Rows.instant(row, "occurredAt")));
+        }
+        return views;
     }
 
     public ItAssetView syncItAsset(long itAssetId, ItAssetSyncRequest request) {
@@ -466,6 +644,54 @@ public class AssetService {
 
     private String json(String value) {
         return value;
+    }
+
+    private String nextChangeNo() {
+        return "AC-" + String.format("%06d", commonsMapper.nextCostNo());
+    }
+
+    private static String profileJson(String assetName, Long deptId, String location, Long custodianId,
+                                      String status) {
+        return "{\"assetName\":" + jsonText(assetName)
+                + ",\"deptId\":" + valueOrNull(deptId)
+                + ",\"location\":" + jsonText(location)
+                + ",\"custodianId\":" + valueOrNull(custodianId)
+                + ",\"status\":" + jsonText(status) + "}";
+    }
+
+    private static String borrowJson(String borrowStatus, Long borrowerId, LocalDate dueDate) {
+        return "{\"borrowStatus\":" + jsonText(borrowStatus)
+                + ",\"borrowerId\":" + valueOrNull(borrowerId)
+                + ",\"dueDate\":" + jsonText(dueDate == null ? null : dueDate.toString()) + "}";
+    }
+
+    private static String valueOrNull(Number value) {
+        return value == null ? "null" : value.toString();
+    }
+
+    private static String jsonText(String value) {
+        if (value == null) {
+            return "null";
+        }
+        StringBuilder builder = new StringBuilder("\"");
+        for (int i = 0; i < value.length(); i++) {
+            char ch = value.charAt(i);
+            switch (ch) {
+                case '"' -> builder.append("\\\"");
+                case '\\' -> builder.append("\\\\");
+                case '\n' -> builder.append("\\n");
+                case '\r' -> builder.append("\\r");
+                case '\t' -> builder.append("\\t");
+                default -> {
+                    if (ch < 0x20) {
+                        builder.append(String.format("\\u%04x", (int) ch));
+                    } else {
+                        builder.append(ch);
+                    }
+                }
+            }
+        }
+        return builder.append('"').toString();
     }
 
     private static BigDecimal nullSafe(BigDecimal value) {

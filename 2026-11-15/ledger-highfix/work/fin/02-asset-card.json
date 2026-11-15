@@ -1,0 +1,15 @@
+{
+  "asset_name": "FIN04测试笔记本",
+  "location": "A座3层研发区",
+  "enable_date": "2026-10-01",
+  "original_value": 12000.00,
+  "it_asset_flag": true,
+  "source": "PURCHASE",
+  "device_type": "LAPTOP",
+  "brand_model": "ThinkPad X1 Carbon",
+  "serial_no": "FIN04SN001",
+  "ip_address": "10.0.0.11",
+  "mac_address": "AA:BB:CC:DD:EE:01",
+  "os_version": "Windows 11",
+  "software_list": ["Office", "Chrome"]
+}

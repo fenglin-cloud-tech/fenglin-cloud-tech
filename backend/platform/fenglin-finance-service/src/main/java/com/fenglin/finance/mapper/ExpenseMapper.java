@@ -245,6 +245,45 @@ public interface ExpenseMapper {
     int consumeBudget(@Param("tenantId") long tenantId, @Param("id") long id,
                       @Param("amount") BigDecimal amount);
 
+    @Update("""
+            UPDATE fin_budget SET budget_amount = budget_amount + #{delta}, updated_by = #{userId},
+                updated_at = now(), version = version + 1
+            WHERE tenant_id = #{tenantId} AND id = #{id} AND deleted = 0
+              AND budget_amount + #{delta} >= 0
+              AND budget_amount + #{delta} >= occupied_amount + executed_amount
+            """)
+    int adjustBudgetAmount(@Param("tenantId") long tenantId, @Param("id") long id,
+                           @Param("delta") BigDecimal delta, @Param("userId") long userId);
+
+    @Insert("""
+            INSERT INTO fin_budget_adjustment
+                (id, tenant_id, adjust_no, budget_id, adjust_type, amount, before_amount, after_amount,
+                 source_budget_id, reason, operator_id, created_by)
+            VALUES (#{id}, #{tenantId}, #{adjustNo}, #{budgetId}, #{adjustType}, #{amount},
+                    #{beforeAmount}, #{afterAmount}, #{sourceBudgetId,jdbcType=BIGINT},
+                    #{reason,jdbcType=VARCHAR}, #{userId}, #{userId})
+            """)
+    void insertBudgetAdjustment(@Param("id") long id, @Param("tenantId") long tenantId,
+                                @Param("adjustNo") String adjustNo, @Param("budgetId") long budgetId,
+                                @Param("adjustType") String adjustType, @Param("amount") BigDecimal amount,
+                                @Param("beforeAmount") BigDecimal beforeAmount,
+                                @Param("afterAmount") BigDecimal afterAmount,
+                                @Param("sourceBudgetId") Long sourceBudgetId, @Param("reason") String reason,
+                                @Param("userId") long userId);
+
+    @Select("""
+            SELECT id AS "id", adjust_no AS "adjustNo", budget_id AS "budgetId",
+                   adjust_type AS "adjustType", amount AS "amount", before_amount AS "beforeAmount",
+                   after_amount AS "afterAmount", source_budget_id AS "sourceBudgetId",
+                   reason AS "reason", operator_id AS "operatorId",
+                   (extract(epoch FROM occurred_at) * 1000)::bigint AS "occurredAt"
+            FROM fin_budget_adjustment
+            WHERE tenant_id = #{tenantId} AND budget_id = #{budgetId} AND deleted = 0
+            ORDER BY occurred_at DESC, id DESC
+            """)
+    List<Map<String, Object>> listBudgetAdjustments(@Param("tenantId") long tenantId,
+                                                    @Param("budgetId") long budgetId);
+
     @Insert("""
             INSERT INTO fin_budget_control
                 (id, tenant_id, budget_id, biz_type, biz_id, action, amount, balance_after, occurred_at,

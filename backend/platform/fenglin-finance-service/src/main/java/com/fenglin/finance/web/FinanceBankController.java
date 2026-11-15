@@ -5,6 +5,7 @@ import com.fenglin.common.security.PermissionGuard;
 import com.fenglin.finance.service.BankService;
 import com.fenglin.finance.support.FinanceContext;
 import com.fenglin.finance.web.dto.FinanceDtos.BankAccountCreateRequest;
+import com.fenglin.finance.web.dto.FinanceDtos.BankAccountUpdateRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.BankAccountView;
 import com.fenglin.finance.web.dto.FinanceDtos.BankTransactionView;
 import com.fenglin.finance.web.dto.FinanceDtos.BankTxnImportRequest;
@@ -14,6 +15,7 @@ import com.fenglin.finance.web.dto.FinanceDtos.ReconciliationView;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -51,6 +53,38 @@ public class FinanceBankController {
             @RequestHeader(value = "X-Permissions", required = false) String permissions) {
         PermissionGuard.require(permissions, BANK);
         return ApiResponse.success(bankService.listAccounts());
+    }
+
+    @PutMapping("/accounts/{id}")
+    public ApiResponse<BankAccountView> updateAccount(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id, @RequestBody BankAccountUpdateRequest request) {
+        PermissionGuard.require(permissions, BANK);
+        return ApiResponse.success(bankService.updateAccount(id, request));
+    }
+
+    @PostMapping("/accounts/{id}/disable")
+    public ApiResponse<BankAccountView> disableAccount(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id) {
+        PermissionGuard.require(permissions, BANK);
+        return ApiResponse.success(bankService.disableAccount(id));
+    }
+
+    @PostMapping("/accounts/{id}/enable")
+    public ApiResponse<BankAccountView> enableAccount(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id) {
+        PermissionGuard.require(permissions, BANK);
+        return ApiResponse.success(bankService.enableAccount(id));
+    }
+
+    @GetMapping("/reconciliations/{id}/unmatched")
+    public ApiResponse<List<BankTransactionView>> listUnmatched(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id) {
+        PermissionGuard.require(permissions, RECONCILE);
+        return ApiResponse.success(bankService.listUnmatched(id));
     }
 
     @PostMapping("/transactions/import")

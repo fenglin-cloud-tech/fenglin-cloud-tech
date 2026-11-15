@@ -1,0 +1,11 @@
+{
+  "ledger_id": 2120408424215543810,
+  "voucher_word": "记",
+  "voucher_date": "2026-11-15",
+  "summary": "FIN13测试凭证",
+  "currency_code": "CNY",
+  "entries": [
+    {"summary": "测试分录", "subject_code": "1001", "direction": "DEBIT", "amount": 100},
+    {"summary": "测试分录", "subject_code": "6001", "direction": "CREDIT", "amount": 100}
+  ]
+}

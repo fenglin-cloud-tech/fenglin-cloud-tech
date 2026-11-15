@@ -151,6 +151,60 @@ public interface AssetMapper {
     long countSchedule(@Param("tenantId") long tenantId, @Param("assetId") long assetId,
                        @Param("periodCode") String periodCode);
 
+    @Update("""
+            UPDATE fin_asset_card
+            SET asset_name = COALESCE(#{assetName,jdbcType=VARCHAR}, asset_name),
+                specification = COALESCE(#{specification,jdbcType=VARCHAR}, specification),
+                location = COALESCE(#{location,jdbcType=VARCHAR}, location),
+                dept_id = COALESCE(#{deptId,jdbcType=BIGINT}, dept_id),
+                custodian_id = COALESCE(#{custodianId,jdbcType=BIGINT}, custodian_id),
+                status = COALESCE(#{status,jdbcType=VARCHAR}, status),
+                updated_by = #{userId}, updated_at = now(), version = version + 1
+            WHERE tenant_id = #{tenantId} AND id = #{id} AND deleted = 0 AND status <> 'DISPOSED'
+            """)
+    int updateCardProfile(@Param("tenantId") long tenantId, @Param("id") long id,
+                          @Param("assetName") String assetName, @Param("specification") String specification,
+                          @Param("location") String location, @Param("deptId") Long deptId,
+                          @Param("custodianId") Long custodianId, @Param("status") String status,
+                          @Param("userId") long userId);
+
+    @Select("""
+            SELECT s.id AS "id", s.batch_no AS "batchNo", s.asset_id AS "assetId",
+                   c.asset_no AS "assetNo", c.asset_name AS "assetName", s.period_code AS "periodCode",
+                   s.method AS "method", s.original_value AS "originalValue",
+                   s.depreciation_amount AS "depreciationAmount",
+                   s.accumulated_after AS "accumulatedAfter", s.net_value_after AS "netValueAfter",
+                   s.voucher_id AS "voucherId", s.status AS "status"
+            FROM fin_depreciation_schedule s
+            LEFT JOIN fin_asset_card c
+              ON c.id = s.asset_id AND c.tenant_id = s.tenant_id AND c.deleted = 0
+            WHERE s.tenant_id = #{tenantId} AND s.deleted = 0
+              AND (CAST(#{batchNo,jdbcType=VARCHAR} AS text) IS NULL OR s.batch_no = #{batchNo})
+              AND (CAST(#{periodCode,jdbcType=VARCHAR} AS text) IS NULL OR s.period_code = #{periodCode})
+              AND (CAST(#{assetId,jdbcType=BIGINT} AS bigint) IS NULL OR s.asset_id = #{assetId})
+            ORDER BY s.period_code DESC, s.id DESC
+            LIMIT #{limit} OFFSET #{offset}
+            """)
+    List<Map<String, Object>> listSchedules(@Param("tenantId") long tenantId,
+                                            @Param("batchNo") String batchNo,
+                                            @Param("periodCode") String periodCode,
+                                            @Param("assetId") Long assetId,
+                                            @Param("limit") int limit, @Param("offset") int offset);
+
+    @Select("""
+            SELECT id AS "id", change_no AS "changeNo", asset_id AS "assetId", change_type AS "changeType",
+                   before_json::text AS "beforeJson", after_json::text AS "afterJson",
+                   gain_loss AS "gainLoss", voucher_id AS "voucherId", status AS "status",
+                   operator_id AS "operatorId",
+                   (extract(epoch FROM occurred_at) * 1000)::bigint AS "occurredAt"
+            FROM fin_asset_change
+            WHERE tenant_id = #{tenantId} AND asset_id = #{assetId} AND deleted = 0
+              AND change_type IN ('BORROW', 'RETURN')
+            ORDER BY occurred_at DESC, id DESC
+            """)
+    List<Map<String, Object>> listItBorrowRecords(@Param("tenantId") long tenantId,
+                                                  @Param("assetId") long assetId);
+
     @Insert("""
             INSERT INTO fin_depreciation_schedule
                 (id, tenant_id, batch_no, asset_id, period_code, method, original_value,
@@ -263,6 +317,39 @@ public interface AssetMapper {
                              @Param("actualCustodianId") Long actualCustodianId,
                              @Param("result") String result, @Param("remark") String remark,
                              @Param("userId") long userId);
+
+    @Insert("""
+            INSERT INTO fin_asset_stocktaking_item
+                (id, tenant_id, stocktaking_id, asset_id, asset_no, asset_name, expected_location,
+                 actual_location, expected_custodian_id, actual_custodian_id, result, remark, counted_at,
+                 counted_by, created_by)
+            VALUES (#{id}, #{tenantId}, #{stocktakingId}, #{assetId}, #{assetNo}, #{assetName},
+                    #{expectedLocation,jdbcType=VARCHAR}, #{actualLocation,jdbcType=VARCHAR},
+                    #{expectedCustodianId,jdbcType=BIGINT}, #{actualCustodianId,jdbcType=BIGINT},
+                    #{result}, #{remark,jdbcType=VARCHAR}, #{countedAt,jdbcType=TIMESTAMP},
+                    #{countedBy,jdbcType=BIGINT}, #{userId})
+            ON CONFLICT (tenant_id, stocktaking_id, asset_id) WHERE deleted = 0 DO NOTHING
+            """)
+    int insertStocktakingItem(@Param("id") long id, @Param("tenantId") long tenantId,
+                              @Param("stocktakingId") long stocktakingId, @Param("assetId") long assetId,
+                              @Param("assetNo") String assetNo, @Param("assetName") String assetName,
+                              @Param("expectedLocation") String expectedLocation,
+                              @Param("actualLocation") String actualLocation,
+                              @Param("expectedCustodianId") Long expectedCustodianId,
+                              @Param("actualCustodianId") Long actualCustodianId,
+                              @Param("result") String result, @Param("remark") String remark,
+                              @Param("countedAt") java.time.LocalDateTime countedAt,
+                              @Param("countedBy") Long countedBy, @Param("userId") long userId);
+
+    @Update("""
+            UPDATE fin_asset_stocktaking_item
+            SET deleted = 1, updated_by = #{userId}, updated_at = now(), version = version + 1
+            WHERE tenant_id = #{tenantId} AND stocktaking_id = #{stocktakingId} AND id = #{itemId}
+              AND deleted = 0
+            """)
+    int deleteStocktakingItem(@Param("tenantId") long tenantId,
+                              @Param("stocktakingId") long stocktakingId, @Param("itemId") long itemId,
+                              @Param("userId") long userId);
 
     @Select("""
             SELECT id AS "id", asset_id AS "assetId", asset_no AS "assetNo", asset_name AS "assetName",

@@ -1,0 +1,106 @@
+﻿FIN-04/05/08/11/13 post-fix verification (2026-11-15)
+>> PUT /assets/cards/2121907914918060033
+<< http=200
+{"code":"0","message":"OK","data":{"id":"2121907914918060033","asset_no":"FA2026000001","asset_name":"FIN04测试笔记本-变更","category_id":"2121907732453253122","specification":"X1 Carbon Gen11","location":"B座2层","enable_date":"2026-10-01","original_value":"12000.0000","accumulated_depreciation":"0.0000","net_value":"12000.0000","residual_rate":"0.0500","useful_life_months":60,"depreciation_method":"STRAIGHT_LINE","status":"IN_USE","it_asset_flag":true},"request_id":"f15b4ad5-2c9b-467c-b310-c148b857c75a","timestamp":"2026-11-15T10:09:44.691155500Z"}
+>> POST /assets/2121907914918060033/transfer
+<< http=200
+{"code":"0","message":"OK","data":{"id":"2121907914918060033","asset_no":"FA2026000001","asset_name":"FIN04测试笔记本-变更","category_id":"2121907732453253122","specification":"X1 Carbon Gen11","location":"C座1层","dept_id":"1001","custodian_id":"900101","enable_date":"2026-10-01","original_value":"12000.0000","accumulated_depreciation":"0.0000","net_value":"12000.0000","residual_rate":"0.0500","useful_life_months":60,"depreciation_method":"STRAIGHT_LINE","status":"IN_USE","it_asset_flag":true},"request_id":"41ac8e82-82bd-4a92-9b67-b5797089e214","timestamp":"2026-11-15T10:09:44.797953100Z"}
+>> POST /assets/depreciation/run
+<< http=200
+{"code":"0","message":"OK","data":{"batch_no":"DP-202611-0001","period_code":"2026-11","asset_count":1,"total_amount":"190.0000","voucher_id":"2121908502959480834"},"request_id":"825ac3dc-fdc1-4caf-bd27-2ad32dc0bc46","timestamp":"2026-11-15T10:09:44.951734400Z"}
+>> GET /assets/depreciation/schedules?asset_id=2121907914918060033
+<< http=200
+{"code":"0","message":"OK","data":[{"id":"2121908502829457410","batch_no":"DP-202611-0001","asset_id":"2121907914918060033","asset_no":"FA2026000001","asset_name":"FIN04测试笔记本-变更","period_code":"2026-11","method":"STRAIGHT_LINE","original_value":"12000.0000","depreciation_amount":"190.0000","accumulated_after":"190.0000","net_value_after":"11810.0000","status":"GENERATED"}],"request_id":"da10b594-4d31-4135-8bbb-847244cdcddb","timestamp":"2026-11-15T10:09:45.049972200Z"}
+>> POST /assets/stocktakings
+<< http=200
+{"code":"0","message":"OK","data":{"id":"2121908503932559362","stocktaking_no":"STK202600001","stocktaking_name":"FIN04盘点测试","scope_type":"ALL","plan_start_date":"2026-11-15","plan_end_date":"2026-11-20","total_count":1,"normal_count":0,"surplus_count":0,"deficit_count":1,"status":"IN_PROGRESS"},"request_id":"98d41565-b133-4752-ab0e-d57b2770ab7e","timestamp":"2026-11-15T10:09:45.177570500Z"}
+>> POST /assets/stocktakings/2121908503932559362/items
+<< http=409
+{"code":"4000004","message":"财务状态冲突（并发/重复）","request_id":"1b3c7df3-8601-4210-b684-1f6bbad65578","timestamp":"2026-11-15T10:09:45.299585700Z"}
+>> POST /assets/it/2121907914918060034/borrow
+<< http=200
+{"code":"0","message":"OK","data":{"id":"2121907914918060034","asset_id":"2121907914918060033","device_type":"LAPTOP","brand_model":"ThinkPad X1 Carbon","serial_no":"FIN04SN001","ip_address":"10.0.0.11","borrow_status":"BORROWED","borrower_id":"900101","borrow_date":"2026-11-15","due_date":"2026-12-15","sync_status":"PENDING"},"request_id":"89decb4a-84f0-406f-bd59-67cfe64332a1","timestamp":"2026-11-15T10:09:45.422687700Z"}
+>> GET /assets/it/2121907914918060034/borrow-records
+<< http=200
+{"code":"0","message":"OK","data":[{"id":"2121908504989523969","change_no":"AC-000003","asset_id":"2121907914918060033","change_type":"BORROW","before_json":"{\"dueDate\": null, \"borrowerId\": null, \"borrowStatus\": \"AVAILABLE\"}","after_json":"{\"dueDate\": \"2026-12-15\", \"borrowerId\": 900101, \"borrowStatus\": \"BORROWED\"}","operator_id":"9101","occurred_at":"2026-11-15T10:09:45.424Z"}],"request_id":"d9d1dd26-eef5-41a4-88d9-c65f9458e349","timestamp":"2026-11-15T10:09:45.519203200Z"}
+>> POST /assets/it/2121907914918060034/return
+<< http=200
+{"code":"0","message":"OK","data":{"id":"2121907914918060034","asset_id":"2121907914918060033","device_type":"LAPTOP","brand_model":"ThinkPad X1 Carbon","serial_no":"FIN04SN001","ip_address":"10.0.0.11","borrow_status":"AVAILABLE","sync_status":"PENDING"},"request_id":"45594035-fb2a-4778-b720-774cac331bb0","timestamp":"2026-11-15T10:09:45.620498200Z"}
+>> GET /assets/it/2121907914918060034/borrow-records
+<< http=200
+{"code":"0","message":"OK","data":[{"id":"2121908505853550593","change_no":"AC-000004","asset_id":"2121907914918060033","change_type":"RETURN","before_json":"{\"dueDate\": \"2026-12-15\", \"borrowerId\": 900101, \"borrowStatus\": \"BORROWED\"}","after_json":"{\"dueDate\": null, \"borrowerId\": null, \"borrowStatus\": \"AVAILABLE\"}","operator_id":"9101","occurred_at":"2026-11-15T10:09:45.621Z"},{"id":"2121908504989523969","change_no":"AC-000003","asset_id":"2121907914918060033","change_type":"BORROW","before_json":"{\"dueDate\": null, \"borrowerId\": null, \"borrowStatus\": \"AVAILABLE\"}","after_json":"{\"dueDate\": \"2026-12-15\", \"borrowerId\": 900101, \"borrowStatus\": \"BORROWED\"}","operator_id":"9101","occurred_at":"2026-11-15T10:09:45.424Z"}],"request_id":"2625f648-d02a-4bff-a5d5-c17418870a66","timestamp":"2026-11-15T10:09:45.693939200Z"}
+>> PUT /bank/accounts/2121907733547966466
+<< http=200
+{"code":"0","message":"OK","data":{"id":"2121907733547966466","account_no_masked":"6222****4567","account_name":"FIN05测试基本户-变更","bank_name":"丰麟测试银行改名","currency_code":"CNY","account_type":"BASIC","subject_code":"1002","balance":"100000.0000","status":"ENABLED"},"request_id":"4ea5ea13-b397-44e2-ad4e-522377e900c6","timestamp":"2026-11-15T10:09:45.799166200Z"}
+>> POST /bank/reconciliations
+<< http=200
+{"code":"0","message":"OK","data":{"id":"2121908507086675969","recon_no":"BR-000001","account_id":"2121907733547966466","period_code":"2026-11","book_balance":"100000.0000","bank_balance":"103800.0000","unsettled_in":"5000.0000","unsettled_out":"1200.0000","adjusted_balance":"103800.0000","status":"BALANCED","unmatched_count":2},"request_id":"8876d105-9f7a-4a37-b262-aec3d5beaccc","timestamp":"2026-11-15T10:09:45.945726100Z"}
+>> GET /bank/reconciliations/2121908507086675969/unmatched
+<< http=200
+{"code":"0","message":"OK","data":[{"id":"2121907915371044865","account_id":"2121907733547966466","txn_no":"TXN-FIN05-001","txn_date":"2026-11-01","direction":"IN","amount":"5000.0000","balance":"105000.0000","counterparty":"测试客户甲","summary":"测试收款","reconcile_status":"UNMATCHED"},{"id":"2121907915371044866","account_id":"2121907733547966466","txn_no":"TXN-FIN05-002","txn_date":"2026-11-02","direction":"OUT","amount":"1200.0000","balance":"103800.0000","counterparty":"测试供应商乙","summary":"测试付款","reconcile_status":"UNMATCHED"}],"request_id":"54c4f0ad-dc83-4ce8-a2b1-7fa508d0ac6b","timestamp":"2026-11-15T10:09:46.046975300Z"}
+>> POST /bank/accounts/2121907733547966466/disable
+<< http=200
+{"code":"0","message":"OK","data":{"id":"2121907733547966466","account_no_masked":"6222****4567","account_name":"FIN05测试基本户-变更","bank_name":"丰麟测试银行改名","currency_code":"CNY","account_type":"BASIC","subject_code":"1002","balance":"100000.0000","status":"DISABLED"},"request_id":"4b4e7781-5f90-4843-aa84-46df43ef1d73","timestamp":"2026-11-15T10:09:46.158599600Z"}
+>> POST /budgets/2121907734529433602/release
+<< http=200
+{"code":"0","message":"OK","data":{"id":"2121907734529433602","budget_no":"BG-FIN08-2027-A","budget_name":"FIN08测试预算A","period_year":2027,"dimension":"DEPARTMENT","subject_code":"6602","budget_amount":"50000.0000","occupied_amount":"0.0000","executed_amount":"0.0000","available":"50000.0000","control_mode":"WARN","status":"RELEASED"},"request_id":"97c3805c-cf4b-4c1e-869e-5166afd06395","timestamp":"2026-11-15T10:09:46.288948700Z"}
+>> POST /budgets/2121907734919503874/release
+<< http=200
+{"code":"0","message":"OK","data":{"id":"2121907734919503874","budget_no":"BG-FIN08-2027-B","budget_name":"FIN08测试预算B","period_year":2027,"dimension":"DEPARTMENT","subject_code":"6602","budget_amount":"20000.0000","occupied_amount":"0.0000","executed_amount":"0.0000","available":"20000.0000","control_mode":"WARN","status":"RELEASED"},"request_id":"744d6a77-4747-48c9-8236-88b0b5cd26fa","timestamp":"2026-11-15T10:09:46.423946600Z"}
+>> POST /budgets/2121907734529433602/adjust
+<< http=200
+{"code":"0","message":"OK","data":{"id":"2121907734529433602","budget_no":"BG-FIN08-2027-A","budget_name":"FIN08测试预算A","period_year":2027,"dimension":"DEPARTMENT","subject_code":"6602","budget_amount":"58000.0000","occupied_amount":"0.0000","executed_amount":"0.0000","available":"58000.0000","control_mode":"WARN","status":"RELEASED"},"request_id":"1cd5c73e-d56c-433f-8522-15a440ba925d","timestamp":"2026-11-15T10:09:46.550508600Z"}
+>> POST /budgets/2121907734529433602/adjust
+<< http=200
+{"code":"0","message":"OK","data":{"id":"2121907734529433602","budget_no":"BG-FIN08-2027-A","budget_name":"FIN08测试预算A","period_year":2027,"dimension":"DEPARTMENT","subject_code":"6602","budget_amount":"55000.0000","occupied_amount":"0.0000","executed_amount":"0.0000","available":"55000.0000","control_mode":"WARN","status":"RELEASED"},"request_id":"726b67c9-8024-4c06-a36d-db03511f22e4","timestamp":"2026-11-15T10:09:46.655224500Z"}
+>> POST /budgets/2121907734529433602/rollover
+<< http=500
+{"code":"FL-COMMON-0500","message":"系统内部错误","request_id":"2812441c-5f0f-476a-ad69-f5d60d00b056","timestamp":"2026-11-15T10:09:46.754588600Z"}
+>> GET /budgets/2121907734529433602/adjustments
+<< http=200
+{"code":"0","message":"OK","data":[{"id":"2121908510219821057","adjust_no":"BA-000006","budget_id":"2121907734529433602","adjust_type":"DECREASE","amount":"3000.0000","before_amount":"58000.0000","after_amount":"55000.0000","reason":"调减测试","operator_id":"9101","occurred_at":"2026-11-15T10:09:46.664Z"},{"id":"2121908509741670402","adjust_no":"BA-000005","budget_id":"2121907734529433602","adjust_type":"INCREASE","amount":"8000.0000","before_amount":"50000.0000","after_amount":"58000.0000","reason":"追加测试","operator_id":"9101","occurred_at":"2026-11-15T10:09:46.554Z"}],"request_id":"7c733823-50c9-4674-9ba2-20f7776a9c5e","timestamp":"2026-11-15T10:09:46.847307600Z"}
+>> PUT /projects/2120081858080067585
+<< http=200
+{"code":"0","message":"OK","data":{"id":"2120081858080067585","project_no":"PJ-000001","project_name":"FIN11测试项目-变更","project_type":"INTERNAL","contract_amount":"10000.0000","budget_amount":"0.0000","estimated_total_cost":"0.0000","actual_cost":"0.0000","recognized_revenue":"0.0000","start_date":"2026-11-01","currency_code":"CNY","status":"APPROVING","description":"补更新接口验证"},"request_id":"656be377-9bf9-4a34-8d8b-a652c0ac09a6","timestamp":"2026-11-15T10:09:46.970763Z"}
+>> POST /projects/2120081916242481153/close
+<< http=409
+{"code":"4002001","message":"项目状态不允许该操作","request_id":"250a3ad9-b980-4b0f-897f-fa969e894552","timestamp":"2026-11-15T10:09:47.061531Z"}
+>> POST /projects/2120081858080067585/approve
+<< http=200
+{"code":"0","message":"OK","data":{"id":"2120081858080067585","project_no":"PJ-000001","status":"ACTIVE"},"request_id":"fc4d61fb-e8df-41b6-bb48-fb1ae79a870a","timestamp":"2026-11-15T10:09:47.146185200Z"}
+>> POST /projects/2120081858080067585/close
+<< http=200
+{"code":"0","message":"OK","data":{"id":"2120081858080067585","project_no":"PJ-000001","project_name":"FIN11测试项目-变更","project_type":"INTERNAL","contract_amount":"10000.0000","budget_amount":"0.0000","estimated_total_cost":"0.0000","actual_cost":"0.0000","recognized_revenue":"0.0000","start_date":"2026-11-01","currency_code":"CNY","status":"CLOSED","description":"关闭测试"},"request_id":"b61af59b-c27a-42b7-b436-2596e2fa845a","timestamp":"2026-11-15T10:09:47.241580300Z"}
+>> DELETE /projects/2120081916242481153
+<< http=200
+{"code":"0","message":"OK","request_id":"ca6ac3f4-3eac-4c74-be3f-ec4933c62684","timestamp":"2026-11-15T10:09:47.334884900Z"}
+>> POST /projects/2120081960370753538/members
+<< http=200
+{"code":"0","message":"OK","data":{"id":"2121908513424269314","employee_id":"900101","employee_name":"FIN11测试成员","member_role":"DEVELOPER","allocation_pct":"0.5000","cost_rate":"800.0000","join_date":"2026-11-01","status":"ACTIVE"},"request_id":"2f01d8ea-e603-4130-b847-e5c1cdc4b325","timestamp":"2026-11-15T10:09:47.433423Z"}
+>> DELETE /projects/2120081960370753538/members/2121908513424269314
+<< http=200
+{"code":"0","message":"OK","request_id":"258bc874-60f2-4e4f-9c4e-13f5ed18ad42","timestamp":"2026-11-15T10:09:47.523091300Z"}
+>> POST /projects/2120081960370753538/milestones
+<< http=200
+{"code":"0","message":"OK","data":{"id":"2121908514200215553","milestone_name":"FIN11里程碑","plan_date":"2026-12-01","deliverable":"验收单","weight":"1.0000","status":"PENDING"},"request_id":"08de5631-d561-4620-9f99-a53cbe181ff0","timestamp":"2026-11-15T10:09:47.609309800Z"}
+>> PATCH /projects/2120081960370753538/milestones/2121908514200215553/status
+<< http=200
+{"code":"0","message":"OK","data":{"id":"2121908514200215553","milestone_name":"FIN11里程碑","plan_date":"2026-12-01","actual_date":"2026-11-15","deliverable":"验收单","weight":"1.0000","status":"DONE"},"request_id":"bf1573e0-6471-424e-8370-0329e397fc31","timestamp":"2026-11-15T10:09:47.721014200Z"}
+>> POST /vouchers/2121907735347322882/attachments
+<< http=200
+{"code":"0","message":"OK","data":[{"id":"2121908515114573826","file_id":"2121908402099023874","file_name":"FIN13测试附件.txt","file_size":35,"uploaded_by":9101,"created_at":"2026-11-15T10:09:47.848Z"}],"request_id":"aa13e87d-022c-445e-acc4-e2c86b3ee43d","timestamp":"2026-11-15T10:09:47.832863500Z"}
+>> GET /vouchers/2121907735347322882/attachments
+<< http=200
+{"code":"0","message":"OK","data":[{"id":"2121908515114573826","file_id":"2121908402099023874","file_name":"FIN13测试附件.txt","file_size":35,"uploaded_by":9101,"created_at":"2026-11-15T10:09:47.848Z"}],"request_id":"87507256-f347-4c59-817e-e543df2f9670","timestamp":"2026-11-15T10:09:47.910832800Z"}
+>> DELETE /vouchers/2121907735347322882/attachments/2121908515114573826
+<< http=200
+{"code":"0","message":"OK","data":[],"request_id":"9078b7d4-1e0e-4e55-a34e-603e6f0f7deb","timestamp":"2026-11-15T10:09:47.991492200Z"}
+>> GET /vouchers?ledger_id=2120408424215543810&size=2
+<< http=400
+{"code":"FL-COMMON-0400","message":"缺少必填参数: ledgerId","request_id":"577240e4-a18c-4154-a4da-bbb8b6289a15","timestamp":"2026-11-15T10:09:48.062488300Z"}
+>> GET /reports/balance-sheet?ledger_id=2120408424215543810&period_code=2026-11
+<< http=400
+{"code":"FL-COMMON-0400","message":"缺少必填参数: ledgerId","request_id":"16739706-8e2d-401b-a69d-9162e5247b66","timestamp":"2026-11-15T10:09:48.131925600Z"}
+>> GET /reports/income-statement?ledger_id=2120408424215543810&period_code=2026-11
+<< http=400
+{"code":"FL-COMMON-0400","message":"缺少必填参数: ledgerId","request_id":"63e4162e-ff6f-4e56-a530-46b145365fd6","timestamp":"2026-11-15T10:09:48.201033800Z"}

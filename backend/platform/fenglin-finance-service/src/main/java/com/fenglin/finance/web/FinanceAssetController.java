@@ -5,23 +5,30 @@ import com.fenglin.common.security.PermissionGuard;
 import com.fenglin.finance.service.AssetService;
 import com.fenglin.finance.support.FinanceContext;
 import com.fenglin.finance.web.dto.FinanceDtos.AssetCardCreateRequest;
+import com.fenglin.finance.web.dto.FinanceDtos.AssetCardUpdateRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.AssetCardView;
 import com.fenglin.finance.web.dto.FinanceDtos.AssetCategoryCreateRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.AssetCategoryView;
+import com.fenglin.finance.web.dto.FinanceDtos.AssetTransferRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.DepreciationRunRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.DepreciationRunResult;
+import com.fenglin.finance.web.dto.FinanceDtos.DepreciationScheduleView;
 import com.fenglin.finance.web.dto.FinanceDtos.DisposeRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.DisposeResult;
+import com.fenglin.finance.web.dto.FinanceDtos.ItAssetBorrowRecordView;
 import com.fenglin.finance.web.dto.FinanceDtos.ItAssetBorrowRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.ItAssetSyncRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.ItAssetView;
 import com.fenglin.finance.web.dto.FinanceDtos.StocktakingCreateRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.StocktakingDetail;
+import com.fenglin.finance.web.dto.FinanceDtos.StocktakingItemCreateRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.StocktakingItemRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.StocktakingView;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -87,6 +94,35 @@ public class FinanceAssetController {
                 FinanceContext.offset(page, size)));
     }
 
+    @PutMapping("/cards/{id}")
+    public ApiResponse<AssetCardView> updateCard(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id, @RequestBody AssetCardUpdateRequest request) {
+        PermissionGuard.require(permissions, ASSET_CREATE);
+        return ApiResponse.success(assetService.updateCard(id, request));
+    }
+
+    @PostMapping("/{assetId}/transfer")
+    public ApiResponse<AssetCardView> transfer(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("assetId") long assetId, @RequestBody AssetTransferRequest request) {
+        PermissionGuard.require(permissions, ASSET_CREATE);
+        return ApiResponse.success(assetService.transferAsset(assetId, request));
+    }
+
+    @GetMapping("/depreciation/schedules")
+    public ApiResponse<List<DepreciationScheduleView>> listSchedules(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(value = "batchNo", required = false) String batchNo,
+            @RequestParam(value = "periodCode", required = false) String periodCode,
+            @RequestParam(value = "assetId", required = false) Long assetId,
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false) Integer size) {
+        PermissionGuard.require(permissions, ASSET_VIEW);
+        return ApiResponse.success(assetService.listSchedules(batchNo, periodCode, assetId,
+                FinanceContext.size(size), FinanceContext.offset(page, size)));
+    }
+
     @PostMapping("/depreciation/run")
     public ApiResponse<DepreciationRunResult> runDepreciation(
             @RequestHeader(value = "X-Permissions", required = false) String permissions,
@@ -137,6 +173,22 @@ public class FinanceAssetController {
         return ApiResponse.success(assetService.countItem(id, request));
     }
 
+    @PostMapping("/stocktakings/{id}/items")
+    public ApiResponse<StocktakingDetail> addStocktakingItem(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id, @RequestBody StocktakingItemCreateRequest request) {
+        PermissionGuard.require(permissions, STOCKTAKING);
+        return ApiResponse.success(assetService.addStocktakingItem(id, request));
+    }
+
+    @DeleteMapping("/stocktakings/{id}/items/{itemId}")
+    public ApiResponse<StocktakingDetail> deleteStocktakingItem(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id, @PathVariable("itemId") long itemId) {
+        PermissionGuard.require(permissions, STOCKTAKING);
+        return ApiResponse.success(assetService.deleteStocktakingItem(id, itemId));
+    }
+
     @PostMapping("/stocktakings/{id}/complete")
     public ApiResponse<StocktakingView> completeStocktaking(
             @RequestHeader(value = "X-Permissions", required = false) String permissions,
@@ -153,6 +205,14 @@ public class FinanceAssetController {
         PermissionGuard.require(permissions, ASSET_VIEW);
         return ApiResponse.success(assetService.listItAssets(FinanceContext.size(size),
                 FinanceContext.offset(page, size)));
+    }
+
+    @GetMapping("/it/{id}/borrow-records")
+    public ApiResponse<List<ItAssetBorrowRecordView>> borrowRecords(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id) {
+        PermissionGuard.require(permissions, ASSET_VIEW);
+        return ApiResponse.success(assetService.listItBorrowRecords(id));
     }
 
     @PostMapping("/it/{id}/borrow")

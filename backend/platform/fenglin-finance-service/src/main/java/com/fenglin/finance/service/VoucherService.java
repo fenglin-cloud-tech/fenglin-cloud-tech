@@ -14,6 +14,8 @@ import com.fenglin.finance.support.Rows;
 import com.fenglin.finance.support.VoucherHashChain;
 import com.fenglin.finance.web.dto.FinanceDtos.AuditTrailView;
 import com.fenglin.finance.web.dto.FinanceDtos.VoucherActionResult;
+import com.fenglin.finance.web.dto.FinanceDtos.VoucherAttachmentCreateRequest;
+import com.fenglin.finance.web.dto.FinanceDtos.VoucherAttachmentView;
 import com.fenglin.finance.web.dto.FinanceDtos.VoucherAuditLogView;
 import com.fenglin.finance.web.dto.FinanceDtos.VoucherCreateRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.VoucherEntryRequest;
@@ -250,6 +252,47 @@ public class VoucherService {
         }
         audit.publish("fin_voucher.system_created", "CREATE", "fin_voucher", id, "LOW");
         return id;
+    }
+
+    public List<VoucherAttachmentView> listAttachments(long voucherId) {
+        long tenantId = FinanceContext.tenantId();
+        requireVoucher(tenantId, voucherId);
+        return attachmentViews(tenantId, voucherId);
+    }
+
+    @Transactional
+    public List<VoucherAttachmentView> addAttachment(long voucherId, VoucherAttachmentCreateRequest request) {
+        long tenantId = FinanceContext.tenantId();
+        requireVoucher(tenantId, voucherId);
+        if (request == null || request.fileId() == null) {
+            throw new BizException(FinanceErrorCode.PARAM_INVALID);
+        }
+        voucherMapper.insertAttachment(IdWorker.getId(), tenantId, "VOUCHER", voucherId, request.fileId(),
+                request.fileName(), request.fileSize(), FinanceContext.userId());
+        audit.publish("fin_voucher_attachment.created", "CREATE", "fin_attachment", voucherId, "LOW");
+        return attachmentViews(tenantId, voucherId);
+    }
+
+    @Transactional
+    public List<VoucherAttachmentView> deleteAttachment(long voucherId, long attachmentId) {
+        long tenantId = FinanceContext.tenantId();
+        requireVoucher(tenantId, voucherId);
+        if (voucherMapper.deleteAttachment(tenantId, "VOUCHER", voucherId, attachmentId,
+                FinanceContext.userId()) == 0) {
+            throw new BizException(FinanceErrorCode.RESOURCE_NOT_FOUND);
+        }
+        audit.publish("fin_voucher_attachment.deleted", "DELETE", "fin_attachment", voucherId, "LOW");
+        return attachmentViews(tenantId, voucherId);
+    }
+
+    private List<VoucherAttachmentView> attachmentViews(long tenantId, long voucherId) {
+        List<VoucherAttachmentView> views = new ArrayList<>();
+        for (Map<String, Object> row : voucherMapper.listAttachments(tenantId, "VOUCHER", voucherId)) {
+            views.add(new VoucherAttachmentView(Rows.lngVal(row, "id"), Rows.lngVal(row, "fileId"),
+                    Rows.str(row, "fileName"), Rows.lng(row, "fileSize"), Rows.lng(row, "uploadedBy"),
+                    Rows.instant(row, "createdAt")));
+        }
+        return views;
     }
 
     public VoucherView detail(long id) {

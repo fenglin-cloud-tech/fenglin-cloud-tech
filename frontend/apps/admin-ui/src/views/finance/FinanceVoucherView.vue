@@ -3,10 +3,12 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { GapNotice, PageHeader } from '@fenglin/ui-admin'
 import {
+  fileApi,
   financeApi,
   type FinanceLedger,
   type FinanceSubject,
   type FinanceVoucher,
+  type FinanceVoucherAttachment,
   type FinanceVoucherEntry,
   type FinanceVoucherTemplate,
 } from '@fenglin/api-client'
@@ -28,6 +30,10 @@ const error = ref('')
 const detailVisible = ref(false)
 const detailLoading = ref(false)
 const detail = ref<FinanceVoucher | null>(null)
+
+const attachments = ref<FinanceVoucherAttachment[]>([])
+const attachmentLoading = ref(false)
+const attachmentUploading = ref(false)
 
 const createVisible = ref(false)
 const createSaving = ref(false)
@@ -76,9 +82,8 @@ const entryTotals = computed(() => {
 })
 
 const gapItems = [
-  '凭证列表接口只返回数组、不返回总数，无法做精确分页；本页固定每页 50 条，用“上一页/下一页”按返回条数判断是否还有数据。',
   '后端没有凭证反审核接口（只有 audit），审核后只能通过 reverse 冲销；页面按真实状态机收敛按钮。',
-  '凭证附件/影像接口缺失，本页不展示附件；批量导入接口要求后端内部 JSON 结构，前端不臆造格式，暂不提供导入表单。',
+  '批量导入接口要求后端内部 JSON 结构，前端不臆造格式，暂不提供导入表单。',
 ]
 
 function money(value?: string | number | null) {
@@ -158,12 +163,75 @@ async function openDetail(row: FinanceVoucher) {
   detailVisible.value = true
   detailLoading.value = true
   detail.value = null
+  attachments.value = []
   try {
     detail.value = await financeApi.vouchers.detail(row.id)
+    await loadAttachments(row.id)
   } catch (err) {
     ElMessage.error(describeError(err))
   } finally {
     detailLoading.value = false
+  }
+}
+
+async function loadAttachments(voucherId: string) {
+  attachmentLoading.value = true
+  try {
+    attachments.value = await financeApi.vouchers.attachments(voucherId)
+  } catch (err) {
+    attachments.value = []
+    ElMessage.error(describeError(err))
+  } finally {
+    attachmentLoading.value = false
+  }
+}
+
+function formatFileSize(size?: number | null) {
+  if (size === undefined || size === null) return '-'
+  if (size < 1024) return `${size} B`
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`
+  return `${(size / 1024 / 1024).toFixed(1)} MB`
+}
+
+async function uploadAttachment(file: { raw?: File }) {
+  if (!detail.value || !file.raw || attachmentUploading.value) return
+  attachmentUploading.value = true
+  try {
+    const uploaded = await fileApi.upload(file.raw, { biz_type: 'FINANCE_VOUCHER', biz_id: detail.value.id })
+    attachments.value = await financeApi.vouchers.addAttachment(detail.value.id, {
+      file_id: uploaded.file_id,
+      file_name: file.raw.name,
+      file_size: file.raw.size,
+    })
+    ElMessage.success('附件已上传')
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  } finally {
+    attachmentUploading.value = false
+  }
+}
+
+async function removeAttachment(row: FinanceVoucherAttachment) {
+  if (!detail.value) return
+  try {
+    await ElMessageBox.confirm(`确认删除附件 ${row.file_name || row.file_id}？`, '删除附件', { type: 'warning' })
+  } catch {
+    return
+  }
+  try {
+    attachments.value = await financeApi.vouchers.deleteAttachment(detail.value.id, row.id)
+    ElMessage.success('附件已删除')
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  }
+}
+
+async function downloadAttachment(row: FinanceVoucherAttachment) {
+  try {
+    const result = await fileApi.download(row.file_id)
+    window.open(result.download_url, '_blank', 'noopener')
+  } catch (err) {
+    ElMessage.error(describeError(err))
   }
 }
 
@@ -305,7 +373,7 @@ onMounted(async () => {
     </PageHeader>
 
     <el-alert v-if="error" type="error" :closable="false" show-icon :title="error" style="margin-bottom: 12px" />
-    <GapNotice :items="gapItems" />
+    <GapNotice v-if="gapItems.length" :items="gapItems" />
 
     <el-card shadow="never">
       <el-tabs v-model="activeTab">
@@ -407,6 +475,26 @@ onMounted(async () => {
             <el-table-column prop="operator_name" label="操作人" width="120" />
             <el-table-column prop="occurred_at" label="时间" width="180" />
             <el-table-column prop="record_hash" label="记录哈希" min-width="200" show-overflow-tooltip />
+          </el-table>
+
+          <div class="fl-toolbar" style="margin: 16px 0 8px">
+            <h4 style="margin: 0">附件</h4>
+            <el-upload :auto-upload="false" :show-file-list="false" :on-change="uploadAttachment">
+              <el-button size="small" plain :loading="attachmentUploading">上传附件</el-button>
+            </el-upload>
+          </div>
+          <el-table :data="attachments" v-loading="attachmentLoading" border size="small" empty-text="暂无附件">
+            <el-table-column prop="file_name" label="文件名" min-width="200" show-overflow-tooltip />
+            <el-table-column label="大小" width="110">
+              <template #default="{ row }">{{ formatFileSize(row.file_size) }}</template>
+            </el-table-column>
+            <el-table-column prop="created_at" label="上传时间" width="180" />
+            <el-table-column label="操作" width="120">
+              <template #default="{ row }">
+                <el-button link type="primary" @click="downloadAttachment(row)">下载</el-button>
+                <el-button link type="danger" @click="removeAttachment(row)">删除</el-button>
+              </template>
+            </el-table-column>
           </el-table>
         </template>
         <el-empty v-else-if="!detailLoading" description="未获取到凭证详情" />

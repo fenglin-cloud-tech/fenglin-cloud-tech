@@ -1,0 +1,10 @@
+{
+  "budget_no": "BG-FIN08-2027-B",
+  "budget_name": "FIN08测试预算B",
+  "period_year": 2027,
+  "dimension": "DEPARTMENT",
+  "subject_code": "6602",
+  "budget_amount": 20000,
+  "control_mode": "WARN",
+  "currency_code": "CNY"
+}

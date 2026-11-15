@@ -87,6 +87,55 @@ public interface ProjectMapper {
                       @Param("amount") BigDecimal amount);
 
     @Update("""
+            UPDATE fin_project
+            SET project_name = COALESCE(#{projectName,jdbcType=VARCHAR}, project_name),
+                project_type = COALESCE(#{projectType,jdbcType=VARCHAR}, project_type),
+                customer_id = COALESCE(#{customerId,jdbcType=BIGINT}, customer_id),
+                customer_name = COALESCE(#{customerName,jdbcType=VARCHAR}, customer_name),
+                contract_no = COALESCE(#{contractNo,jdbcType=VARCHAR}, contract_no),
+                contract_amount = COALESCE(#{contractAmount,jdbcType=NUMERIC}, contract_amount),
+                budget_amount = COALESCE(#{budgetAmount,jdbcType=NUMERIC}, budget_amount),
+                estimated_total_cost = COALESCE(#{estimatedTotalCost,jdbcType=NUMERIC},
+                                                estimated_total_cost),
+                start_date = COALESCE(#{startDate,jdbcType=DATE}, start_date),
+                end_date = COALESCE(#{endDate,jdbcType=DATE}, end_date),
+                manager_id = COALESCE(#{managerId,jdbcType=BIGINT}, manager_id),
+                dept_id = COALESCE(#{deptId,jdbcType=BIGINT}, dept_id),
+                description = COALESCE(#{description,jdbcType=VARCHAR}, description),
+                updated_by = #{userId}, updated_at = now(), version = version + 1
+            WHERE tenant_id = #{tenantId} AND id = #{id} AND deleted = 0
+              AND status <> 'CLOSED'
+            """)
+    int updateProjectProfile(@Param("tenantId") long tenantId, @Param("id") long id,
+                             @Param("projectName") String projectName, @Param("projectType") String projectType,
+                             @Param("customerId") Long customerId, @Param("customerName") String customerName,
+                             @Param("contractNo") String contractNo,
+                             @Param("contractAmount") BigDecimal contractAmount,
+                             @Param("budgetAmount") BigDecimal budgetAmount,
+                             @Param("estimatedTotalCost") BigDecimal estimatedTotalCost,
+                             @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate,
+                             @Param("managerId") Long managerId, @Param("deptId") Long deptId,
+                             @Param("description") String description, @Param("userId") long userId);
+
+    @Update("""
+            UPDATE fin_project SET status = 'CLOSED', description = COALESCE(#{reason,jdbcType=VARCHAR}, description),
+                updated_by = #{userId}, updated_at = now(), version = version + 1
+            WHERE tenant_id = #{tenantId} AND id = #{id} AND deleted = 0
+              AND status IN ('ACTIVE', 'SUSPENDED', 'SETTLING')
+            """)
+    int closeProject(@Param("tenantId") long tenantId, @Param("id") long id,
+                     @Param("reason") String reason, @Param("userId") long userId);
+
+    @Update("""
+            UPDATE fin_project SET deleted = 1, updated_by = #{userId}, updated_at = now(),
+                version = version + 1
+            WHERE tenant_id = #{tenantId} AND id = #{id} AND deleted = 0
+              AND status IN ('PORTAL', 'APPROVING')
+            """)
+    int softDeleteProject(@Param("tenantId") long tenantId, @Param("id") long id,
+                          @Param("userId") long userId);
+
+    @Update("""
             UPDATE fin_project SET recognized_revenue = #{amount}, version = version + 1
             WHERE tenant_id = #{tenantId} AND id = #{id} AND deleted = 0
             """)
@@ -149,6 +198,28 @@ public interface ProjectMapper {
             """)
     List<Map<String, Object>> listMilestones(@Param("tenantId") long tenantId,
                                              @Param("projectId") long projectId);
+
+    @Update("""
+            UPDATE fin_project_member
+            SET status = 'LEFT', leave_date = #{leaveDate}, updated_by = #{userId}, updated_at = now(),
+                version = version + 1
+            WHERE tenant_id = #{tenantId} AND project_id = #{projectId} AND id = #{memberId}
+              AND status = 'ACTIVE' AND deleted = 0
+            """)
+    int removeMember(@Param("tenantId") long tenantId, @Param("projectId") long projectId,
+                     @Param("memberId") long memberId, @Param("leaveDate") LocalDate leaveDate,
+                     @Param("userId") long userId);
+
+    @Update("""
+            UPDATE fin_project_milestone
+            SET status = #{status}, actual_date = #{actualDate,jdbcType=DATE},
+                updated_by = #{userId}, updated_at = now(), version = version + 1
+            WHERE tenant_id = #{tenantId} AND project_id = #{projectId} AND id = #{milestoneId}
+              AND deleted = 0
+            """)
+    int updateMilestoneStatus(@Param("tenantId") long tenantId, @Param("projectId") long projectId,
+                              @Param("milestoneId") long milestoneId, @Param("status") String status,
+                              @Param("actualDate") LocalDate actualDate, @Param("userId") long userId);
 
     @Insert("""
             INSERT INTO fin_labor_rate

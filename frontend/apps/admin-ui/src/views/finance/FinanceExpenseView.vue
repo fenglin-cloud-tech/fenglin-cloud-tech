@@ -5,6 +5,7 @@ import { GapNotice, PageHeader } from '@fenglin/ui-admin'
 import {
   financeApi,
   type FinanceBudget,
+  type FinanceBudgetAdjustment,
   type FinanceBudgetControlResult,
   type FinanceExpense,
   type FinanceInvoice,
@@ -62,6 +63,29 @@ const invoiceForm = reactive({
   invoice_date: new Date().toISOString().slice(0, 10),
 })
 
+const adjustVisible = ref(false)
+const adjustError = ref('')
+const adjustSaving = ref(false)
+const adjustRow = ref<FinanceBudget | null>(null)
+const adjustForm = reactive<{ amount: string; adjust_type: 'INCREASE' | 'DECREASE'; reason: string }>({
+  amount: '',
+  adjust_type: 'INCREASE',
+  reason: '',
+})
+
+const rolloverVisible = ref(false)
+const rolloverError = ref('')
+const rolloverSaving = ref(false)
+const rolloverLoading = ref(false)
+const rolloverRow = ref<FinanceBudget | null>(null)
+const rolloverTargets = ref<FinanceBudget[]>([])
+const rolloverForm = reactive({ target_budget_id: '', amount: '', reason: '' })
+
+const historyVisible = ref(false)
+const historyLoading = ref(false)
+const historyRow = ref<FinanceBudget | null>(null)
+const adjustments = ref<FinanceBudgetAdjustment[]>([])
+
 const expenseStatusLabels: Record<string, string> = {
   DRAFT: '草稿',
   SUBMITTED: '审批中',
@@ -79,10 +103,13 @@ const budgetModeLabels: Record<string, string> = {
   WARN: '超支预警',
   NONE: '不控制',
 }
+const adjustmentTypeLabels: Record<string, string> = {
+  INCREASE: '追加',
+  DECREASE: '调减',
+}
 
 const gapItems = [
   '报销单列表只支持状态过滤，没有按申请人/部门/项目过滤参数；员工端只能按 applicant_id 在前端过滤本人单据。',
-  '预算只有创建与释放（解冻/关闭）接口，缺少预算调整/追加/跨期间结转接口。',
   '发票查验只做内部状态流转，未接入税务/第三方查验服务；附件上传接口也不在本服务内。',
 ]
 
@@ -208,6 +235,98 @@ async function releaseBudget(row: FinanceBudget) {
   }
 }
 
+function openAdjust(row: FinanceBudget) {
+  adjustRow.value = row
+  adjustError.value = ''
+  adjustForm.amount = ''
+  adjustForm.adjust_type = 'INCREASE'
+  adjustForm.reason = ''
+  adjustVisible.value = true
+}
+
+async function submitAdjust() {
+  if (!adjustRow.value) return
+  if (!adjustForm.amount.trim()) {
+    adjustError.value = '请输入调整金额'
+    return
+  }
+  adjustSaving.value = true
+  adjustError.value = ''
+  try {
+    const updated = await financeApi.expenses.adjustBudget(adjustRow.value.id, {
+      amount: adjustForm.amount.trim(),
+      adjust_type: adjustForm.adjust_type,
+      reason: adjustForm.reason.trim() || undefined,
+    })
+    ElMessage.success(`预算 ${updated.budget_no} 已${adjustmentTypeLabels[adjustForm.adjust_type]}，当前预算额 ${money(updated.budget_amount)}`)
+    adjustVisible.value = false
+    await loadBudgets()
+  } catch (err) {
+    adjustError.value = describeError(err)
+  } finally {
+    adjustSaving.value = false
+  }
+}
+
+async function openRollover(row: FinanceBudget) {
+  rolloverRow.value = row
+  rolloverError.value = ''
+  rolloverForm.target_budget_id = ''
+  rolloverForm.amount = ''
+  rolloverForm.reason = ''
+  rolloverTargets.value = []
+  rolloverVisible.value = true
+  rolloverLoading.value = true
+  try {
+    const list = await financeApi.expenses.budgets({ periodYear: row.period_year, size: 100 })
+    rolloverTargets.value = list.filter((budget) => budget.id !== row.id && budget.period_year === row.period_year)
+  } catch (err) {
+    rolloverError.value = describeError(err)
+  } finally {
+    rolloverLoading.value = false
+  }
+}
+
+async function submitRollover() {
+  if (!rolloverRow.value) return
+  if (!rolloverForm.target_budget_id) {
+    rolloverError.value = '请选择目标预算'
+    return
+  }
+  rolloverSaving.value = true
+  rolloverError.value = ''
+  try {
+    const target = await financeApi.expenses.rolloverBudget(rolloverRow.value.id, {
+      target_budget_id: rolloverForm.target_budget_id,
+      amount: rolloverForm.amount.trim() || undefined,
+      reason: rolloverForm.reason.trim() || undefined,
+    })
+    ElMessage.success(
+      `结转完成，转入预算 ${target.budget_no}（${target.budget_name}）可用额 ${money(target.available)}`,
+    )
+    rolloverVisible.value = false
+    await loadBudgets()
+  } catch (err) {
+    rolloverError.value = describeError(err)
+  } finally {
+    rolloverSaving.value = false
+  }
+}
+
+async function openHistory(row: FinanceBudget) {
+  historyRow.value = row
+  adjustments.value = []
+  historyVisible.value = true
+  historyLoading.value = true
+  try {
+    adjustments.value = await financeApi.expenses.budgetAdjustments(row.id)
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  } finally {
+    historyLoading.value = false
+  }
+}
+
 async function runControlCheck() {
   if (!checkForm.amount) {
     checkError.value = '请输入校验金额'
@@ -286,7 +405,7 @@ onMounted(async () => {
     </PageHeader>
 
     <el-alert v-if="error" type="error" :closable="false" show-icon :title="error" style="margin-bottom: 12px" />
-    <GapNotice :items="gapItems" />
+    <GapNotice v-if="gapItems.length" :items="gapItems" />
 
     <el-card shadow="never">
       <el-tabs v-model="activeTab" @tab-change="changeTab">
@@ -340,8 +459,11 @@ onMounted(async () => {
               <template #default="{ row }">{{ budgetModeLabels[row.control_mode] ?? row.control_mode }}</template>
             </el-table-column>
             <el-table-column prop="status" label="状态" width="100" />
-            <el-table-column label="操作" width="100" fixed="right">
+            <el-table-column label="操作" width="240" fixed="right">
               <template #default="{ row }">
+                <el-button v-perm="'tenant:finance:budget:manage'" link type="primary" @click="openAdjust(row)">调整</el-button>
+                <el-button v-perm="'tenant:finance:budget:manage'" link type="primary" @click="openRollover(row)">结转</el-button>
+                <el-button link @click="openHistory(row)">调整历史</el-button>
                 <el-button v-perm="'tenant:finance:budget:manage'" link type="warning" @click="releaseBudget(row)">释放</el-button>
               </template>
             </el-table-column>
@@ -483,6 +605,71 @@ onMounted(async () => {
       <template #footer>
         <el-button @click="invoiceVisible = false">取消</el-button>
         <el-button type="primary" @click="submitInvoice">保存</el-button>
+      </template>
+    </el-dialog>
+    <el-dialog v-model="adjustVisible" title="预算调整" width="520px">
+      <el-alert v-if="adjustError" type="error" :closable="false" show-icon :title="adjustError" style="margin-bottom: 12px" />
+      <el-form label-width="100px">
+        <el-form-item label="预算">
+          <span>{{ adjustRow ? `${adjustRow.budget_no} ${adjustRow.budget_name}` : '-' }}</span>
+        </el-form-item>
+        <el-form-item label="调整类型">
+          <el-select v-model="adjustForm.adjust_type" style="width: 100%">
+            <el-option label="追加（INCREASE）" value="INCREASE" />
+            <el-option label="调减（DECREASE）" value="DECREASE" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="调整金额" required><el-input v-model="adjustForm.amount" placeholder="0.00" /></el-form-item>
+        <el-form-item label="原因"><el-input v-model="adjustForm.reason" type="textarea" :rows="2" maxlength="200" /></el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="adjustVisible = false">取消</el-button>
+        <el-button type="primary" :loading="adjustSaving" @click="submitAdjust">提交</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="rolloverVisible" title="预算结转" width="540px">
+      <el-alert v-if="rolloverError" type="error" :closable="false" show-icon :title="rolloverError" style="margin-bottom: 12px" />
+      <el-form label-width="100px" v-loading="rolloverLoading">
+        <el-form-item label="转出预算">
+          <span>{{ rolloverRow ? `${rolloverRow.budget_no} ${rolloverRow.budget_name}（可用 ${money(rolloverRow.available)}）` : '-' }}</span>
+        </el-form-item>
+        <el-form-item label="目标预算" required>
+          <el-select v-model="rolloverForm.target_budget_id" filterable placeholder="选择同年度其它预算" style="width: 100%">
+            <el-option
+              v-for="budget in rolloverTargets"
+              :key="budget.id"
+              :label="`${budget.budget_no} ${budget.budget_name}（可用 ${money(budget.available)}）`"
+              :value="budget.id"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="结转金额"><el-input v-model="rolloverForm.amount" placeholder="留空表示全部可用额" /></el-form-item>
+        <el-form-item label="原因"><el-input v-model="rolloverForm.reason" type="textarea" :rows="2" maxlength="200" /></el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="rolloverVisible = false">取消</el-button>
+        <el-button type="primary" :loading="rolloverSaving" @click="submitRollover">结转</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="historyVisible" title="预算调整历史" width="900px">
+      <div class="fl-muted" style="margin-bottom: 8px">
+        {{ historyRow ? `${historyRow.budget_no} ${historyRow.budget_name}` : '' }}
+      </div>
+      <el-table :data="adjustments" v-loading="historyLoading" border size="small" empty-text="暂无调整记录">
+        <el-table-column prop="adjust_no" label="单号" width="170" />
+        <el-table-column label="类型" width="90">
+          <template #default="{ row }">{{ adjustmentTypeLabels[row.adjust_type] ?? row.adjust_type }}</template>
+        </el-table-column>
+        <el-table-column label="调整额" width="130" align="right"><template #default="{ row }">{{ money(row.amount) }}</template></el-table-column>
+        <el-table-column label="调整前" width="130" align="right"><template #default="{ row }">{{ money(row.before_amount) }}</template></el-table-column>
+        <el-table-column label="调整后" width="130" align="right"><template #default="{ row }">{{ money(row.after_amount) }}</template></el-table-column>
+        <el-table-column prop="reason" label="原因" min-width="140" show-overflow-tooltip />
+        <el-table-column prop="occurred_at" label="时间" width="170" />
+      </el-table>
+      <template #footer>
+        <el-button @click="historyVisible = false">关闭</el-button>
       </template>
     </el-dialog>
   </div>

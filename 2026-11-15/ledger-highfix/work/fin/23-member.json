@@ -1,0 +1,8 @@
+{
+  "employee_id": 900101,
+  "employee_name": "FIN11测试成员",
+  "member_role": "DEVELOPER",
+  "allocation_pct": 0.5,
+  "cost_rate": 800,
+  "join_date": "2026-11-01"
+}

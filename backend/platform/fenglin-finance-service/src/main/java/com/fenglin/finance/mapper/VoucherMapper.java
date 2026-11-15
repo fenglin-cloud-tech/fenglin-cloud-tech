@@ -248,4 +248,36 @@ public interface VoucherMapper {
     List<Map<String, Object>> periodSubjectSums(@Param("tenantId") long tenantId,
                                                 @Param("ledgerId") long ledgerId,
                                                 @Param("periodCode") String periodCode);
+
+    @Insert("""
+            INSERT INTO fin_attachment
+                (id, tenant_id, biz_type, biz_id, file_id, file_name, file_size, uploaded_by, created_by)
+            VALUES (#{id}, #{tenantId}, #{bizType}, #{bizId}, #{fileId}, #{fileName,jdbcType=VARCHAR},
+                    #{fileSize,jdbcType=BIGINT}, #{userId}, #{userId})
+            """)
+    void insertAttachment(@Param("id") long id, @Param("tenantId") long tenantId,
+                          @Param("bizType") String bizType, @Param("bizId") long bizId,
+                          @Param("fileId") long fileId, @Param("fileName") String fileName,
+                          @Param("fileSize") Long fileSize, @Param("userId") long userId);
+
+    @Select("""
+            SELECT id AS "id", file_id AS "fileId", file_name AS "fileName", file_size AS "fileSize",
+                   uploaded_by AS "uploadedBy",
+                   (extract(epoch FROM created_at) * 1000)::bigint AS "createdAt"
+            FROM fin_attachment
+            WHERE tenant_id = #{tenantId} AND biz_type = #{bizType} AND biz_id = #{bizId} AND deleted = 0
+            ORDER BY created_at, id
+            """)
+    List<Map<String, Object>> listAttachments(@Param("tenantId") long tenantId,
+                                              @Param("bizType") String bizType,
+                                              @Param("bizId") long bizId);
+
+    @Update("""
+            UPDATE fin_attachment SET deleted = 1, updated_by = #{userId}, updated_at = now(),
+                version = version + 1
+            WHERE tenant_id = #{tenantId} AND biz_type = #{bizType} AND biz_id = #{bizId}
+              AND id = #{id} AND deleted = 0
+            """)
+    int deleteAttachment(@Param("tenantId") long tenantId, @Param("bizType") String bizType,
+                         @Param("bizId") long bizId, @Param("id") long id, @Param("userId") long userId);
 }

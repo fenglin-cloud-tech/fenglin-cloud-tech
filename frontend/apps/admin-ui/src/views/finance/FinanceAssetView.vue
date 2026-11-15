@@ -6,7 +6,9 @@ import {
   financeApi,
   type FinanceAssetCard,
   type FinanceAssetCategory,
+  type FinanceDepreciationSchedule,
   type FinanceItAsset,
+  type FinanceItAssetBorrowRecord,
   type FinanceLedger,
   type FinanceStocktaking,
   type FinanceStocktakingDetail,
@@ -72,11 +74,37 @@ const borrowError = ref('')
 const borrowTarget = ref<FinanceItAsset | null>(null)
 const borrowForm = reactive({ borrower_id: '', due_date: '' })
 
-const gapItems = [
-  '资产卡片没有更新/调拨接口，只有新建与处置；调拨、维修记录需后端补充。',
-  '盘点任务创建后明细项由后端生成，前端只能逐项盘点和完成盘点，无法新增/删除盘点项。',
-  '折旧只支持整批计提，没有折旧计划表/明细查询接口；IT 资产没有借用记录列表接口。',
-]
+const ID_PATTERN = /^\d+$/
+
+const editVisible = ref(false)
+const editError = ref('')
+const editTarget = ref<FinanceAssetCard | null>(null)
+const editForm = reactive({
+  asset_name: '',
+  specification: '',
+  location: '',
+  dept_id: '',
+  custodian_id: '',
+  status: 'IN_USE',
+})
+
+const transferVisible = ref(false)
+const transferError = ref('')
+const transferTarget = ref<FinanceAssetCard | null>(null)
+const transferForm = reactive({ dept_id: '', location: '', custodian_id: '', reason: '' })
+
+const depreciationDetailVisible = ref(false)
+const depreciationDetailLoading = ref(false)
+const depreciationSchedules = ref<FinanceDepreciationSchedule[]>([])
+
+const itemForm = reactive({ asset_id: '', expected_location: '', result: 'NORMAL', remark: '' })
+
+const borrowRecordsVisible = ref(false)
+const borrowRecordsLoading = ref(false)
+const borrowRecords = ref<FinanceItAssetBorrowRecord[]>([])
+const borrowRecordsTarget = ref<FinanceItAsset | null>(null)
+
+const gapItems: string[] = []
 
 function money(value?: string | number | null) {
   if (value === undefined || value === null || value === '') return '-'
@@ -189,6 +217,106 @@ async function submitCard() {
   }
 }
 
+function openEdit(row: FinanceAssetCard) {
+  editTarget.value = row
+  editForm.asset_name = row.asset_name
+  editForm.specification = row.specification ?? ''
+  editForm.location = row.location ?? ''
+  editForm.dept_id = row.dept_id ?? ''
+  editForm.custodian_id = row.custodian_id ?? ''
+  editForm.status = row.status || 'IN_USE'
+  editError.value = ''
+  editVisible.value = true
+}
+
+async function submitEdit() {
+  if (!editTarget.value) return
+  const deptId = editForm.dept_id.trim()
+  const custodianId = editForm.custodian_id.trim()
+  if (!editForm.asset_name.trim()) {
+    editError.value = '资产名称不能为空'
+    return
+  }
+  if (deptId && !ID_PATTERN.test(deptId)) {
+    editError.value = '部门 ID 必须为数字'
+    return
+  }
+  if (custodianId && !ID_PATTERN.test(custodianId)) {
+    editError.value = '保管人 ID 必须为数字'
+    return
+  }
+  try {
+    await financeApi.assets.updateCard(editTarget.value.id, {
+      asset_name: editForm.asset_name.trim(),
+      specification: editForm.specification.trim(),
+      location: editForm.location.trim(),
+      dept_id: deptId || null,
+      custodian_id: custodianId || null,
+      status: editForm.status,
+    })
+    ElMessage.success('资产卡片已更新')
+    editVisible.value = false
+    await loadCards()
+  } catch (err) {
+    editError.value = describeError(err)
+  }
+}
+
+function openTransfer(row: FinanceAssetCard) {
+  transferTarget.value = row
+  transferForm.dept_id = ''
+  transferForm.location = ''
+  transferForm.custodian_id = ''
+  transferForm.reason = ''
+  transferError.value = ''
+  transferVisible.value = true
+}
+
+async function submitTransfer() {
+  if (!transferTarget.value) return
+  const deptId = transferForm.dept_id.trim()
+  const custodianId = transferForm.custodian_id.trim()
+  const location = transferForm.location.trim()
+  const reason = transferForm.reason.trim()
+  if (deptId && !ID_PATTERN.test(deptId)) {
+    transferError.value = '部门 ID 必须为数字'
+    return
+  }
+  if (custodianId && !ID_PATTERN.test(custodianId)) {
+    transferError.value = '保管人 ID 必须为数字'
+    return
+  }
+  if (!deptId && !custodianId && !location && !reason) {
+    transferError.value = '请至少填写一项调拨信息'
+    return
+  }
+  try {
+    await financeApi.assets.transferCard(transferTarget.value.id, {
+      ...(deptId ? { dept_id: deptId } : {}),
+      ...(custodianId ? { custodian_id: custodianId } : {}),
+      ...(location ? { location } : {}),
+      ...(reason ? { reason } : {}),
+    })
+    ElMessage.success('资产调拨已登记')
+    transferVisible.value = false
+    await loadCards()
+  } catch (err) {
+    transferError.value = describeError(err)
+  }
+}
+
+async function openDepreciationSchedules() {
+  depreciationDetailVisible.value = true
+  depreciationDetailLoading.value = true
+  try {
+    depreciationSchedules.value = await financeApi.assets.depreciationSchedules({ size: 100 })
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  } finally {
+    depreciationDetailLoading.value = false
+  }
+}
+
 async function dispose(row: FinanceAssetCard) {
   try {
     await ElMessageBox.confirm(`确认处置资产 ${row.asset_no} ${row.asset_name}？`, '资产处置', { type: 'warning' })
@@ -277,6 +405,48 @@ async function submitCount() {
   }
 }
 
+async function addStocktakingItem() {
+  if (!stocktakingDetail.value) return
+  if (!itemForm.asset_id) {
+    ElMessage.warning('请选择资产')
+    return
+  }
+  try {
+    stocktakingDetail.value = await financeApi.assets.addStocktakingItem(stocktakingDetail.value.stocktaking.id, {
+      asset_id: itemForm.asset_id,
+      expected_location: itemForm.expected_location.trim() || undefined,
+      result: itemForm.result,
+      remark: itemForm.remark.trim() || undefined,
+    })
+    ElMessage.success('盘点项已添加')
+    itemForm.asset_id = ''
+    itemForm.expected_location = ''
+    itemForm.remark = ''
+    await loadStocktakings()
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  }
+}
+
+async function removeStocktakingItem(itemId: string) {
+  if (!stocktakingDetail.value) return
+  try {
+    await ElMessageBox.confirm('确认删除该盘点项？', '删除盘点项', { type: 'warning' })
+  } catch {
+    return
+  }
+  try {
+    stocktakingDetail.value = await financeApi.assets.deleteStocktakingItem(
+      stocktakingDetail.value.stocktaking.id,
+      itemId,
+    )
+    ElMessage.success('盘点项已删除')
+    await loadStocktakings()
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  }
+}
+
 async function completeStocktaking() {
   if (!stocktakingDetail.value) return
   try {
@@ -340,6 +510,20 @@ async function syncIt(row: FinanceItAsset) {
   }
 }
 
+async function openBorrowRecords(row: FinanceItAsset) {
+  borrowRecordsTarget.value = row
+  borrowRecordsVisible.value = true
+  borrowRecordsLoading.value = true
+  borrowRecords.value = []
+  try {
+    borrowRecords.value = await financeApi.assets.itBorrowRecords(row.id)
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  } finally {
+    borrowRecordsLoading.value = false
+  }
+}
+
 function changeTab(name: string | number) {
   if (name === 'cards') loadCards()
   else if (name === 'stocktaking') loadStocktakings()
@@ -364,7 +548,7 @@ onMounted(async () => {
     </PageHeader>
 
     <el-alert v-if="error" type="error" :closable="false" show-icon :title="error" style="margin-bottom: 12px" />
-    <GapNotice :items="gapItems" />
+    <GapNotice v-if="gapItems.length" :items="gapItems" />
 
     <el-card shadow="never">
       <el-tabs v-model="activeTab" @tab-change="changeTab">
@@ -383,8 +567,10 @@ onMounted(async () => {
             <el-table-column label="累计折旧" width="130" align="right"><template #default="{ row }">{{ money(row.accumulated_depreciation) }}</template></el-table-column>
             <el-table-column label="净值" width="130" align="right"><template #default="{ row }">{{ money(row.net_value) }}</template></el-table-column>
             <el-table-column label="状态" width="100"><template #default="{ row }"><el-tag size="small">{{ row.status }}</el-tag></template></el-table-column>
-            <el-table-column label="操作" width="100" fixed="right">
+            <el-table-column label="操作" width="220" fixed="right">
               <template #default="{ row }">
+                <el-button v-perm="'biz:finance:asset:create'" link type="primary" @click="openEdit(row)">编辑</el-button>
+                <el-button v-perm="'biz:finance:asset:create'" link @click="openTransfer(row)">调拨</el-button>
                 <el-button v-perm="'biz:finance:asset:dispose'" link type="danger" @click="dispose(row)">处置</el-button>
               </template>
             </el-table-column>
@@ -419,9 +605,10 @@ onMounted(async () => {
             </el-form-item>
             <el-form-item>
               <el-button v-perm="'biz:finance:asset:depreciate'" type="primary" @click="runDepreciation">计提折旧</el-button>
+              <el-button plain @click="openDepreciationSchedules">折旧明细</el-button>
             </el-form-item>
           </el-form>
-          <el-alert type="info" :closable="false" show-icon title="折旧按后端规则整批计提并生成凭证，页面只展示批次结果，不提供折旧明细查询。" />
+          <el-alert type="info" :closable="false" show-icon title="折旧按后端规则整批计提并生成凭证，可通过「折旧明细」查看最近批次的计提结果。" />
         </el-tab-pane>
 
         <el-tab-pane label="资产盘点" name="stocktaking">
@@ -457,11 +644,12 @@ onMounted(async () => {
             <el-table-column prop="borrower_id" label="借用人" width="100" />
             <el-table-column prop="due_date" label="应还日期" width="120" />
             <el-table-column prop="sync_status" label="同步状态" width="110" />
-            <el-table-column label="操作" width="180" fixed="right">
+            <el-table-column label="操作" width="260" fixed="right">
               <template #default="{ row }">
                 <el-button v-if="row.borrow_status !== 'BORROWED'" v-perm="'biz:finance:itasset:borrow'" link type="primary" @click="openBorrow(row)">借用</el-button>
                 <el-button v-else v-perm="'biz:finance:itasset:borrow'" link type="success" @click="returnIt(row)">归还</el-button>
                 <el-button v-perm="'tenant:finance:itasset:manage'" link @click="syncIt(row)">同步</el-button>
+                <el-button link @click="openBorrowRecords(row)">借用记录</el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -540,7 +728,7 @@ onMounted(async () => {
       </template>
     </el-dialog>
 
-    <el-dialog v-model="stocktakingDetailVisible" title="盘点明细" width="720px">
+    <el-dialog v-model="stocktakingDetailVisible" title="盘点明细" width="860px">
       <template v-if="stocktakingDetail">
         <el-descriptions :column="3" border size="small">
           <el-descriptions-item label="盘点单">{{ stocktakingDetail.stocktaking.stocktaking_no }}</el-descriptions-item>
@@ -561,6 +749,23 @@ onMounted(async () => {
           </el-form-item>
           <el-form-item><el-button type="primary" plain @click="submitCount">记录盘点</el-button></el-form-item>
         </el-form>
+        <el-form v-if="stocktakingDetail.stocktaking.status === 'IN_PROGRESS'" inline style="margin-top: 12px">
+          <el-form-item label="新增资产">
+            <el-select v-model="itemForm.asset_id" filterable placeholder="选择资产" style="width: 200px">
+              <el-option v-for="card in cards" :key="card.id" :label="`${card.asset_no} ${card.asset_name}`" :value="card.id" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="应存位置"><el-input v-model="itemForm.expected_location" style="width: 130px" /></el-form-item>
+          <el-form-item label="结果">
+            <el-select v-model="itemForm.result" style="width: 100px">
+              <el-option label="正常" value="NORMAL" />
+              <el-option label="盘盈" value="SURPLUS" />
+              <el-option label="盘亏" value="DEFICIT" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="备注"><el-input v-model="itemForm.remark" style="width: 130px" /></el-form-item>
+          <el-form-item><el-button type="primary" plain @click="addStocktakingItem">新增盘点项</el-button></el-form-item>
+        </el-form>
         <el-table :data="stocktakingDetail.items" border size="small" max-height="300">
           <el-table-column prop="asset_no" label="资产编号" width="150" />
           <el-table-column prop="asset_name" label="资产名称" min-width="150" />
@@ -568,6 +773,16 @@ onMounted(async () => {
           <el-table-column prop="actual_location" label="实际位置" width="130" />
           <el-table-column prop="result" label="结果" width="100" />
           <el-table-column prop="remark" label="备注" min-width="120" />
+          <el-table-column
+            v-if="stocktakingDetail.stocktaking.status === 'IN_PROGRESS'"
+            label="操作"
+            width="70"
+            fixed="right"
+          >
+            <template #default="{ row }">
+              <el-button link type="danger" @click="removeStocktakingItem(row.id)">删除</el-button>
+            </template>
+          </el-table-column>
         </el-table>
       </template>
       <template #footer>
@@ -588,6 +803,76 @@ onMounted(async () => {
       <template #footer>
         <el-button @click="borrowVisible = false">取消</el-button>
         <el-button type="primary" @click="submitBorrow">确认借用</el-button>
+      </template>
+    </el-dialog>
+    <el-dialog v-model="editVisible" title="编辑资产卡片" width="520px">
+      <el-alert v-if="editError" type="error" :closable="false" show-icon :title="editError" style="margin-bottom: 12px" />
+      <el-form label-width="100px">
+        <el-form-item label="资产名称" required><el-input v-model="editForm.asset_name" maxlength="128" /></el-form-item>
+        <el-form-item label="规格型号"><el-input v-model="editForm.specification" maxlength="128" /></el-form-item>
+        <el-form-item label="存放位置"><el-input v-model="editForm.location" maxlength="128" /></el-form-item>
+        <el-form-item label="部门 ID"><el-input v-model="editForm.dept_id" placeholder="数字 ID" maxlength="20" /></el-form-item>
+        <el-form-item label="保管人 ID"><el-input v-model="editForm.custodian_id" placeholder="数字 ID" maxlength="20" /></el-form-item>
+        <el-form-item label="状态">
+          <el-select v-model="editForm.status" style="width: 100%">
+            <el-option label="在用" value="IN_USE" />
+            <el-option label="闲置" value="IDLE" />
+            <el-option label="借出" value="LENT" />
+            <el-option label="维修中" value="MAINTENANCE" />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="editVisible = false">取消</el-button>
+        <el-button type="primary" @click="submitEdit">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="transferVisible" title="资产调拨" width="520px">
+      <el-alert v-if="transferError" type="error" :closable="false" show-icon :title="transferError" style="margin-bottom: 12px" />
+      <el-form label-width="100px">
+        <el-form-item label="部门 ID"><el-input v-model="transferForm.dept_id" placeholder="数字 ID" maxlength="20" /></el-form-item>
+        <el-form-item label="存放位置"><el-input v-model="transferForm.location" maxlength="128" /></el-form-item>
+        <el-form-item label="保管人 ID"><el-input v-model="transferForm.custodian_id" placeholder="数字 ID" maxlength="20" /></el-form-item>
+        <el-form-item label="调拨原因"><el-input v-model="transferForm.reason" type="textarea" :rows="2" maxlength="200" /></el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="transferVisible = false">取消</el-button>
+        <el-button type="primary" @click="submitTransfer">确定</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="depreciationDetailVisible" title="折旧明细" width="900px">
+      <el-table :data="depreciationSchedules" v-loading="depreciationDetailLoading" border size="small" max-height="420">
+        <el-table-column prop="batch_no" label="批次" width="150" />
+        <el-table-column prop="period_code" label="期间" width="100" />
+        <el-table-column prop="asset_no" label="资产编号" width="150" />
+        <el-table-column prop="asset_name" label="资产名称" min-width="150" />
+        <el-table-column label="本期折旧" width="120" align="right">
+          <template #default="{ row }">{{ money(row.depreciation_amount) }}</template>
+        </el-table-column>
+        <el-table-column label="累计折旧后" width="130" align="right">
+          <template #default="{ row }">{{ money(row.accumulated_after) }}</template>
+        </el-table-column>
+        <el-table-column label="净值后" width="120" align="right">
+          <template #default="{ row }">{{ money(row.net_value_after) }}</template>
+        </el-table-column>
+      </el-table>
+      <template #footer>
+        <el-button @click="depreciationDetailVisible = false">关闭</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="borrowRecordsVisible" title="借用记录" width="820px">
+      <div class="fl-muted" style="margin-bottom: 8px">资产 ID：{{ borrowRecordsTarget?.asset_id }}</div>
+      <el-table :data="borrowRecords" v-loading="borrowRecordsLoading" border size="small" max-height="420">
+        <el-table-column prop="change_type" label="类型" width="100" />
+        <el-table-column prop="occurred_at" label="发生时间" width="180" />
+        <el-table-column prop="before_json" label="变更前" min-width="240" show-overflow-tooltip />
+        <el-table-column prop="after_json" label="变更后" min-width="240" show-overflow-tooltip />
+      </el-table>
+      <template #footer>
+        <el-button @click="borrowRecordsVisible = false">关闭</el-button>
       </template>
     </el-dialog>
   </div>

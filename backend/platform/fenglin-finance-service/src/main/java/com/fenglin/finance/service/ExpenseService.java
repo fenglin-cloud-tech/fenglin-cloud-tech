@@ -10,9 +10,12 @@ import com.fenglin.finance.mapper.LedgerMapper;
 import com.fenglin.finance.support.FinanceAudit;
 import com.fenglin.finance.support.FinanceContext;
 import com.fenglin.finance.support.Rows;
+import com.fenglin.finance.web.dto.FinanceDtos.BudgetAdjustRequest;
+import com.fenglin.finance.web.dto.FinanceDtos.BudgetAdjustmentView;
 import com.fenglin.finance.web.dto.FinanceDtos.BudgetControlCheckRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.BudgetControlResult;
 import com.fenglin.finance.web.dto.FinanceDtos.BudgetCreateRequest;
+import com.fenglin.finance.web.dto.FinanceDtos.BudgetRolloverRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.BudgetView;
 import com.fenglin.finance.web.dto.FinanceDtos.ExpenseActionResult;
 import com.fenglin.finance.web.dto.FinanceDtos.ExpenseCreateRequest;
@@ -309,6 +312,97 @@ public class ExpenseService {
         return budgetView(expenseMapper.findBudget(tenantId, id));
     }
 
+    @Transactional
+    public BudgetView adjustBudget(long id, BudgetAdjustRequest request) {
+        long tenantId = FinanceContext.tenantId();
+        Map<String, Object> budget = expenseMapper.findBudget(tenantId, id);
+        if (budget == null) {
+            throw new BizException(FinanceErrorCode.RESOURCE_NOT_FOUND);
+        }
+        if (request == null || request.amount() == null || request.amount().signum() <= 0) {
+            throw new BizException(FinanceErrorCode.PARAM_INVALID);
+        }
+        String adjustType = request.adjustType() == null || request.adjustType().isBlank()
+                ? "INCREASE" : request.adjustType();
+        if (!"INCREASE".equals(adjustType) && !"DECREASE".equals(adjustType)) {
+            throw new BizException(FinanceErrorCode.PARAM_INVALID);
+        }
+        if ("CLOSED".equals(Rows.str(budget, "status"))) {
+            throw new BizException(FinanceErrorCode.STATE_CONFLICT);
+        }
+        BigDecimal amount = FinanceContext.amount(request.amount());
+        BigDecimal delta = "INCREASE".equals(adjustType) ? amount : amount.negate();
+        BigDecimal before = Rows.dec(budget, "budgetAmount");
+        if (expenseMapper.adjustBudgetAmount(tenantId, id, delta, FinanceContext.userId()) == 0) {
+            throw new BizException("INCREASE".equals(adjustType)
+                    ? FinanceErrorCode.STATE_CONFLICT : FinanceErrorCode.BUDGET_INSUFFICIENT);
+        }
+        BigDecimal after = before.add(delta);
+        String adjustNo = "BA-" + String.format("%06d", commonsMapper.nextCostNo());
+        expenseMapper.insertBudgetAdjustment(IdWorker.getId(), tenantId, adjustNo, id, adjustType, amount,
+                before, after, null, request.reason(), FinanceContext.userId());
+        audit.publish("fin_budget.adjusted", "ADJUST", "fin_budget", id, "MEDIUM");
+        return budgetView(expenseMapper.findBudget(tenantId, id));
+    }
+
+    @Transactional
+    public BudgetView rolloverBudget(long id, BudgetRolloverRequest request) {
+        long tenantId = FinanceContext.tenantId();
+        Map<String, Object> source = expenseMapper.findBudget(tenantId, id);
+        if (source == null) {
+            throw new BizException(FinanceErrorCode.RESOURCE_NOT_FOUND);
+        }
+        if (request == null || request.targetBudgetId() == null) {
+            throw new BizException(FinanceErrorCode.PARAM_INVALID);
+        }
+        if (request.targetBudgetId() == id) {
+            throw new BizException(FinanceErrorCode.PARAM_INVALID);
+        }
+        Map<String, Object> target = expenseMapper.findBudget(tenantId, request.targetBudgetId());
+        if (target == null) {
+            throw new BizException(FinanceErrorCode.RESOURCE_NOT_FOUND);
+        }
+        BigDecimal targetBefore = Rows.dec(target, "budgetAmount");
+        BigDecimal sourceBefore = Rows.dec(source, "budgetAmount");
+        BigDecimal available = sourceBefore
+                .subtract(nullSafe(Rows.dec(source, "occupiedAmount")))
+                .subtract(nullSafe(Rows.dec(source, "executedAmount")));
+        BigDecimal amount = request.amount() == null ? available : FinanceContext.amount(request.amount());
+        if (amount.signum() <= 0 || amount.compareTo(available) > 0) {
+            throw new BizException(FinanceErrorCode.BUDGET_INSUFFICIENT);
+        }
+        if (expenseMapper.adjustBudgetAmount(tenantId, id, amount.negate(), FinanceContext.userId()) == 0
+                || expenseMapper.adjustBudgetAmount(tenantId, request.targetBudgetId(), amount,
+                FinanceContext.userId()) == 0) {
+            throw new BizException(FinanceErrorCode.STATE_CONFLICT);
+        }
+        String adjustNo = "BA-" + String.format("%06d", commonsMapper.nextCostNo());
+        expenseMapper.insertBudgetAdjustment(IdWorker.getId(), tenantId, adjustNo, id, "ROLLOVER_OUT",
+                amount, sourceBefore, sourceBefore.subtract(amount), request.targetBudgetId(),
+                request.reason(), FinanceContext.userId());
+        expenseMapper.insertBudgetAdjustment(IdWorker.getId(), tenantId, adjustNo, request.targetBudgetId(),
+                "ROLLOVER_IN", amount, targetBefore, targetBefore.add(amount), id, request.reason(),
+                FinanceContext.userId());
+        audit.publish("fin_budget.rolled_over", "ROLLOVER", "fin_budget", id, "MEDIUM");
+        return budgetView(expenseMapper.findBudget(tenantId, request.targetBudgetId()));
+    }
+
+    public List<BudgetAdjustmentView> listBudgetAdjustments(long budgetId) {
+        long tenantId = FinanceContext.tenantId();
+        if (expenseMapper.findBudget(tenantId, budgetId) == null) {
+            throw new BizException(FinanceErrorCode.RESOURCE_NOT_FOUND);
+        }
+        List<BudgetAdjustmentView> views = new ArrayList<>();
+        for (Map<String, Object> row : expenseMapper.listBudgetAdjustments(tenantId, budgetId)) {
+            views.add(new BudgetAdjustmentView(Rows.lngVal(row, "id"), Rows.str(row, "adjustNo"),
+                    Rows.lngVal(row, "budgetId"), Rows.str(row, "adjustType"), Rows.dec(row, "amount"),
+                    Rows.dec(row, "beforeAmount"), Rows.dec(row, "afterAmount"),
+                    Rows.lng(row, "sourceBudgetId"), Rows.str(row, "reason"),
+                    Rows.lngVal(row, "operatorId"), Rows.instant(row, "occurredAt")));
+        }
+        return views;
+    }
+
     public List<BudgetView> listBudgets(Integer periodYear, String dimension, int limit, int offset) {
         long tenantId = FinanceContext.tenantId();
         List<BudgetView> views = new ArrayList<>();
@@ -404,5 +498,9 @@ public class ExpenseService {
                 Rows.str(row, "sellerName"), Rows.dec(row, "amount"), Rows.dec(row, "taxRate"),
                 Rows.dec(row, "taxAmount"), Rows.dec(row, "totalAmount"), Rows.str(row, "invoiceDate"),
                 Rows.str(row, "verifyStatus"), Rows.str(row, "status"), Rows.lng(row, "sourceBizId"));
+    }
+
+    private static BigDecimal nullSafe(BigDecimal value) {
+        return value == null ? FinanceContext.zero() : value;
     }
 }

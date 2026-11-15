@@ -9,8 +9,11 @@ import com.fenglin.finance.web.dto.FinanceDtos.AuditTrailView;
 import com.fenglin.finance.web.dto.FinanceDtos.BalanceSheetView;
 import com.fenglin.finance.web.dto.FinanceDtos.IncomeStatementView;
 import com.fenglin.finance.web.dto.FinanceDtos.VoucherActionResult;
+import com.fenglin.finance.web.dto.FinanceDtos.VoucherAttachmentCreateRequest;
+import com.fenglin.finance.web.dto.FinanceDtos.VoucherAttachmentView;
 import com.fenglin.finance.web.dto.FinanceDtos.VoucherCreateRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.VoucherView;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -19,6 +22,8 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 /**
  * 凭证制单/审核/过账/冲销、审计链与财务报表接口。
@@ -111,6 +116,30 @@ public class FinanceVoucherController {
             @PathVariable("id") long id) {
         PermissionGuard.require(permissions, AUDIT_VIEW);
         return ApiResponse.success(voucherService.auditTrail(id));
+    }
+
+    @GetMapping("/vouchers/{id}/attachments")
+    public ApiResponse<List<VoucherAttachmentView>> listAttachments(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id) {
+        PermissionGuard.require(permissions, VIEW);
+        return ApiResponse.success(voucherService.listAttachments(id));
+    }
+
+    @PostMapping("/vouchers/{id}/attachments")
+    public ApiResponse<List<VoucherAttachmentView>> addAttachment(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id, @RequestBody VoucherAttachmentCreateRequest request) {
+        PermissionGuard.require(permissions, CREATE);
+        return ApiResponse.success(voucherService.addAttachment(id, request));
+    }
+
+    @DeleteMapping("/vouchers/{id}/attachments/{attachmentId}")
+    public ApiResponse<List<VoucherAttachmentView>> deleteAttachment(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id, @PathVariable("attachmentId") long attachmentId) {
+        PermissionGuard.require(permissions, CREATE);
+        return ApiResponse.success(voucherService.deleteAttachment(id, attachmentId));
     }
 
     @GetMapping("/reports/balance-sheet")

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { GapNotice, PageHeader } from '@fenglin/ui-admin'
 import {
   financeApi,
@@ -39,11 +39,26 @@ const reconVisible = ref(false)
 const reconError = ref('')
 const reconForm = reactive({ account_id: '' as string | '', period_code: '' })
 
-const gapItems = [
-  '银行账户没有修改/停用接口，只能新增与查询；账户余额由后端维护。',
-  '流水导入只接受后端 JSON 结构，没有 Excel/CSV 解析接口，页面按行录入后提交。',
-  '对账结果没有未达项明细接口，无法在页面勾选未达账项；只能查看对账汇总与未匹配数量。',
-]
+const editAccountVisible = ref(false)
+const editAccountError = ref('')
+const editAccountTarget = ref<FinanceBankAccount | null>(null)
+const editAccountForm = reactive({
+  account_name: '',
+  bank_name: '',
+  bank_code: '',
+  account_type: '',
+  subject_code: '',
+  account_no: '',
+})
+
+const csvInput = ref<HTMLInputElement | null>(null)
+
+const unmatchedVisible = ref(false)
+const unmatchedLoading = ref(false)
+const unmatchedRows = ref<FinanceBankTransaction[]>([])
+const unmatchedTarget = ref<FinanceReconciliation | null>(null)
+
+const gapItems: string[] = []
 
 function money(value?: string | number | null) {
   if (value === undefined || value === null || value === '') return '-'
@@ -110,6 +125,74 @@ async function submitAccount() {
   }
 }
 
+function openEditAccount(row: FinanceBankAccount) {
+  editAccountTarget.value = row
+  editAccountForm.account_name = row.account_name
+  editAccountForm.bank_name = row.bank_name
+  editAccountForm.bank_code = ''
+  editAccountForm.account_type = row.account_type ?? ''
+  editAccountForm.subject_code = row.subject_code ?? ''
+  editAccountForm.account_no = ''
+  editAccountError.value = ''
+  editAccountVisible.value = true
+}
+
+async function submitEditAccount() {
+  if (!editAccountTarget.value) return
+  if (!editAccountForm.account_name.trim() || !editAccountForm.bank_name.trim()) {
+    editAccountError.value = '账户名称与开户行不能为空'
+    return
+  }
+  const bankCode = editAccountForm.bank_code.trim()
+  const accountType = editAccountForm.account_type.trim()
+  const subjectCode = editAccountForm.subject_code.trim()
+  const accountNo = editAccountForm.account_no.trim()
+  try {
+    await financeApi.bank.updateAccount(editAccountTarget.value.id, {
+      account_name: editAccountForm.account_name.trim(),
+      bank_name: editAccountForm.bank_name.trim(),
+      ...(bankCode ? { bank_code: bankCode } : {}),
+      ...(accountType ? { account_type: accountType } : {}),
+      ...(subjectCode ? { subject_code: subjectCode } : {}),
+      ...(accountNo ? { account_no: accountNo } : {}),
+    })
+    ElMessage.success('银行账户已更新')
+    editAccountVisible.value = false
+    await loadAccounts()
+  } catch (err) {
+    editAccountError.value = describeError(err)
+  }
+}
+
+async function enableAccount(row: FinanceBankAccount) {
+  try {
+    await financeApi.bank.enableAccount(row.id)
+    ElMessage.success('银行账户已启用')
+    await loadAccounts()
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  }
+}
+
+async function disableAccount(row: FinanceBankAccount) {
+  try {
+    await ElMessageBox.confirm(
+      `确认停用账户 ${row.account_name}（${row.account_no_masked}）？`,
+      '停用账户',
+      { type: 'warning' },
+    )
+  } catch {
+    return
+  }
+  try {
+    await financeApi.bank.disableAccount(row.id)
+    ElMessage.success('银行账户已停用')
+    await loadAccounts()
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  }
+}
+
 function addImportRow() {
   importRows.value.push({
     txn_no: '',
@@ -152,6 +235,83 @@ async function submitImport() {
     await loadTransactions()
   } catch (err) {
     importError.value = describeError(err)
+  }
+}
+
+function readFileText(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result ?? ''))
+    reader.onerror = () => reject(reader.error ?? new Error('读取文件失败'))
+    reader.readAsText(file, 'utf-8')
+  })
+}
+
+async function importCsvFile(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+  if (!selectedAccountId.value) {
+    ElMessage.warning('请先选择银行账户')
+    return
+  }
+  let text = ''
+  try {
+    text = await readFileText(file)
+  } catch (err) {
+    ElMessage.error(describeError(err))
+    return
+  }
+  const lines = text.split(/\r?\n/).filter((line) => line.trim())
+  if (lines.length < 2) {
+    ElMessage.warning('CSV 内容为空或缺少数据行')
+    return
+  }
+  const header = lines[0].replace(/^\uFEFF/, '').split(',').map((cell) => cell.trim().toLowerCase())
+  const rows = lines.slice(1).map((line) => {
+    const cells = line.split(',')
+    const pick = (name: string) => {
+      const index = header.indexOf(name)
+      return index >= 0 ? (cells[index] ?? '').trim() : ''
+    }
+    return {
+      txn_no: pick('txn_no'),
+      txn_date: pick('txn_date'),
+      direction: pick('direction').toUpperCase() || 'IN',
+      amount: pick('amount'),
+      balance: pick('balance') || undefined,
+      counterparty: pick('counterparty') || undefined,
+      summary: pick('summary') || undefined,
+    }
+  })
+  if (rows.some((row) => !row.txn_no || !row.txn_date || !row.amount)) {
+    ElMessage.error('CSV 存在流水号/日期/金额为空的行')
+    return
+  }
+  try {
+    const result = await financeApi.bank.importTransactions({
+      account_id: selectedAccountId.value,
+      transactions: rows,
+    })
+    ElMessage.success(`导入 ${result.imported} 条，跳过 ${result.skipped} 条`)
+    await loadTransactions()
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  }
+}
+
+async function openUnmatched(row: FinanceReconciliation) {
+  unmatchedTarget.value = row
+  unmatchedVisible.value = true
+  unmatchedLoading.value = true
+  unmatchedRows.value = []
+  try {
+    unmatchedRows.value = await financeApi.bank.unmatchedTransactions(row.id)
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  } finally {
+    unmatchedLoading.value = false
   }
 }
 
@@ -199,7 +359,7 @@ onMounted(async () => {
     </PageHeader>
 
     <el-alert v-if="error" type="error" :closable="false" show-icon :title="error" style="margin-bottom: 12px" />
-    <GapNotice :items="gapItems" />
+    <GapNotice v-if="gapItems.length" :items="gapItems" />
 
     <el-card shadow="never">
       <el-tabs v-model="activeTab" @tab-change="changeTab">
@@ -212,6 +372,13 @@ onMounted(async () => {
             <el-table-column prop="account_type" label="账户类型" width="110" />
             <el-table-column label="余额" width="140" align="right"><template #default="{ row }">{{ money(row.balance) }}</template></el-table-column>
             <el-table-column prop="status" label="状态" width="100" />
+            <el-table-column label="操作" width="140" fixed="right">
+              <template #default="{ row }">
+                <el-button v-perm="'biz:finance:bank:manage'" link type="primary" @click="openEditAccount(row)">编辑</el-button>
+                <el-button v-perm="'biz:finance:bank:manage'" v-if="row.status === 'ENABLED'" link type="danger" @click="disableAccount(row)">停用</el-button>
+                <el-button v-perm="'biz:finance:bank:manage'" v-else link type="primary" @click="enableAccount(row)">启用</el-button>
+              </template>
+            </el-table-column>
           </el-table>
         </el-tab-pane>
 
@@ -221,6 +388,8 @@ onMounted(async () => {
               <el-option v-for="account in accounts" :key="account.id" :label="`${account.account_no_masked} ${account.account_name}`" :value="account.id" />
             </el-select>
             <el-button v-perm="'biz:finance:bank:manage'" type="primary" plain @click="importVisible = true; if (!importRows.length) addImportRow()">导入流水</el-button>
+            <el-button v-perm="'biz:finance:bank:manage'" plain @click="csvInput?.click()">导入 CSV</el-button>
+            <input ref="csvInput" type="file" accept=".csv,text/csv" style="display: none" @change="importCsvFile" />
             <span class="fl-muted">共 {{ transactions.length }} 条</span>
           </div>
           <el-table :data="transactions" v-loading="loading" border stripe max-height="520">
@@ -252,6 +421,11 @@ onMounted(async () => {
             <el-table-column label="调整后余额" width="140" align="right"><template #default="{ row }">{{ money(row.adjusted_balance) }}</template></el-table-column>
             <el-table-column prop="unmatched_count" label="未匹配" width="90" />
             <el-table-column prop="status" label="状态" width="110" />
+            <el-table-column label="操作" width="110" fixed="right">
+              <template #default="{ row }">
+                <el-button v-perm="'tenant:finance:reconcile:manage'" link @click="openUnmatched(row)">未达明细</el-button>
+              </template>
+            </el-table-column>
           </el-table>
         </el-tab-pane>
       </el-tabs>
@@ -314,6 +488,42 @@ onMounted(async () => {
       <template #footer>
         <el-button @click="reconVisible = false">取消</el-button>
         <el-button type="primary" @click="submitReconcile">生成</el-button>
+      </template>
+    </el-dialog>
+    <el-dialog v-model="editAccountVisible" title="编辑银行账户" width="520px">
+      <el-alert v-if="editAccountError" type="error" :closable="false" show-icon :title="editAccountError" style="margin-bottom: 12px" />
+      <el-form label-width="100px">
+        <el-form-item label="银行账号">
+          <el-input v-model="editAccountForm.account_no" placeholder="留空表示不修改" maxlength="64" />
+        </el-form-item>
+        <el-form-item label="账户名称" required><el-input v-model="editAccountForm.account_name" maxlength="128" /></el-form-item>
+        <el-form-item label="开户行" required><el-input v-model="editAccountForm.bank_name" maxlength="128" /></el-form-item>
+        <el-form-item label="银行编码"><el-input v-model="editAccountForm.bank_code" maxlength="32" /></el-form-item>
+        <el-form-item label="账户类型"><el-input v-model="editAccountForm.account_type" maxlength="32" /></el-form-item>
+        <el-form-item label="会计科目"><el-input v-model="editAccountForm.subject_code" maxlength="32" /></el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="editAccountVisible = false">取消</el-button>
+        <el-button type="primary" @click="submitEditAccount">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="unmatchedVisible" title="未达明细" width="820px">
+      <div class="fl-muted" style="margin-bottom: 8px">对账单：{{ unmatchedTarget?.recon_no }}</div>
+      <el-table :data="unmatchedRows" v-loading="unmatchedLoading" border size="small" max-height="420" empty-text="无未达项">
+        <el-table-column prop="txn_no" label="流水号" width="170" />
+        <el-table-column prop="txn_date" label="日期" width="120" />
+        <el-table-column label="方向" width="80">
+          <template #default="{ row }">{{ row.direction === 'IN' ? '收入' : '支出' }}</template>
+        </el-table-column>
+        <el-table-column label="金额" width="130" align="right">
+          <template #default="{ row }">{{ money(row.amount) }}</template>
+        </el-table-column>
+        <el-table-column prop="counterparty" label="对方单位" min-width="160" />
+        <el-table-column prop="summary" label="摘要" min-width="150" show-overflow-tooltip />
+      </el-table>
+      <template #footer>
+        <el-button @click="unmatchedVisible = false">关闭</el-button>
       </template>
     </el-dialog>
   </div>

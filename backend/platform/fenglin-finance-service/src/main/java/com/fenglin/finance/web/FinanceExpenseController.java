@@ -4,9 +4,12 @@ import com.fenglin.common.core.ApiResponse;
 import com.fenglin.common.security.PermissionGuard;
 import com.fenglin.finance.service.ExpenseService;
 import com.fenglin.finance.support.FinanceContext;
+import com.fenglin.finance.web.dto.FinanceDtos.BudgetAdjustRequest;
+import com.fenglin.finance.web.dto.FinanceDtos.BudgetAdjustmentView;
 import com.fenglin.finance.web.dto.FinanceDtos.BudgetControlCheckRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.BudgetControlResult;
 import com.fenglin.finance.web.dto.FinanceDtos.BudgetCreateRequest;
+import com.fenglin.finance.web.dto.FinanceDtos.BudgetRolloverRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.BudgetView;
 import com.fenglin.finance.web.dto.FinanceDtos.ExpenseActionResult;
 import com.fenglin.finance.web.dto.FinanceDtos.ExpenseCreateRequest;
@@ -146,6 +149,30 @@ public class FinanceExpenseController {
             @PathVariable("id") long id) {
         PermissionGuard.require(permissions, BUDGET_MANAGE);
         return ApiResponse.success(expenseService.releaseBudget(id));
+    }
+
+    @PostMapping("/budgets/{id}/adjust")
+    public ApiResponse<BudgetView> adjustBudget(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id, @RequestBody BudgetAdjustRequest request) {
+        PermissionGuard.require(permissions, BUDGET_MANAGE);
+        return ApiResponse.success(expenseService.adjustBudget(id, request));
+    }
+
+    @PostMapping("/budgets/{id}/rollover")
+    public ApiResponse<BudgetView> rolloverBudget(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id, @RequestBody BudgetRolloverRequest request) {
+        PermissionGuard.require(permissions, BUDGET_MANAGE);
+        return ApiResponse.success(expenseService.rolloverBudget(id, request));
+    }
+
+    @GetMapping("/budgets/{id}/adjustments")
+    public ApiResponse<List<BudgetAdjustmentView>> listBudgetAdjustments(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id) {
+        PermissionGuard.require(permissions, BUDGET_VIEW);
+        return ApiResponse.success(expenseService.listBudgetAdjustments(id));
     }
 
     @PostMapping("/budgets/control-check")

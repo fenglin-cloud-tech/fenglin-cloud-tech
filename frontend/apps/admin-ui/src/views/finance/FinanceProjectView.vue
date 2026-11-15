@@ -79,6 +79,25 @@ const settlementVisible = ref(false)
 const settlementError = ref('')
 const settlementForm = reactive({ settlement_amount: '', currency_code: 'CNY', remark: '' })
 
+const editVisible = ref(false)
+const editError = ref('')
+const editSaving = ref(false)
+const editId = ref('')
+const editForm = reactive({
+  project_name: '',
+  contract_no: '',
+  contract_amount: '',
+  budget_amount: '',
+  estimated_total_cost: '',
+  start_date: '',
+  end_date: '',
+  manager_id: '',
+  dept_id: '',
+  description: '',
+})
+
+const milestoneDraft = reactive<Record<string, { status: string; actual_date: string }>>({})
+
 const selectedTimesheets = ref<FinanceId[]>([])
 
 const statusLabels: Record<string, string> = {
@@ -92,7 +111,6 @@ const statusLabels: Record<string, string> = {
 }
 
 const gapItems = [
-  '项目缺少更新/关闭/删除接口，也没有成员移除、里程碑状态更新接口；页面只暴露后端已提供的能力。',
   '工时列表只能按项目+状态查询，没有“我的工时”聚合接口，员工端只能遍历项目在前端过滤。',
   '项目收入确认、结算审批与凭证联动均在服务端完成，页面只展示返回结果，无法部分调整。',
 ]
@@ -126,6 +144,10 @@ async function openDetail(row: FinanceProject) {
   detailTab.value = 'members'
   try {
     detail.value = await financeApi.projects.detail(row.id)
+    for (const key of Object.keys(milestoneDraft)) delete milestoneDraft[key]
+    for (const milestone of detail.value.milestones) {
+      milestoneDraft[milestone.id] = { status: milestone.status, actual_date: milestone.actual_date ?? '' }
+    }
     try {
       profitability.value = await financeApi.projects.profitability(row.id)
     } catch {
@@ -153,6 +175,135 @@ async function approveProject(row: FinanceProject) {
     const result = await financeApi.projects.approve(row.id)
     ElMessage.success(`项目 ${result.project_no} 状态 ${statusLabel(result.status)}`)
     await loadProjects()
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  }
+}
+
+function openEdit(row: FinanceProject) {
+  editId.value = row.id
+  editForm.project_name = row.project_name
+  editForm.contract_no = row.contract_no ?? ''
+  editForm.contract_amount = row.contract_amount ?? ''
+  editForm.budget_amount = row.budget_amount ?? ''
+  editForm.estimated_total_cost = row.estimated_total_cost ?? ''
+  editForm.start_date = row.start_date ?? ''
+  editForm.end_date = row.end_date ?? ''
+  editForm.manager_id = row.manager_id ?? ''
+  editForm.dept_id = row.dept_id ?? ''
+  editForm.description = row.description ?? ''
+  editError.value = ''
+  editVisible.value = true
+}
+
+async function submitEdit() {
+  if (!editForm.project_name.trim()) {
+    editError.value = '项目名称不能为空'
+    return
+  }
+  if (editForm.manager_id && !/^\d+$/.test(editForm.manager_id.trim())) {
+    editError.value = '负责人 ID 必须是数字'
+    return
+  }
+  if (editForm.dept_id && !/^\d+$/.test(editForm.dept_id.trim())) {
+    editError.value = '部门 ID 必须是数字'
+    return
+  }
+  editSaving.value = true
+  editError.value = ''
+  try {
+    const updated = await financeApi.projects.update(editId.value, {
+      project_name: editForm.project_name.trim(),
+      contract_no: editForm.contract_no.trim() || undefined,
+      contract_amount: editForm.contract_amount.trim() || undefined,
+      budget_amount: editForm.budget_amount.trim() || undefined,
+      estimated_total_cost: editForm.estimated_total_cost.trim() || undefined,
+      start_date: editForm.start_date || undefined,
+      end_date: editForm.end_date || undefined,
+      manager_id: editForm.manager_id.trim() || null,
+      dept_id: editForm.dept_id.trim() || null,
+      description: editForm.description.trim() || undefined,
+    })
+    ElMessage.success(`项目 ${updated.project_no} 已更新`)
+    editVisible.value = false
+    await loadProjects()
+    if (detail.value && detail.value.project.id === updated.id) await refreshDetail()
+  } catch (err) {
+    editError.value = describeError(err)
+  } finally {
+    editSaving.value = false
+  }
+}
+
+async function closeProject(row: FinanceProject) {
+  let reason = ''
+  try {
+    const result = await ElMessageBox.prompt('可填写关闭原因（留空表示不填）', `关闭项目 ${row.project_name}`, {
+      confirmButtonText: '关闭',
+      cancelButtonText: '取消',
+      inputPlaceholder: '关闭原因',
+      type: 'warning',
+    })
+    reason = (result.value ?? '').trim()
+  } catch {
+    return
+  }
+  try {
+    const updated = await financeApi.projects.close(row.id, reason || undefined)
+    ElMessage.success(`项目 ${updated.project_no} 状态 ${statusLabel(updated.status)}`)
+    await loadProjects()
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  }
+}
+
+async function removeProject(row: FinanceProject) {
+  try {
+    await ElMessageBox.confirm(
+      `确认删除项目 ${row.project_no}（${row.project_name}）？仅草稿/审批中状态可删除，删除后不可恢复。`,
+      '删除项目',
+      { type: 'warning' },
+    )
+  } catch {
+    return
+  }
+  try {
+    await financeApi.projects.remove(row.id)
+    ElMessage.success(`项目 ${row.project_no} 已删除`)
+    if (detail.value && detail.value.project.id === row.id) detailVisible.value = false
+    await loadProjects()
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  }
+}
+
+async function removeMember(member: { id: string; employee_name: string }) {
+  if (!detail.value) return
+  try {
+    await ElMessageBox.confirm(`确认将成员 ${member.employee_name} 移出项目？`, '移除成员', { type: 'warning' })
+  } catch {
+    return
+  }
+  try {
+    await financeApi.projects.removeMember(detail.value.project.id, member.id)
+    ElMessage.success('成员已移除')
+    await refreshDetail()
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  }
+}
+
+async function updateMilestone(row: { id: string; milestone_name: string }) {
+  if (!detail.value) return
+  const draft = milestoneDraft[row.id]
+  if (!draft) return
+  try {
+    await financeApi.projects.updateMilestoneStatus(detail.value.project.id, row.id, {
+      status: draft.status,
+      actual_date: draft.status === 'DONE' && draft.actual_date ? draft.actual_date : undefined,
+    })
+    ElMessage.success(`里程碑 ${row.milestone_name} 状态已更新`)
+    await refreshDetail()
   } catch (err) {
     ElMessage.error(describeError(err))
   }
@@ -368,7 +519,7 @@ onMounted(loadProjects)
     </PageHeader>
 
     <el-alert v-if="error" type="error" :closable="false" show-icon :title="error" style="margin-bottom: 12px" />
-    <GapNotice :items="gapItems" />
+    <GapNotice v-if="gapItems.length" :items="gapItems" />
 
     <el-card shadow="never">
       <el-table :data="projects" v-loading="loading" border stripe>
@@ -383,10 +534,13 @@ onMounted(loadProjects)
         <el-table-column label="状态" width="100">
           <template #default="{ row }"><el-tag size="small">{{ statusLabel(row.status) }}</el-tag></template>
         </el-table-column>
-        <el-table-column label="操作" width="150" fixed="right">
+        <el-table-column label="操作" width="260" fixed="right">
           <template #default="{ row }">
             <el-button link @click="openDetail(row)">核算详情</el-button>
             <el-button v-if="row.status === 'DRAFT' || row.status === 'PENDING_APPROVAL'" v-perm="'biz:finance:project:approve'" link type="primary" @click="approveProject(row)">立项</el-button>
+            <el-button v-perm="'biz:finance:project:create'" link type="primary" @click="openEdit(row)">编辑</el-button>
+            <el-button v-perm="'biz:finance:project:create'" link type="warning" @click="closeProject(row)">关闭</el-button>
+            <el-button v-perm="'biz:finance:project:create'" link type="danger" @click="removeProject(row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -433,6 +587,11 @@ onMounted(loadProjects)
                 <el-table-column prop="cost_rate" label="成本费率" width="110" />
                 <el-table-column prop="join_date" label="加入日期" width="120" />
                 <el-table-column prop="status" label="状态" />
+                <el-table-column label="操作" width="90">
+                  <template #default="{ row }">
+                    <el-button v-perm="'biz:finance:project:member:manage'" link type="danger" @click="removeMember(row)">移除</el-button>
+                  </template>
+                </el-table-column>
               </el-table>
             </el-tab-pane>
             <el-tab-pane :label="`里程碑 ${detail.milestones.length}`" name="milestones">
@@ -442,6 +601,25 @@ onMounted(loadProjects)
                 <el-table-column prop="actual_date" label="实际日期" width="120" />
                 <el-table-column prop="weight" label="权重" width="90" />
                 <el-table-column prop="status" label="状态" width="110" />
+                <el-table-column label="状态更新" width="300">
+                  <template #default="{ row }">
+                    <el-select v-model="milestoneDraft[row.id].status" size="small" style="width: 100px">
+                      <el-option label="未开始" value="PENDING" />
+                      <el-option label="已完成" value="DONE" />
+                      <el-option label="已延期" value="DELAYED" />
+                    </el-select>
+                    <el-date-picker
+                      v-if="milestoneDraft[row.id].status === 'DONE'"
+                      v-model="milestoneDraft[row.id].actual_date"
+                      type="date"
+                      value-format="YYYY-MM-DD"
+                      size="small"
+                      placeholder="完成日期"
+                      style="width: 130px; margin-left: 6px"
+                    />
+                    <el-button link type="primary" style="margin-left: 6px" @click="updateMilestone(row)">更新</el-button>
+                  </template>
+                </el-table-column>
               </el-table>
             </el-tab-pane>
             <el-tab-pane :label="`工时 ${detail.timesheets.length}`" name="timesheets">
@@ -519,6 +697,30 @@ onMounted(loadProjects)
       <template #footer>
         <el-button @click="createVisible = false">取消</el-button>
         <el-button type="primary" :loading="createSaving" @click="submitProject">创建</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="editVisible" title="编辑项目" width="600px">
+      <el-alert v-if="editError" type="error" :closable="false" show-icon :title="editError" style="margin-bottom: 12px" />
+      <el-form label-width="100px">
+        <el-form-item label="项目名称" required><el-input v-model="editForm.project_name" maxlength="128" /></el-form-item>
+        <el-form-item label="合同号"><el-input v-model="editForm.contract_no" maxlength="64" /></el-form-item>
+        <el-form-item label="合同额"><el-input v-model="editForm.contract_amount" placeholder="0.00" /></el-form-item>
+        <el-form-item label="预算额"><el-input v-model="editForm.budget_amount" placeholder="0.00" /></el-form-item>
+        <el-form-item label="预计总成本"><el-input v-model="editForm.estimated_total_cost" placeholder="0.00" /></el-form-item>
+        <el-form-item label="开始日期">
+          <el-date-picker v-model="editForm.start_date" type="date" value-format="YYYY-MM-DD" style="width: 100%" />
+        </el-form-item>
+        <el-form-item label="结束日期">
+          <el-date-picker v-model="editForm.end_date" type="date" value-format="YYYY-MM-DD" style="width: 100%" />
+        </el-form-item>
+        <el-form-item label="负责人 ID"><el-input v-model="editForm.manager_id" placeholder="数字 ID，可留空" /></el-form-item>
+        <el-form-item label="部门 ID"><el-input v-model="editForm.dept_id" placeholder="数字 ID，可留空" /></el-form-item>
+        <el-form-item label="说明"><el-input v-model="editForm.description" type="textarea" :rows="2" maxlength="500" /></el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="editVisible = false">取消</el-button>
+        <el-button type="primary" :loading="editSaving" @click="submitEdit">保存</el-button>
       </template>
     </el-dialog>
 

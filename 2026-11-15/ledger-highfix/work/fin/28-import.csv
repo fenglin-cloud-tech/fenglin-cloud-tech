@@ -1,0 +1,2 @@
+txn_no,txn_date,direction,amount,balance,counterparty,summary
+TXN-FIN05-003,2026-11-03,IN,800,104600,测试客户丙,CSV导入测试

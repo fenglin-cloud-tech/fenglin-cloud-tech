@@ -1,0 +1,2 @@
+﻿=== POST /assets/categories
+{"code":"4000001","message":"云财参数校验失败","request_id":"cff474f0-f50b-4021-af71-17deb82f301d","timestamp":"2026-11-15T10:05:44.416662300Z"}

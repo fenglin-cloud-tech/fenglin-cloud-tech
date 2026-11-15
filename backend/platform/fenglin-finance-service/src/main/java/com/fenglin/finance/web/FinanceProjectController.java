@@ -9,11 +9,14 @@ import com.fenglin.finance.web.dto.FinanceDtos.CostView;
 import com.fenglin.finance.web.dto.FinanceDtos.MemberCreateRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.MemberView;
 import com.fenglin.finance.web.dto.FinanceDtos.MilestoneCreateRequest;
+import com.fenglin.finance.web.dto.FinanceDtos.MilestoneStatusUpdateRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.MilestoneView;
 import com.fenglin.finance.web.dto.FinanceDtos.ProfitabilityView;
 import com.fenglin.finance.web.dto.FinanceDtos.ProjectApproveResult;
+import com.fenglin.finance.web.dto.FinanceDtos.ProjectCloseRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.ProjectCreateRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.ProjectDetail;
+import com.fenglin.finance.web.dto.FinanceDtos.ProjectUpdateRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.ProjectView;
 import com.fenglin.finance.web.dto.FinanceDtos.RevenueRecognizeRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.RevenueRecognizeResult;
@@ -24,9 +27,12 @@ import com.fenglin.finance.web.dto.FinanceDtos.TimesheetApproveResult;
 import com.fenglin.finance.web.dto.FinanceDtos.TimesheetCreateRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.TimesheetRejectRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.TimesheetView;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -88,6 +94,31 @@ public class FinanceProjectController {
         return ApiResponse.success(projectService.detail(id));
     }
 
+    @PutMapping("/{id}")
+    public ApiResponse<ProjectView> update(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id, @RequestBody ProjectUpdateRequest request) {
+        PermissionGuard.require(permissions, PROJECT_CREATE);
+        return ApiResponse.success(projectService.update(id, request));
+    }
+
+    @PostMapping("/{id}/close")
+    public ApiResponse<ProjectView> close(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id, @RequestBody(required = false) ProjectCloseRequest request) {
+        PermissionGuard.require(permissions, PROJECT_CREATE);
+        return ApiResponse.success(projectService.close(id, request));
+    }
+
+    @DeleteMapping("/{id}")
+    public ApiResponse<Void> delete(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id) {
+        PermissionGuard.require(permissions, PROJECT_CREATE);
+        projectService.delete(id);
+        return ApiResponse.success();
+    }
+
     @PostMapping("/{id}/approve")
     public ApiResponse<ProjectApproveResult> approve(
             @RequestHeader(value = "X-Permissions", required = false) String permissions,
@@ -102,6 +133,15 @@ public class FinanceProjectController {
             @PathVariable("id") long id, @RequestBody MemberCreateRequest request) {
         PermissionGuard.require(permissions, MEMBER);
         return ApiResponse.success(projectService.addMember(id, request));
+    }
+
+    @DeleteMapping("/{id}/members/{memberId}")
+    public ApiResponse<Void> removeMember(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id, @PathVariable("memberId") long memberId) {
+        PermissionGuard.require(permissions, MEMBER);
+        projectService.removeMember(id, memberId);
+        return ApiResponse.success();
     }
 
     @GetMapping("/{id}/members")
@@ -126,6 +166,15 @@ public class FinanceProjectController {
             @PathVariable("id") long id) {
         PermissionGuard.require(permissions, PROJECT_VIEW);
         return ApiResponse.success(projectService.listMilestones(id));
+    }
+
+    @PatchMapping("/{id}/milestones/{milestoneId}/status")
+    public ApiResponse<MilestoneView> updateMilestoneStatus(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id, @PathVariable("milestoneId") long milestoneId,
+            @RequestBody MilestoneStatusUpdateRequest request) {
+        PermissionGuard.require(permissions, MEMBER);
+        return ApiResponse.success(projectService.updateMilestoneStatus(id, milestoneId, request));
     }
 
     @PostMapping("/{id}/timesheets")

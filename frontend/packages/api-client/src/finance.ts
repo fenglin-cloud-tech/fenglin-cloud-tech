@@ -609,6 +609,56 @@ export interface FinanceItAsset {
   sync_status?: string
 }
 
+export interface FinanceItAssetBorrowRecord {
+  id: FinanceId
+  change_no: string
+  asset_id: FinanceId
+  change_type: string
+  before_json?: string
+  after_json?: string
+  operator_id: FinanceId
+  occurred_at?: string
+}
+
+export interface FinanceDepreciationSchedule {
+  id: FinanceId
+  batch_no: string
+  asset_id: FinanceId
+  asset_no?: string
+  asset_name?: string
+  period_code: string
+  method: string
+  original_value: string
+  depreciation_amount: string
+  accumulated_after: string
+  net_value_after: string
+  voucher_id?: FinanceId | null
+  status: string
+}
+
+export interface FinanceBudgetAdjustment {
+  id: FinanceId
+  adjust_no: string
+  budget_id: FinanceId
+  adjust_type: string
+  amount: string
+  before_amount: string
+  after_amount: string
+  source_budget_id?: FinanceId | null
+  reason?: string
+  operator_id: FinanceId
+  occurred_at?: string
+}
+
+export interface FinanceVoucherAttachment {
+  id: FinanceId
+  file_id: FinanceId
+  file_name?: string
+  file_size?: number | null
+  uploaded_by?: FinanceId | null
+  created_at?: string
+}
+
 export interface FinanceFactor {
   id: FinanceId
   factor_code: string
@@ -813,6 +863,17 @@ export const financeApi = {
     auditTrail(id: FinanceId) {
       return get<FinanceAuditTrail>(`${BASE}/vouchers/${id}/audit-trail`)
     },
+    attachments(id: FinanceId) {
+      return get<FinanceVoucherAttachment[]>(`${BASE}/vouchers/${id}/attachments`)
+    },
+    addAttachment(id: FinanceId, body: { file_id: FinanceId; file_name?: string; file_size?: number }) {
+      return post<FinanceVoucherAttachment[]>(`${BASE}/vouchers/${id}/attachments`, body)
+    },
+    deleteAttachment(id: FinanceId, attachmentId: FinanceId) {
+      return request<FinanceVoucherAttachment[]>(`${BASE}/vouchers/${id}/attachments/${attachmentId}`, {
+        method: 'DELETE',
+      })
+    },
     templates() {
       return get<FinanceVoucherTemplate[]>(`${BASE}/voucher-templates`)
     },
@@ -978,14 +1039,22 @@ export const financeApi = {
     releaseBudget(id: FinanceId) {
       return post<FinanceBudget>(`${BASE}/budgets/${id}/release`)
     },
+    adjustBudget(id: FinanceId, body: { amount: string; adjust_type: 'INCREASE' | 'DECREASE'; reason?: string }) {
+      return post<FinanceBudget>(`${BASE}/budgets/${id}/adjust`, body)
+    },
+    rolloverBudget(id: FinanceId, body: { target_budget_id: FinanceId; amount?: string; reason?: string }) {
+      return post<FinanceBudget>(`${BASE}/budgets/${id}/rollover`, body)
+    },
+    budgetAdjustments(id: FinanceId) {
+      return get<FinanceBudgetAdjustment[]>(`${BASE}/budgets/${id}/adjustments`)
+    },
     checkBudget(body: {
       period_year: number
       dimension: string
       dimension_id?: FinanceId | null
       subject_code?: string
       amount: string
-    }) {
-      return post<FinanceBudgetControlResult>(`${BASE}/budgets/control-check`, body)
+    }) {      return post<FinanceBudgetControlResult>(`${BASE}/budgets/control-check`, body)
     },
     budgetAvailable(params: {
       periodYear?: number
@@ -1058,6 +1127,28 @@ export const financeApi = {
     reconciliations(params: { page?: number; size?: number } = {}) {
       return get<FinanceReconciliation[]>(`${BASE}/bank/reconciliations`, params)
     },
+    updateAccount(
+      id: FinanceId,
+      body: {
+        account_no?: string
+        account_name?: string
+        bank_name?: string
+        bank_code?: string
+        account_type?: string
+        subject_code?: string
+      },
+    ) {
+      return put<FinanceBankAccount>(`${BASE}/bank/accounts/${id}`, body)
+    },
+    disableAccount(id: FinanceId) {
+      return post<FinanceBankAccount>(`${BASE}/bank/accounts/${id}/disable`)
+    },
+    enableAccount(id: FinanceId) {
+      return post<FinanceBankAccount>(`${BASE}/bank/accounts/${id}/enable`)
+    },
+    unmatchedTransactions(reconciliationId: FinanceId) {
+      return get<FinanceBankTransaction[]>(`${BASE}/bank/reconciliations/${reconciliationId}/unmatched`)
+    },
   },
   projects: {
     list(params: { status?: string; page?: number; size?: number } = {}) {
@@ -1089,6 +1180,32 @@ export const financeApi = {
         `${BASE}/projects/${id}/approve`,
       )
     },
+    update(
+      id: FinanceId,
+      body: {
+        project_name?: string
+        project_type?: string
+        customer_id?: FinanceId | null
+        customer_name?: string
+        contract_no?: string
+        contract_amount?: string
+        budget_amount?: string
+        estimated_total_cost?: string
+        start_date?: string
+        end_date?: string
+        manager_id?: FinanceId | null
+        dept_id?: FinanceId | null
+        description?: string
+      },
+    ) {
+      return put<FinanceProject>(`${BASE}/projects/${id}`, body)
+    },
+    close(id: FinanceId, reason?: string) {
+      return post<FinanceProject>(`${BASE}/projects/${id}/close`, { reason })
+    },
+    remove(id: FinanceId) {
+      return request<void>(`${BASE}/projects/${id}`, { method: 'DELETE' })
+    },
     members(id: FinanceId) {
       return get<FinanceProjectMember[]>(`${BASE}/projects/${id}/members`)
     },
@@ -1113,6 +1230,19 @@ export const financeApi = {
       body: { milestone_name: string; plan_date: string; deliverable?: string; weight?: string },
     ) {
       return post<FinanceMilestone>(`${BASE}/projects/${id}/milestones`, body)
+    },
+    updateMilestoneStatus(
+      id: FinanceId,
+      milestoneId: FinanceId,
+      body: { status: string; actual_date?: string },
+    ) {
+      return request<FinanceMilestone>(`${BASE}/projects/${id}/milestones/${milestoneId}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify(body),
+      })
+    },
+    removeMember(id: FinanceId, memberId: FinanceId) {
+      return request<void>(`${BASE}/projects/${id}/members/${memberId}`, { method: 'DELETE' })
     },
     timesheets(id: FinanceId, params: { status?: string; page?: number; size?: number } = {}) {
       return get<FinanceTimesheet[]>(`${BASE}/projects/${id}/timesheets`, params)
@@ -1225,6 +1355,30 @@ export const financeApi = {
     runDepreciation(body: { ledger_id: FinanceId; period_code: string }) {
       return post<FinanceDepreciationResult>(`${BASE}/assets/depreciation/run`, body)
     },
+    depreciationSchedules(
+      params: { assetId?: FinanceId; periodCode?: string; batchNo?: string; page?: number; size?: number } = {},
+    ) {
+      return get<FinanceDepreciationSchedule[]>(`${BASE}/assets/depreciation/schedules`, params)
+    },
+    updateCard(
+      assetId: FinanceId,
+      body: {
+        asset_name?: string
+        specification?: string
+        location?: string
+        dept_id?: FinanceId | null
+        custodian_id?: FinanceId | null
+        status?: string
+      },
+    ) {
+      return put<FinanceAssetCard>(`${BASE}/assets/cards/${assetId}`, body)
+    },
+    transferCard(
+      assetId: FinanceId,
+      body: { dept_id?: FinanceId | null; location?: string; custodian_id?: FinanceId | null; reason?: string },
+    ) {
+      return post<FinanceAssetCard>(`${BASE}/assets/${assetId}/transfer`, body)
+    },
     dispose(
       assetId: FinanceId,
       body?: { disposal_income?: string; disposal_date?: string; reason?: string },
@@ -1261,8 +1415,28 @@ export const financeApi = {
     completeStocktaking(id: FinanceId) {
       return post<FinanceStocktaking>(`${BASE}/assets/stocktakings/${id}/complete`)
     },
+    addStocktakingItem(
+      id: FinanceId,
+      body: {
+        asset_id: FinanceId
+        expected_location?: string
+        expected_custodian_id?: FinanceId | null
+        result?: string
+        remark?: string
+      },
+    ) {
+      return post<FinanceStocktakingDetail>(`${BASE}/assets/stocktakings/${id}/items`, body)
+    },
+    deleteStocktakingItem(id: FinanceId, itemId: FinanceId) {
+      return request<FinanceStocktakingDetail>(`${BASE}/assets/stocktakings/${id}/items/${itemId}`, {
+        method: 'DELETE',
+      })
+    },
     itAssets(params: { page?: number; size?: number } = {}) {
       return get<FinanceItAsset[]>(`${BASE}/assets/it`, params)
+    },
+    itBorrowRecords(id: FinanceId) {
+      return get<FinanceItAssetBorrowRecord[]>(`${BASE}/assets/it/${id}/borrow-records`)
     },
     borrowIt(id: FinanceId, body: { borrower_id: FinanceId; due_date?: string }) {
       return post<FinanceItAsset>(`${BASE}/assets/it/${id}/borrow`, body)

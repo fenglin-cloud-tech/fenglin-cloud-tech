@@ -15,11 +15,14 @@ import com.fenglin.finance.web.dto.FinanceDtos.CostView;
 import com.fenglin.finance.web.dto.FinanceDtos.MemberCreateRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.MemberView;
 import com.fenglin.finance.web.dto.FinanceDtos.MilestoneCreateRequest;
+import com.fenglin.finance.web.dto.FinanceDtos.MilestoneStatusUpdateRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.MilestoneView;
 import com.fenglin.finance.web.dto.FinanceDtos.ProfitabilityView;
 import com.fenglin.finance.web.dto.FinanceDtos.ProjectApproveResult;
+import com.fenglin.finance.web.dto.FinanceDtos.ProjectCloseRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.ProjectCreateRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.ProjectDetail;
+import com.fenglin.finance.web.dto.FinanceDtos.ProjectUpdateRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.ProjectView;
 import com.fenglin.finance.web.dto.FinanceDtos.RevenueRecognizeRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.RevenueRecognizeResult;
@@ -50,6 +53,7 @@ import java.util.Map;
 public class ProjectService {
 
     private static final BigDecimal HOURS_LIMIT = BigDecimal.valueOf(24);
+    private static final java.util.Set<String> MILESTONE_STATUSES = java.util.Set.of("PENDING", "DONE", "DELAYED");
 
     private final ProjectMapper projectMapper;
     private final CommonsMapper commonsMapper;
@@ -108,6 +112,56 @@ public class ProjectService {
         String projectNo = Rows.str(projectMapper.findProject(tenantId, id), "projectNo");
         audit.publish("fin_project.approved", "APPROVE", "fin_project", id, "MEDIUM");
         return new ProjectApproveResult(id, projectNo, "ACTIVE", null);
+    }
+
+    @Transactional
+    public ProjectView update(long id, ProjectUpdateRequest request) {
+        long tenantId = FinanceContext.tenantId();
+        Map<String, Object> project = requireProject(tenantId, id);
+        if ("CLOSED".equals(Rows.str(project, "status"))) {
+            throw new BizException(FinanceErrorCode.PROJECT_STATE_INVALID);
+        }
+        if (request == null
+                || (request.projectName() != null && request.projectName().isBlank())
+                || (request.contractAmount() != null && request.contractAmount().signum() < 0)
+                || (request.budgetAmount() != null && request.budgetAmount().signum() < 0)
+                || (request.estimatedTotalCost() != null && request.estimatedTotalCost().signum() < 0)) {
+            throw new BizException(FinanceErrorCode.PARAM_INVALID);
+        }
+        if (projectMapper.updateProjectProfile(tenantId, id, request.projectName(), request.projectType(),
+                request.customerId(), request.customerName(), request.contractNo(),
+                request.contractAmount() == null ? null : FinanceContext.amount(request.contractAmount()),
+                request.budgetAmount() == null ? null : FinanceContext.amount(request.budgetAmount()),
+                request.estimatedTotalCost() == null ? null
+                        : FinanceContext.amount(request.estimatedTotalCost()),
+                request.startDate(), request.endDate(), request.managerId(), request.deptId(),
+                request.description(), FinanceContext.userId()) == 0) {
+            throw new BizException(FinanceErrorCode.PROJECT_STATE_INVALID);
+        }
+        audit.publish("fin_project.updated", "UPDATE", "fin_project", id, "MEDIUM");
+        return view(projectMapper.findProject(tenantId, id));
+    }
+
+    @Transactional
+    public ProjectView close(long id, ProjectCloseRequest request) {
+        long tenantId = FinanceContext.tenantId();
+        requireProject(tenantId, id);
+        if (projectMapper.closeProject(tenantId, id, request == null ? null : request.reason(),
+                FinanceContext.userId()) == 0) {
+            throw new BizException(FinanceErrorCode.PROJECT_STATE_INVALID);
+        }
+        audit.publish("fin_project.closed", "CLOSE", "fin_project", id, "HIGH");
+        return view(projectMapper.findProject(tenantId, id));
+    }
+
+    @Transactional
+    public void delete(long id) {
+        long tenantId = FinanceContext.tenantId();
+        requireProject(tenantId, id);
+        if (projectMapper.softDeleteProject(tenantId, id, FinanceContext.userId()) == 0) {
+            throw new BizException(FinanceErrorCode.PROJECT_STATE_INVALID);
+        }
+        audit.publish("fin_project.deleted", "DELETE", "fin_project", id, "HIGH");
     }
 
     public List<ProjectView> list(String status, int limit, int offset) {
@@ -210,6 +264,41 @@ public class ProjectService {
                     Rows.dec(row, "weight"), Rows.str(row, "status")));
         }
         return views;
+    }
+
+    @Transactional
+    public MilestoneView updateMilestoneStatus(long projectId, long milestoneId,
+                                               MilestoneStatusUpdateRequest request) {
+        long tenantId = FinanceContext.tenantId();
+        requireProject(tenantId, projectId);
+        if (request == null || !MILESTONE_STATUSES.contains(request.status())) {
+            throw new BizException(FinanceErrorCode.PARAM_INVALID);
+        }
+        LocalDate actualDate = request.actualDate();
+        if (actualDate == null && "DONE".equals(request.status())) {
+            actualDate = LocalDate.now();
+        }
+        if (projectMapper.updateMilestoneStatus(tenantId, projectId, milestoneId, request.status(),
+                actualDate, FinanceContext.userId()) == 0) {
+            throw new BizException(FinanceErrorCode.RESOURCE_NOT_FOUND);
+        }
+        audit.publish("fin_project_milestone.updated", "UPDATE", "fin_project_milestone", milestoneId,
+                "LOW");
+        return listMilestones(projectId).stream()
+                .filter(item -> item.id() == milestoneId)
+                .findFirst()
+                .orElseThrow(() -> new BizException(FinanceErrorCode.RESOURCE_NOT_FOUND));
+    }
+
+    @Transactional
+    public void removeMember(long projectId, long memberId) {
+        long tenantId = FinanceContext.tenantId();
+        requireProject(tenantId, projectId);
+        if (projectMapper.removeMember(tenantId, projectId, memberId, LocalDate.now(),
+                FinanceContext.userId()) == 0) {
+            throw new BizException(FinanceErrorCode.RESOURCE_NOT_FOUND);
+        }
+        audit.publish("fin_project_member.removed", "DELETE", "fin_project_member", memberId, "LOW");
     }
 
     @Transactional

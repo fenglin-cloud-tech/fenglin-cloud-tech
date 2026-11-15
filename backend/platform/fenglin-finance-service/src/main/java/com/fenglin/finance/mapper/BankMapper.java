@@ -42,6 +42,53 @@ public interface BankMapper {
             """)
     Map<String, Object> findAccount(@Param("tenantId") long tenantId, @Param("id") long id);
 
+    @Update("""
+            UPDATE fin_bank_account
+            SET account_no_enc = COALESCE(#{accountNoEnc,jdbcType=VARCHAR}, account_no_enc),
+                account_no_hash = COALESCE(#{accountNoHash,jdbcType=VARCHAR}, account_no_hash),
+                account_name = COALESCE(#{accountName,jdbcType=VARCHAR}, account_name),
+                bank_name = COALESCE(#{bankName,jdbcType=VARCHAR}, bank_name),
+                bank_code = COALESCE(#{bankCode,jdbcType=VARCHAR}, bank_code),
+                account_type = COALESCE(#{accountType,jdbcType=VARCHAR}, account_type),
+                subject_code = COALESCE(#{subjectCode,jdbcType=VARCHAR}, subject_code),
+                updated_by = #{userId}, updated_at = now(), version = version + 1
+            WHERE tenant_id = #{tenantId} AND id = #{id} AND deleted = 0
+            """)
+    int updateAccount(@Param("tenantId") long tenantId, @Param("id") long id,
+                      @Param("accountNoEnc") String accountNoEnc, @Param("accountNoHash") String accountNoHash,
+                      @Param("accountName") String accountName, @Param("bankName") String bankName,
+                      @Param("bankCode") String bankCode, @Param("accountType") String accountType,
+                      @Param("subjectCode") String subjectCode, @Param("userId") long userId);
+
+    @Update("""
+            UPDATE fin_bank_account SET status = 'DISABLED', updated_by = #{userId}, updated_at = now(),
+                version = version + 1
+            WHERE tenant_id = #{tenantId} AND id = #{id} AND status = 'ENABLED' AND deleted = 0
+            """)
+    int disableAccount(@Param("tenantId") long tenantId, @Param("id") long id,
+                       @Param("userId") long userId);
+
+    @Update("""
+            UPDATE fin_bank_account SET status = 'ENABLED', updated_by = #{userId}, updated_at = now(),
+                version = version + 1
+            WHERE tenant_id = #{tenantId} AND id = #{id} AND status = 'DISABLED' AND deleted = 0
+            """)
+    int enableAccount(@Param("tenantId") long tenantId, @Param("id") long id,
+                      @Param("userId") long userId);
+
+    @Select("""
+            SELECT id AS "id", account_id AS "accountId", txn_no AS "txnNo", txn_date::text AS "txnDate",
+                   direction AS "direction", amount AS "amount", balance AS "balance",
+                   counterparty AS "counterparty", summary AS "summary",
+                   reconcile_status AS "reconcileStatus", recon_id AS "reconId"
+            FROM fin_bank_transaction
+            WHERE tenant_id = #{tenantId} AND account_id = #{accountId}
+              AND reconcile_status = 'UNMATCHED' AND deleted = 0
+            ORDER BY txn_date, id
+            """)
+    List<Map<String, Object>> listUnmatchedTransactions(@Param("tenantId") long tenantId,
+                                                        @Param("accountId") long accountId);
+
     @Select("""
             SELECT id AS "id", account_no_enc AS "accountNoEnc", account_name AS "accountName",
                    bank_name AS "bankName", currency_code AS "currencyCode", account_type AS "accountType",

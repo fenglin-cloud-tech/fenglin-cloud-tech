@@ -58,6 +58,18 @@ public final class FinanceDtos {
                                             String subjectCode, BigDecimal amount) {
     }
 
+    public record BudgetAdjustRequest(BigDecimal amount, String adjustType, String reason) {
+    }
+
+    public record BudgetRolloverRequest(Long targetBudgetId, BigDecimal amount, String reason) {
+    }
+
+    public record BudgetAdjustmentView(long id, String adjustNo, long budgetId, String adjustType,
+                                       BigDecimal amount, BigDecimal beforeAmount, BigDecimal afterAmount,
+                                       Long sourceBudgetId, String reason, long operatorId,
+                                       Instant occurredAt) {
+    }
+
     public record BudgetControlResult(Long budgetId, String controlMode, BigDecimal budgetAmount,
                                       BigDecimal occupiedAmount, BigDecimal executedAmount,
                                       BigDecimal available, boolean allowed, String message) {
@@ -98,6 +110,13 @@ public final class FinanceDtos {
 
     public record AuditTrailView(long voucherId, boolean chainValid, String lastHash,
                                  List<VoucherAuditLogView> logs) {
+    }
+
+    public record VoucherAttachmentCreateRequest(Long fileId, String fileName, Long fileSize) {
+    }
+
+    public record VoucherAttachmentView(long id, long fileId, String fileName, Long fileSize,
+                                        Long uploadedBy, Instant createdAt) {
     }
 
     public record TrialBalanceLine(String subjectCode, String subjectName, String subjectCategory,
@@ -234,6 +253,10 @@ public final class FinanceDtos {
                                   BigDecimal balance, String status) {
     }
 
+    public record BankAccountUpdateRequest(String accountNo, String accountName, String bankName,
+                                           String bankCode, String accountType, String subjectCode) {
+    }
+
     public record BankTransactionItem(String txnNo, LocalDate txnDate, String direction, BigDecimal amount,
                                       BigDecimal balance, String counterparty, String summary) {
     }
@@ -266,6 +289,19 @@ public final class FinanceDtos {
                                        BigDecimal budgetAmount, BigDecimal estimatedTotalCost,
                                        LocalDate startDate, LocalDate endDate, Long managerId, Long deptId,
                                        String currencyCode, String description) {
+    }
+
+    public record ProjectUpdateRequest(String projectName, String projectType, Long customerId,
+                                       String customerName, String contractNo, BigDecimal contractAmount,
+                                       BigDecimal budgetAmount, BigDecimal estimatedTotalCost,
+                                       LocalDate startDate, LocalDate endDate, Long managerId, Long deptId,
+                                       String description) {
+    }
+
+    public record ProjectCloseRequest(String reason) {
+    }
+
+    public record MilestoneStatusUpdateRequest(String status, LocalDate actualDate) {
     }
 
     public record ProjectView(long id, String projectNo, String projectName, String projectType,
@@ -381,6 +417,25 @@ public final class FinanceDtos {
                                 String status, boolean itAssetFlag) {
     }
 
+    public record AssetCardUpdateRequest(String assetName, String specification, String location,
+                                         Long deptId, Long custodianId, String status) {
+    }
+
+    public record AssetTransferRequest(Long deptId, String location, Long custodianId, String reason) {
+    }
+
+    public record AssetChangeView(long id, String changeNo, long assetId, String changeType,
+                                  String beforeJson, String afterJson, BigDecimal gainLoss,
+                                  Long voucherId, String status, long operatorId, Instant occurredAt) {
+    }
+
+    public record DepreciationScheduleView(long id, String batchNo, long assetId, String assetNo,
+                                           String assetName, String periodCode, String method,
+                                           BigDecimal originalValue, BigDecimal depreciationAmount,
+                                           BigDecimal accumulatedAfter, BigDecimal netValueAfter,
+                                           Long voucherId, String status) {
+    }
+
     public record DepreciationRunRequest(Long ledgerId, String periodCode) {
     }
 
@@ -409,6 +464,10 @@ public final class FinanceDtos {
                                          String result, String remark) {
     }
 
+    public record StocktakingItemCreateRequest(Long assetId, String expectedLocation,
+                                               Long expectedCustodianId, String result, String remark) {
+    }
+
     public record StocktakingItemView(long id, Long assetId, String assetNo, String assetName,
                                       String expectedLocation, String actualLocation, String result,
                                       String remark, Instant countedAt) {
@@ -426,6 +485,11 @@ public final class FinanceDtos {
     }
 
     public record ItAssetSyncRequest(String cmdbCiId, Boolean success) {
+    }
+
+    public record ItAssetBorrowRecordView(long id, String changeNo, long assetId, String changeType,
+                                          String beforeJson, String afterJson, long operatorId,
+                                          Instant occurredAt) {
     }
 
     // ---------- 碳/ESG ----------

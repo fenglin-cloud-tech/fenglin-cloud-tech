@@ -1,0 +1,10 @@
+{
+  "category_code": "FIN04-TEST",
+  "category_name": "FIN04测试设备类",
+  "useful_life_months": 60,
+  "residual_rate": 0.05,
+  "depreciation_method": "STRAIGHT_LINE",
+  "asset_account_code": "1601",
+  "depreciation_account_code": "1602",
+  "expense_account_code": "6602"
+}

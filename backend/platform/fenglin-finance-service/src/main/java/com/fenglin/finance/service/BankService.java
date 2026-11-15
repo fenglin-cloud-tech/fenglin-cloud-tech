@@ -10,6 +10,7 @@ import com.fenglin.finance.support.FinanceContext;
 import com.fenglin.finance.support.FinanceCrypto;
 import com.fenglin.finance.support.Rows;
 import com.fenglin.finance.web.dto.FinanceDtos.BankAccountCreateRequest;
+import com.fenglin.finance.web.dto.FinanceDtos.BankAccountUpdateRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.BankAccountView;
 import com.fenglin.finance.web.dto.FinanceDtos.BankTransactionItem;
 import com.fenglin.finance.web.dto.FinanceDtos.BankTransactionView;
@@ -80,6 +81,76 @@ public class BankService {
         List<BankAccountView> views = new ArrayList<>();
         for (Map<String, Object> row : bankMapper.listAccounts(tenantId)) {
             views.add(accountView(tenantId, row));
+        }
+        return views;
+    }
+
+    @Transactional
+    public BankAccountView updateAccount(long id, BankAccountUpdateRequest request) {
+        long tenantId = FinanceContext.tenantId();
+        Map<String, Object> account = bankMapper.findAccount(tenantId, id);
+        if (account == null) {
+            throw new BizException(FinanceErrorCode.RESOURCE_NOT_FOUND);
+        }
+        if (request == null
+                || (request.accountName() != null && request.accountName().isBlank())
+                || (request.accountNo() != null && request.accountNo().isBlank())) {
+            throw new BizException(FinanceErrorCode.PARAM_INVALID);
+        }
+        String accountNoEnc = null;
+        String accountNoHash = null;
+        if (request.accountNo() != null) {
+            accountNoEnc = crypto.encrypt(tenantId, TABLE, FIELD, request.accountNo());
+            accountNoHash = crypto.hash(tenantId, request.accountNo());
+        }
+        if (bankMapper.updateAccount(tenantId, id, accountNoEnc, accountNoHash, request.accountName(),
+                request.bankName(), request.bankCode(), request.accountType(), request.subjectCode(),
+                FinanceContext.userId()) == 0) {
+            throw new BizException(FinanceErrorCode.STATE_CONFLICT);
+        }
+        audit.publish("fin_bank_account.updated", "UPDATE", "fin_bank_account", id, "MEDIUM");
+        return accountView(tenantId, bankMapper.findAccount(tenantId, id));
+    }
+
+    @Transactional
+    public BankAccountView disableAccount(long id) {
+        long tenantId = FinanceContext.tenantId();
+        if (bankMapper.findAccount(tenantId, id) == null) {
+            throw new BizException(FinanceErrorCode.RESOURCE_NOT_FOUND);
+        }
+        if (bankMapper.disableAccount(tenantId, id, FinanceContext.userId()) == 0) {
+            throw new BizException(FinanceErrorCode.STATE_CONFLICT);
+        }
+        audit.publish("fin_bank_account.disabled", "DISABLE", "fin_bank_account", id, "MEDIUM");
+        return accountView(tenantId, bankMapper.findAccount(tenantId, id));
+    }
+
+    @Transactional
+    public BankAccountView enableAccount(long id) {
+        long tenantId = FinanceContext.tenantId();
+        if (bankMapper.findAccount(tenantId, id) == null) {
+            throw new BizException(FinanceErrorCode.RESOURCE_NOT_FOUND);
+        }
+        if (bankMapper.enableAccount(tenantId, id, FinanceContext.userId()) == 0) {
+            throw new BizException(FinanceErrorCode.STATE_CONFLICT);
+        }
+        audit.publish("fin_bank_account.enabled", "ENABLE", "fin_bank_account", id, "MEDIUM");
+        return accountView(tenantId, bankMapper.findAccount(tenantId, id));
+    }
+
+    public List<BankTransactionView> listUnmatched(long reconciliationId) {
+        long tenantId = FinanceContext.tenantId();
+        Map<String, Object> recon = bankMapper.findRecon(tenantId, reconciliationId);
+        if (recon == null) {
+            throw new BizException(FinanceErrorCode.RESOURCE_NOT_FOUND);
+        }
+        List<BankTransactionView> views = new ArrayList<>();
+        for (Map<String, Object> row : bankMapper.listUnmatchedTransactions(tenantId,
+                Rows.lngVal(recon, "accountId"))) {
+            views.add(new BankTransactionView(Rows.lngVal(row, "id"), Rows.lngVal(row, "accountId"),
+                    Rows.str(row, "txnNo"), Rows.str(row, "txnDate"), Rows.str(row, "direction"),
+                    Rows.dec(row, "amount"), Rows.dec(row, "balance"), Rows.str(row, "counterparty"),
+                    Rows.str(row, "summary"), Rows.str(row, "reconcileStatus"), Rows.lng(row, "reconId")));
         }
         return views;
     }
