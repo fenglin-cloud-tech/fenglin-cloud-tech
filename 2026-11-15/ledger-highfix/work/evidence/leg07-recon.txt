@@ -1,0 +1,30 @@
+﻿ set_config 
+------------
+ 9001
+(1 row)
+
+ watermark_orphan 
+------------------
+                0
+(1 row)
+
+ traced_orphan 
+---------------
+             0
+(1 row)
+
+ release_orphan 
+----------------
+              0
+(1 row)
+
+ sign_mismatch 
+---------------
+             0
+(1 row)
+
+ chain_mismatch 
+----------------
+              0
+(1 row)
+
