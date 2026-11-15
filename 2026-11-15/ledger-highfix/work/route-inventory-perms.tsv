@@ -1,0 +1,952 @@
+﻿fenglin-ai-service	AiAdminController	DELETE	/api/hub/v1/admin/ai/capability-grants/{hostProduct}/{capability}	tenant:ai:grant:manage
+fenglin-ai-service	AiAdminController	DELETE	/api/hub/v1/admin/ai/models/{id}	platform:ai:model:manage
+fenglin-ai-service	AiAdminController	DELETE	/api/hub/v1/admin/ai/prompts/{code}	tenant:ai:prompt:manage
+fenglin-ai-service	AiAdminController	GET	/api/hub/v1/admin/ai/capability-grants	tenant:ai:grant:manage
+fenglin-ai-service	AiAdminController	GET	/api/hub/v1/admin/ai/metering	
+fenglin-ai-service	AiAdminController	GET	/api/hub/v1/admin/ai/models	platform:ai:model:manage
+fenglin-ai-service	AiAdminController	GET	/api/hub/v1/admin/ai/prompts	tenant:ai:prompt:manage
+fenglin-ai-service	AiAdminController	POST	/api/hub/v1/admin/ai/mode:validate	
+fenglin-ai-service	AiAdminController	POST	/api/hub/v1/admin/ai/models	platform:ai:model:manage
+fenglin-ai-service	AiAdminController	POST	/api/hub/v1/admin/ai/prompts	tenant:ai:prompt:manage
+fenglin-ai-service	AiAdminController	PUT	/api/hub/v1/admin/ai/capability-grants	tenant:ai:grant:manage
+fenglin-ai-service	AiAdminController	PUT	/api/hub/v1/admin/ai/models/{id}	platform:ai:model:manage
+fenglin-ai-service	AiAdminController	PUT	/api/hub/v1/admin/ai/prompts/{code}	tenant:ai:prompt:manage
+fenglin-ai-service	AiPortalController	POST	/api/hub/v1/ai/copilot/messages:stream	ai:chat:rag
+fenglin-ai-service	AiPortalController	POST	/api/hub/v1/ai/guardrails:check	
+fenglin-ai-service	AiPortalController	POST	/api/hub/v1/ai/search/hybrid	
+fenglin-audit-service	AuditController	GET	/api/hub/v1/admin/audit/alert-rules	platform:audit:alert:manage
+fenglin-audit-service	AuditController	GET	/api/hub/v1/admin/audit/export-tasks/{taskId}	platform:audit:export
+fenglin-audit-service	AuditController	GET	/api/hub/v1/admin/audit/export-tasks/{taskId}/download	platform:audit:export
+fenglin-audit-service	AuditController	GET	/api/hub/v1/admin/audits	hub:audit:read
+fenglin-audit-service	AuditController	GET	/api/hub/v1/admin/audits/chain/verify	hub:audit:read
+fenglin-audit-service	AuditController	GET	/api/hub/v1/admin/audits/{id}	hub:audit:read
+fenglin-audit-service	AuditController	GET	/api/hub/v1/audit/my-records	
+fenglin-audit-service	AuditController	POST	/api/hub/v1/admin/audit/logs:export	platform:audit:export
+fenglin-audit-service	AuditController	POST	/internal/v1/audit/logs	
+fenglin-audit-service	AuditController	PUT	/api/hub/v1/admin/audit/alert-rules	platform:audit:alert:manage
+fenglin-auth-service	InternalAuthController	GET	/internal/v1/auth/principals/{userId}/permissions	
+fenglin-auth-service	InternalAuthController	GET	/internal/v1/auth/revocations/{jti}	
+fenglin-auth-service	InternalAuthController	GET	/internal/v1/auth/sessions/{sessionId}/status	
+fenglin-auth-service	InternalAuthController	POST	/internal/v1/auth/users/{userId}/sessions:revoke	
+fenglin-auth-service	SsoController	GET	/api/hub/v1/sso/userinfo	
+fenglin-auth-service	SsoController	POST	/api/hub/v1/sso/login	
+fenglin-auth-service	SsoController	POST	/api/hub/v1/sso/logout	
+fenglin-auth-service	SsoController	POST	/api/hub/v1/sso/password/change	
+fenglin-auth-service	SsoController	POST	/api/hub/v1/sso/token	
+fenglin-auth-service	SsoController	POST	/api/hub/v1/sso/token:refresh	
+fenglin-auth-service	SsoController	POST	/api/hub/v1/sso/token:revoke	
+fenglin-auth-service	WellKnownController	GET	/.well-known/jwks.json	
+fenglin-auth-service	WellKnownController	GET	/.well-known/openid-configuration	
+fenglin-collab-service	CollabAdminController	DELETE	/api/collab/v1/admin/approvals/templates/{templateId}	tenant:collab:approval:template:manage
+fenglin-collab-service	CollabAdminController	GET	/api/collab/v1/admin/approvals/templates	tenant:collab:approval:template:manage
+fenglin-collab-service	CollabAdminController	GET	/api/collab/v1/admin/docs/policy	tenant:collab:doc:policy
+fenglin-collab-service	CollabAdminController	GET	/api/collab/v1/admin/im/audit/conversations	tenant:collab:im:govern
+fenglin-collab-service	CollabAdminController	GET	/api/collab/v1/admin/im/sensitive-words	tenant:collab:im:sensitive:manage
+fenglin-collab-service	CollabAdminController	GET	/api/collab/v1/admin/ona/config	tenant:collab:ona:config
+fenglin-collab-service	CollabAdminController	POST	/api/collab/v1/admin/approvals/templates	tenant:collab:approval:template:manage
+fenglin-collab-service	CollabAdminController	POST	/api/collab/v1/admin/approvals/templates/{templateId}/enabled	tenant:collab:approval:template:manage
+fenglin-collab-service	CollabAdminController	POST	/api/collab/v1/admin/calendars	tenant:collab:calendar:public:manage
+fenglin-collab-service	CollabAdminController	POST	/api/collab/v1/admin/im/sensitive-words	tenant:collab:im:sensitive:manage
+fenglin-collab-service	CollabAdminController	POST	/api/collab/v1/admin/meeting-rooms	tenant:collab:meeting:room:manage
+fenglin-collab-service	CollabAdminController	PUT	/api/collab/v1/admin/approvals/templates/{templateId}	tenant:collab:approval:template:manage
+fenglin-collab-service	CollabAdminController	PUT	/api/collab/v1/admin/docs/policy	tenant:collab:doc:policy
+fenglin-collab-service	CollabAdminController	PUT	/api/collab/v1/admin/okr/periods	tenant:collab:okr:period:manage
+fenglin-collab-service	CollabAdminController	PUT	/api/collab/v1/admin/ona/config	tenant:collab:ona:config
+fenglin-collab-service	CollabApprovalController	GET	/api/collab/v1/approvals/cc/my	biz:collab:approval:cc:read
+fenglin-collab-service	CollabApprovalController	GET	/api/collab/v1/approvals/instances/my	biz:collab:approval:read
+fenglin-collab-service	CollabApprovalController	GET	/api/collab/v1/approvals/instances/{instanceId}	biz:collab:approval:read
+fenglin-collab-service	CollabApprovalController	GET	/api/collab/v1/approvals/tasks/done	biz:collab:approval:read
+fenglin-collab-service	CollabApprovalController	GET	/api/collab/v1/approvals/tasks/my	biz:collab:approval:read
+fenglin-collab-service	CollabApprovalController	GET	/api/collab/v1/approvals/templates	biz:collab:approval:read
+fenglin-collab-service	CollabApprovalController	POST	/api/collab/v1/approvals/cc/{ccId}/read	biz:collab:approval:cc:read
+fenglin-collab-service	CollabApprovalController	POST	/api/collab/v1/approvals/instances	biz:collab:approval:submit
+fenglin-collab-service	CollabApprovalController	POST	/api/collab/v1/approvals/instances/{instanceId}/cancel	biz:collab:approval:submit
+fenglin-collab-service	CollabApprovalController	POST	/api/collab/v1/approvals/tasks/{taskId}/add-sign	biz:collab:approval:handle
+fenglin-collab-service	CollabApprovalController	POST	/api/collab/v1/approvals/tasks/{taskId}/approve	biz:collab:approval:handle
+fenglin-collab-service	CollabApprovalController	POST	/api/collab/v1/approvals/tasks/{taskId}/reject	biz:collab:approval:handle
+fenglin-collab-service	CollabApprovalController	POST	/api/collab/v1/approvals/tasks/{taskId}/transfer	biz:collab:approval:handle
+fenglin-collab-service	CollabCalendarController	GET	/api/collab/v1/calendars	biz:collab:calendar:read
+fenglin-collab-service	CollabCalendarController	GET	/api/collab/v1/events	biz:collab:calendar:read
+fenglin-collab-service	CollabCalendarController	GET	/api/collab/v1/events/my	biz:collab:calendar:self:read
+fenglin-collab-service	CollabCalendarController	GET	/api/collab/v1/events/{eventId}	biz:collab:calendar:read
+fenglin-collab-service	CollabCalendarController	POST	/api/collab/v1/calendars	biz:collab:calendar:manage
+fenglin-collab-service	CollabCalendarController	POST	/api/collab/v1/events	biz:collab:calendar:manage
+fenglin-collab-service	CollabCalendarController	POST	/api/collab/v1/events/free-busy	biz:collab:calendar:read
+fenglin-collab-service	CollabCalendarController	POST	/api/collab/v1/events/suggest-slots	biz:collab:calendar:read
+fenglin-collab-service	CollabCalendarController	POST	/api/collab/v1/events/{eventId}/cancel	biz:collab:calendar:manage
+fenglin-collab-service	CollabCalendarController	PUT	/api/collab/v1/events/{eventId}	biz:collab:calendar:manage
+fenglin-collab-service	CollabDocController	GET	/api/collab/v1/docs	biz:collab:doc:read
+fenglin-collab-service	CollabDocController	GET	/api/collab/v1/docs/my	biz:collab:doc:self:read
+fenglin-collab-service	CollabDocController	GET	/api/collab/v1/docs/shared	biz:collab:doc:self:read
+fenglin-collab-service	CollabDocController	GET	/api/collab/v1/docs/shared/{token}	biz:collab:doc:read
+fenglin-collab-service	CollabDocController	GET	/api/collab/v1/docs/{docId}	biz:collab:doc:read,biz:collab:doc:self:read
+fenglin-collab-service	CollabDocController	GET	/api/collab/v1/docs/{docId}/collaborators	biz:collab:doc:read,biz:collab:doc:self:read
+fenglin-collab-service	CollabDocController	GET	/api/collab/v1/docs/{docId}/comments	biz:collab:doc:read,biz:collab:doc:self:read
+fenglin-collab-service	CollabDocController	GET	/api/collab/v1/docs/{docId}/versions	biz:collab:doc:read,biz:collab:doc:self:read
+fenglin-collab-service	CollabDocController	POST	/api/collab/v1/docs	biz:collab:doc:edit
+fenglin-collab-service	CollabDocController	POST	/api/collab/v1/docs/{docId}/collaborators	biz:collab:doc:manage
+fenglin-collab-service	CollabDocController	POST	/api/collab/v1/docs/{docId}/comments	biz:collab:doc:comment
+fenglin-collab-service	CollabDocController	POST	/api/collab/v1/docs/{docId}/rollback/{versionNo}	biz:collab:doc:manage
+fenglin-collab-service	CollabDocController	POST	/api/collab/v1/docs/{docId}/share-link	biz:collab:doc:manage
+fenglin-collab-service	CollabDocController	POST	/api/collab/v1/docs/{docId}/versions	biz:collab:doc:edit
+fenglin-collab-service	CollabDocController	PUT	/api/collab/v1/docs/{docId}	biz:collab:doc:edit
+fenglin-collab-service	CollabImController	DELETE	/api/collab/v1/im/conversations/{convId}/members/{memberId}	biz:collab:im:group:manage
+fenglin-collab-service	CollabImController	GET	/api/collab/v1/im/conversations	biz:collab:im:chat
+fenglin-collab-service	CollabImController	GET	/api/collab/v1/im/conversations/my	biz:collab:im:self:chat
+fenglin-collab-service	CollabImController	GET	/api/collab/v1/im/conversations/{convId}	biz:collab:im:chat
+fenglin-collab-service	CollabImController	GET	/api/collab/v1/im/conversations/{convId}/messages	biz:collab:im:chat
+fenglin-collab-service	CollabImController	GET	/api/collab/v1/im/conversations/{convId}/messages/self	biz:collab:im:self:chat
+fenglin-collab-service	CollabImController	GET	/api/collab/v1/im/conversations/{convId}/self	biz:collab:im:self:chat
+fenglin-collab-service	CollabImController	GET	/api/collab/v1/im/messages/search	biz:collab:im:chat
+fenglin-collab-service	CollabImController	POST	/api/collab/v1/im/conversations	biz:collab:im:chat
+fenglin-collab-service	CollabImController	POST	/api/collab/v1/im/conversations/{convId}/dissolve	biz:collab:im:chat
+fenglin-collab-service	CollabImController	POST	/api/collab/v1/im/conversations/{convId}/leave	biz:collab:im:chat
+fenglin-collab-service	CollabImController	POST	/api/collab/v1/im/conversations/{convId}/leave/self	biz:collab:im:self:chat
+fenglin-collab-service	CollabImController	POST	/api/collab/v1/im/conversations/{convId}/members	biz:collab:im:group:manage
+fenglin-collab-service	CollabImController	POST	/api/collab/v1/im/conversations/{convId}/messages	biz:collab:im:chat
+fenglin-collab-service	CollabImController	POST	/api/collab/v1/im/conversations/{convId}/messages/self	biz:collab:im:self:chat
+fenglin-collab-service	CollabImController	POST	/api/collab/v1/im/messages/{messageId}/reactions	biz:collab:im:chat
+fenglin-collab-service	CollabImController	POST	/api/collab/v1/im/messages/{messageId}/read	biz:collab:im:chat
+fenglin-collab-service	CollabImController	POST	/api/collab/v1/im/messages/{messageId}/read/self	biz:collab:im:self:chat
+fenglin-collab-service	CollabImController	POST	/api/collab/v1/im/messages/{messageId}/revoke	biz:collab:im:chat
+fenglin-collab-service	CollabImController	POST	/api/collab/v1/im/messages/{messageId}/revoke/self	biz:collab:im:self:chat
+fenglin-collab-service	CollabMeetingController	GET	/api/collab/v1/meeting-rooms	biz:collab:meeting:join
+fenglin-collab-service	CollabMeetingController	GET	/api/collab/v1/meeting-rooms/available	biz:collab:meeting:join
+fenglin-collab-service	CollabMeetingController	GET	/api/collab/v1/meetings	biz:collab:meeting:join
+fenglin-collab-service	CollabMeetingController	GET	/api/collab/v1/meetings/invites	biz:collab:meeting:join
+fenglin-collab-service	CollabMeetingController	GET	/api/collab/v1/meetings/{meetingId}	biz:collab:meeting:join
+fenglin-collab-service	CollabMeetingController	GET	/api/collab/v1/meetings/{meetingId}/minutes	biz:collab:meeting:join
+fenglin-collab-service	CollabMeetingController	POST	/api/collab/v1/meeting-rooms/{roomId}/reserve	biz:collab:meeting:manage
+fenglin-collab-service	CollabMeetingController	POST	/api/collab/v1/meetings	biz:collab:meeting:manage
+fenglin-collab-service	CollabMeetingController	POST	/api/collab/v1/meetings/{meetingId}/actions	biz:collab:meeting:manage
+fenglin-collab-service	CollabMeetingController	POST	/api/collab/v1/meetings/{meetingId}/cancel	biz:collab:meeting:manage
+fenglin-collab-service	CollabMeetingController	POST	/api/collab/v1/meetings/{meetingId}/checkin	biz:collab:meeting:join
+fenglin-collab-service	CollabMeetingController	POST	/api/collab/v1/meetings/{meetingId}/invites/respond	biz:collab:meeting:join
+fenglin-collab-service	CollabMeetingController	POST	/api/collab/v1/meetings/{meetingId}/minutes	biz:collab:meeting:manage
+fenglin-collab-service	CollabOkrController	GET	/api/collab/v1/okr/alignment-graph	biz:collab:okr:read
+fenglin-collab-service	CollabOkrController	GET	/api/collab/v1/okr/objectives	biz:collab:okr:read
+fenglin-collab-service	CollabOkrController	GET	/api/collab/v1/okr/objectives/my	biz:collab:okr:self:read
+fenglin-collab-service	CollabOkrController	GET	/api/collab/v1/okr/periods	biz:collab:okr:read
+fenglin-collab-service	CollabOkrController	GET	/api/collab/v1/okr/periods/my	biz:collab:okr:self:read
+fenglin-collab-service	CollabOkrController	POST	/api/collab/v1/okr/key-results/{krId}/progress	biz:collab:okr:progress
+fenglin-collab-service	CollabOkrController	POST	/api/collab/v1/okr/objectives	biz:collab:okr:manage
+fenglin-collab-service	CollabOkrController	POST	/api/collab/v1/okr/objectives/{objectiveId}/align	biz:collab:okr:manage
+fenglin-collab-service	CollabOkrController	POST	/api/collab/v1/okr/objectives/{objectiveId}/key-results	biz:collab:okr:manage
+fenglin-collab-service	CollabOkrController	POST	/api/collab/v1/okr/objectives/{objectiveId}/key-results/self	biz:collab:okr:self:create
+fenglin-collab-service	CollabOkrController	POST	/api/collab/v1/okr/periods/{periodId}/close	tenant:collab:okr:period:manage
+fenglin-collab-service	CollabOnaController	GET	/api/collab/v1/ona/dept-network	tenant:collab:ona:tenant
+fenglin-collab-service	CollabOnaController	GET	/api/collab/v1/ona/graph	tenant:collab:ona:dept
+fenglin-collab-service	CollabOnaController	GET	/api/collab/v1/ona/key-connectors	tenant:collab:ona:dept
+fenglin-collab-service	CollabOnaController	GET	/api/collab/v1/ona/meeting-efficiency	tenant:collab:ona:dept
+fenglin-collab-service	CollabOnaController	GET	/api/collab/v1/ona/metrics	tenant:collab:ona:dept
+fenglin-collab-service	CollabOnaController	GET	/api/collab/v1/ona/self-profile	biz:collab:ona:self
+fenglin-collab-service	CollabOnaController	GET	/api/collab/v1/ona/snapshots	tenant:collab:ona:dept
+fenglin-collab-service	CollabWorkbenchController	GET	/api/collab/v1/notifications	biz:collab:workbench:personal
+fenglin-collab-service	CollabWorkbenchController	GET	/api/collab/v1/workbench/layout	biz:collab:workbench:personal
+fenglin-collab-service	CollabWorkbenchController	GET	/api/collab/v1/workbench/todos	biz:collab:workbench:personal
+fenglin-collab-service	CollabWorkbenchController	GET	/api/collab/v1/workbench/widgets	biz:collab:workbench:personal
+fenglin-collab-service	CollabWorkbenchController	POST	/api/collab/v1/admin/workbench/widgets	tenant:collab:workbench:template:manage
+fenglin-collab-service	CollabWorkbenchController	POST	/api/collab/v1/notifications/{notificationId}/read	biz:collab:workbench:personal
+fenglin-collab-service	CollabWorkbenchController	POST	/api/collab/v1/workbench/todos/{todoId}/done	biz:collab:workbench:personal
+fenglin-collab-service	CollabWorkbenchController	PUT	/api/collab/v1/workbench/layout	biz:collab:workbench:personal
+fenglin-crm-service	CrmActivityController	GET	/api/crm/v1/activities	crm:activity:view
+fenglin-crm-service	CrmActivityController	POST	/api/crm/v1/activities	crm:activity:create
+fenglin-crm-service	CrmContractController	GET	/api/crm/v1/contracts	crm:contract:view
+fenglin-crm-service	CrmContractController	GET	/api/crm/v1/contracts/my	crm:contract:self:view
+fenglin-crm-service	CrmContractController	GET	/api/crm/v1/contracts/my/{id}	crm:contract:self:view
+fenglin-crm-service	CrmContractController	GET	/api/crm/v1/contracts/my/{id}/changes	crm:contract:self:view
+fenglin-crm-service	CrmContractController	GET	/api/crm/v1/contracts/{id}	crm:contract:view
+fenglin-crm-service	CrmContractController	GET	/api/crm/v1/contracts/{id}/changes	crm:contract:view
+fenglin-crm-service	CrmContractController	POST	/	crm:contract:manage
+fenglin-crm-service	CrmContractController	POST	/api/crm/v1/contracts/{id}/changes	crm:contract:manage
+fenglin-crm-service	CrmContractController	POST	/api/crm/v1/contracts/{id}/renew	crm:contract:manage
+fenglin-crm-service	CrmCustomerController	GET	/api/crm/v1/customers	crm:customer:view
+fenglin-crm-service	CrmCustomerController	GET	/api/crm/v1/customers/my	crm:customer:self:view
+fenglin-crm-service	CrmCustomerController	GET	/api/crm/v1/customers/my/{id}	crm:customer:self:view
+fenglin-crm-service	CrmCustomerController	GET	/api/crm/v1/customers/{id}	crm:customer:view
+fenglin-crm-service	CrmCustomerController	GET	/api/crm/v1/customers/{id}/contacts	crm:contact:view
+fenglin-crm-service	CrmCustomerController	GET	/api/crm/v1/customers/{id}/contracts	crm:contract:view
+fenglin-crm-service	CrmCustomerController	PATCH	/api/crm/v1/customers/{id}/owner	crm:customer:manage
+fenglin-crm-service	CrmCustomerController	POST	/api/crm/v1/contacts	crm:contact:manage
+fenglin-crm-service	CrmCustomerController	POST	/api/crm/v1/customers	crm:customer:create
+fenglin-crm-service	CrmCustomerController	POST	/api/crm/v1/customers/check-duplicate	crm:customer:view
+fenglin-crm-service	CrmInternalController	POST	/api/crm/v1/internal/quotations/{id}/approval	crm:quotation:approve
+fenglin-crm-service	CrmLeadController	GET	/api/crm/v1/leads	crm:lead:view
+fenglin-crm-service	CrmLeadController	GET	/api/crm/v1/leads/my	crm:lead:self:view
+fenglin-crm-service	CrmLeadController	GET	/api/crm/v1/leads/my/{id}	crm:lead:self:view
+fenglin-crm-service	CrmLeadController	GET	/api/crm/v1/leads/{id}	crm:lead:view
+fenglin-crm-service	CrmLeadController	POST	/api/crm/v1/leads	crm:lead:create
+fenglin-crm-service	CrmLeadController	POST	/api/crm/v1/leads/check-duplicate	crm:lead:view
+fenglin-crm-service	CrmLeadController	POST	/api/crm/v1/leads/{id}/assign	crm:lead:assign
+fenglin-crm-service	CrmLeadController	POST	/api/crm/v1/leads/{id}/convert	crm:lead:transfer
+fenglin-crm-service	CrmOpportunityController	GET	/api/crm/v1/opportunities	crm:opportunity:view
+fenglin-crm-service	CrmOpportunityController	GET	/api/crm/v1/opportunities/my	crm:opportunity:self:view
+fenglin-crm-service	CrmOpportunityController	GET	/api/crm/v1/opportunities/my/{id}	crm:opportunity:self:view
+fenglin-crm-service	CrmOpportunityController	GET	/api/crm/v1/opportunities/my/{id}/stage-logs	crm:opportunity:self:view
+fenglin-crm-service	CrmOpportunityController	GET	/api/crm/v1/opportunities/pipeline	crm:report:sales
+fenglin-crm-service	CrmOpportunityController	GET	/api/crm/v1/opportunities/{id}	crm:opportunity:view
+fenglin-crm-service	CrmOpportunityController	GET	/api/crm/v1/opportunities/{id}/stage-logs	crm:opportunity:view
+fenglin-crm-service	CrmOpportunityController	PATCH	/api/crm/v1/opportunities/{id}/stage	crm:opportunity:manage
+fenglin-crm-service	CrmOpportunityController	POST	/api/crm/v1/opportunities	crm:opportunity:create
+fenglin-crm-service	CrmPaymentController	GET	/api/crm/v1/contracts/{contractId}/payments	crm:contract:view
+fenglin-crm-service	CrmPaymentController	GET	/api/crm/v1/payment-plans/overdue	crm:contract:view
+fenglin-crm-service	CrmPaymentController	GET	/api/crm/v1/payment-plans/reminders	crm:contract:view
+fenglin-crm-service	CrmPaymentController	GET	/api/crm/v1/payment-plans/reminders/my	crm:payment:self:view
+fenglin-crm-service	CrmPaymentController	PATCH	/api/crm/v1/payment-plans/{id}/collection	crm:contract:manage
+fenglin-crm-service	CrmPaymentController	POST	/api/crm/v1/contracts/{contractId}/payments	crm:contract:manage
+fenglin-crm-service	CrmQuotationController	GET	/api/crm/v1/quotations	crm:quotation:view
+fenglin-crm-service	CrmQuotationController	GET	/api/crm/v1/quotations/my	crm:quotation:self:view
+fenglin-crm-service	CrmQuotationController	GET	/api/crm/v1/quotations/my/{id}	crm:quotation:self:view
+fenglin-crm-service	CrmQuotationController	GET	/api/crm/v1/quotations/{id}	crm:quotation:view
+fenglin-crm-service	CrmQuotationController	POST	/api/crm/v1/quotations	crm:quotation:create
+fenglin-crm-service	CrmQuotationController	POST	/api/crm/v1/quotations/{id}/convert-to-contract	crm:contract:manage
+fenglin-crm-service	CrmQuotationController	POST	/api/crm/v1/quotations/{id}/submit	crm:quotation:submit
+fenglin-file-service	FileAdminController	GET	/api/hub/v1/admin/file/policies	tenant:file:policy:manage
+fenglin-file-service	FileAdminController	PUT	/api/hub/v1/admin/file/policies	tenant:file:policy:manage
+fenglin-file-service	FileController	GET	/api/hub/v1/files/{id}/download	biz:file:download
+fenglin-file-service	FileController	GET	/api/hub/v1/files/{id}/preview	biz:file:preview
+fenglin-file-service	FileController	GET	/api/hub/v1/files/{id}/versions	
+fenglin-file-service	FileController	POST	/api/hub/v1/files	biz:file:upload
+fenglin-file-service	FileController	POST	/api/hub/v1/files:fast-check	
+fenglin-finance-service	FinanceArapController	GET	/api/finance/v1/arap/aging	biz:finance:aging:view
+fenglin-finance-service	FinanceArapController	GET	/api/finance/v1/payables	biz:finance:ap:view
+fenglin-finance-service	FinanceArapController	GET	/api/finance/v1/payments	biz:finance:ap:view
+fenglin-finance-service	FinanceArapController	GET	/api/finance/v1/receipts	biz:finance:ar:view
+fenglin-finance-service	FinanceArapController	GET	/api/finance/v1/receivables	biz:finance:ar:view
+fenglin-finance-service	FinanceArapController	POST	/api/finance/v1/arap/write-off	biz:finance:arap:writeoff
+fenglin-finance-service	FinanceArapController	POST	/api/finance/v1/payments	biz:finance:payment:create
+fenglin-finance-service	FinanceArapController	POST	/api/finance/v1/receipts	biz:finance:receipt:create
+fenglin-finance-service	FinanceAssetController	GET	/api/finance/v1/assets/cards	biz:finance:asset:view
+fenglin-finance-service	FinanceAssetController	GET	/api/finance/v1/assets/categories	biz:finance:asset:view
+fenglin-finance-service	FinanceAssetController	GET	/api/finance/v1/assets/it	biz:finance:asset:view
+fenglin-finance-service	FinanceAssetController	GET	/api/finance/v1/assets/stocktakings	biz:finance:asset:view
+fenglin-finance-service	FinanceAssetController	GET	/api/finance/v1/assets/stocktakings/{id}	biz:finance:asset:view
+fenglin-finance-service	FinanceAssetController	POST	/api/finance/v1/assets/cards	biz:finance:asset:create
+fenglin-finance-service	FinanceAssetController	POST	/api/finance/v1/assets/categories	tenant:finance:asset:category:manage
+fenglin-finance-service	FinanceAssetController	POST	/api/finance/v1/assets/depreciation/run	biz:finance:asset:depreciate
+fenglin-finance-service	FinanceAssetController	POST	/api/finance/v1/assets/it/{id}/borrow	biz:finance:itasset:borrow
+fenglin-finance-service	FinanceAssetController	POST	/api/finance/v1/assets/it/{id}/return	biz:finance:itasset:borrow
+fenglin-finance-service	FinanceAssetController	POST	/api/finance/v1/assets/it/{id}/sync	tenant:finance:itasset:manage
+fenglin-finance-service	FinanceAssetController	POST	/api/finance/v1/assets/stocktakings	biz:finance:asset:stocktaking
+fenglin-finance-service	FinanceAssetController	POST	/api/finance/v1/assets/stocktakings/{id}/complete	tenant:finance:asset:stocktaking:approve
+fenglin-finance-service	FinanceAssetController	POST	/api/finance/v1/assets/stocktakings/{id}/count	biz:finance:asset:stocktaking
+fenglin-finance-service	FinanceAssetController	POST	/api/finance/v1/assets/{assetId}/dispose	biz:finance:asset:dispose
+fenglin-finance-service	FinanceBankController	GET	/api/finance/v1/bank/accounts	biz:finance:bank:manage
+fenglin-finance-service	FinanceBankController	GET	/api/finance/v1/bank/accounts/{accountId}/transactions	biz:finance:bank:manage
+fenglin-finance-service	FinanceBankController	GET	/api/finance/v1/bank/reconciliations	tenant:finance:reconcile:manage
+fenglin-finance-service	FinanceBankController	POST	/api/finance/v1/bank/accounts	biz:finance:bank:manage
+fenglin-finance-service	FinanceBankController	POST	/api/finance/v1/bank/reconciliations	tenant:finance:reconcile:manage
+fenglin-finance-service	FinanceBankController	POST	/api/finance/v1/bank/transactions/import	biz:finance:bank:manage
+fenglin-finance-service	FinanceCarbonController	GET	/api/finance/v1/carbon/activities	biz:finance:carbon:submit
+fenglin-finance-service	FinanceCarbonController	GET	/api/finance/v1/carbon/activities/my	biz:finance:carbon:submit
+fenglin-finance-service	FinanceCarbonController	GET	/api/finance/v1/carbon/factors	biz:finance:carbon:calculate
+fenglin-finance-service	FinanceCarbonController	GET	/api/finance/v1/carbon/targets	biz:finance:carbon:calculate
+fenglin-finance-service	FinanceCarbonController	GET	/api/finance/v1/esg/indicators	biz:finance:report:view
+fenglin-finance-service	FinanceCarbonController	GET	/api/finance/v1/esg/reports	biz:finance:report:view
+fenglin-finance-service	FinanceCarbonController	GET	/api/finance/v1/esg/reports/{id}/export	biz:finance:report:view
+fenglin-finance-service	FinanceCarbonController	POST	/api/finance/v1/carbon/activities	biz:finance:carbon:submit
+fenglin-finance-service	FinanceCarbonController	POST	/api/finance/v1/carbon/activities/{id}/lock	biz:finance:carbon:verify
+fenglin-finance-service	FinanceCarbonController	POST	/api/finance/v1/carbon/activities/{id}/verify	biz:finance:carbon:verify
+fenglin-finance-service	FinanceCarbonController	POST	/api/finance/v1/carbon/calculate	biz:finance:carbon:calculate
+fenglin-finance-service	FinanceCarbonController	POST	/api/finance/v1/carbon/factors	tenant:finance:carbon:factor:manage
+fenglin-finance-service	FinanceCarbonController	POST	/api/finance/v1/carbon/targets	tenant:finance:carbon:target:manage
+fenglin-finance-service	FinanceCarbonController	POST	/api/finance/v1/esg/indicators	biz:finance:esg:manage
+fenglin-finance-service	FinanceCarbonController	POST	/api/finance/v1/esg/reports	biz:finance:esg:manage
+fenglin-finance-service	FinanceCarbonController	POST	/api/finance/v1/esg/reports/{id}/publish	tenant:finance:esg:report:publish
+fenglin-finance-service	FinanceExpenseController	GET	/api/finance/v1/budgets	biz:finance:budget:view
+fenglin-finance-service	FinanceExpenseController	GET	/api/finance/v1/expenses	biz:finance:expense:view
+fenglin-finance-service	FinanceExpenseController	GET	/api/finance/v1/expenses/my	biz:finance:expense:submit
+fenglin-finance-service	FinanceExpenseController	GET	/api/finance/v1/expenses/{id}	biz:finance:expense:view
+fenglin-finance-service	FinanceExpenseController	GET	/api/finance/v1/invoices	biz:finance:invoice:manage
+fenglin-finance-service	FinanceExpenseController	POST	/api/finance/v1/budgets	tenant:finance:budget:manage
+fenglin-finance-service	FinanceExpenseController	POST	/api/finance/v1/budgets/control-check	biz:finance:budget:control
+fenglin-finance-service	FinanceExpenseController	POST	/api/finance/v1/budgets/{id}/release	tenant:finance:budget:manage
+fenglin-finance-service	FinanceExpenseController	POST	/api/finance/v1/expenses	biz:finance:expense:submit
+fenglin-finance-service	FinanceExpenseController	POST	/api/finance/v1/expenses/{id}/approve	biz:finance:expense:approve
+fenglin-finance-service	FinanceExpenseController	POST	/api/finance/v1/expenses/{id}/pay	biz:finance:expense:pay
+fenglin-finance-service	FinanceExpenseController	POST	/api/finance/v1/expenses/{id}/reject	biz:finance:expense:approve
+fenglin-finance-service	FinanceExpenseController	POST	/api/finance/v1/expenses/{id}/submit	biz:finance:expense:submit
+fenglin-finance-service	FinanceExpenseController	POST	/api/finance/v1/invoices	biz:finance:invoice:manage
+fenglin-finance-service	FinanceInternalController	POST	/api/finance/v1/internal/tenants/{tenantId}/finance-init	
+fenglin-finance-service	FinanceLedgerController	GET	/api/finance/v1/ledgers	biz:finance:ledger:view
+fenglin-finance-service	FinanceLedgerController	GET	/api/finance/v1/ledgers/{ledgerId}/periods	biz:finance:period:view
+fenglin-finance-service	FinanceLedgerController	GET	/api/finance/v1/ledgers/{ledgerId}/periods/{periodCode}/trial-balance	biz:finance:report:view
+fenglin-finance-service	FinanceLedgerController	GET	/api/finance/v1/ledgers/{ledgerId}/subjects	biz:finance:subject:view
+fenglin-finance-service	FinanceLedgerController	GET	/api/finance/v1/ledgers/{ledgerId}/subjects/{subjectCode}/general-ledger	biz:finance:report:view
+fenglin-finance-service	FinanceLedgerController	POST	/api/finance/v1/ledgers	tenant:finance:ledger:manage
+fenglin-finance-service	FinanceLedgerController	POST	/api/finance/v1/ledgers/{ledgerId}/periods/{periodCode}/close	tenant:finance:period:manage
+fenglin-finance-service	FinanceLedgerController	POST	/api/finance/v1/ledgers/{ledgerId}/periods/{periodCode}/reopen	tenant:finance:period:manage
+fenglin-finance-service	FinanceLedgerController	POST	/api/finance/v1/ledgers/{ledgerId}/periods/{periodCode}/seal	tenant:finance:period:manage
+fenglin-finance-service	FinanceLedgerController	POST	/api/finance/v1/ledgers/{ledgerId}/subjects	tenant:finance:subject:manage
+fenglin-finance-service	FinanceLedgerController	POST	/api/finance/v1/ledgers/{ledgerId}/subjects/{id}/disable	tenant:finance:subject:manage
+fenglin-finance-service	FinanceLedgerController	PUT	/api/finance/v1/ledgers/{ledgerId}/subjects/{id}	tenant:finance:subject:manage
+fenglin-finance-service	FinanceOpsController	GET	/api/finance/v1/budgets/available	biz:finance:budget:view
+fenglin-finance-service	FinanceOpsController	GET	/api/finance/v1/currencies	biz:finance:budget:view
+fenglin-finance-service	FinanceOpsController	GET	/api/finance/v1/exchange-rates	biz:finance:budget:view
+fenglin-finance-service	FinanceOpsController	GET	/api/finance/v1/payment-plan	biz:finance:ap:view
+fenglin-finance-service	FinanceOpsController	GET	/api/finance/v1/rules	biz:finance:budget:view
+fenglin-finance-service	FinanceOpsController	GET	/api/finance/v1/voucher-templates	biz:finance:voucher:view
+fenglin-finance-service	FinanceOpsController	POST	/api/finance/v1/currencies	tenant:finance:ledger:manage
+fenglin-finance-service	FinanceOpsController	POST	/api/finance/v1/exchange-rates	tenant:finance:ledger:manage
+fenglin-finance-service	FinanceOpsController	POST	/api/finance/v1/invoices/{id}/verify	biz:finance:invoice:manage
+fenglin-finance-service	FinanceOpsController	POST	/api/finance/v1/rules	tenant:finance:ledger:manage
+fenglin-finance-service	FinanceOpsController	POST	/api/finance/v1/voucher-templates	tenant:finance:ledger:manage
+fenglin-finance-service	FinanceOpsController	POST	/api/finance/v1/vouchers/import	biz:finance:voucher:create
+fenglin-finance-service	FinanceOpsController	PUT	/api/finance/v1/voucher-templates/{id}	tenant:finance:ledger:manage
+fenglin-finance-service	FinanceProjectController	GET	/api/finance/v1/projects	biz:finance:project:view
+fenglin-finance-service	FinanceProjectController	GET	/api/finance/v1/projects/timesheets/my	biz:finance:timesheet:submit
+fenglin-finance-service	FinanceProjectController	GET	/api/finance/v1/projects/{id}	biz:finance:project:view
+fenglin-finance-service	FinanceProjectController	GET	/api/finance/v1/projects/{id}/costs	biz:finance:project:view
+fenglin-finance-service	FinanceProjectController	GET	/api/finance/v1/projects/{id}/members	biz:finance:project:view
+fenglin-finance-service	FinanceProjectController	GET	/api/finance/v1/projects/{id}/milestones	biz:finance:project:view
+fenglin-finance-service	FinanceProjectController	GET	/api/finance/v1/projects/{id}/profitability	biz:finance:profitability:view
+fenglin-finance-service	FinanceProjectController	GET	/api/finance/v1/projects/{id}/timesheets	biz:finance:timesheet:view
+fenglin-finance-service	FinanceProjectController	POST	/api/finance/v1/projects	biz:finance:project:create
+fenglin-finance-service	FinanceProjectController	POST	/api/finance/v1/projects/settlements/{settlementId}/approve	biz:finance:settlement:approve
+fenglin-finance-service	FinanceProjectController	POST	/api/finance/v1/projects/timesheets/approve	biz:finance:timesheet:approve
+fenglin-finance-service	FinanceProjectController	POST	/api/finance/v1/projects/timesheets/{timesheetId}/reject	biz:finance:timesheet:approve
+fenglin-finance-service	FinanceProjectController	POST	/api/finance/v1/projects/{id}/approve	biz:finance:project:approve
+fenglin-finance-service	FinanceProjectController	POST	/api/finance/v1/projects/{id}/costs	biz:finance:cost:collect
+fenglin-finance-service	FinanceProjectController	POST	/api/finance/v1/projects/{id}/members	biz:finance:project:member:manage
+fenglin-finance-service	FinanceProjectController	POST	/api/finance/v1/projects/{id}/milestones	biz:finance:project:member:manage
+fenglin-finance-service	FinanceProjectController	POST	/api/finance/v1/projects/{id}/revenue	biz:finance:revenue:recognize
+fenglin-finance-service	FinanceProjectController	POST	/api/finance/v1/projects/{id}/settlements	biz:finance:settlement:create
+fenglin-finance-service	FinanceProjectController	POST	/api/finance/v1/projects/{id}/timesheets	biz:finance:timesheet:submit
+fenglin-finance-service	FinanceVoucherController	GET	/api/finance/v1/reports/balance-sheet	biz:finance:report:view
+fenglin-finance-service	FinanceVoucherController	GET	/api/finance/v1/reports/income-statement	biz:finance:report:view
+fenglin-finance-service	FinanceVoucherController	GET	/api/finance/v1/vouchers	biz:finance:voucher:view
+fenglin-finance-service	FinanceVoucherController	GET	/api/finance/v1/vouchers/{id}	biz:finance:voucher:view
+fenglin-finance-service	FinanceVoucherController	GET	/api/finance/v1/vouchers/{id}/audit-trail	tenant:finance:audit:view
+fenglin-finance-service	FinanceVoucherController	POST	/api/finance/v1/vouchers	biz:finance:voucher:create
+fenglin-finance-service	FinanceVoucherController	POST	/api/finance/v1/vouchers/{id}/audit	biz:finance:voucher:audit
+fenglin-finance-service	FinanceVoucherController	POST	/api/finance/v1/vouchers/{id}/post	biz:finance:voucher:post
+fenglin-finance-service	FinanceVoucherController	POST	/api/finance/v1/vouchers/{id}/reverse	biz:finance:voucher:reverse
+fenglin-finance-service	FinanceVoucherController	POST	/api/finance/v1/vouchers/{id}/submit	biz:finance:voucher:submit
+fenglin-gateway	GatewayAdminController	GET	/api/hub/v1/admin/gateway/gray-rules	
+fenglin-gateway	GatewayAdminController	GET	/api/hub/v1/admin/gateway/rate-limits	
+fenglin-gateway	GatewayAdminController	GET	/api/hub/v1/admin/gateway/routes	
+fenglin-iam-service	DictController	DELETE	/api/hub/v1/admin/dicts/{code}/items/{value}	tenant:iam:dict:manage
+fenglin-iam-service	DictController	GET	/api/hub/v1/admin/dicts	
+fenglin-iam-service	DictController	GET	/api/hub/v1/admin/dicts/{code}/items	
+fenglin-iam-service	DictController	PUT	/api/hub/v1/admin/dicts/{code}/items/{value}	tenant:iam:dict:manage
+fenglin-iam-service	IamController	DELETE	/api/hub/v1/admin/orgs/{id}	tenant:iam:org:manage
+fenglin-iam-service	IamController	DELETE	/api/hub/v1/admin/orgs/{id}/members/{userId}	tenant:iam:org:manage
+fenglin-iam-service	IamController	GET	/api/hub/v1/admin/menus	
+fenglin-iam-service	IamController	GET	/api/hub/v1/admin/orgs/tree	tenant:iam:org:manage
+fenglin-iam-service	IamController	GET	/api/hub/v1/admin/permissions/tree	
+fenglin-iam-service	IamController	GET	/api/hub/v1/admin/roles	
+fenglin-iam-service	IamController	GET	/api/hub/v1/admin/users	
+fenglin-iam-service	IamController	GET	/internal/v1/iam/users/{id}	
+fenglin-iam-service	IamController	GET	/internal/v1/iam/users/{id}/employee-id	
+fenglin-iam-service	IamController	POST	/api/hub/v1/admin/orgs	tenant:iam:org:manage
+fenglin-iam-service	IamController	POST	/api/hub/v1/admin/orgs/{id}/members	tenant:iam:org:manage
+fenglin-iam-service	IamController	POST	/api/hub/v1/admin/roles	tenant:iam:role:manage
+fenglin-iam-service	IamController	POST	/api/hub/v1/admin/users	tenant:iam:user:create
+fenglin-iam-service	IamController	POST	/api/hub/v1/admin/users/{id}/reset-password	tenant:iam:user:update
+fenglin-iam-service	IamController	PUT	/api/hub/v1/admin/orgs/{id}	tenant:iam:org:manage
+fenglin-iam-service	IamController	PUT	/api/hub/v1/admin/orgs/{id}/move	tenant:iam:org:manage
+fenglin-iam-service	IamController	PUT	/api/hub/v1/admin/roles/{id}/permissions	tenant:iam:role:manage
+fenglin-iam-service	IamController	PUT	/api/hub/v1/admin/users/{id}	tenant:iam:user:update
+fenglin-iam-service	IamController	PUT	/api/hub/v1/admin/users/{id}/roles	tenant:iam:role:assign
+fenglin-iam-service	ParamController	DELETE	/api/hub/v1/admin/params/{key}	tenant:iam:param:manage
+fenglin-iam-service	ParamController	GET	/api/hub/v1/admin/params	
+fenglin-iam-service	ParamController	GET	/api/hub/v1/admin/params/{key}	
+fenglin-iam-service	ParamController	PUT	/api/hub/v1/admin/params/{key}	tenant:iam:param:manage
+fenglin-intelligence-service	BiController	GET	/api/intelligence/v1/analytics/attributions	ai:bi:view
+fenglin-intelligence-service	BiController	GET	/api/intelligence/v1/dashboards	ai:bi:view
+fenglin-intelligence-service	BiController	GET	/api/intelligence/v1/dashboards/{id}	ai:bi:view
+fenglin-intelligence-service	BiController	GET	/api/intelligence/v1/datasets	ai:bi:view
+fenglin-intelligence-service	BiController	GET	/api/intelligence/v1/datasets/{id}/fields	ai:bi:view
+fenglin-intelligence-service	BiController	GET	/api/intelligence/v1/insight-tasks	ai:bi:view
+fenglin-intelligence-service	BiController	GET	/api/intelligence/v1/insight-tasks/{id}/results	ai:bi:view
+fenglin-intelligence-service	BiController	GET	/api/intelligence/v1/metrics	ai:bi:view
+fenglin-intelligence-service	BiController	GET	/api/intelligence/v1/report/overview	ai:bi:view
+fenglin-intelligence-service	BiController	GET	/api/intelligence/v1/subscriptions	ai:bi:view
+fenglin-intelligence-service	BiController	POST	/api/intelligence/v1/admin/dashboards	ai:bi:dashboard:manage
+fenglin-intelligence-service	BiController	POST	/api/intelligence/v1/admin/dashboards/{id}/charts	ai:bi:chart:manage
+fenglin-intelligence-service	BiController	POST	/api/intelligence/v1/admin/datasets	ai:bi:dataset:manage
+fenglin-intelligence-service	BiController	POST	/api/intelligence/v1/admin/datasets/{id}/fields	ai:bi:dataset:manage
+fenglin-intelligence-service	BiController	POST	/api/intelligence/v1/admin/insight-tasks	ai:bi:insight:run
+fenglin-intelligence-service	BiController	POST	/api/intelligence/v1/admin/insight-tasks/{id}/run	ai:bi:insight:run
+fenglin-intelligence-service	BiController	POST	/api/intelligence/v1/admin/metrics	tenant:ai:bi:metric:manage
+fenglin-intelligence-service	BiController	POST	/api/intelligence/v1/analytics/attribution	ai:bi:attribution:run
+fenglin-intelligence-service	BiController	POST	/api/intelligence/v1/analytics/export	ai:bi:export
+fenglin-intelligence-service	BiController	POST	/api/intelligence/v1/analytics/nl2sql	ai:bi:nl2sql:use
+fenglin-intelligence-service	BiController	POST	/api/intelligence/v1/subscriptions	ai:bi:insight:subscribe
+fenglin-intelligence-service	BiController	PUT	/api/intelligence/v1/admin/data-permissions	tenant:ai:bi:dataperm:config
+fenglin-intelligence-service	CopilotController	GET	/api/intelligence/v1/agents	ai:chat:use
+fenglin-intelligence-service	CopilotController	GET	/api/intelligence/v1/copilot/conversations	ai:chat:use
+fenglin-intelligence-service	CopilotController	GET	/api/intelligence/v1/copilot/conversations/{id}/messages	ai:chat:use
+fenglin-intelligence-service	CopilotController	POST	/api/intelligence/v1/admin/agents	tenant:ai:agent:manage
+fenglin-intelligence-service	CopilotController	POST	/api/intelligence/v1/agents/{code}/run	ai:agent:run
+fenglin-intelligence-service	CopilotController	POST	/api/intelligence/v1/copilot/conversations	ai:chat:use
+fenglin-intelligence-service	CopilotController	POST	/api/intelligence/v1/copilot/conversations/{id}/messages	ai:chat:rag
+fenglin-intelligence-service	CopilotController	POST	/api/intelligence/v1/copilot/messages/{id}/feedback	ai:chat:feedback
+fenglin-intelligence-service	CopilotController	POST	/api/intelligence/v1/copilot/text:summarize	ai:summarize:use
+fenglin-intelligence-service	CopilotController	POST	/api/intelligence/v1/copilot/text:translate	ai:translate:use
+fenglin-intelligence-service	CopilotController	POST	/api/intelligence/v1/copilot/text:write	ai:writing:use
+fenglin-intelligence-service	CopilotController	PUT	/api/intelligence/v1/admin/guardrails	tenant:ai:guardrail:config
+fenglin-intelligence-service	IntelligenceAdminController	GET	/api/intelligence/v1/admin/ai/capability-grants	tenant:ai:grant:manage
+fenglin-intelligence-service	IntelligenceAdminController	GET	/api/intelligence/v1/admin/ai/metering	tenant:ai:usage:view
+fenglin-intelligence-service	IntelligenceAdminController	GET	/api/intelligence/v1/admin/ai/mode	tenant:ai:usage:view
+fenglin-intelligence-service	IntelligenceAdminController	POST	/api/intelligence/v1/admin/ai/mode:validate	tenant:ai:usage:view
+fenglin-intelligence-service	KnowledgeController	GET	/api/intelligence/v1/admin/data-sources	tenant:ai:source:manage
+fenglin-intelligence-service	KnowledgeController	GET	/api/intelligence/v1/admin/documents/{id}	tenant:ai:kb:review
+fenglin-intelligence-service	KnowledgeController	GET	/api/intelligence/v1/admin/search/analytics	tenant:ai:search:analytics
+fenglin-intelligence-service	KnowledgeController	GET	/api/intelligence/v1/documents/{id}/preview	ai:search:view
+fenglin-intelligence-service	KnowledgeController	GET	/api/intelligence/v1/kg/entities	ai:kg:query
+fenglin-intelligence-service	KnowledgeController	GET	/api/intelligence/v1/kg/paths	ai:kg:query
+fenglin-intelligence-service	KnowledgeController	GET	/api/intelligence/v1/knowledge-bases	ai:chat:use
+fenglin-intelligence-service	KnowledgeController	GET	/api/intelligence/v1/knowledge-bases/{kbId}/documents	ai:chat:use
+fenglin-intelligence-service	KnowledgeController	POST	/api/intelligence/v1/admin/data-sources	tenant:ai:source:manage
+fenglin-intelligence-service	KnowledgeController	POST	/api/intelligence/v1/admin/documents	tenant:ai:kb:review
+fenglin-intelligence-service	KnowledgeController	POST	/api/intelligence/v1/admin/documents/{id}/index	ai:index:build
+fenglin-intelligence-service	KnowledgeController	POST	/api/intelligence/v1/admin/documents/{id}/review	tenant:ai:kb:review
+fenglin-intelligence-service	KnowledgeController	POST	/api/intelligence/v1/admin/documents/{id}/review:submit	tenant:ai:kb:review
+fenglin-intelligence-service	KnowledgeController	POST	/api/intelligence/v1/admin/kg/entities	tenant:ai:kg:manage
+fenglin-intelligence-service	KnowledgeController	POST	/api/intelligence/v1/admin/kg/relations	tenant:ai:kg:manage
+fenglin-intelligence-service	KnowledgeController	POST	/api/intelligence/v1/admin/knowledge-bases	tenant:ai:kb:manage
+fenglin-intelligence-service	KnowledgeController	POST	/api/intelligence/v1/search/hybrid	ai:search:query
+fenglin-intelligence-service	KnowledgeController	POST	/api/intelligence/v1/search/secure	ai:search:secure
+fenglin-legal-service	LegalAdminController	GET	/api/legal/v1/admin/config/ca-providers	
+fenglin-legal-service	LegalAdminController	GET	/api/legal/v1/admin/config/contract-fields	
+fenglin-legal-service	LegalAdminController	GET	/api/legal/v1/admin/config/dictionary	
+fenglin-legal-service	LegalAdminController	GET	/api/legal/v1/admin/config/reminder	
+fenglin-legal-service	LegalAdminController	GET	/api/legal/v1/admin/reports/contracts	
+fenglin-legal-service	LegalAdminController	GET	/api/legal/v1/admin/reports/dlp	
+fenglin-legal-service	LegalAdminController	GET	/api/legal/v1/admin/reports/sign-compliance	
+fenglin-legal-service	LegalAdminController	POST	/api/legal/v1/admin/config/ca-providers	
+fenglin-legal-service	LegalAdminController	PUT	/api/legal/v1/admin/config/contract-fields	
+fenglin-legal-service	LegalAdminController	PUT	/api/legal/v1/admin/config/dictionary	
+fenglin-legal-service	LegalAdminController	PUT	/api/legal/v1/admin/config/reminder	
+fenglin-legal-service	LegalContractController	DELETE	/api/legal/v1/contracts/{id}	
+fenglin-legal-service	LegalContractController	GET	/api/legal/v1/admin/contract-parties/mobile-requests	
+fenglin-legal-service	LegalContractController	GET	/api/legal/v1/contract-parties	legal:party:view
+fenglin-legal-service	LegalContractController	GET	/api/legal/v1/contract-parties/mobile-requests/my	legal:party:pii:apply
+fenglin-legal-service	LegalContractController	GET	/api/legal/v1/contract-parties/{id}/mobile	
+fenglin-legal-service	LegalContractController	GET	/api/legal/v1/contract-templates	legal:template:view
+fenglin-legal-service	LegalContractController	GET	/api/legal/v1/contracts	legal:contract:view,legal:contract:view:self
+fenglin-legal-service	LegalContractController	GET	/api/legal/v1/contracts/search	legal:contract:view,legal:contract:view:self
+fenglin-legal-service	LegalContractController	GET	/api/legal/v1/contracts/{id}	legal:contract:view,legal:contract:view:self
+fenglin-legal-service	LegalContractController	GET	/api/legal/v1/expiry-reminders	legal:contract:view
+fenglin-legal-service	LegalContractController	GET	/api/legal/v1/performance-nodes	legal:performance:view
+fenglin-legal-service	LegalContractController	POST	/api/legal/v1/admin/contract-parties/mobile-requests/{id}/review	
+fenglin-legal-service	LegalContractController	POST	/api/legal/v1/contract-parties	
+fenglin-legal-service	LegalContractController	POST	/api/legal/v1/contract-parties/{id}/mobile-requests	
+fenglin-legal-service	LegalContractController	POST	/api/legal/v1/contract-templates	
+fenglin-legal-service	LegalContractController	POST	/api/legal/v1/contract-templates/{id}/versions	
+fenglin-legal-service	LegalContractController	POST	/api/legal/v1/contracts	
+fenglin-legal-service	LegalContractController	POST	/api/legal/v1/contracts/{id}/approve	
+fenglin-legal-service	LegalContractController	POST	/api/legal/v1/contracts/{id}/archive	
+fenglin-legal-service	LegalContractController	POST	/api/legal/v1/contracts/{id}/submit	
+fenglin-legal-service	LegalContractController	POST	/api/legal/v1/contracts/{id}/terminate	
+fenglin-legal-service	LegalContractController	POST	/api/legal/v1/contracts/{id}/verify-integrity	
+fenglin-legal-service	LegalContractController	POST	/api/legal/v1/contracts/{id}/versions	
+fenglin-legal-service	LegalContractController	POST	/api/legal/v1/expiry-reminders	
+fenglin-legal-service	LegalContractController	POST	/api/legal/v1/performance-nodes	
+fenglin-legal-service	LegalContractController	POST	/api/legal/v1/performance-nodes/{id}/status	
+fenglin-legal-service	LegalContractController	PUT	/api/legal/v1/admin/contract-templates/{id}/variables	
+fenglin-legal-service	LegalContractController	PUT	/api/legal/v1/contracts/{id}	
+fenglin-legal-service	LegalContractController	PUT	/api/legal/v1/contracts/{id}/clauses	
+fenglin-legal-service	LegalDlpController	GET	/api/legal/v1/admin/dlp/audit-logs	
+fenglin-legal-service	LegalDlpController	GET	/api/legal/v1/admin/dlp/channels	
+fenglin-legal-service	LegalDlpController	GET	/api/legal/v1/admin/dlp/policies	
+fenglin-legal-service	LegalDlpController	GET	/api/legal/v1/admin/dlp/rules	
+fenglin-legal-service	LegalDlpController	GET	/api/legal/v1/admin/dlp/terminals	
+fenglin-legal-service	LegalDlpController	GET	/api/legal/v1/admin/dlp/watermarks	
+fenglin-legal-service	LegalDlpController	GET	/api/legal/v1/admin/dlp/whitelist	
+fenglin-legal-service	LegalDlpController	GET	/api/legal/v1/dlp/events	
+fenglin-legal-service	LegalDlpController	GET	/api/legal/v1/dlp/events/{id}	
+fenglin-legal-service	LegalDlpController	GET	/api/legal/v1/dlp/releases	
+fenglin-legal-service	LegalDlpController	GET	/api/legal/v1/dlp/releases/{id}	
+fenglin-legal-service	LegalDlpController	GET	/api/legal/v1/dlp/releases/{id}/progress	
+fenglin-legal-service	LegalDlpController	POST	/api/legal/v1/admin/dlp/audit-logs/verify	
+fenglin-legal-service	LegalDlpController	POST	/api/legal/v1/admin/dlp/policies	
+fenglin-legal-service	LegalDlpController	POST	/api/legal/v1/admin/dlp/rules	
+fenglin-legal-service	LegalDlpController	POST	/api/legal/v1/admin/dlp/rules/{id}/test	
+fenglin-legal-service	LegalDlpController	POST	/api/legal/v1/admin/dlp/watermarks	
+fenglin-legal-service	LegalDlpController	POST	/api/legal/v1/admin/dlp/watermarks/trace	
+fenglin-legal-service	LegalDlpController	POST	/api/legal/v1/admin/dlp/whitelist	
+fenglin-legal-service	LegalDlpController	POST	/api/legal/v1/dlp/events/{id}/handle	
+fenglin-legal-service	LegalDlpController	POST	/api/legal/v1/dlp/releases	
+fenglin-legal-service	LegalDlpController	POST	/api/legal/v1/dlp/releases/{id}/approve	
+fenglin-legal-service	LegalDlpController	POST	/api/legal/v1/internal/legal/dlp/decide	
+fenglin-legal-service	LegalDlpController	POST	/api/legal/v1/internal/legal/dlp/detect	
+fenglin-legal-service	LegalDlpController	POST	/api/legal/v1/internal/legal/dlp/report	
+fenglin-legal-service	LegalDlpController	POST	/api/legal/v1/internal/legal/dlp/report/batch	
+fenglin-legal-service	LegalDlpController	POST	/api/legal/v1/internal/legal/terminal/register	
+fenglin-legal-service	LegalDlpController	PUT	/api/legal/v1/admin/dlp/channels	
+fenglin-legal-service	LegalSealSignController	GET	/api/legal/v1/admin/seals	
+fenglin-legal-service	LegalSealSignController	GET	/api/legal/v1/contract-signatories	
+fenglin-legal-service	LegalSealSignController	GET	/api/legal/v1/evidences	
+fenglin-legal-service	LegalSealSignController	GET	/api/legal/v1/evidences/chain-verify	
+fenglin-legal-service	LegalSealSignController	GET	/api/legal/v1/seal-applications	
+fenglin-legal-service	LegalSealSignController	GET	/api/legal/v1/seal-records	
+fenglin-legal-service	LegalSealSignController	GET	/api/legal/v1/seals/available	
+fenglin-legal-service	LegalSealSignController	GET	/api/legal/v1/sign-records	
+fenglin-legal-service	LegalSealSignController	GET	/api/legal/v1/sign-tasks	
+fenglin-legal-service	LegalSealSignController	POST	/api/legal/v1/admin/seals	
+fenglin-legal-service	LegalSealSignController	POST	/api/legal/v1/admin/seals/{id}/revoke	
+fenglin-legal-service	LegalSealSignController	POST	/api/legal/v1/contract-signatories	
+fenglin-legal-service	LegalSealSignController	POST	/api/legal/v1/contracts/{id}/sign/initiate	
+fenglin-legal-service	LegalSealSignController	POST	/api/legal/v1/evidences/{id}/verify	
+fenglin-legal-service	LegalSealSignController	POST	/api/legal/v1/internal/legal/sign/callback	
+fenglin-legal-service	LegalSealSignController	POST	/api/legal/v1/seal-applications	
+fenglin-legal-service	LegalSealSignController	POST	/api/legal/v1/seal-applications/{id}/approve	
+fenglin-legal-service	LegalSealSignController	POST	/api/legal/v1/seal-applications/{id}/execute	
+fenglin-legal-service	LegalSealSignController	POST	/api/legal/v1/sign-tasks/{taskId}/reject	
+fenglin-legal-service	LegalSealSignController	POST	/api/legal/v1/sign-tasks/{taskId}/sign	
+fenglin-lowcode-service	LowcodeAdminController	GET	/api/hub/v1/admin/lowcode/apps	
+fenglin-lowcode-service	LowcodeAdminController	GET	/api/hub/v1/admin/lowcode/apps/{id}/versions	tenant:lowcode:app:design
+fenglin-lowcode-service	LowcodeAdminController	POST	/api/hub/v1/admin/lowcode/apps	tenant:lowcode:app:design
+fenglin-lowcode-service	LowcodeAdminController	POST	/api/hub/v1/admin/lowcode/apps/{id}:publish	tenant:lowcode:app:publish
+fenglin-lowcode-service	LowcodeAdminController	POST	/api/hub/v1/admin/lowcode/apps/{id}:rollback	tenant:lowcode:app:publish
+fenglin-lowcode-service	LowcodeRuntimeController	GET	/api/hub/v1/lowcode/apps/{code}/data	biz:lowcode:app:data:view
+fenglin-lowcode-service	LowcodeRuntimeController	POST	/api/hub/v1/lowcode/apps/{code}/data	biz:lowcode:app:use
+fenglin-message-service	InternalMessageController	POST	/internal/v1/message/send	
+fenglin-message-service	MessageAdminController	DELETE	/api/hub/v1/admin/message/channels/{id}	tenant:message:channel:manage
+fenglin-message-service	MessageAdminController	GET	/api/hub/v1/admin/message/channels	tenant:message:channel:manage
+fenglin-message-service	MessageAdminController	GET	/api/hub/v1/admin/message/templates	
+fenglin-message-service	MessageAdminController	POST	/api/hub/v1/admin/message/channels	tenant:message:channel:manage
+fenglin-message-service	MessageAdminController	POST	/api/hub/v1/admin/message/channels/{id}/toggle	tenant:message:channel:manage
+fenglin-message-service	MessageAdminController	POST	/api/hub/v1/admin/message/templates	tenant:message:template:manage
+fenglin-message-service	MessageController	GET	/api/hub/v1/messages	
+fenglin-message-service	MessageController	GET	/api/hub/v1/messages/preferences	
+fenglin-message-service	MessageController	POST	/api/hub/v1/messages/{id}:read	
+fenglin-message-service	MessageController	PUT	/api/hub/v1/messages/preferences	biz:message:preference:manage
+fenglin-openapi-service	OpenApiAdminController	GET	/api/hub/v1/admin/openapi/apps	platform:openapi:app:review
+fenglin-openapi-service	OpenApiAdminController	GET	/api/hub/v1/admin/openapi/call-logs	platform:openapi:calllog:view
+fenglin-openapi-service	OpenApiAdminController	GET	/api/hub/v1/admin/openapi/quota-requests	platform:openapi:quota:approve
+fenglin-openapi-service	OpenApiAdminController	POST	/api/hub/v1/admin/openapi/apps	platform:openapi:app:review
+fenglin-openapi-service	OpenApiAdminController	POST	/api/hub/v1/admin/openapi/apps/{id}/keys	platform:openapi:key:manage
+fenglin-openapi-service	OpenApiAdminController	POST	/api/hub/v1/admin/openapi/apps/{id}:review	platform:openapi:app:review
+fenglin-openapi-service	OpenApiAdminController	POST	/api/hub/v1/admin/openapi/quota-requests/{id}/review	platform:openapi:quota:approve
+fenglin-openapi-service	OpenApiAdminController	PUT	/api/hub/v1/admin/openapi/quotas	platform:openapi:quota:manage
+fenglin-openapi-service	OpenApiPingController	GET	/openapi/ping/v1/ping	
+fenglin-openapi-service	OpenApiPortalController	GET	/openapi/portal/api-docs	biz:openapi:portal:view
+fenglin-openapi-service	OpenApiPortalController	GET	/openapi/portal/apps	biz:openapi:portal:view
+fenglin-openapi-service	OpenApiPortalController	GET	/openapi/portal/apps/{id}	biz:openapi:portal:view
+fenglin-openapi-service	OpenApiPortalController	GET	/openapi/portal/apps/{id}/call-logs	biz:openapi:calllog:view
+fenglin-openapi-service	OpenApiPortalController	GET	/openapi/portal/apps/{id}/keys	biz:openapi:key:manage
+fenglin-openapi-service	OpenApiPortalController	GET	/openapi/portal/apps/{id}/quotas	biz:openapi:quota:view
+fenglin-openapi-service	OpenApiPortalController	GET	/openapi/portal/quotas/requests	biz:openapi:quota:apply
+fenglin-openapi-service	OpenApiPortalController	GET	/openapi/portal/scopes	biz:openapi:portal:view
+fenglin-openapi-service	OpenApiPortalController	POST	/openapi/portal/apps	biz:openapi:app:manage
+fenglin-openapi-service	OpenApiPortalController	POST	/openapi/portal/apps/{id}/keys	biz:openapi:key:manage
+fenglin-openapi-service	OpenApiPortalController	POST	/openapi/portal/apps/{id}/sandbox	biz:openapi:sandbox:call
+fenglin-openapi-service	OpenApiPortalController	POST	/openapi/portal/quotas/requests	biz:openapi:quota:apply
+fenglin-openapi-service	OpenApiPortalController	PUT	/openapi/portal/apps/{id}/callback	biz:openapi:app:manage
+fenglin-openapi-service	OpenApiPortalController	PUT	/openapi/portal/apps/{id}/scopes	biz:openapi:app:manage
+fenglin-report-service	ReportAdminController	GET	/api/hub/v1/admin/metrics	tenant:report:metric:manage
+fenglin-report-service	ReportAdminController	GET	/api/hub/v1/admin/report/dashboards	tenant:report:metric:manage
+fenglin-report-service	ReportAdminController	GET	/api/hub/v1/admin/report/datasets	tenant:report:metric:manage
+fenglin-report-service	ReportAdminController	POST	/api/hub/v1/admin/metrics	tenant:report:metric:manage
+fenglin-report-service	ReportController	POST	/api/hub/v1/report/dashboards/{id}/data	biz:report:view
+fenglin-report-service	ReportController	POST	/api/hub/v1/report/datasets/{id}/query	biz:report:view
+fenglin-report-service	ReportController	POST	/api/hub/v1/report:export	biz:report:export
+fenglin-rnd-service	RndAgileController	GET	/api/rnd/v1/boards/{id}	biz:devops:board:view
+fenglin-rnd-service	RndAgileController	GET	/api/rnd/v1/sprints	biz:devops:sprint:view
+fenglin-rnd-service	RndAgileController	GET	/api/rnd/v1/sprints/{id}	biz:devops:sprint:view
+fenglin-rnd-service	RndAgileController	GET	/api/rnd/v1/sprints/{id}/burndown	biz:devops:sprint:view
+fenglin-rnd-service	RndAgileController	GET	/api/rnd/v1/tasks	biz:devops:task:view
+fenglin-rnd-service	RndAgileController	GET	/api/rnd/v1/tasks/my	biz:devops:task:self:view
+fenglin-rnd-service	RndAgileController	GET	/api/rnd/v1/tasks/{id}	biz:devops:task:view
+fenglin-rnd-service	RndAgileController	GET	/api/rnd/v1/worklogs	biz:devops:worklog:view
+fenglin-rnd-service	RndAgileController	GET	/api/rnd/v1/worklogs/my	biz:devops:worklog:self:view
+fenglin-rnd-service	RndAgileController	POST	/api/rnd/v1/boards	biz:devops:board:manage
+fenglin-rnd-service	RndAgileController	POST	/api/rnd/v1/boards/{id}/move	biz:devops:board:manage
+fenglin-rnd-service	RndAgileController	POST	/api/rnd/v1/sprints	biz:devops:sprint:manage
+fenglin-rnd-service	RndAgileController	POST	/api/rnd/v1/sprints/{id}/complete	biz:devops:sprint:manage
+fenglin-rnd-service	RndAgileController	POST	/api/rnd/v1/sprints/{id}/start	biz:devops:sprint:manage
+fenglin-rnd-service	RndAgileController	POST	/api/rnd/v1/tasks	biz:devops:task:create
+fenglin-rnd-service	RndAgileController	POST	/api/rnd/v1/tasks/{id}/transition	biz:devops:task:transition
+fenglin-rnd-service	RndAgileController	POST	/api/rnd/v1/worklogs	biz:devops:worklog:submit,biz:devops:worklog:self:submit
+fenglin-rnd-service	RndCodeController	DELETE	/api/rnd/v1/repos/{id}	biz:devops:repo:manage
+fenglin-rnd-service	RndCodeController	GET	/api/rnd/v1/commits	biz:devops:commit:view
+fenglin-rnd-service	RndCodeController	GET	/api/rnd/v1/repos	biz:devops:repo:view
+fenglin-rnd-service	RndCodeController	GET	/api/rnd/v1/repos/{id}	biz:devops:repo:view
+fenglin-rnd-service	RndCodeController	POST	/api/rnd/v1/commits	biz:devops:repo:sync
+fenglin-rnd-service	RndCodeController	POST	/api/rnd/v1/commits/{id}/links	biz:devops:commit:link
+fenglin-rnd-service	RndCodeController	POST	/api/rnd/v1/repos	biz:devops:repo:manage
+fenglin-rnd-service	RndCodeController	POST	/api/rnd/v1/repos/{id}/sync	biz:devops:repo:sync
+fenglin-rnd-service	RndCodeController	POST	/api/rnd/v1/webhooks/{source}	biz:devops:webhook:receive
+fenglin-rnd-service	RndCodeController	PUT	/api/rnd/v1/repos/{id}	biz:devops:repo:manage
+fenglin-rnd-service	RndDefectController	GET	/api/rnd/v1/defects	biz:devops:defect:view
+fenglin-rnd-service	RndDefectController	GET	/api/rnd/v1/defects/my	biz:devops:defect:self:view
+fenglin-rnd-service	RndDefectController	GET	/api/rnd/v1/defects/{id}	biz:devops:defect:view
+fenglin-rnd-service	RndDefectController	POST	/api/rnd/v1/defects	biz:devops:defect:create,biz:devops:defect:self:create
+fenglin-rnd-service	RndDefectController	POST	/api/rnd/v1/defects/{id}/transition	closed,biz:devops:defect:verify,biz:devops:defect:transition
+fenglin-rnd-service	RndMetricController	GET	/api/rnd/v1/metric-alerts	tenant:devops:alert:manage
+fenglin-rnd-service	RndMetricController	GET	/api/rnd/v1/metric-calibers	tenant:devops:metric:manage
+fenglin-rnd-service	RndMetricController	GET	/api/rnd/v1/metric-configs	biz:devops:metric:view
+fenglin-rnd-service	RndMetricController	GET	/api/rnd/v1/metric-data-quality	tenant:devops:metric:manage
+fenglin-rnd-service	RndMetricController	GET	/api/rnd/v1/metrics	biz:devops:metric:view
+fenglin-rnd-service	RndMetricController	GET	/api/rnd/v1/metrics/contributions	biz:devops:metric:view
+fenglin-rnd-service	RndMetricController	GET	/api/rnd/v1/metrics/contributions/my	biz:devops:contribution:self:view
+fenglin-rnd-service	RndMetricController	GET	/api/rnd/v1/metrics/dora	biz:devops:metric:view
+fenglin-rnd-service	RndMetricController	GET	/api/rnd/v1/metrics/insight	biz:devops:metric:insight
+fenglin-rnd-service	RndMetricController	POST	/api/rnd/v1/metric-alerts	tenant:devops:alert:manage
+fenglin-rnd-service	RndMetricController	POST	/api/rnd/v1/metric-alerts/{id}/resolve	tenant:devops:alert:manage
+fenglin-rnd-service	RndMetricController	POST	/api/rnd/v1/metric-calibers	tenant:devops:metric:manage
+fenglin-rnd-service	RndMetricController	POST	/api/rnd/v1/metric-configs	tenant:devops:metric:manage
+fenglin-rnd-service	RndMetricController	POST	/api/rnd/v1/metrics/alerts/evaluate	tenant:devops:alert:manage
+fenglin-rnd-service	RndMetricController	POST	/api/rnd/v1/metrics/compute	biz:devops:metric:view
+fenglin-rnd-service	RndMetricController	PUT	/api/rnd/v1/metric-alerts/{id}	tenant:devops:alert:manage
+fenglin-rnd-service	RndMetricController	PUT	/api/rnd/v1/metric-configs/{metricCode}	tenant:devops:metric:manage
+fenglin-rnd-service	RndPipelineController	GET	/api/rnd/v1/builds	biz:devops:pipeline:view
+fenglin-rnd-service	RndPipelineController	GET	/api/rnd/v1/pipelines	biz:devops:pipeline:view
+fenglin-rnd-service	RndPipelineController	GET	/api/rnd/v1/pipelines/{id}	biz:devops:pipeline:view
+fenglin-rnd-service	RndPipelineController	GET	/api/rnd/v1/pipelines/{id}/runs	biz:devops:pipeline:view
+fenglin-rnd-service	RndPipelineController	GET	/api/rnd/v1/runs/{id}	biz:devops:pipeline:view
+fenglin-rnd-service	RndPipelineController	POST	/api/rnd/v1/pipelines	biz:devops:pipeline:manage
+fenglin-rnd-service	RndPipelineController	POST	/api/rnd/v1/pipelines/{id}/runs	biz:devops:pipeline:trigger
+fenglin-rnd-service	RndPipelineController	POST	/api/rnd/v1/runs/{id}/finish	biz:devops:pipeline:trigger
+fenglin-rnd-service	RndProductController	DELETE	/api/rnd/v1/products/{id}/members/{memberId}	tenant:devops:member:manage
+fenglin-rnd-service	RndProductController	GET	/api/rnd/v1/products	biz:devops:product:view
+fenglin-rnd-service	RndProductController	GET	/api/rnd/v1/products/{id}	biz:devops:product:view
+fenglin-rnd-service	RndProductController	GET	/api/rnd/v1/products/{id}/members	biz:devops:member:view
+fenglin-rnd-service	RndProductController	GET	/api/rnd/v1/products/{id}/statuses	biz:devops:product:view
+fenglin-rnd-service	RndProductController	POST	/api/rnd/v1/products	tenant:devops:product:manage
+fenglin-rnd-service	RndProductController	POST	/api/rnd/v1/products/{id}/members	tenant:devops:member:manage
+fenglin-rnd-service	RndProductController	PUT	/api/rnd/v1/products/{id}	tenant:devops:product:manage
+fenglin-rnd-service	RndProductController	PUT	/api/rnd/v1/products/{id}/members/{memberId}	tenant:devops:member:manage
+fenglin-rnd-service	RndReleaseController	GET	/api/rnd/v1/releases	biz:devops:release:view
+fenglin-rnd-service	RndReleaseController	GET	/api/rnd/v1/releases/{id}	biz:devops:release:view
+fenglin-rnd-service	RndReleaseController	GET	/api/rnd/v1/releases/{id}/deployments	biz:devops:release:view
+fenglin-rnd-service	RndReleaseController	POST	/api/rnd/v1/releases	biz:devops:release:create
+fenglin-rnd-service	RndReleaseController	POST	/api/rnd/v1/releases/{id}/approve	biz:devops:release:approve
+fenglin-rnd-service	RndReleaseController	POST	/api/rnd/v1/releases/{id}/deploy	biz:devops:release:deploy
+fenglin-rnd-service	RndReleaseController	POST	/api/rnd/v1/releases/{id}/reject	biz:devops:release:approve
+fenglin-rnd-service	RndReleaseController	POST	/api/rnd/v1/releases/{id}/rollback	biz:devops:release:rollback
+fenglin-rnd-service	RndReleaseController	POST	/api/rnd/v1/releases/{id}/submit	biz:devops:release:create
+fenglin-rnd-service	RndRequirementController	GET	/api/rnd/v1/requirements	biz:devops:requirement:view
+fenglin-rnd-service	RndRequirementController	GET	/api/rnd/v1/requirements/{id}	biz:devops:requirement:view
+fenglin-rnd-service	RndRequirementController	POST	/api/rnd/v1/requirements	biz:devops:requirement:create
+fenglin-rnd-service	RndRequirementController	POST	/api/rnd/v1/requirements/{id}/relations	biz:devops:requirement:update
+fenglin-rnd-service	RndRequirementController	POST	/api/rnd/v1/requirements/{id}/review	biz:devops:requirement:review
+fenglin-rnd-service	RndRequirementController	POST	/api/rnd/v1/requirements/{id}/sprint	biz:devops:requirement:update
+fenglin-rnd-service	RndRequirementController	POST	/api/rnd/v1/requirements/{id}/transition	biz:devops:requirement:transition
+fenglin-rnd-service	RndTenantConfigController	GET	/api/rnd/v1/tenant-config	tenant:devops:integration:manage
+fenglin-rnd-service	RndTenantConfigController	PUT	/api/rnd/v1/tenant-config	tenant:devops:integration:manage
+fenglin-rnd-service	RndTestController	GET	/api/rnd/v1/executions/{id}	biz:devops:testplan:view
+fenglin-rnd-service	RndTestController	GET	/api/rnd/v1/test-cases	biz:devops:testcase:view
+fenglin-rnd-service	RndTestController	GET	/api/rnd/v1/test-cases/{id}	biz:devops:testcase:view
+fenglin-rnd-service	RndTestController	GET	/api/rnd/v1/test-plans/{id}	biz:devops:testplan:view
+fenglin-rnd-service	RndTestController	POST	/api/rnd/v1/executions/{id}/items	biz:devops:testplan:execute
+fenglin-rnd-service	RndTestController	POST	/api/rnd/v1/test-cases	biz:devops:testcase:manage
+fenglin-rnd-service	RndTestController	POST	/api/rnd/v1/test-cases/{id}/review	biz:devops:testcase:review
+fenglin-rnd-service	RndTestController	POST	/api/rnd/v1/test-plans	biz:devops:testplan:manage
+fenglin-rnd-service	RndTestController	POST	/api/rnd/v1/test-plans/{id}/executions	biz:devops:testplan:execute
+fenglin-search-service	SearchAdminController	GET	/api/hub/v1/admin/search/analytics	platform:search:index:manage
+fenglin-search-service	SearchAdminController	GET	/api/hub/v1/admin/search/index-tasks/{taskId}	platform:search:index:manage
+fenglin-search-service	SearchAdminController	POST	/api/hub/v1/admin/search/index-tasks	platform:search:index:manage
+fenglin-search-service	SearchController	GET	/api/hub/v1/search/suggest	
+fenglin-search-service	SearchController	POST	/api/hub/v1/search/query	biz:search:query
+fenglin-service-service	AdminConfigController	GET	/api/service/v1/admin/config/{configType}	tenant:service:config:view
+fenglin-service-service	AdminConfigController	GET	/api/service/v1/admin/sla-policies	tenant:service:sla:config
+fenglin-service-service	AdminConfigController	POST	/api/service/v1/admin/catalog	tenant:service:catalog:config
+fenglin-service-service	AdminConfigController	POST	/api/service/v1/admin/sla-policies	tenant:service:sla:config
+fenglin-service-service	AdminConfigController	PUT	/api/service/v1/admin/config/asset-reminder	tenant:service:asset:config
+fenglin-service-service	AdminConfigController	PUT	/api/service/v1/admin/config/dispatch-rule	tenant:service:desk:config
+fenglin-service-service	AdminConfigController	PUT	/api/service/v1/admin/config/duty	tenant:service:desk:config
+fenglin-service-service	AdminConfigController	PUT	/api/service/v1/admin/config/groups	tenant:service:desk:config
+fenglin-service-service	AdminConfigController	PUT	/api/service/v1/admin/config/retry-policy	tenant:service:rpa:config
+fenglin-service-service	AdminConfigController	PUT	/api/service/v1/admin/config/service-report	tenant:service:report:config
+fenglin-service-service	AdminConfigController	PUT	/api/service/v1/admin/config/ticket-types	tenant:service:desk:config
+fenglin-service-service	CatalogKnowledgeController	GET	/api/service/v1/assets	service:asset:view
+fenglin-service-service	CatalogKnowledgeController	GET	/api/service/v1/assets/my	service:asset:self:view
+fenglin-service-service	CatalogKnowledgeController	GET	/api/service/v1/assets/reminders	service:asset:reminder:view
+fenglin-service-service	CatalogKnowledgeController	GET	/api/service/v1/assets/reminders/my	service:asset:self:view
+fenglin-service-service	CatalogKnowledgeController	GET	/api/service/v1/assets/{id}	service:asset:view
+fenglin-service-service	CatalogKnowledgeController	GET	/api/service/v1/catalog/items	service:catalog:view
+fenglin-service-service	CatalogKnowledgeController	GET	/api/service/v1/catalog/items/{id}	service:catalog:view
+fenglin-service-service	CatalogKnowledgeController	GET	/api/service/v1/catalog/tree	service:catalog:view
+fenglin-service-service	CatalogKnowledgeController	GET	/api/service/v1/changes	service:change:manage
+fenglin-service-service	CatalogKnowledgeController	GET	/api/service/v1/changes/{id}	service:change:manage
+fenglin-service-service	CatalogKnowledgeController	GET	/api/service/v1/kb/articles	service:kb:view
+fenglin-service-service	CatalogKnowledgeController	GET	/api/service/v1/kb/articles/{id}	service:kb:view
+fenglin-service-service	CatalogKnowledgeController	GET	/api/service/v1/kb/categories	service:kb:view
+fenglin-service-service	CatalogKnowledgeController	GET	/api/service/v1/kb/suggest	service:kb:suggest
+fenglin-service-service	CatalogKnowledgeController	GET	/api/service/v1/problems	service:problem:manage
+fenglin-service-service	CatalogKnowledgeController	GET	/api/service/v1/problems/{id}	service:problem:manage
+fenglin-service-service	CatalogKnowledgeController	POST	/api/service/v1/assets	service:asset:manage
+fenglin-service-service	CatalogKnowledgeController	POST	/api/service/v1/assets/{id}/borrow	service:asset:manage
+fenglin-service-service	CatalogKnowledgeController	POST	/api/service/v1/assets/{id}/return	service:asset:manage
+fenglin-service-service	CatalogKnowledgeController	POST	/api/service/v1/assets/{id}/return-self	service:asset:view,service:asset:self:return
+fenglin-service-service	CatalogKnowledgeController	POST	/api/service/v1/catalog/items/{id}/apply	service:catalog:apply
+fenglin-service-service	CatalogKnowledgeController	POST	/api/service/v1/changes	service:change:manage
+fenglin-service-service	CatalogKnowledgeController	POST	/api/service/v1/changes/{id}/approve	service:change:manage
+fenglin-service-service	CatalogKnowledgeController	POST	/api/service/v1/csat	service:csat:submit
+fenglin-service-service	CatalogKnowledgeController	POST	/api/service/v1/kb/articles	service:kb:publish,service:kb:edit
+fenglin-service-service	CatalogKnowledgeController	POST	/api/service/v1/kb/articles/{id}/feedback	service:kb:view
+fenglin-service-service	CatalogKnowledgeController	POST	/api/service/v1/kb/categories	service:kb:edit
+fenglin-service-service	CatalogKnowledgeController	POST	/api/service/v1/problems	service:problem:manage
+fenglin-service-service	CatalogKnowledgeController	POST	/api/service/v1/problems/{id}/aggregate	service:problem:manage
+fenglin-service-service	LowcodeController	GET	/api/service/v1/admin/lowcode/apps	tenant:service:app:govern
+fenglin-service-service	LowcodeController	GET	/api/service/v1/lowcode/apps	service:lowcode:app:create
+fenglin-service-service	LowcodeController	GET	/api/service/v1/lowcode/apps/{id}	service:lowcode:app:create
+fenglin-service-service	LowcodeController	GET	/api/service/v1/lowcode/flows/{id}	service:lowcode:flow:design
+fenglin-service-service	LowcodeController	GET	/api/service/v1/lowcode/flows/{id}/versions	service:lowcode:flow:design
+fenglin-service-service	LowcodeController	GET	/api/service/v1/lowcode/forms/{id}	service:lowcode:form:design
+fenglin-service-service	LowcodeController	GET	/api/service/v1/lowcode/forms/{id}/versions	service:lowcode:form:design
+fenglin-service-service	LowcodeController	GET	/api/service/v1/lowcode/models/{id}	service:lowcode:model:design
+fenglin-service-service	LowcodeController	GET	/api/service/v1/lowcode/models/{id}/diff	service:lowcode:model:design
+fenglin-service-service	LowcodeController	GET	/api/service/v1/lowcode/pages/{id}	service:lowcode:page:design
+fenglin-service-service	LowcodeController	GET	/api/service/v1/lowcode/releases	service:lowcode:app:publish
+fenglin-service-service	LowcodeController	GET	/api/service/v1/lowcode/releases/{id}	service:lowcode:app:publish
+fenglin-service-service	LowcodeController	GET	/api/service/v1/lowcode/scripts/{id}	service:lowcode:script:manage
+fenglin-service-service	LowcodeController	GET	/api/service/v1/lowcode/templates	service:lowcode:template:use
+fenglin-service-service	LowcodeController	GET	/api/service/v1/runtime/instances	service:lowcode:runtime:use
+fenglin-service-service	LowcodeController	GET	/api/service/v1/runtime/tasks	service:lowcode:runtime:use
+fenglin-service-service	LowcodeController	POST	/api/service/v1/lowcode/apps	service:lowcode:app:create
+fenglin-service-service	LowcodeController	POST	/api/service/v1/lowcode/apps/{appId}/flows	service:lowcode:flow:design
+fenglin-service-service	LowcodeController	POST	/api/service/v1/lowcode/apps/{appId}/forms	service:lowcode:form:design
+fenglin-service-service	LowcodeController	POST	/api/service/v1/lowcode/apps/{appId}/models	service:lowcode:model:design
+fenglin-service-service	LowcodeController	POST	/api/service/v1/lowcode/apps/{appId}/pages	service:lowcode:page:design
+fenglin-service-service	LowcodeController	POST	/api/service/v1/lowcode/apps/{appId}/releases	service:lowcode:app:publish
+fenglin-service-service	LowcodeController	POST	/api/service/v1/lowcode/apps/{appId}/scripts	service:lowcode:script:edit
+fenglin-service-service	LowcodeController	POST	/api/service/v1/lowcode/apps/{id}/archive	service:lowcode:app:create
+fenglin-service-service	LowcodeController	POST	/api/service/v1/lowcode/apps/{id}/copy	service:lowcode:app:create
+fenglin-service-service	LowcodeController	POST	/api/service/v1/lowcode/apps/{id}/freeze	tenant:service:app:govern
+fenglin-service-service	LowcodeController	POST	/api/service/v1/lowcode/flows/{id}/simulate	service:lowcode:flow:design
+fenglin-service-service	LowcodeController	POST	/api/service/v1/lowcode/flows/{id}/validate	service:lowcode:flow:design
+fenglin-service-service	LowcodeController	POST	/api/service/v1/lowcode/forms/{id}/preview	service:lowcode:form:design
+fenglin-service-service	LowcodeController	POST	/api/service/v1/lowcode/forms/{id}/validate	service:lowcode:form:design
+fenglin-service-service	LowcodeController	POST	/api/service/v1/lowcode/models/{id}/compat-check	service:lowcode:model:design
+fenglin-service-service	LowcodeController	POST	/api/service/v1/lowcode/pages/{id}/preview	service:lowcode:page:design
+fenglin-service-service	LowcodeController	POST	/api/service/v1/lowcode/releases/{id}/approve	tenant:service:app:approve
+fenglin-service-service	LowcodeController	POST	/api/service/v1/lowcode/scripts/{id}/scan	service:lowcode:script:manage
+fenglin-service-service	LowcodeController	POST	/api/service/v1/runtime/apps/{appCode}/flows/{flowKey}/start	service:lowcode:runtime:use
+fenglin-service-service	LowcodeController	POST	/api/service/v1/runtime/apps/{appCode}/pages/{pageKey}/submit	service:lowcode:runtime:use
+fenglin-service-service	LowcodeController	POST	/api/service/v1/runtime/flows/{flowId}/submit	service:lowcode:runtime:use
+fenglin-service-service	LowcodeController	POST	/api/service/v1/runtime/instances/{instanceId}/tasks/{taskId}/complete	service:lowcode:runtime:use
+fenglin-service-service	LowcodeController	PUT	/api/service/v1/lowcode/apps/{id}/data-permissions	service:lowcode:app:perm:config
+fenglin-service-service	LowcodeController	PUT	/api/service/v1/lowcode/apps/{id}/permissions	service:lowcode:app:perm:config
+fenglin-service-service	LowcodeController	PUT	/api/service/v1/lowcode/flows/{id}	service:lowcode:flow:design
+fenglin-service-service	LowcodeController	PUT	/api/service/v1/lowcode/forms/{id}	service:lowcode:form:design
+fenglin-service-service	LowcodeController	PUT	/api/service/v1/lowcode/models/{id}	service:lowcode:model:design
+fenglin-service-service	LowcodeController	PUT	/api/service/v1/lowcode/pages/{id}	service:lowcode:page:design
+fenglin-service-service	LowcodeController	PUT	/api/service/v1/lowcode/pages/{id}/datasource	service:lowcode:page:design
+fenglin-service-service	OpsController	GET	/api/service/v1/mining/models	service:mining:view
+fenglin-service-service	OpsController	GET	/api/service/v1/mining/models/{id}	service:mining:view
+fenglin-service-service	OpsController	GET	/api/service/v1/mining/models/{id}/bottlenecks	service:mining:analyze
+fenglin-service-service	OpsController	GET	/api/service/v1/mining/models/{id}/candidates	service:mining:view
+fenglin-service-service	OpsController	GET	/api/service/v1/mining/models/{id}/resource-load	service:mining:analyze
+fenglin-service-service	OpsController	GET	/api/service/v1/rpa/automations	service:automation:flow:design
+fenglin-service-service	OpsController	GET	/api/service/v1/rpa/automations/{id}	service:automation:flow:design
+fenglin-service-service	OpsController	GET	/api/service/v1/rpa/credentials	tenant:service:rpa:credential:config
+fenglin-service-service	OpsController	GET	/api/service/v1/rpa/robots	service:rpa:robot:manage
+fenglin-service-service	OpsController	GET	/api/service/v1/rpa/schedules	service:automation:flow:design
+fenglin-service-service	OpsController	GET	/api/service/v1/rpa/tasks	service:rpa:task:manage
+fenglin-service-service	OpsController	GET	/api/service/v1/rpa/tasks/{id}	service:rpa:task:manage
+fenglin-service-service	OpsController	GET	/api/service/v1/rpa/tasks/{id}/logs	service:rpa:task:manage
+fenglin-service-service	OpsController	POST	/api/service/v1/internal/rpa/credentials/redeem	
+fenglin-service-service	OpsController	POST	/api/service/v1/internal/rpa/tasks/{id}/callback	
+fenglin-service-service	OpsController	POST	/api/service/v1/mining/candidates/{id}/to-automation	service:mining:to:automation
+fenglin-service-service	OpsController	POST	/api/service/v1/mining/events	service:mining:log:ingest
+fenglin-service-service	OpsController	POST	/api/service/v1/mining/models/discover	service:mining:model:create
+fenglin-service-service	OpsController	POST	/api/service/v1/mining/models/{id}/archive	service:mining:model:create
+fenglin-service-service	OpsController	POST	/api/service/v1/mining/models/{id}/conformance	service:mining:conformance:view
+fenglin-service-service	OpsController	POST	/api/service/v1/rpa/automations	service:automation:flow:design
+fenglin-service-service	OpsController	POST	/api/service/v1/rpa/automations/{id}/publish	service:automation:flow:design
+fenglin-service-service	OpsController	POST	/api/service/v1/rpa/credentials	tenant:service:rpa:credential:config
+fenglin-service-service	OpsController	POST	/api/service/v1/rpa/credentials/{id}/token	tenant:service:rpa:credential:config
+fenglin-service-service	OpsController	POST	/api/service/v1/rpa/robots	service:rpa:robot:manage
+fenglin-service-service	OpsController	POST	/api/service/v1/rpa/robots/govern	service:rpa:robot:manage
+fenglin-service-service	OpsController	POST	/api/service/v1/rpa/schedules	service:automation:flow:design
+fenglin-service-service	OpsController	POST	/api/service/v1/rpa/tasks	service:rpa:task:dispatch
+fenglin-service-service	OpsController	POST	/api/service/v1/rpa/tasks/batch	service:rpa:task:dispatch
+fenglin-service-service	OpsController	POST	/api/service/v1/rpa/tasks/{id}/actions	service:rpa:task:manage
+fenglin-service-service	OpsController	POST	/api/service/v1/rpa/tasks/{id}/retry	service:rpa:task:manage
+fenglin-service-service	OpsController	PUT	/api/service/v1/rpa/automations/{id}/whitelist	service:automation:flow:design
+fenglin-service-service	ReportController	GET	/api/service/v1/reports/csat	service:csat:view
+fenglin-service-service	ReportController	GET	/api/service/v1/reports/robot-utilization	service:rpa:report:view
+fenglin-service-service	ReportController	GET	/api/service/v1/reports/rpa	service:rpa:report:view
+fenglin-service-service	ReportController	GET	/api/service/v1/reports/sla	service:report:view
+fenglin-service-service	ReportController	GET	/api/service/v1/reports/tickets	service:report:view
+fenglin-service-service	ReportController	GET	/api/service/v1/reports/workload	service:report:view
+fenglin-service-service	TicketController	GET	/api/service/v1/desk/tickets	biz:service:desk:view
+fenglin-service-service	TicketController	GET	/api/service/v1/my/tickets	biz:service:self:view
+fenglin-service-service	TicketController	GET	/api/service/v1/sla/breaches	service:sla:view
+fenglin-service-service	TicketController	GET	/api/service/v1/tickets	service:ticket:view
+fenglin-service-service	TicketController	GET	/api/service/v1/tickets/{id}	service:ticket:view
+fenglin-service-service	TicketController	GET	/api/service/v1/tickets/{id}/comments	service:ticket:view
+fenglin-service-service	TicketController	GET	/api/service/v1/tickets/{id}/flow-logs	service:ticket:view
+fenglin-service-service	TicketController	GET	/api/service/v1/tickets/{id}/sla	service:sla:view
+fenglin-service-service	TicketController	POST	/api/service/v1/internal/sla/tick	
+fenglin-service-service	TicketController	POST	/api/service/v1/internal/tickets/email-inbound	
+fenglin-service-service	TicketController	POST	/api/service/v1/tickets	service:ticket:create
+fenglin-service-service	TicketController	POST	/api/service/v1/tickets/import	service:ticket:create
+fenglin-service-service	TicketController	POST	/api/service/v1/tickets/{id}/assign	service:ticket:assign
+fenglin-service-service	TicketController	POST	/api/service/v1/tickets/{id}/comments	biz:service:self:view
+fenglin-service-service	TicketController	POST	/api/service/v1/tickets/{id}/relations	service:ticket:handle
+fenglin-service-service	TicketController	POST	/api/service/v1/tickets/{id}/resume	service:ticket:handle
+fenglin-service-service	TicketController	POST	/api/service/v1/tickets/{id}/self-close	biz:service:self:view
+fenglin-service-service	TicketController	POST	/api/service/v1/tickets/{id}/self-reopen	biz:service:self:view
+fenglin-service-service	TicketController	POST	/api/service/v1/tickets/{id}/suspend	service:ticket:handle
+fenglin-service-service	TicketController	POST	/api/service/v1/tickets/{id}/transition	service:ticket:handle
+fenglin-talent-service	TalentAdminController	GET	/api/talent/v1/grades	talent:admin:grade:list
+fenglin-talent-service	TalentAdminController	GET	/api/talent/v1/positions	talent:admin:position:list
+fenglin-talent-service	TalentAdminController	POST	/api/talent/v1/headcount-plans	talent:admin:headcount:create
+fenglin-talent-service	TalentAdminController	POST	/api/talent/v1/positions	talent:admin:position:create
+fenglin-talent-service	TalentAttendanceController	GET	/api/talent/v1/attendance/exceptions	talent:admin:attendance:list
+fenglin-talent-service	TalentAttendanceController	GET	/api/talent/v1/attendance/my	talent:attendance:view,talent:self:attendance:view
+fenglin-talent-service	TalentAttendanceController	GET	/api/talent/v1/attendance/my/records	talent:attendance:view,talent:self:attendance:view
+fenglin-talent-service	TalentAttendanceController	GET	/api/talent/v1/attendance/records	talent:admin:attendance:list
+fenglin-talent-service	TalentAttendanceController	GET	/api/talent/v1/attendance/summary	talent:admin:attendance:list
+fenglin-talent-service	TalentAttendanceController	POST	/api/talent/v1/attendance/clock	talent:attendance:clock
+fenglin-talent-service	TalentAttendanceController	POST	/api/talent/v1/attendance/records/{id}/handle	talent:admin:attendance:manage
+fenglin-talent-service	TalentEmployeeController	GET	/api/talent/v1/employees	talent:admin:employee:list
+fenglin-talent-service	TalentEmployeeController	GET	/api/talent/v1/employees/my	talent:self:profile:view
+fenglin-talent-service	TalentEmployeeController	GET	/api/talent/v1/employees/roster/export	talent:admin:employee:export
+fenglin-talent-service	TalentEmployeeController	GET	/api/talent/v1/employees/{id}	talent:employee:view
+fenglin-talent-service	TalentEmployeeController	POST	/api/talent/v1/employees	talent:admin:employee:create
+fenglin-talent-service	TalentEmployeeController	POST	/api/talent/v1/employees/import	talent:admin:employee:import
+fenglin-talent-service	TalentEmployeeController	PUT	/api/talent/v1/employees/{id}	talent:admin:employee:update
+fenglin-talent-service	TalentEngagementController	GET	/api/talent/v1/attrition/risks	talent:admin:attrition:list
+fenglin-talent-service	TalentEngagementController	GET	/api/talent/v1/engagement/surveys	talent:admin:survey:list
+fenglin-talent-service	TalentEngagementController	GET	/api/talent/v1/engagement/surveys/{id}/analysis	talent:admin:survey:analysis
+fenglin-talent-service	TalentEngagementController	GET	/api/talent/v1/engagement/surveys/{id}/questions	biz:talent:survey:answer
+fenglin-talent-service	TalentEngagementController	POST	/api/talent/v1/attrition/interventions	talent:admin:intervention:create
+fenglin-talent-service	TalentEngagementController	POST	/api/talent/v1/attrition/score/trigger	talent:admin:attrition:score
+fenglin-talent-service	TalentEngagementController	POST	/api/talent/v1/engagement/surveys	talent:admin:survey:create
+fenglin-talent-service	TalentEngagementController	POST	/api/talent/v1/engagement/surveys/{id}/publish	talent:admin:survey:publish
+fenglin-talent-service	TalentEngagementController	POST	/api/talent/v1/engagement/surveys/{id}/submit	biz:talent:survey:submit
+fenglin-talent-service	TalentEngagementController	PUT	/api/talent/v1/attrition/interventions/{id}	talent:admin:intervention:create
+fenglin-talent-service	TalentInternalController	GET	/internal/v1/talent/employees/{id}/exists	
+fenglin-talent-service	TalentLeaveController	GET	/api/talent/v1/leave/balances	talent:leave:view
+fenglin-talent-service	TalentLeaveController	GET	/api/talent/v1/leave/requests	talent:admin:leave:list
+fenglin-talent-service	TalentLeaveController	GET	/api/talent/v1/leave/requests/my	talent:leave:view,talent:self:leave:view
+fenglin-talent-service	TalentLeaveController	GET	/api/talent/v1/leave/types	talent:leave:view
+fenglin-talent-service	TalentLeaveController	POST	/api/talent/v1/leave/requests	talent:leave:apply
+fenglin-talent-service	TalentLeaveController	POST	/api/talent/v1/leave/requests/{id}/approval	talent:admin:leave:approve
+fenglin-talent-service	TalentLeaveController	POST	/api/talent/v1/leave/requests/{id}/cancel	talent:leave:apply
+fenglin-talent-service	TalentLifecycleController	GET	/api/talent/v1/onboarding	talent:admin:onboarding:list
+fenglin-talent-service	TalentLifecycleController	GET	/api/talent/v1/resignations	talent:admin:resignation:list
+fenglin-talent-service	TalentLifecycleController	GET	/api/talent/v1/transfers	talent:admin:transfer:list
+fenglin-talent-service	TalentLifecycleController	POST	/api/talent/v1/onboarding	talent:admin:onboarding:create
+fenglin-talent-service	TalentLifecycleController	POST	/api/talent/v1/onboarding/{id}/complete	talent:admin:onboarding:complete
+fenglin-talent-service	TalentLifecycleController	POST	/api/talent/v1/probation/{id}/evaluate	talent:admin:probation:evaluate
+fenglin-talent-service	TalentLifecycleController	POST	/api/talent/v1/resignations	biz:talent:resignation:apply
+fenglin-talent-service	TalentLifecycleController	POST	/api/talent/v1/resignations/{id}/approve	talent:admin:resignation:approve
+fenglin-talent-service	TalentLifecycleController	POST	/api/talent/v1/transfers	talent:admin:transfer:create
+fenglin-talent-service	TalentLifecycleController	POST	/api/talent/v1/transfers/{id}/approval	talent:admin:transfer:approve
+fenglin-talent-service	TalentLifecycleController	POST	/api/talent/v1/transfers/{id}/effective	talent:admin:transfer:effective
+fenglin-talent-service	TalentOkrController	GET	/api/talent/v1/innovation/proposals	talent:innovation:list
+fenglin-talent-service	TalentOkrController	GET	/api/talent/v1/okr/alignments/tree	talent:okr:align:view
+fenglin-talent-service	TalentOkrController	GET	/api/talent/v1/okr/objectives	talent:okr:list
+fenglin-talent-service	TalentOkrController	GET	/api/talent/v1/okr/periods	talent:okr:list
+fenglin-talent-service	TalentOkrController	POST	/api/talent/v1/innovation/proposals	biz:talent:innovation:submit
+fenglin-talent-service	TalentOkrController	POST	/api/talent/v1/innovation/proposals/{id}/incubate	talent:admin:innovation:incubate
+fenglin-talent-service	TalentOkrController	POST	/api/talent/v1/innovation/proposals/{id}/reviews	talent:innovation:review
+fenglin-talent-service	TalentOkrController	POST	/api/talent/v1/innovation/proposals/{id}/vote	biz:talent:innovation:vote
+fenglin-talent-service	TalentOkrController	POST	/api/talent/v1/okr/alignments	talent:okr:align
+fenglin-talent-service	TalentOkrController	POST	/api/talent/v1/okr/objectives	talent:okr:create
+fenglin-talent-service	TalentOkrController	POST	/api/talent/v1/okr/objectives/{id}/key-results	talent:okr:kr:create
+fenglin-talent-service	TalentOkrController	POST	/api/talent/v1/okr/objectives/{id}/review	talent:okr:review
+fenglin-talent-service	TalentOkrController	POST	/api/talent/v1/okr/periods	talent:admin:okr:period
+fenglin-talent-service	TalentOkrController	PUT	/api/talent/v1/okr/key-results/{id}/progress	talent:okr:kr:update
+fenglin-talent-service	TalentOrgController	DELETE	/api/talent/v1/orgs/{id}	talent:admin:org:delete
+fenglin-talent-service	TalentOrgController	GET	/api/talent/v1/orgs/tree	talent:org:tree
+fenglin-talent-service	TalentOrgController	GET	/api/talent/v1/orgs/{id}	talent:org:view
+fenglin-talent-service	TalentOrgController	POST	/api/talent/v1/orgs	talent:admin:org:create
+fenglin-talent-service	TalentOrgController	POST	/api/talent/v1/orgs/{id}/move	talent:admin:org:move
+fenglin-talent-service	TalentOrgController	PUT	/api/talent/v1/orgs/{id}	talent:admin:org:update
+fenglin-talent-service	TalentPayrollController	GET	/api/talent/v1/payroll/items	talent:admin:payroll:list
+fenglin-talent-service	TalentPayrollController	GET	/api/talent/v1/payroll/periods	talent:admin:payroll:list
+fenglin-talent-service	TalentPayrollController	GET	/api/talent/v1/payroll/periods/{id}/records	talent:admin:payroll:list
+fenglin-talent-service	TalentPayrollController	GET	/api/talent/v1/payroll/slips	talent:admin:payroll:list
+fenglin-talent-service	TalentPayrollController	GET	/api/talent/v1/payroll/slips/my	talent:self:payroll:view
+fenglin-talent-service	TalentPayrollController	GET	/api/talent/v1/payroll/slips/my/periods	talent:self:payroll:view
+fenglin-talent-service	TalentPayrollController	GET	/api/talent/v1/payroll/slips/{id}	talent:admin:payroll:list
+fenglin-talent-service	TalentPayrollController	POST	/api/talent/v1/payroll/items	talent:admin:payroll:manage
+fenglin-talent-service	TalentPayrollController	POST	/api/talent/v1/payroll/periods	talent:admin:payroll:manage
+fenglin-talent-service	TalentPayrollController	POST	/api/talent/v1/payroll/periods/{id}/calculate	talent:admin:payroll:manage
+fenglin-talent-service	TalentPayrollController	POST	/api/talent/v1/payroll/periods/{id}/slip	talent:admin:payroll:manage
+fenglin-talent-service	TalentPayrollController	POST	/api/talent/v1/payroll/slips/{id}/approval	talent:admin:payroll:approve
+fenglin-talent-service	TalentPayrollController	POST	/api/talent/v1/payroll/slips/{id}/pay	talent:admin:payroll:approve
+fenglin-talent-service	TalentPerformanceController	GET	/api/talent/v1/performance/cycles	talent:admin:performance:list
+fenglin-talent-service	TalentPerformanceController	GET	/api/talent/v1/performance/cycles/{id}	talent:admin:performance:list
+fenglin-talent-service	TalentPerformanceController	GET	/api/talent/v1/performance/cycles/{id}/evaluations	talent:admin:performance:list
+fenglin-talent-service	TalentPerformanceController	GET	/api/talent/v1/performance/cycles/{id}/goals	talent:admin:performance:list
+fenglin-talent-service	TalentPerformanceController	GET	/api/talent/v1/performance/cycles/{id}/results	talent:admin:performance:list
+fenglin-talent-service	TalentPerformanceController	GET	/api/talent/v1/performance/my	talent:self:performance:view
+fenglin-talent-service	TalentPerformanceController	GET	/api/talent/v1/performance/my/cycles	talent:self:performance:view
+fenglin-talent-service	TalentPerformanceController	POST	/api/talent/v1/performance/cycles	talent:admin:performance:manage
+fenglin-talent-service	TalentPerformanceController	POST	/api/talent/v1/performance/cycles/{id}/close	talent:admin:performance:approve
+fenglin-talent-service	TalentPerformanceController	POST	/api/talent/v1/performance/cycles/{id}/open-goals	talent:admin:performance:manage
+fenglin-talent-service	TalentPerformanceController	POST	/api/talent/v1/performance/cycles/{id}/results/calculate	talent:admin:performance:manage
+fenglin-talent-service	TalentPerformanceController	POST	/api/talent/v1/performance/cycles/{id}/results/publish	talent:admin:performance:approve
+fenglin-talent-service	TalentPerformanceController	POST	/api/talent/v1/performance/cycles/{id}/start-evaluation	talent:admin:performance:manage
+fenglin-talent-service	TalentPerformanceController	POST	/api/talent/v1/performance/evaluations	talent:admin:performance:manage
+fenglin-talent-service	TalentPerformanceController	POST	/api/talent/v1/performance/evaluations/{id}/approval	talent:admin:performance:approve
+fenglin-talent-service	TalentPerformanceController	POST	/api/talent/v1/performance/evaluations/{id}/submit	talent:admin:performance:manage
+fenglin-talent-service	TalentPerformanceController	POST	/api/talent/v1/performance/goals	talent:admin:performance:manage
+fenglin-talent-service	TalentPerformanceController	POST	/api/talent/v1/performance/goals/{id}/approval	talent:admin:performance:approve
+fenglin-talent-service	TalentPerformanceController	POST	/api/talent/v1/performance/goals/{id}/submit	talent:admin:performance:manage
+fenglin-talent-service	TalentRecruitController	GET	/api/talent/v1/recruit/applications	talent:admin:candidate:list
+fenglin-talent-service	TalentRecruitController	GET	/api/talent/v1/recruit/candidates	talent:admin:candidate:list
+fenglin-talent-service	TalentRecruitController	GET	/api/talent/v1/recruit/interviews	talent:admin:candidate:list
+fenglin-talent-service	TalentRecruitController	GET	/api/talent/v1/recruit/interviews/my	biz:talent:interview:my
+fenglin-talent-service	TalentRecruitController	GET	/api/talent/v1/recruit/requisitions	talent:admin:recruit:list
+fenglin-talent-service	TalentRecruitController	POST	/api/talent/v1/recruit/applications	talent:admin:candidate:create
+fenglin-talent-service	TalentRecruitController	POST	/api/talent/v1/recruit/candidates	talent:admin:candidate:create
+fenglin-talent-service	TalentRecruitController	POST	/api/talent/v1/recruit/candidates/{id}/resume/parse	talent:admin:candidate:parse
+fenglin-talent-service	TalentRecruitController	POST	/api/talent/v1/recruit/interviews	talent:admin:interview:create
+fenglin-talent-service	TalentRecruitController	POST	/api/talent/v1/recruit/interviews/{id}/evaluate	talent:interview:evaluate
+fenglin-talent-service	TalentRecruitController	POST	/api/talent/v1/recruit/offers	talent:admin:offer:create
+fenglin-talent-service	TalentRecruitController	POST	/api/talent/v1/recruit/offers/{id}/accept	talent:admin:offer:accept
+fenglin-talent-service	TalentRecruitController	POST	/api/talent/v1/recruit/offers/{id}/send	talent:admin:offer:send
+fenglin-talent-service	TalentRecruitController	POST	/api/talent/v1/recruit/requisitions	talent:admin:recruit:create
+fenglin-talent-service	TalentRecruitController	POST	/api/talent/v1/recruit/requisitions/{id}/approval	talent:admin:recruit:approve
+fenglin-talent-service	TalentRecruitController	POST	/api/talent/v1/recruit/requisitions/{id}/submit	talent:admin:recruit:submit
+fenglin-talent-service	TalentReportController	GET	/api/talent/v1/reports/headcount	talent:admin:employee:export
+fenglin-talent-service	TalentSkillController	GET	/api/talent/v1/flow/applications	talent:flow:list
+fenglin-talent-service	TalentSkillController	GET	/api/talent/v1/flow/demands/{id}/matches	talent:admin:flow:match
+fenglin-talent-service	TalentSkillController	GET	/api/talent/v1/flow/market	biz:talent:flow:market
+fenglin-talent-service	TalentSkillController	GET	/api/talent/v1/skills/employees/my	talent:self:profile:view
+fenglin-talent-service	TalentSkillController	GET	/api/talent/v1/skills/employees/{id}	talent:skill:view
+fenglin-talent-service	TalentSkillController	GET	/api/talent/v1/skills/inventory	talent:admin:skill:inventory
+fenglin-talent-service	TalentSkillController	GET	/api/talent/v1/skills/tags	talent:skill:view
+fenglin-talent-service	TalentSkillController	POST	/api/talent/v1/flow/applications	biz:talent:flow:apply
+fenglin-talent-service	TalentSkillController	POST	/api/talent/v1/flow/applications/{id}/approve	talent:admin:flow:approve
+fenglin-talent-service	TalentSkillController	POST	/api/talent/v1/flow/demands	talent:admin:demand:create
+fenglin-talent-service	TalentSkillController	POST	/api/talent/v1/flow/demands/{id}/publish	talent:admin:demand:publish
+fenglin-talent-service	TalentSkillController	POST	/api/talent/v1/skills/employees/{id}	talent:skill:update
+fenglin-talent-service	TalentSkillController	POST	/api/talent/v1/skills/tags	talent:admin:skill:tag:create
+fenglin-talent-service	TalentTrainingController	DELETE	/api/talent/v1/training/enrollments/{id}	biz:talent:course:cancel
+fenglin-talent-service	TalentTrainingController	GET	/api/talent/v1/knowledge/articles	talent:knowledge:search
+fenglin-talent-service	TalentTrainingController	GET	/api/talent/v1/knowledge/categories	talent:knowledge:search
+fenglin-talent-service	TalentTrainingController	GET	/api/talent/v1/training/certificates	biz:talent:cert:list
+fenglin-talent-service	TalentTrainingController	GET	/api/talent/v1/training/courses	talent:course:list
+fenglin-talent-service	TalentTrainingController	GET	/api/talent/v1/training/courses/{id}/sessions	talent:course:session:list
+fenglin-talent-service	TalentTrainingController	GET	/api/talent/v1/training/my/enrollments	talent:self:training:view
+fenglin-talent-service	TalentTrainingController	POST	/api/talent/v1/knowledge/articles	talent:knowledge:create
+fenglin-talent-service	TalentTrainingController	POST	/api/talent/v1/knowledge/articles/{id}/publish	talent:admin:knowledge:publish
+fenglin-talent-service	TalentTrainingController	POST	/api/talent/v1/knowledge/articles/{id}/submit	talent:knowledge:create
+fenglin-talent-service	TalentTrainingController	POST	/api/talent/v1/knowledge/categories	talent:knowledge:create
+fenglin-talent-service	TalentTrainingController	POST	/api/talent/v1/training/courses	talent:admin:course:create
+fenglin-talent-service	TalentTrainingController	POST	/api/talent/v1/training/courses/{id}/offline	talent:admin:course:create
+fenglin-talent-service	TalentTrainingController	POST	/api/talent/v1/training/courses/{id}/publish	talent:admin:course:create
+fenglin-talent-service	TalentTrainingController	POST	/api/talent/v1/training/courses/{id}/sessions	talent:admin:session:create
+fenglin-talent-service	TalentTrainingController	POST	/api/talent/v1/training/enrollments	biz:talent:course:enroll
+fenglin-talent-service	TalentTrainingController	POST	/api/talent/v1/training/exams/{id}/submit	biz:talent:exam:submit
+fenglin-talent-service	TalentTrainingController	POST	/api/talent/v1/training/learning/{id}/progress	biz:talent:learning:progress
+fenglin-tenant-service	PlatformAdminController	DELETE	/api/hub/v1/admin/platform-admins/{userId}	platform:tenant:manage
+fenglin-tenant-service	PlatformAdminController	GET	/api/hub/v1/admin/platform-admins/{userId}	platform:tenant:manage
+fenglin-tenant-service	PlatformAdminController	POST	/api/hub/v1/admin/platform-admins	platform:tenant:manage
+fenglin-tenant-service	TenantController	GET	/api/hub/v1/admin/tenants	
+fenglin-tenant-service	TenantController	GET	/api/hub/v1/admin/tenants/current	
+fenglin-tenant-service	TenantController	GET	/api/hub/v1/admin/tenants/{id}	
+fenglin-tenant-service	TenantController	POST	/api/hub/v1/admin/tenants	platform:tenant:manage
+fenglin-tenant-service	TenantController	POST	/api/hub/v1/admin/tenants/finance-init	platform:tenant:manage
+fenglin-tenant-service	TenantController	POST	/api/hub/v1/admin/tenants/{id}/status	platform:tenant:manage
+fenglin-workflow-service	WorkflowAdminController	GET	/api/hub/v1/admin/workflow/definitions	DEF_PERMISSION
+fenglin-workflow-service	WorkflowAdminController	GET	/api/hub/v1/admin/workflow/monitor/stats	tenant:workflow:monitor:view
+fenglin-workflow-service	WorkflowAdminController	POST	/api/hub/v1/admin/workflow/definitions	DEF_PERMISSION
+fenglin-workflow-service	WorkflowController	GET	/api/hub/v1/workflow/instances/{id}	biz:workflow:instance:view
+fenglin-workflow-service	WorkflowController	GET	/api/hub/v1/workflow/pending	biz:workflow:instance:view
+fenglin-workflow-service	WorkflowController	POST	/api/hub/v1/workflow/instances	biz:workflow:instance:start
+fenglin-workflow-service	WorkflowController	POST	/api/hub/v1/workflow/instances/{id}:terminate	biz:workflow:instance:start
+fenglin-workflow-service	WorkflowController	POST	/api/hub/v1/workflow/tasks/{id}:handle	biz:workflow:task:handle
+TOTAL	951

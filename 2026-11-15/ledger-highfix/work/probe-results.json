@@ -1,0 +1,965 @@
+[
+ {
+  "item": "OPEN-02",
+  "label": "调用日志导出路径",
+  "method": "GET",
+  "url": "http://localhost:18091/openapi/portal/apps/2120063396255424514/call-logs/export",
+  "status": 404,
+  "allow": "",
+  "body": "{\"code\":\"FL-COMMON-0404\",\"message\":\"资源不存在\",\"request_id\":\"7e562544-1b27-4812-8a86-be65f6542551\",\"timestamp\":\"2026-11-15T07:40:14.427210Z\"}"
+ },
+ {
+  "item": "OPEN-02",
+  "label": "调用日志查询路径(Allow)",
+  "method": "OPTIONS",
+  "url": "http://localhost:18091/openapi/portal/apps/2120063396255424514/call-logs",
+  "status": 200,
+  "allow": "GET,HEAD,OPTIONS",
+  "body": ""
+ },
+ {
+  "item": "OPEN-04",
+  "label": "应用详情字段",
+  "method": "GET",
+  "url": "http://localhost:18091/openapi/portal/apps/2120063396255424514",
+  "status": 200,
+  "allow": "",
+  "body": "{\"code\":\"0\",\"message\":\"OK\",\"data\":{\"app_id\":\"2120063396255424514\",\"code\":\"APP2026000001\",\"name\":\"?????????-20261110\",\"owner_type\":\"INTERNAL\",\"review_status\":\"APPROVED\",\"status\":\"ENABLED\",\"scopes\":[\"biz:file:upload\",\"biz:file:preview\"],\"redirect_uris\":[\"https://dev.example.com/openapi/callback\",\"https://dev2.example.com/cb\"],\"created_at\":\"2026-11-10T07:57:58.643244Z\",\"call_today\":0,\"quota_daily\":20000},\"request_id\":\"a2354748-fc5d-4fc4-a836-16adacda9943\",\"timestamp\":\"2026-11-15T07:40:14.627850200Z\"}"
+ },
+ {
+  "item": "SVC-02",
+  "label": "SLA策略删除能力",
+  "method": "OPTIONS",
+  "url": "http://localhost:18100/api/service/v1/admin/sla-policies",
+  "status": 200,
+  "allow": "GET,HEAD,POST,OPTIONS",
+  "body": ""
+ },
+ {
+  "item": "SVC-04",
+  "label": "自助归还路由",
+  "method": "OPTIONS",
+  "url": "http://localhost:18100/api/service/v1/assets/2120510799236341761/return-self",
+  "status": 200,
+  "allow": "POST,OPTIONS",
+  "body": ""
+ },
+ {
+  "item": "SVC-04",
+  "label": "本人资产列表",
+  "method": "GET",
+  "url": "http://localhost:18100/api/service/v1/assets/my",
+  "status": 200,
+  "allow": "",
+  "body": "{\"code\":\"0\",\"message\":\"OK\",\"data\":{\"records\":[{\"asset_no\":\"PLAT23-D3-ADMIN-BORROW\",\"owner_id\":9101,\"name\":\"PLAT23-D3 admin borrowed\",\"asset_type\":\"PHONE\",\"created_at\":\"2026-11-14T04:06:46.097+00:00\",\"id\":\"2121454768076857345\",\"status\":\"BORROWED\"},{\"asset_no\":\"PLAT23-D3-ADMIN-USE\",\"owner_id\":9101,\"name\":\"PLAT23-D3 admin in use\",\"asset_type\":\"LAPTOP\",\"created_at\":\"2026-11-14T04:06:46.070+00:00\",\"id\":\"2121454767959416834\",\"status\":\"IN_USE\"}],\"total\":2,\"page\":1,\"size\":20},\"request_id\":\"c57a664c-64e8-4bfb-ad9e-a3b3c4b195c0\",\"timestamp\":\"2026-11-15T07:40:14.797649400Z\"}"
+ },
+ {
+  "item": "SVC-06",
+  "label": "KB文章删除/修改能力",
+  "method": "OPTIONS",
+  "url": "http://localhost:18100/api/service/v1/kb/articles/1",
+  "status": 200,
+  "allow": "GET,HEAD,OPTIONS",
+  "body": ""
+ },
+ {
+  "item": "SVC-06",
+  "label": "KB反馈明细",
+  "method": "GET",
+  "url": "http://localhost:18100/api/service/v1/kb/articles/1/feedback",
+  "status": 405,
+  "allow": "",
+  "body": "{\"code\":\"FL-COMMON-0405\",\"message\":\"请求方法不支持: GET\",\"request_id\":\"d951f9af-904c-4048-ae71-859f874ae8cd\",\"timestamp\":\"2026-11-15T07:40:14.827345200Z\"}"
+ },
+ {
+  "item": "SVC-08",
+  "label": "报表带时间区间",
+  "method": "GET",
+  "url": "http://localhost:18100/api/service/v1/reports/tickets?from=2026-01-01T00:00:00Z&to=2026-12-31T23:59:59Z",
+  "status": 200,
+  "allow": "",
+  "body": "{\"code\":\"0\",\"message\":\"OK\",\"data\":{\"total\":0,\"by_status\":[],\"by_priority\":[],\"by_type\":[]},\"request_id\":\"5b5214f5-bb3e-4217-977d-494119e87ca9\",\"timestamp\":\"2026-11-15T07:40:14.858952Z\"}"
+ },
+ {
+  "item": "SVC-09",
+  "label": "低代码发布分页",
+  "method": "GET",
+  "url": "http://localhost:18100/api/service/v1/lowcode/releases?page=1&size=1",
+  "status": 500,
+  "allow": "",
+  "body": "{\"code\":\"FL-COMMON-0500\",\"message\":\"系统内部错误\",\"request_id\":\"99c8b720-c562-4ba7-9246-5b02a262573c\",\"timestamp\":\"2026-11-15T07:40:14.892225Z\"}"
+ },
+ {
+  "item": "SVC-10",
+  "label": "服务台配置删除能力",
+  "method": "OPTIONS",
+  "url": "http://localhost:18100/api/service/v1/admin/config/TICKET_TYPE",
+  "status": 200,
+  "allow": "GET,HEAD,OPTIONS",
+  "body": ""
+ },
+ {
+  "item": "SVC-11",
+  "label": "流程挖掘事件接入",
+  "method": "OPTIONS",
+  "url": "http://localhost:18100/api/service/v1/mining/events",
+  "status": 200,
+  "allow": "POST,OPTIONS",
+  "body": ""
+ },
+ {
+  "item": "TAL-05",
+  "label": "试用期列表",
+  "method": "GET",
+  "url": "http://localhost:18097/api/talent/v1/probation",
+  "status": 404,
+  "allow": "",
+  "body": "{\"code\":\"FL-COMMON-0404\",\"message\":\"资源不存在\",\"request_id\":\"3d00eccb-39d9-4548-835e-b6975085ed7c\",\"timestamp\":\"2026-11-15T07:40:14.978995500Z\"}"
+ },
+ {
+  "item": "TAL-09",
+  "label": "职级新建能力",
+  "method": "OPTIONS",
+  "url": "http://localhost:18097/api/talent/v1/grades",
+  "status": 200,
+  "allow": "GET,HEAD,OPTIONS",
+  "body": ""
+ },
+ {
+  "item": "TAL-09",
+  "label": "岗位列表过滤",
+  "method": "GET",
+  "url": "http://localhost:18097/api/talent/v1/positions?status=ACTIVE&keyword=x",
+  "status": 200,
+  "allow": "",
+  "body": "{\"code\":\"0\",\"message\":\"OK\",\"data\":{\"records\":[{\"id\":\"2121836856638689281\",\"position_code\":\"FL.POS1115\",\"position_name\":\"测试岗位-1115\",\"job_family\":\"TECH\",\"job_sequence\":\"P\",\"headcount\":1,\"org_id\":\"2121836718964854785\",\"status\":\"ENABLED\"}],\"total\":1,\"page\":1,\"size\":20},\"request_id\":\"c5b11c4e-127f-4e05-9db9-7e9dc3aa7cf3\",\"timestamp\":\"2026-11-15T07:40:15.018552Z\"}"
+ },
+ {
+  "item": "TAL-10",
+  "label": "批量导入与模板",
+  "method": "OPTIONS",
+  "url": "http://localhost:18097/api/talent/v1/employees/import",
+  "status": 200,
+  "allow": "PUT,POST,GET,HEAD,OPTIONS",
+  "body": ""
+ },
+ {
+  "item": "TAL-10",
+  "label": "导入模板下载",
+  "method": "GET",
+  "url": "http://localhost:18097/api/talent/v1/employees/import/template",
+  "status": 404,
+  "allow": "",
+  "body": "{\"code\":\"FL-COMMON-0404\",\"message\":\"资源不存在\",\"request_id\":\"5a9846e9-55c5-49cc-b3fa-bdec6a86dd98\",\"timestamp\":\"2026-11-15T07:40:15.044658900Z\"}"
+ },
+ {
+  "item": "TAL-11",
+  "label": "候选人标签字典",
+  "method": "GET",
+  "url": "http://localhost:18097/api/talent/v1/recruit/tags",
+  "status": 404,
+  "allow": "",
+  "body": "{\"code\":\"FL-COMMON-0404\",\"message\":\"资源不存在\",\"request_id\":\"20db2fb0-fcd7-4ad0-95f4-b64996e20fdb\",\"timestamp\":\"2026-11-15T07:40:15.067247400Z\"}"
+ },
+ {
+  "item": "TAL-14",
+  "label": "薪酬个税计算",
+  "method": "GET",
+  "url": "http://localhost:18097/api/talent/v1/payroll/tax/calculate",
+  "status": 404,
+  "allow": "",
+  "body": "{\"code\":\"FL-COMMON-0404\",\"message\":\"资源不存在\",\"request_id\":\"1111ceb3-7ab6-4601-87c7-430550e4bd3d\",\"timestamp\":\"2026-11-15T07:40:15.097748100Z\"}"
+ },
+ {
+  "item": "TAL-15",
+  "label": "工资条PDF",
+  "method": "GET",
+  "url": "http://localhost:18097/api/talent/v1/payroll/slips/1/pdf",
+  "status": 404,
+  "allow": "",
+  "body": "{\"code\":\"FL-COMMON-0404\",\"message\":\"资源不存在\",\"request_id\":\"07c97db0-86fe-450f-b69f-a606925c9e80\",\"timestamp\":\"2026-11-15T07:40:15.104893Z\"}"
+ },
+ {
+  "item": "FIN-02",
+  "label": "供应商选择器",
+  "method": "GET",
+  "url": "http://localhost:18098/api/finance/v1/suppliers",
+  "status": 404,
+  "allow": "",
+  "body": "{\"code\":\"FL-COMMON-0404\",\"message\":\"资源不存在\",\"request_id\":\"789a8543-6094-4ea0-b612-90b8911d8885\",\"timestamp\":\"2026-11-15T07:40:15.735169500Z\"}"
+ },
+ {
+  "item": "FIN-02",
+  "label": "客户选择器",
+  "method": "GET",
+  "url": "http://localhost:18098/api/finance/v1/customers",
+  "status": 404,
+  "allow": "",
+  "body": "{\"code\":\"FL-COMMON-0404\",\"message\":\"资源不存在\",\"request_id\":\"e8912c3d-d9e6-48b0-8d09-df135e188a7a\",\"timestamp\":\"2026-11-15T07:40:15.841763900Z\"}"
+ },
+ {
+  "item": "FIN-03",
+  "label": "坏账核销",
+  "method": "OPTIONS",
+  "url": "http://localhost:18098/api/finance/v1/arap/write-off",
+  "status": 200,
+  "allow": "POST,OPTIONS",
+  "body": ""
+ },
+ {
+  "item": "FIN-03",
+  "label": "催收任务",
+  "method": "GET",
+  "url": "http://localhost:18098/api/finance/v1/arap/collections",
+  "status": 404,
+  "allow": "",
+  "body": "{\"code\":\"FL-COMMON-0404\",\"message\":\"资源不存在\",\"request_id\":\"8de18340-95b1-4775-bcc5-c0ce0b48416e\",\"timestamp\":\"2026-11-15T07:40:15.951907900Z\"}"
+ },
+ {
+  "item": "FIN-04",
+  "label": "资产卡片更新/删除",
+  "method": "OPTIONS",
+  "url": "http://localhost:18098/api/finance/v1/assets/cards",
+  "status": 200,
+  "allow": "POST,GET,HEAD,OPTIONS",
+  "body": ""
+ },
+ {
+  "item": "FIN-04",
+  "label": "IT资产借用记录",
+  "method": "GET",
+  "url": "http://localhost:18098/api/finance/v1/assets/it/borrow-records",
+  "status": 404,
+  "allow": "",
+  "body": "{\"code\":\"FL-COMMON-0404\",\"message\":\"资源不存在\",\"request_id\":\"380f3943-c6ec-4423-97cf-add1258b1806\",\"timestamp\":\"2026-11-15T07:40:16.020731900Z\"}"
+ },
+ {
+  "item": "FIN-05",
+  "label": "银行账户更新/停用",
+  "method": "OPTIONS",
+  "url": "http://localhost:18098/api/finance/v1/bank/accounts",
+  "status": 200,
+  "allow": "POST,GET,HEAD,OPTIONS",
+  "body": ""
+ },
+ {
+  "item": "FIN-05",
+  "label": "对账未达项",
+  "method": "GET",
+  "url": "http://localhost:18098/api/finance/v1/bank/reconciliations/1/unmatched",
+  "status": 404,
+  "allow": "",
+  "body": "{\"code\":\"FL-COMMON-0404\",\"message\":\"资源不存在\",\"request_id\":\"4817183a-40e0-48e7-b128-9e484da8f896\",\"timestamp\":\"2026-11-15T07:40:16.076227700Z\"}"
+ },
+ {
+  "item": "FIN-06",
+  "label": "碳排趋势",
+  "method": "GET",
+  "url": "http://localhost:18098/api/finance/v1/carbon/trend",
+  "status": 404,
+  "allow": "",
+  "body": "{\"code\":\"FL-COMMON-0404\",\"message\":\"资源不存在\",\"request_id\":\"86881282-3911-48cd-a249-4122de379f06\",\"timestamp\":\"2026-11-15T07:40:16.092035300Z\"}"
+ },
+ {
+  "item": "FIN-06",
+  "label": "ESG章节",
+  "method": "GET",
+  "url": "http://localhost:18098/api/finance/v1/esg/reports/1/sections",
+  "status": 404,
+  "allow": "",
+  "body": "{\"code\":\"FL-COMMON-0404\",\"message\":\"资源不存在\",\"request_id\":\"c10cf932-3d08-4aa7-b2e2-8093e9c820db\",\"timestamp\":\"2026-11-15T07:40:16.122982500Z\"}"
+ },
+ {
+  "item": "FIN-08",
+  "label": "预算调整/追加",
+  "method": "OPTIONS",
+  "url": "http://localhost:18098/api/finance/v1/budgets",
+  "status": 200,
+  "allow": "GET,HEAD,POST,OPTIONS",
+  "body": ""
+ },
+ {
+  "item": "FIN-08",
+  "label": "预算调整路径",
+  "method": "GET",
+  "url": "http://localhost:18098/api/finance/v1/budgets/adjustments",
+  "status": 404,
+  "allow": "",
+  "body": "{\"code\":\"FL-COMMON-0404\",\"message\":\"资源不存在\",\"request_id\":\"cf77c79d-0c37-422b-8890-fff5e0627522\",\"timestamp\":\"2026-11-15T07:40:16.196372400Z\"}"
+ },
+ {
+  "item": "FIN-09",
+  "label": "发票查验",
+  "method": "OPTIONS",
+  "url": "http://localhost:18098/api/finance/v1/invoices/1/verify",
+  "status": 200,
+  "allow": "POST,OPTIONS",
+  "body": ""
+ },
+ {
+  "item": "FIN-09",
+  "label": "发票附件",
+  "method": "GET",
+  "url": "http://localhost:18098/api/finance/v1/invoices/1/attachment",
+  "status": 404,
+  "allow": "",
+  "body": "{\"code\":\"FL-COMMON-0404\",\"message\":\"资源不存在\",\"request_id\":\"0c8236f5-3cf6-455d-8040-d69d73f60e1a\",\"timestamp\":\"2026-11-15T07:40:16.252348400Z\"}"
+ },
+ {
+  "item": "FIN-10",
+  "label": "账套更新/删除",
+  "method": "OPTIONS",
+  "url": "http://localhost:18098/api/finance/v1/ledgers/2120408424215543810",
+  "status": 404,
+  "allow": "",
+  "body": "{\"code\":\"FL-COMMON-0404\",\"message\":\"资源不存在\",\"request_id\":\"ee74eaba-203d-4f15-a29a-04e9c4fe7f55\",\"timestamp\":\"2026-11-15T07:40:16.284479200Z\"}"
+ },
+ {
+  "item": "FIN-10",
+  "label": "新增会计期间",
+  "method": "GET",
+  "url": "http://localhost:18098/api/finance/v1/periods",
+  "status": 404,
+  "allow": "",
+  "body": "{\"code\":\"FL-COMMON-0404\",\"message\":\"资源不存在\",\"request_id\":\"7bc06337-8470-46cd-b8bf-50275840c1ab\",\"timestamp\":\"2026-11-15T07:40:16.339125700Z\"}"
+ },
+ {
+  "item": "FIN-11",
+  "label": "项目更新/关闭/删除",
+  "method": "OPTIONS",
+  "url": "http://localhost:18098/api/finance/v1/projects/1",
+  "status": 200,
+  "allow": "GET,HEAD,OPTIONS",
+  "body": ""
+ },
+ {
+  "item": "FIN-11",
+  "label": "项目成员移除",
+  "method": "GET",
+  "url": "http://localhost:18098/api/finance/v1/projects/1/members/1",
+  "status": 404,
+  "allow": "",
+  "body": "{\"code\":\"FL-COMMON-0404\",\"message\":\"资源不存在\",\"request_id\":\"08d7f974-50e5-4cb6-8448-ce01fcec5a6b\",\"timestamp\":\"2026-11-15T07:40:16.376598900Z\"}"
+ },
+ {
+  "item": "FIN-12",
+  "label": "报表导出",
+  "method": "GET",
+  "url": "http://localhost:18098/api/finance/v1/reports/balance-sheet/export?ledgerId=2120408424215543810&periodCode=2026-10",
+  "status": 404,
+  "allow": "",
+  "body": "{\"code\":\"FL-COMMON-0404\",\"message\":\"资源不存在\",\"request_id\":\"0a473c94-5990-41b3-9335-7f52db97da30\",\"timestamp\":\"2026-11-15T07:40:16.389177500Z\"}"
+ },
+ {
+  "item": "FIN-13",
+  "label": "凭证列表分页结构",
+  "method": "GET",
+  "url": "http://localhost:18098/api/finance/v1/vouchers?ledgerId=2120408424215543810&page=1&size=1",
+  "status": 200,
+  "allow": "",
+  "body": "{\"code\":\"0\",\"message\":\"OK\",\"data\":{\"records\":[],\"total\":0,\"page\":1,\"size\":1},\"request_id\":\"ab48e856-5171-478d-8637-bcd2ac6b5769\",\"timestamp\":\"2026-11-15T07:40:16.528281600Z\"}"
+ },
+ {
+  "item": "FIN-14",
+  "label": "凭证反审核",
+  "method": "GET",
+  "url": "http://localhost:18098/api/finance/v1/vouchers/1/unaudit",
+  "status": 404,
+  "allow": "",
+  "body": "{\"code\":\"FL-COMMON-0404\",\"message\":\"资源不存在\",\"request_id\":\"900cf582-da2b-4b5a-9752-74938bf28e00\",\"timestamp\":\"2026-11-15T07:40:16.609770500Z\"}"
+ },
+ {
+  "item": "RND-01",
+  "label": "代码库跨产品聚合",
+  "method": "GET",
+  "url": "http://localhost:18099/api/rnd/v1/repos",
+  "status": 400,
+  "allow": "",
+  "body": "{\"code\":\"FL-COMMON-0400\",\"message\":\"缺少必填参数: productId\",\"request_id\":\"faa9a1f4-f669-4f5d-b724-2f256e8e2eeb\",\"timestamp\":\"2026-11-15T07:40:16.722663800Z\"}"
+ },
+ {
+  "item": "RND-01",
+  "label": "代码库按产品",
+  "method": "GET",
+  "url": "http://localhost:18099/api/rnd/v1/repos?productId=2120398000000000001",
+  "status": 200,
+  "allow": "",
+  "body": "{\"code\":\"0\",\"message\":\"OK\",\"data\":[],\"request_id\":\"c7467ff0-ade6-4308-a528-e16f4e4154be\",\"timestamp\":\"2026-11-15T07:40:17.117157100Z\"}"
+ },
+ {
+  "item": "RND-02",
+  "label": "缺陷列表负责人/关键字过滤",
+  "method": "GET",
+  "url": "http://localhost:18099/api/rnd/v1/defects?productId=2120398000000000001&ownerId=9101&keyword=x",
+  "status": 200,
+  "allow": "",
+  "body": "{\"code\":\"0\",\"message\":\"OK\",\"data\":[{\"id\":\"2121453169891856386\",\"product_id\":\"2120398000000000001\",\"defect_no\":\"BUG-3\",\"title\":\"PLAT23-D2 admin defect\",\"severity\":\"MINOR\",\"priority\":\"P3\",\"status\":\"new\",\"found_stage\":\"test\",\"reporter_id\":\"9101\",\"reopen_count\":0,\"created_at\":\"2026-11-14 12:00:25.062158+08\"},{\"id\":\"2121453169757638657\",\"product_id\":\"2120398000000000001\",\"defect_no\":\"BUG-2\",\"title\":\"PLAT23-D2 emp defect\",\"severity\":\"MAJOR\",\"priority\":\"P2\",\"status\":\"new\",\"found_stage\":\"test\",\"reporter_id\":\"2119960532813676547\",\"reopen_count\":0,\"created_at\":\"2026-11-14 12:00:25.026512+08\"}],\"request_id\":\"11adabc3-d5f5-4d53-b930-6da76e46f2e8\",\"timestamp\":\"2026-11-15T07:40:17.215233800Z\"}"
+ },
+ {
+  "item": "RND-03",
+  "label": "需求列表负责人/关键字过滤",
+  "method": "GET",
+  "url": "http://localhost:18099/api/rnd/v1/requirements?productId=2120398000000000001&ownerId=9101&keyword=x",
+  "status": 200,
+  "allow": "",
+  "body": "{\"code\":\"0\",\"message\":\"OK\",\"data\":[],\"request_id\":\"bf594a8a-c647-406a-9998-e5e7828177db\",\"timestamp\":\"2026-11-15T07:40:17.268856200Z\"}"
+ },
+ {
+  "item": "RND-04",
+  "label": "产品删除/归档",
+  "method": "OPTIONS",
+  "url": "http://localhost:18099/api/rnd/v1/products/2120398000000000001",
+  "status": 200,
+  "allow": "GET,HEAD,PUT,OPTIONS",
+  "body": ""
+ },
+ {
+  "item": "RND-04",
+  "label": "成员用户检索",
+  "method": "GET",
+  "url": "http://localhost:18099/api/rnd/v1/products/2120398000000000001/members/search?keyword=a",
+  "status": 500,
+  "allow": "",
+  "body": "{\"code\":\"FL-COMMON-0500\",\"message\":\"系统内部错误\",\"request_id\":\"f9adc81b-ff06-4a43-8ffb-621ec511afce\",\"timestamp\":\"2026-11-15T07:40:17.289202400Z\"}"
+ },
+ {
+  "item": "RND-06",
+  "label": "看板列表",
+  "method": "GET",
+  "url": "http://localhost:18099/api/rnd/v1/boards",
+  "status": 500,
+  "allow": "",
+  "body": "{\"code\":\"FL-COMMON-0500\",\"message\":\"系统内部错误\",\"request_id\":\"9effedaf-5869-4cde-807e-7a749c2a5beb\",\"timestamp\":\"2026-11-15T07:40:17.295717900Z\"}"
+ },
+ {
+  "item": "RND-06",
+  "label": "迭代容量维护",
+  "method": "GET",
+  "url": "http://localhost:18099/api/rnd/v1/sprints/1/capacity",
+  "status": 404,
+  "allow": "",
+  "body": "{\"code\":\"FL-COMMON-0404\",\"message\":\"资源不存在\",\"request_id\":\"8655de17-6d87-4cdd-a803-309746a7f8e1\",\"timestamp\":\"2026-11-15T07:40:17.328249600Z\"}"
+ },
+ {
+  "item": "RND-08",
+  "label": "测试计划列表",
+  "method": "GET",
+  "url": "http://localhost:18099/api/rnd/v1/test-plans",
+  "status": 500,
+  "allow": "",
+  "body": "{\"code\":\"FL-COMMON-0500\",\"message\":\"系统内部错误\",\"request_id\":\"3059928d-a75c-4ab0-986b-a92b9e6a04d7\",\"timestamp\":\"2026-11-15T07:40:17.350329700Z\"}"
+ },
+ {
+  "item": "RND-08",
+  "label": "跨产品用例查询",
+  "method": "GET",
+  "url": "http://localhost:18099/api/rnd/v1/test-cases?page=1&size=1",
+  "status": 400,
+  "allow": "",
+  "body": "{\"code\":\"FL-COMMON-0400\",\"message\":\"缺少必填参数: productId\",\"request_id\":\"89a378bb-d4e7-4c81-a665-26f1c5abbde9\",\"timestamp\":\"2026-11-15T07:40:17.373833900Z\"}"
+ },
+ {
+  "item": "RND-09",
+  "label": "集成配置单条",
+  "method": "GET",
+  "url": "http://localhost:18099/api/rnd/v1/tenant-config",
+  "status": 200,
+  "allow": "",
+  "body": "{\"code\":\"0\",\"message\":\"OK\",\"data\":{\"config_json\":{},\"timezone\":\"Asia/Shanghai\",\"data_retention_months\":24,\"dora_target_level\":\"high\"},\"request_id\":\"a0314680-0da6-48fc-9353-e725975127ad\",\"timestamp\":\"2026-11-15T07:40:17.404645700Z\"}"
+ },
+ {
+  "item": "RND-10",
+  "label": "度量口径维护",
+  "method": "GET",
+  "url": "http://localhost:18099/api/rnd/v1/metric-configs",
+  "status": 200,
+  "allow": "",
+  "body": "{\"code\":\"0\",\"message\":\"OK\",\"data\":[{\"id\":\"900010\",\"tenant_id\":\"0\",\"metric_code\":\"contribution.code_lines\",\"metric_name\":\"代码贡献行数\",\"metric_group\":\"contribution\",\"formula\":\"新增行数 - 删除行数\",\"caliber_version\":\"v1\",\"weight\":0.25,\"target_value\":1000.000000,\"unit\":\"行\",\"status\":\"enabled\"},{\"id\":\"900009\",\"tenant_id\":\"0\",\"metric_code\":\"contribution.effective_commit_rate\",\"metric_name\":\"有效提交率\",\"metric_group\":\"contribution\",\"formula\":\"关联工作项提交数 / 非排除提交数\",\"caliber_version\":\"v1\",\"weight\":0.25,\"target_value\":0.800000,\"unit\":\"比率\",\"status\":\"enabled\"},{\"id\":\"900005\",\"tenant_id\":\"0\",\"metric_code\":\"delivery.lead_time_hours\",\"metric_name\":\"需求交付周期\",\"metric_group\":\"delivery\",\"formula\":\"需求交付时间 - 创建时间的中位数（小时）\",\"caliber_version\":\"v1\",\"weight\":0.30,\"target_value\":72.000000,\"unit\":\"小时\",\"status\":\"enabled\"},{\"id\":\"900006\",\"tenant_id\":\"0\",\"metric_code\":\"delivery.throughput\",\"metric_name\":\"需求交付吞吐\",\"metric_group\":\"delivery\",\"formula\":\"统计周期内交付需求数\",\"caliber_version\":\"v1\",\"weight\":0.20,\"target_value\":20.000000,\"unit\":\"个\",\"status\":\"enabled\"},{\"id\":\"900003\",\"tenant_id\":\"0\",\"metric_code\":\"dora.change_failure_rate\",\"metric_name\":\"变更失败率\",\"metric_group\":\"dora\",\"formula\":\"导致回滚或热修复的生产部署数 / 生产部署总数\",\"caliber_version\":\"v1\",\"weight\":"
+ },
+ {
+  "item": "RND-10",
+  "label": "数据质量接口",
+  "method": "GET",
+  "url": "http://localhost:18099/api/rnd/v1/metric-data-quality",
+  "status": 200,
+  "allow": "",
+  "body": "{\"code\":\"0\",\"message\":\"OK\",\"data\":{\"period_type\":\"month\",\"period_key\":\"2026-11\",\"sample_count\":0,\"missing_count\":0,\"outlier_count\":0,\"missing_rate\":0.000000,\"quality_flag\":\"missing\"},\"request_id\":\"85dc0058-09cd-4642-a14b-031b0071e2be\",\"timestamp\":\"2026-11-15T07:40:17.496474100Z\"}"
+ },
+ {
+  "item": "RND-11",
+  "label": "本人缺陷",
+  "method": "GET",
+  "url": "http://localhost:18099/api/rnd/v1/defects/my",
+  "status": 200,
+  "allow": "",
+  "body": "{\"code\":\"0\",\"message\":\"OK\",\"data\":[{\"id\":\"2121453169891856386\",\"product_id\":\"2120398000000000001\",\"defect_no\":\"BUG-3\",\"title\":\"PLAT23-D2 admin defect\",\"severity\":\"MINOR\",\"priority\":\"P3\",\"status\":\"new\",\"found_stage\":\"test\",\"reporter_id\":\"9101\",\"reopen_count\":0,\"created_at\":\"2026-11-14 12:00:25.062158+08\"}],\"request_id\":\"46ce208e-b429-4662-b7a7-a5425037bfc3\",\"timestamp\":\"2026-11-15T07:40:17.533797Z\"}"
+ },
+ {
+  "item": "RND-11",
+  "label": "本人贡献度",
+  "method": "GET",
+  "url": "http://localhost:18099/api/rnd/v1/metrics/contributions/my",
+  "status": 200,
+  "allow": "",
+  "body": "{\"code\":\"0\",\"message\":\"OK\",\"data\":[{\"user_id\":\"9101\",\"product_id\":\"2120398000000000001\",\"period_type\":\"month\",\"period_key\":\"2026-11\",\"commit_count\":3,\"add_lines\":80,\"del_lines\":20,\"effective_commits\":1,\"effective_commit_rate\":0.333333,\"complexity_score\":33.3333}],\"request_id\":\"f599c2fe-6161-4b21-b0a2-0cd72c889c75\",\"timestamp\":\"2026-11-15T07:40:17.566580Z\"}"
+ },
+ {
+  "item": "LEG-02",
+  "label": "签署人PII明文",
+  "method": "GET",
+  "url": "http://localhost:18101/api/legal/v1/contract-signatories/2121460000000000003/pii",
+  "status": 404,
+  "allow": "",
+  "body": "{\"code\":\"FL-COMMON-0404\",\"message\":\"资源不存在\",\"request_id\":\"d5151e74-fa3f-4e55-85fb-be3bdeabac5d\",\"timestamp\":\"2026-11-15T07:40:17.644000700Z\"}"
+ },
+ {
+  "item": "LEG-02",
+  "label": "签署人列表",
+  "method": "GET",
+  "url": "http://localhost:18101/api/legal/v1/contract-signatories?limit=1",
+  "status": 400,
+  "allow": "",
+  "body": "{\"code\":\"FL-COMMON-0400\",\"message\":\"缺少必填参数: contract_id\",\"request_id\":\"12d1ffb2-9871-4570-9907-ac582309c02e\",\"timestamp\":\"2026-11-15T07:40:17.685489300Z\"}"
+ },
+ {
+  "item": "LEG-04",
+  "label": "报表时间区间",
+  "method": "GET",
+  "url": "http://localhost:18101/api/legal/v1/admin/reports/contracts?from=2026-01-01&to=2026-12-31",
+  "status": 200,
+  "allow": "",
+  "body": "{\"code\":\"0\",\"message\":\"OK\",\"data\":{\"dim\":\"STATUS\",\"items\":[{\"total\":2,\"status\":\"SEALING\"}],\"summary\":{\"total\":2,\"amount\":11000.00}},\"request_id\":\"d36f58f4-34e1-42a7-b4ca-7ece60bd2adc\",\"timestamp\":\"2026-11-15T07:40:17.751361900Z\"}"
+ },
+ {
+  "item": "LEG-04",
+  "label": "报表快照",
+  "method": "GET",
+  "url": "http://localhost:18101/api/legal/v1/admin/reports/contracts/snapshots",
+  "status": 404,
+  "allow": "",
+  "body": "{\"code\":\"FL-COMMON-0404\",\"message\":\"资源不存在\",\"request_id\":\"3016897b-2396-4e93-b190-8b4d7be1cc61\",\"timestamp\":\"2026-11-15T07:40:17.766064200Z\"}"
+ },
+ {
+  "item": "AI-01",
+  "label": "SSE流式路由",
+  "method": "OPTIONS",
+  "url": "http://localhost:18094/api/hub/v1/ai/copilot/messages:stream",
+  "status": 200,
+  "allow": "POST,OPTIONS",
+  "body": ""
+ },
+ {
+  "item": "AI-02",
+  "label": "智能体执行历史",
+  "method": "GET",
+  "url": "http://localhost:18102/api/intelligence/v1/agents/runs",
+  "status": 404,
+  "allow": "",
+  "body": "{\"code\":\"FL-COMMON-0404\",\"message\":\"资源不存在\",\"request_id\":\"3db7d34b-08d4-4d0f-94bb-618f1a91ff23\",\"timestamp\":\"2026-11-15T07:40:18.332419Z\"}"
+ },
+ {
+  "item": "AI-02",
+  "label": "智能体列表",
+  "method": "GET",
+  "url": "http://localhost:18102/api/intelligence/v1/agents",
+  "status": 200,
+  "allow": "",
+  "body": "{\"code\":\"0\",\"message\":\"OK\",\"data\":{\"records\":[],\"total\":0,\"page\":1,\"size\":20},\"request_id\":\"8f5d5897-664f-4b2f-80ad-b9a160b18712\",\"timestamp\":\"2026-11-15T07:40:18.802331Z\"}"
+ },
+ {
+  "item": "AI-03",
+  "label": "看板图表数据",
+  "method": "GET",
+  "url": "http://localhost:18102/api/intelligence/v1/dashboards/1/data",
+  "status": 404,
+  "allow": "",
+  "body": "{\"code\":\"FL-COMMON-0404\",\"message\":\"资源不存在\",\"request_id\":\"3a180f57-bd51-432d-8e00-cde84afb9d3f\",\"timestamp\":\"2026-11-15T07:40:18.824473Z\"}"
+ },
+ {
+  "item": "AI-03",
+  "label": "看板列表",
+  "method": "GET",
+  "url": "http://localhost:18102/api/intelligence/v1/dashboards",
+  "status": 200,
+  "allow": "",
+  "body": "{\"code\":\"0\",\"message\":\"OK\",\"data\":{\"records\":[],\"total\":0,\"page\":1,\"size\":20},\"request_id\":\"8af5ccee-dc37-4fa6-abc5-87ea08296f7f\",\"timestamp\":\"2026-11-15T07:40:18.843178900Z\"}"
+ },
+ {
+  "item": "AI-04",
+  "label": "数据源列表",
+  "method": "GET",
+  "url": "http://localhost:18102/api/intelligence/v1/admin/data-sources",
+  "status": 200,
+  "allow": "",
+  "body": "{\"code\":\"0\",\"message\":\"OK\",\"data\":{\"records\":[],\"total\":0,\"page\":1,\"size\":20},\"request_id\":\"a4ae2be2-04cb-428e-ac04-de1ea1fa4793\",\"timestamp\":\"2026-11-15T07:40:18.879539200Z\"}"
+ },
+ {
+  "item": "AI-04",
+  "label": "数据源连通性测试",
+  "method": "OPTIONS",
+  "url": "http://localhost:18102/api/intelligence/v1/admin/data-sources/1",
+  "status": 404,
+  "allow": "",
+  "body": "{\"code\":\"FL-COMMON-0404\",\"message\":\"资源不存在\",\"request_id\":\"94960987-0ee6-49ef-b45f-c797315f8cf9\",\"timestamp\":\"2026-11-15T07:40:18.900026Z\"}"
+ },
+ {
+  "item": "AI-05",
+  "label": "文档文件上传(仅JSON)",
+  "method": "OPTIONS",
+  "url": "http://localhost:18102/api/intelligence/v1/admin/documents",
+  "status": 200,
+  "allow": "POST,OPTIONS",
+  "body": ""
+ },
+ {
+  "item": "AI-05",
+  "label": "检索高亮",
+  "method": "GET",
+  "url": "http://localhost:18102/api/intelligence/v1/search/highlight?q=x",
+  "status": 404,
+  "allow": "",
+  "body": "{\"code\":\"FL-COMMON-0404\",\"message\":\"资源不存在\",\"request_id\":\"b782cd01-6b8e-47c1-aaa7-06c6cccae3d7\",\"timestamp\":\"2026-11-15T07:40:18.954349Z\"}"
+ },
+ {
+  "item": "AI-06",
+  "label": "知识图谱实体",
+  "method": "GET",
+  "url": "http://localhost:18102/api/intelligence/v1/kg/entities?limit=1",
+  "status": 200,
+  "allow": "",
+  "body": "{\"code\":\"0\",\"message\":\"OK\",\"data\":[],\"request_id\":\"a2010a3d-621f-4d68-9973-b15d0f158c27\",\"timestamp\":\"2026-11-15T07:40:18.975443700Z\"}"
+ },
+ {
+  "item": "AI-06",
+  "label": "知识图谱图数据",
+  "method": "GET",
+  "url": "http://localhost:18102/api/intelligence/v1/kg/graph",
+  "status": 404,
+  "allow": "",
+  "body": "{\"code\":\"FL-COMMON-0404\",\"message\":\"资源不存在\",\"request_id\":\"bd72c5ef-8f2c-4901-a4eb-90f4b18d3d2d\",\"timestamp\":\"2026-11-15T07:40:18.986693200Z\"}"
+ },
+ {
+  "item": "AI-07",
+  "label": "数据集预览",
+  "method": "GET",
+  "url": "http://localhost:18102/api/intelligence/v1/datasets/1/preview",
+  "status": 404,
+  "allow": "",
+  "body": "{\"code\":\"FL-COMMON-0404\",\"message\":\"资源不存在\",\"request_id\":\"10aa84ea-8b6a-40f9-988b-56a3048d6586\",\"timestamp\":\"2026-11-15T07:40:19.006635600Z\"}"
+ },
+ {
+  "item": "AI-07",
+  "label": "字段删除",
+  "method": "OPTIONS",
+  "url": "http://localhost:18102/api/intelligence/v1/datasets/1/fields/1",
+  "status": 404,
+  "allow": "",
+  "body": "{\"code\":\"FL-COMMON-0404\",\"message\":\"资源不存在\",\"request_id\":\"2968c900-367e-425e-b6d8-e7407b764f87\",\"timestamp\":\"2026-11-15T07:40:19.017680400Z\"}"
+ },
+ {
+  "item": "AI-08",
+  "label": "概览时间区间",
+  "method": "GET",
+  "url": "http://localhost:18102/api/intelligence/v1/report/overview?from=2026-01-01&to=2026-12-31",
+  "status": 200,
+  "allow": "",
+  "body": "{\"code\":\"0\",\"message\":\"OK\",\"data\":{\"knowledge_bases\":0,\"data_sources\":0,\"chunks\":0,\"datasets\":0,\"dashboards\":0,\"insight_tasks\":0},\"request_id\":\"0bb1cef4-5f08-4a04-9620-224f918b3ec2\",\"timestamp\":\"2026-11-15T07:40:19.068687800Z\"}"
+ },
+ {
+  "item": "AI-09",
+  "label": "洞察任务轮询",
+  "method": "GET",
+  "url": "http://localhost:18102/api/intelligence/v1/insight-tasks",
+  "status": 200,
+  "allow": "",
+  "body": "{\"code\":\"0\",\"message\":\"OK\",\"data\":{\"records\":[],\"total\":0,\"page\":1,\"size\":20},\"request_id\":\"7e282f42-64c2-4b1e-b754-6c27333e2058\",\"timestamp\":\"2026-11-15T07:40:19.087319500Z\"}"
+ },
+ {
+  "item": "AI-09",
+  "label": "导出下载",
+  "method": "OPTIONS",
+  "url": "http://localhost:18102/api/intelligence/v1/analytics/export",
+  "status": 200,
+  "allow": "POST,OPTIONS",
+  "body": ""
+ },
+ {
+  "item": "AI-10",
+  "label": "提示词回读",
+  "method": "GET",
+  "url": "http://localhost:18094/api/hub/v1/admin/ai/prompts",
+  "status": 200,
+  "allow": "",
+  "body": "{\"code\":\"0\",\"message\":\"OK\",\"data\":{\"records\":[],\"total\":0,\"page\":1,\"size\":20},\"request_id\":\"261e6c17-4914-4fe9-bdb6-e361875bbc21\",\"timestamp\":\"2026-11-15T07:40:19.564290200Z\"}"
+ },
+ {
+  "item": "AI-10",
+  "label": "模型供应商回读",
+  "method": "GET",
+  "url": "http://localhost:18094/api/hub/v1/admin/ai/models",
+  "status": 200,
+  "allow": "",
+  "body": "{\"code\":\"0\",\"message\":\"OK\",\"data\":{\"records\":[],\"total\":0,\"page\":1,\"size\":20},\"request_id\":\"6d8b01cb-f9c6-446e-8486-ce78959e3a50\",\"timestamp\":\"2026-11-15T07:40:19.706939400Z\"}"
+ },
+ {
+  "item": "AI-10",
+  "label": "告警接口",
+  "method": "GET",
+  "url": "http://localhost:18094/api/hub/v1/admin/ai/alerts",
+  "status": 404,
+  "allow": "",
+  "body": "{\"code\":\"FL-COMMON-0404\",\"message\":\"资源不存在\",\"request_id\":\"17423534-dbee-4773-9239-726150facc6a\",\"timestamp\":\"2026-11-15T07:40:19.872893200Z\"}"
+ },
+ {
+  "item": "AI-11",
+  "label": "知识库ACL",
+  "method": "GET",
+  "url": "http://localhost:18102/api/intelligence/v1/knowledge-bases/1/acl",
+  "status": 404,
+  "allow": "",
+  "body": "{\"code\":\"FL-COMMON-0404\",\"message\":\"资源不存在\",\"request_id\":\"ac18d098-7ad5-4fe9-805f-2fc4e56b9f96\",\"timestamp\":\"2026-11-15T07:40:19.899883200Z\"}"
+ },
+ {
+  "item": "AI-11",
+  "label": "数据权限回显",
+  "method": "GET",
+  "url": "http://localhost:18102/api/intelligence/v1/admin/data-permissions",
+  "status": 500,
+  "allow": "",
+  "body": "{\"code\":\"FL-COMMON-0500\",\"message\":\"系统内部错误\",\"request_id\":\"3c153b0f-3fcf-4507-931b-3b40eec5807f\",\"timestamp\":\"2026-11-15T07:40:19.933065100Z\"}"
+ },
+ {
+  "item": "AI-12",
+  "label": "引用溯源能力",
+  "method": "GET",
+  "url": "http://localhost:18102/api/intelligence/v1/search/citations?q=x",
+  "status": 404,
+  "allow": "",
+  "body": "{\"code\":\"FL-COMMON-0404\",\"message\":\"资源不存在\",\"request_id\":\"84ac98e3-e75f-4937-be60-cba4a5179009\",\"timestamp\":\"2026-11-15T07:40:19.960584400Z\"}"
+ },
+ {
+  "item": "AI-13",
+  "label": "检索分析口径",
+  "method": "GET",
+  "url": "http://localhost:18102/api/intelligence/v1/admin/search/analytics?limit=5",
+  "status": 200,
+  "allow": "",
+  "body": "{\"code\":\"0\",\"message\":\"OK\",\"data\":{\"total\":2,\"avg_latency_ms\":12,\"zero_result\":2,\"top_queries\":[{\"total\":1,\"avg_latency\":12,\"zero_result\":1,\"query\":\"合同\"},{\"total\":1,\"avg_latency\":12,\"zero_result\":1,\"query\":\"员工手册\"}]},\"request_id\":\"1ade24ca-3ff2-49c9-a06b-58eaeb10dabc\",\"timestamp\":\"2026-11-15T07:40:19.995278900Z\"}"
+ },
+ {
+  "item": "AI-14",
+  "label": "能力授权回读",
+  "method": "GET",
+  "url": "http://localhost:18094/api/hub/v1/admin/ai/capability-grants",
+  "status": 200,
+  "allow": "",
+  "body": "{\"code\":\"0\",\"message\":\"OK\",\"data\":{\"items\":[]},\"request_id\":\"ae16ca84-ad10-4253-aa71-a5abf55ade03\",\"timestamp\":\"2026-11-15T07:40:20.013838200Z\"}"
+ },
+ {
+  "item": "AI-14",
+  "label": "数据权限回读",
+  "method": "GET",
+  "url": "http://localhost:18102/api/intelligence/v1/admin/ai/data-permissions",
+  "status": 404,
+  "allow": "",
+  "body": "{\"code\":\"FL-COMMON-0404\",\"message\":\"资源不存在\",\"request_id\":\"8d75621c-69e7-4d55-b3a0-1ca619fababd\",\"timestamp\":\"2026-11-15T07:40:20.081552600Z\"}"
+ },
+ {
+  "item": "COL-04",
+  "label": "OKR周期重开",
+  "method": "GET",
+  "url": "http://localhost:18096/api/collab/v1/okr/periods/07408969-0939-4190-9c22-6a3cefe1a358/reopen",
+  "status": 404,
+  "allow": "",
+  "body": "{\"code\":\"FL-COMMON-0404\",\"message\":\"资源不存在\",\"request_id\":\"48e77f33-fe1e-4a09-ab54-fa64c811bb2b\",\"timestamp\":\"2026-11-15T07:40:20.694195200Z\"}"
+ },
+ {
+  "item": "COL-04",
+  "label": "OKR目标编辑删除",
+  "method": "OPTIONS",
+  "url": "http://localhost:18096/api/collab/v1/okr/objectives/07408969-0939-4190-9c22-6a3cefe1a358",
+  "status": 404,
+  "allow": "",
+  "body": "{\"code\":\"FL-COMMON-0404\",\"message\":\"资源不存在\",\"request_id\":\"f6f212bc-49c3-4e9e-85e8-e54048b1929e\",\"timestamp\":\"2026-11-15T07:40:20.821704100Z\"}"
+ },
+ {
+  "item": "COL-05",
+  "label": "日程仅我参与过滤",
+  "method": "GET",
+  "url": "http://localhost:18096/api/collab/v1/events?startTime=2026-11-01T00:00:00%2B08:00&endTime=2026-12-01T00:00:00%2B08:00",
+  "status": 200,
+  "allow": "",
+  "body": "{\"code\":\"0\",\"message\":\"OK\",\"data\":[{\"event_id\":\"1d6f353f-4d22-4e66-bde3-429d8c5efac6\",\"calendar_id\":\"2b2b4c37-0351-45c2-a158-d6c8cccd6af1\",\"title\":\"E2E 日程 1109\",\"start_at\":\"2026-11-10T02:00:00Z\",\"end_at\":\"2026-11-10T03:00:00Z\",\"all_day\":false,\"status\":\"CONFIRMED\",\"attendees\":[]},{\"event_id\":\"f363fac3-ac06-4cd1-a7be-bb4b45b44bf8\",\"calendar_id\":\"2b2b4c37-0351-45c2-a158-d6c8cccd6af1\",\"title\":\"E2E 验收日程\",\"start_at\":\"2026-11-10T13:00:00Z\",\"end_at\":\"2026-11-10T14:00:00Z\",\"all_day\":false,\"status\":\"CONFIRMED\",\"attendees\":[]},{\"event_id\":\"1b601f73-c25e-4e36-9720-ed60cc29960e\",\"calendar_id\":\"2b2b4c37-0351-45c2-a158-d6c8cccd6af1\",\"title\":\"E2E 验收日程\",\"start_at\":\"2026-11-11T13:00:00Z\",\"end_at\":\"2026-11-11T14:00:00Z\",\"all_day\":false,\"status\":\"CONFIRMED\",\"attendees\":[]},{\"event_id\":\"0ba5f181-b123-4cf6-88a9-ffcc3653daa1\",\"calendar_id\":\"2b2b4c37-0351-45c2-a158-d6c8cccd6af1\",\"title\":\"E2E 验收日程\",\"start_at\":\"2026-11-11T14:00:00Z\",\"end_at\":\"2026-11-11T15:00:00Z\",\"all_day\":false,\"status\":\"CONFIRMED\",\"attendees\":[]},{\"event_id\":\"5603ad44-64ab-4002-b869-a744032fdc92\",\"calendar_id\":\"2b2b4c37-0351-45c2-a158-d6c8cccd6af1\",\"title\":\"COL-03 受邀会议\",\"start_at\":\"2026-11-13T02:00:00Z\",\"end_at\":\"2026-11-13T03:00:00Z\",\"a"
+ },
+ {
+  "item": "COL-05",
+  "label": "日程接受/拒绝",
+  "method": "GET",
+  "url": "http://localhost:18096/api/collab/v1/events/1/respond",
+  "status": 404,
+  "allow": "",
+  "body": "{\"code\":\"FL-COMMON-0404\",\"message\":\"资源不存在\",\"request_id\":\"d747764e-c236-4ca6-8dff-7dd0a7aa6ee3\",\"timestamp\":\"2026-11-15T07:40:21.371690800Z\"}"
+ },
+ {
+  "item": "COL-06",
+  "label": "通知全量已读/删除",
+  "method": "OPTIONS",
+  "url": "http://localhost:18096/api/collab/v1/notifications",
+  "status": 200,
+  "allow": "GET,HEAD,OPTIONS",
+  "body": ""
+ },
+ {
+  "item": "COL-06",
+  "label": "通知全量已读路径",
+  "method": "GET",
+  "url": "http://localhost:18096/api/collab/v1/notifications/read-all",
+  "status": 404,
+  "allow": "",
+  "body": "{\"code\":\"FL-COMMON-0404\",\"message\":\"资源不存在\",\"request_id\":\"2ced73ca-5579-4eeb-b29b-0985620cf9a5\",\"timestamp\":\"2026-11-15T07:40:21.464847900Z\"}"
+ },
+ {
+  "item": "COL-07",
+  "label": "文档删除",
+  "method": "OPTIONS",
+  "url": "http://localhost:18096/api/collab/v1/docs/a0a1bf62-4e14-46d6-ba95-d9549f2114db",
+  "status": 200,
+  "allow": "GET,HEAD,PUT,OPTIONS",
+  "body": ""
+ },
+ {
+  "item": "COL-07",
+  "label": "文档分享链接",
+  "method": "OPTIONS",
+  "url": "http://localhost:18096/api/collab/v1/docs/a0a1bf62-4e14-46d6-ba95-d9549f2114db/share-link",
+  "status": 200,
+  "allow": "POST,OPTIONS",
+  "body": ""
+ },
+ {
+  "item": "COL-08",
+  "label": "会话列表",
+  "method": "GET",
+  "url": "http://localhost:18096/api/collab/v1/im/conversations",
+  "status": 200,
+  "allow": "",
+  "body": "{\"code\":\"0\",\"message\":\"OK\",\"data\":{\"records\":[{\"conversation_id\":\"960813ff-27b3-426b-97fc-c876dd43685d\",\"conv_type\":\"GROUP\",\"title\":\"PLAT23-D4 team\",\"member_count\":2,\"status\":\"ACTIVE\",\"owner_id\":\"9101\",\"last_message_summary\":\"浏览器回归-门户自助发送-1115\",\"last_message_at\":\"2026-11-15T04:53:41.854Z\",\"unread_count\":2,\"pinned\":false,\"mute\":false,\"created_at\":\"2026-11-14T04:13:11.066Z\"},{\"conversation_id\":\"8c8148d2-d93b-4ae7-aa0c-c52cfd868e7e\",\"conv_type\":\"GROUP\",\"title\":\"E2E 验收群\",\"member_count\":1,\"status\":\"ACTIVE\",\"owner_id\":\"9101\",\"last_message_summary\":\"E2E 消息主链 1110-2\",\"last_message_at\":\"2026-11-10T00:46:14.591Z\",\"unread_count\":0,\"pinned\":false,\"mute\":false,\"created_at\":\"2026-11-09T11:21:07.473Z\"},{\"conversation_id\":\"801c64b8-e41f-4d8b-95c9-445ae9e16aa3\",\"conv_type\":\"GROUP\",\"title\":\"E2E 验收群\",\"member_count\":1,\"status\":\"ACTIVE\",\"owner_id\":\"9101\",\"last_message_summary\":\"待撤回消息\",\"last_message_at\":\"2026-11-09T11:17:24.789Z\",\"unread_count\":0,\"pinned\":false,\"mute\":false,\"created_at\":\"2026-11-09T11:17:24.716Z\"},{\"conversation_id\":\"05bd2fcd-2a0e-4479-b73e-3fa9ef7f8408\",\"conv_type\":\"GROUP\",\"title\":\"E2E 验收群\",\"member_count\":1,\"status\":\"ACTIVE\",\"owner_id\":\"9101\",\"last_message_summary\":\"待撤回消息\",\"last_messag"
+ },
+ {
+  "item": "COL-08",
+  "label": "全量未读汇总",
+  "method": "GET",
+  "url": "http://localhost:18096/api/collab/v1/im/unread",
+  "status": 404,
+  "allow": "",
+  "body": "{\"code\":\"FL-COMMON-0404\",\"message\":\"资源不存在\",\"request_id\":\"fe053ab6-d903-465d-badc-44e9f9390bef\",\"timestamp\":\"2026-11-15T07:40:21.631304500Z\"}"
+ },
+ {
+  "item": "CRM-09",
+  "label": "报价列表",
+  "method": "GET",
+  "url": "http://localhost:18095/api/crm/v1/quotations?page=1&size=1",
+  "status": 200,
+  "allow": "",
+  "body": "{\"code\":\"0\",\"message\":\"OK\",\"data\":{\"records\":[{\"quotation_id\":\"2121807554635264002\",\"quotation_no\":\"QUO202611000009\",\"customer_id\":\"2119681687077322754\",\"customer_name\":\"测试线索-批次一\",\"version_no\":1,\"total_amount\":1100000.00,\"status\":\"APPROVED\",\"owner_id\":\"2119960532813676547\",\"created_at\":\"2026-11-15T03:28:36.965Z\"}],\"total\":7,\"page\":1,\"size\":1},\"request_id\":\"9f31be38-cec3-48ec-8efd-acfef4f2f11e\",\"timestamp\":\"2026-11-15T07:40:21.908648100Z\"}"
+ },
+ {
+  "item": "CRM-09",
+  "label": "流程待办",
+  "method": "GET",
+  "url": "http://localhost:18080/api/hub/v1/workflow/tasks/my?page=1&size=5",
+  "status": 401,
+  "allow": "",
+  "body": "{\"code\":\"FL-COMMON-0401\",\"message\":\"未认证或令牌失效\",\"requestId\":\"efdcd783-a520-48a5-801d-9b22594b1e6c\",\"timestamp\":\"2026-11-15T15:40:22.089207300+08:00\"}"
+ },
+ {
+  "item": "PLAT-03",
+  "label": "文件策略",
+  "method": "GET",
+  "url": "http://localhost:18086/api/hub/v1/admin/file/policies",
+  "status": 200,
+  "allow": "",
+  "body": "{\"code\":\"0\",\"message\":\"OK\",\"data\":{\"allowed_ext\":[\"pdf\",\"doc\",\"docx\",\"xls\",\"xlsx\",\"ppt\",\"pptx\",\"txt\",\"md\",\"csv\",\"rtf\",\"png\",\"jpg\",\"jpeg\",\"gif\",\"bmp\",\"webp\",\"svg\",\"mp4\",\"avi\",\"mov\",\"mkv\",\"webm\",\"mp3\",\"wav\",\"flac\",\"aac\"],\"max_size_mb\":5120,\"watermark\":{\"enabled\":true,\"sec_level_from\":3},\"storage_quota_gb\":0},\"request_id\":\"e757fe8f-8a27-4ae4-9a78-77bedd40b8a3\",\"timestamp\":\"2026-11-15T07:40:22.503336300Z\"}"
+ },
+ {
+  "item": "PLAT-03",
+  "label": "文件配额",
+  "method": "GET",
+  "url": "http://localhost:18086/api/hub/v1/admin/file/quotas",
+  "status": 404,
+  "allow": "",
+  "body": "{\"code\":\"FL-COMMON-0404\",\"message\":\"资源不存在\",\"request_id\":\"0c20eeb5-d1a4-4953-ae3e-f92029447308\",\"timestamp\":\"2026-11-15T07:40:22.615833500Z\"}"
+ },
+ {
+  "item": "PLAT-04",
+  "label": "BI数据源",
+  "method": "GET",
+  "url": "http://localhost:18102/api/intelligence/v1/admin/data-sources",
+  "status": 200,
+  "allow": "",
+  "body": "{\"code\":\"0\",\"message\":\"OK\",\"data\":{\"records\":[],\"total\":0,\"page\":1,\"size\":20},\"request_id\":\"b93416e4-59ca-46f1-9c7b-47f8e402c1e4\",\"timestamp\":\"2026-11-15T07:40:22.647866300Z\"}"
+ },
+ {
+  "item": "PLAT-05",
+  "label": "平台计费",
+  "method": "GET",
+  "url": "http://localhost:18083/api/hub/v1/admin/billing",
+  "status": 404,
+  "allow": "",
+  "body": "{\"code\":\"FL-COMMON-0404\",\"message\":\"资源不存在\",\"request_id\":\"2a01d3e3-56c1-4ff3-8e4b-9b1efee5ac1d\",\"timestamp\":\"2026-11-15T07:40:23.314536200Z\"}"
+ },
+ {
+  "item": "PLAT-06",
+  "label": "工作流定义",
+  "method": "GET",
+  "url": "http://localhost:18084/api/hub/v1/admin/workflow/definitions",
+  "status": 200,
+  "allow": "",
+  "body": "{\"code\":\"0\",\"message\":\"OK\",\"data\":{\"records\":[{\"definition_id\":\"2121858731762651137\",\"process_key\":\"leaveApproval\",\"name\":\"请假审批\",\"category\":\"TALENT\",\"def_version\":3,\"status\":\"PUBLISHED\",\"created_at\":\"2026-11-15T06:51:58.491100Z\"},{\"definition_id\":\"2121857447999442945\",\"process_key\":\"performanceApproval\",\"name\":\"绩效评估审批\",\"category\":\"TALENT\",\"def_version\":2,\"status\":\"PUBLISHED\",\"created_at\":\"2026-11-15T06:46:52.426999Z\"},{\"definition_id\":\"2121837886088658945\",\"process_key\":\"recruitRequisitionApproval\",\"name\":\"招聘需求审批\",\"category\":\"TALENT\",\"def_version\":1,\"status\":\"PUBLISHED\",\"created_at\":\"2026-11-15T05:29:08.496290Z\"},{\"definition_id\":\"2121808992778305537\",\"process_key\":\"crm_quotation_approval\",\"name\":\"报价审批\",\"category\":\"CRM\",\"def_version\":1,\"status\":\"PUBLISHED\",\"created_at\":\"2026-11-15T03:34:19.823821Z\"},{\"definition_id\":\"2120411974987460610\",\"process_key\":\"collab_approval\",\"name\":\"云协审批\",\"category\":\"COLLAB\",\"def_version\":1,\"status\":\"PUBLISHED\",\"form_key\":\"collab_approval_form\",\"created_at\":\"2026-11-11T07:03:04.573260Z\"},{\"definition_id\":\"2120399688004579330\",\"process_key\":\"employeeLifecycle\",\"name\":\"员工全生命周期\",\"category\":\"TALENT\",\"def_version\":1,\"status\":\"PUBLISHED\",\"created_at\":\"2026-11-"
+ },
+ {
+  "item": "PLAT-06",
+  "label": "工作流引擎管理",
+  "method": "GET",
+  "url": "http://localhost:18084/api/hub/v1/admin/workflow/engines",
+  "status": 404,
+  "allow": "",
+  "body": "{\"code\":\"FL-COMMON-0404\",\"message\":\"资源不存在\",\"request_id\":\"88c18965-cf10-4b50-916e-dd7a8af7e277\",\"timestamp\":\"2026-11-15T07:40:23.707894700Z\"}"
+ },
+ {
+  "item": "PLAT-07",
+  "label": "权限点列表",
+  "method": "GET",
+  "url": "http://localhost:18080/api/hub/v1/admin/permissions?page=1&size=1",
+  "status": 401,
+  "allow": "",
+  "body": "{\"code\":\"FL-COMMON-0401\",\"message\":\"未认证或令牌失效\",\"requestId\":\"9bad3db1-9312-4b82-9137-e5e413562a89\",\"timestamp\":\"2026-11-15T15:40:23.726166+08:00\"}"
+ },
+ {
+  "item": "PLAT-22",
+  "label": "忘记密码入口",
+  "method": "GET",
+  "url": "http://localhost:18080/api/hub/v1/sso/password/forgot",
+  "status": 401,
+  "allow": "",
+  "body": "{\"code\":\"FL-COMMON-0401\",\"message\":\"未认证或令牌失效\",\"requestId\":\"bdb7915f-a1fa-4f38-879b-728582c8f6ef\",\"timestamp\":\"2026-11-15T15:40:23.748765900+08:00\"}"
+ },
+ {
+  "item": "PLAT-22",
+  "label": "自助改密",
+  "method": "OPTIONS",
+  "url": "http://localhost:18080/api/hub/v1/sso/password/change",
+  "status": 401,
+  "allow": "",
+  "body": "{\"code\":\"FL-COMMON-0401\",\"message\":\"未认证或令牌失效\",\"requestId\":\"20043196-9640-419a-8ee4-ca4e24fca4de\",\"timestamp\":\"2026-11-15T15:40:23.808799+08:00\"}"
+ },
+ {
+  "item": "PLAT-26",
+  "label": "统一检索建议",
+  "method": "GET",
+  "url": "http://localhost:18088/api/hub/v1/search/suggest?q=%E8%80%83%E5%8B%A4&limit=5",
+  "status": 200,
+  "allow": "",
+  "body": "{\"code\":\"0\",\"message\":\"OK\",\"data\":{\"suggestions\":[]},\"request_id\":\"77603fa9-dc9d-47ca-800c-6c4aa7b60ca0\",\"timestamp\":\"2026-11-15T07:40:26.854195100Z\"}"
+ }
+]
