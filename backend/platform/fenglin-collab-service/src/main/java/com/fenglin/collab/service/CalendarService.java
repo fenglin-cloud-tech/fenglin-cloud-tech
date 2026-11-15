@@ -138,35 +138,95 @@ public class CalendarService {
     @Transactional(readOnly = true)
     public EventView detail(String eventId) {
         long tenantId = CollabContext.tenantId();
+        long userId = CollabContext.userId();
         Map<String, Object> event = requireEvent(tenantId, eventId);
         List<AttendeeView> attendees = calendarMapper.listAttendees(tenantId, eventId).stream()
                 .map(row -> new AttendeeView(Rows.lngVal(row, "attendeeId"), Rows.str(row, "response"),
                         Rows.intVal(row, "isOrganizer") == 1))
                 .toList();
+        String myResponse = null;
+        boolean organizer = false;
+        for (AttendeeView attendee : attendees) {
+            if (attendee.attendeeId() == userId) {
+                myResponse = attendee.response();
+                organizer = attendee.organizer();
+            }
+        }
         return new EventView(eventId, Rows.str(event, "calendarId"), Rows.str(event, "title"),
                 Rows.instant(event, "startAt"), Rows.instant(event, "endAt"),
                 Rows.intVal(event, "allDay") == 1, Rows.str(event, "status"),
-                Rows.str(event, "meetingId"), attendees);
+                Rows.str(event, "meetingId"), attendees, myResponse, organizer,
+                parseReminderMinutes(Rows.str(event, "reminderMinutes")));
     }
 
     @Transactional(readOnly = true)
     public List<EventView> listEvents(OffsetDateTime startAt, OffsetDateTime endAt, String calendarId) {
+        return listEvents(startAt, endAt, calendarId, null);
+    }
+
+    @Transactional(readOnly = true)
+    public List<EventView> listEvents(OffsetDateTime startAt, OffsetDateTime endAt, String calendarId,
+                                      Boolean invitedOnly) {
         long tenantId = CollabContext.tenantId();
         long userId = CollabContext.userId();
         validateRange(startAt, endAt);
-        return calendarMapper.listEvents(tenantId, userId, calendarId, startAt, endAt).stream()
+        return calendarMapper.listEvents(tenantId, userId, calendarId, invitedOnly, startAt, endAt).stream()
                 .map(row -> new EventView(Rows.str(row, "eventId"), Rows.str(row, "calendarId"),
                         Rows.str(row, "title"), Rows.instant(row, "startAt"), Rows.instant(row, "endAt"),
-                        Rows.intVal(row, "allDay") == 1, Rows.str(row, "status"), null, List.of()))
+                        Rows.intVal(row, "allDay") == 1, Rows.str(row, "status"), null, List.of(),
+                        Rows.str(row, "myResponse"), Rows.intVal(row, "myOrganizer") == 1,
+                        parseReminderMinutes(Rows.str(row, "reminderMinutes"))))
                 .toList();
     }
 
     /**
-     * 员工自助：只返回本人名下日历或本人参会的日程。
+     * 员工自助：只返回本人名下日历或本人参会的日程；invitedOnly 为真时只看“别人邀请我”的日程。
      */
     @Transactional(readOnly = true)
-    public List<EventView> myEvents(OffsetDateTime startAt, OffsetDateTime endAt) {
-        return listEvents(startAt, endAt, null);
+    public List<EventView> myEvents(OffsetDateTime startAt, OffsetDateTime endAt, Boolean invitedOnly) {
+        return listEvents(startAt, endAt, null, invitedOnly);
+    }
+
+    /**
+     * 响应日程邀请：只允许改自己的参会记录，且组织者不能“接受/拒绝”自己的日程。
+     */
+    @Transactional
+    public EventView respond(String eventId, String response) {
+        long tenantId = CollabContext.tenantId();
+        long userId = CollabContext.userId();
+        String normalized = response == null ? "" : response.toUpperCase();
+        if (!Set.of("ACCEPTED", "DECLINED", "TENTATIVE").contains(normalized)) {
+            throw new BizException(CollabErrorCode.PARAM_INVALID, "响应必须为 ACCEPTED/DECLINED/TENTATIVE");
+        }
+        requireEvent(tenantId, eventId);
+        Map<String, Object> attendee = calendarMapper.findAttendee(tenantId, eventId, userId);
+        if (attendee == null) {
+            throw new BizException(CollabErrorCode.NO_PERMISSION, "你不是该日程的参会人");
+        }
+        if (Rows.intVal(attendee, "isOrganizer") == 1) {
+            throw new BizException(CollabErrorCode.PARAM_INVALID, "组织者无需接受或拒绝自己的日程");
+        }
+        calendarMapper.respondAttendee(tenantId, eventId, userId, normalized);
+        audit.publish("COLLAB_EVENT_RESPONDED", "UPDATE", "collab_event", eventId, "LOW");
+        return detail(eventId);
+    }
+
+    private List<Integer> parseReminderMinutes(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return List.of();
+        }
+        String text = raw.trim();
+        if (text.startsWith("{") && text.endsWith("}")) {
+            text = text.substring(1, text.length() - 1);
+        }
+        List<Integer> values = new ArrayList<>();
+        for (String part : text.split(",")) {
+            String item = part.trim();
+            if (!item.isEmpty() && item.matches("-?\\d+")) {
+                values.add(Integer.parseInt(item));
+            }
+        }
+        return values;
     }
 
     @Transactional

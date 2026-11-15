@@ -1,5 +1,5 @@
 import type { PageResult } from '@fenglin/shared'
-import { get, post, put, request } from './http'
+import { del, get, post, put, request } from './http'
 
 /** 云协（Collab）接口。字段全部为后端 SNAKE_CASE 原样返回，雪花 ID 以字符串透传。 */
 export type CollabId = string | number
@@ -121,6 +121,10 @@ export interface CollabEvent {
   status: string
   meeting_id?: CollabId
   attendees: CollabAttendee[]
+  /** 当前登录用户在该日程上的参会响应（ACCEPTED/DECLINED/TENTATIVE/PENDING）。 */
+  my_response?: string
+  organizer?: boolean
+  reminder_minutes?: number[]
 }
 
 export interface CollabBusySlot {
@@ -310,6 +314,8 @@ export interface CollabNotification {
   content: string
   read: boolean
   created_at?: string
+  biz_type?: string
+  biz_id?: string
 }
 
 export interface CollabTodo {
@@ -332,6 +338,14 @@ export const collabApi = {
     },
     myConversations(params: { keyword?: string; page?: number; size?: number } = {}) {
       return get<PageResult<CollabConversation>>('/api/collab/v1/im/conversations/my', params)
+    },
+    unreadSummary() {
+      return get<{
+        unread_total?: number
+        unread_conversations?: number
+        unreadTotal?: number
+        unreadConversations?: number
+      }>('/api/collab/v1/im/conversations/my/unread-summary')
     },
     createConversation(body: { conv_type: string; title: string; member_ids: CollabId[]; announcement?: string }) {
       return post<CollabConversationDetail>('/api/collab/v1/im/conversations', body)
@@ -473,8 +487,11 @@ export const collabApi = {
     events(params: { startTime: string; endTime: string; calendarId?: CollabId }) {
       return get<CollabEvent[]>('/api/collab/v1/events', params)
     },
-    myEvents(params: { startTime: string; endTime: string }) {
+    myEvents(params: { startTime: string; endTime: string; invitedOnly?: boolean }) {
       return get<CollabEvent[]>('/api/collab/v1/events/my', params)
+    },
+    respondEvent(eventId: CollabId, response: 'ACCEPTED' | 'DECLINED' | 'TENTATIVE') {
+      return post<CollabEvent>(`/api/collab/v1/events/${eventId}/respond`, { response })
     },
     createEvent(body: {
       calendar_id: CollabId
@@ -593,6 +610,36 @@ export const collabApi = {
     },
     closePeriod(periodId: CollabId) {
       return post<void>(`/api/collab/v1/okr/periods/${periodId}/close`)
+    },
+    reopenPeriod(periodId: CollabId) {
+      return post<CollabPeriod>(`/api/collab/v1/okr/periods/${periodId}/reopen`)
+    },
+    summary(params: { ownerId?: CollabId } = {}) {
+      return get<Array<Record<string, unknown>>>(`/api/collab/v1/okr/summary`, params)
+    },
+    updateObjective(objectiveId: CollabId, body: {
+      obj_type?: string
+      dept_id?: CollabId
+      title: string
+      description?: string
+      visibility?: string
+    }) {
+      return put<CollabObjective>(`/api/collab/v1/okr/objectives/${objectiveId}`, body)
+    },
+    deleteObjective(objectiveId: CollabId) {
+      return del<void>(`/api/collab/v1/okr/objectives/${objectiveId}`)
+    },
+    updateKr(krId: CollabId, body: {
+      title: string
+      metric_type?: string
+      target_value?: number
+      current_value?: number
+      confidence?: string
+    }) {
+      return put<CollabKr>(`/api/collab/v1/okr/key-results/${krId}`, body)
+    },
+    deleteKr(krId: CollabId) {
+      return del<void>(`/api/collab/v1/okr/key-results/${krId}`)
     },
     objectives(params: { periodId?: CollabId; ownerId?: CollabId } = {}) {
       return get<CollabObjective[]>('/api/collab/v1/okr/objectives', params)
@@ -716,6 +763,18 @@ export const collabApi = {
       return post<{ notification_id: string; read: boolean }>(
         `/api/collab/v1/notifications/${notificationId}/read`,
       )
+    },
+    readAllNotifications() {
+      return post<{ updated: number }>('/api/collab/v1/notifications/read-all')
+    },
+    deleteNotification(notificationId: string | number) {
+      return del<void>(`/api/collab/v1/notifications/${notificationId}`)
+    },
+    batchDeleteNotifications(ids: Array<string | number>) {
+      return post<{ deleted: number }>('/api/collab/v1/notifications/batch-delete', { ids })
+    },
+    unreadCount() {
+      return get<{ unread: number }>('/api/collab/v1/notifications/unread-count')
     },
   },
 

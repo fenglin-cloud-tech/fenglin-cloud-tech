@@ -4,6 +4,7 @@ import com.fenglin.collab.service.CalendarService;
 import com.fenglin.collab.web.dto.CollabDtos.CalendarCreateRequest;
 import com.fenglin.collab.web.dto.CollabDtos.CalendarView;
 import com.fenglin.collab.web.dto.CollabDtos.EventCreateRequest;
+import com.fenglin.collab.web.dto.CollabDtos.EventRespondRequest;
 import com.fenglin.collab.web.dto.CollabDtos.EventUpdateRequest;
 import com.fenglin.collab.web.dto.CollabDtos.EventView;
 import com.fenglin.collab.web.dto.CollabDtos.FreeBusyRequest;
@@ -34,6 +35,7 @@ public class CollabCalendarController {
 
     private static final String READ = "biz:collab:calendar:read";
     private static final String SELF_READ = "biz:collab:calendar:self:read";
+    private static final String SELF_RESPOND = "biz:collab:calendar:self:respond";
     private static final String MANAGE = "biz:collab:calendar:manage";
 
     private final CalendarService calendarService;
@@ -76,15 +78,29 @@ public class CollabCalendarController {
     }
 
     /**
-     * 员工自助：只返回本人日历或本人参会的日程，不接受 calendarId 指定他人日历。
+     * 员工自助：只返回本人日历或本人参会的日程，不接受 calendarId 指定他人日历；
+     * invitedOnly=true 时只返回“别人邀请我”的日程。
      */
     @GetMapping("/events/my")
     public ApiResponse<List<EventView>> myEvents(
             @RequestHeader(value = "X-Permissions", required = false) String permissions,
             @RequestParam("startTime") OffsetDateTime startTime,
-            @RequestParam("endTime") OffsetDateTime endTime) {
+            @RequestParam("endTime") OffsetDateTime endTime,
+            @RequestParam(value = "invitedOnly", required = false) Boolean invitedOnly) {
         PermissionGuard.require(permissions, SELF_READ);
-        return ApiResponse.success(calendarService.myEvents(startTime, endTime));
+        return ApiResponse.success(calendarService.myEvents(startTime, endTime, invitedOnly));
+    }
+
+    /**
+     * 响应日程邀请：只能改自己的参会记录（服务端取 X-User-Id），组织者调用会被拒绝。
+     */
+    @PostMapping("/events/{eventId}/respond")
+    public ApiResponse<EventView> respondEvent(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("eventId") String eventId,
+            @RequestBody EventRespondRequest request) {
+        PermissionGuard.require(permissions, SELF_RESPOND);
+        return ApiResponse.success(calendarService.respond(eventId, request == null ? null : request.response()));
     }
 
     @GetMapping("/events/{eventId}")

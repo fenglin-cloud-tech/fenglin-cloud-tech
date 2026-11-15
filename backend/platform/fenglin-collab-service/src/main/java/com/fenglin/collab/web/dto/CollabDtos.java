@@ -118,7 +118,11 @@ public final class CollabDtos {
     }
 
     public record EventView(String eventId, String calendarId, String title, Instant startAt, Instant endAt,
-                            boolean allDay, String status, String meetingId, List<AttendeeView> attendees) {
+                            boolean allDay, String status, String meetingId, List<AttendeeView> attendees,
+                            String myResponse, boolean organizer, List<Integer> reminderMinutes) {
+    }
+
+    public record EventRespondRequest(String response) {
     }
 
     public record AttendeeView(long attendeeId, String response, boolean organizer) {
@@ -330,10 +334,20 @@ public final class CollabDtos {
     }
 
     public record NotificationView(long notificationId, String category, String title, String content,
-                                   boolean read, Instant createdAt) {
+                                   boolean read, Instant createdAt, String bizType, String bizId) {
     }
 
     public record NotificationReadResult(long notificationId, boolean read) {
+    }
+
+    /** 目标编辑：周期不可改（跨周期调整等于重建），其余字段可改。 */
+    public record ObjectiveUpdateRequest(String objType, Long deptId, String title, String description,
+                                         String visibility) {
+    }
+
+    /** KR 编辑：指标类型与目标/当前值可改，进度仍走进度上报接口。 */
+    public record KrUpdateRequest(String title, String metricType, BigDecimal targetValue, BigDecimal currentValue,
+                                  String confidence) {
     }
 
     // ---------- 管理端 ----------

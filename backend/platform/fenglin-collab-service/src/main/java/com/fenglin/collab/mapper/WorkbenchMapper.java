@@ -127,7 +127,8 @@ public interface WorkbenchMapper {
 
     @Select("""
             SELECT id AS "notificationId", category AS "category", title AS "title", content AS "content",
-                   read_flag AS "readFlag", (EXTRACT(EPOCH FROM created_at) * 1000)::bigint AS "createdAt"
+                   read_flag AS "readFlag", (EXTRACT(EPOCH FROM created_at) * 1000)::bigint AS "createdAt",
+                   biz_type AS "bizType", biz_id AS "bizId"
             FROM collab_notification
             WHERE tenant_id = #{tenantId} AND receiver_id = #{userId} AND deleted = 0
               AND (CAST(#{unreadOnly,jdbcType=BOOLEAN} AS boolean) IS NOT TRUE OR read_flag = 0)
@@ -152,4 +153,34 @@ public interface WorkbenchMapper {
             """)
     int markNotificationRead(@Param("tenantId") long tenantId, @Param("notificationId") long notificationId,
                              @Param("userId") long userId);
+
+    @Update("""
+            UPDATE collab_notification SET read_flag = 1, updated_by = #{userId}, version = version + 1
+            WHERE tenant_id = #{tenantId} AND receiver_id = #{userId} AND read_flag = 0 AND deleted = 0
+            """)
+    int markAllNotificationsRead(@Param("tenantId") long tenantId, @Param("userId") long userId);
+
+    @Update("""
+            UPDATE collab_notification SET deleted = 1, updated_by = #{userId}, version = version + 1
+            WHERE tenant_id = #{tenantId} AND id = #{notificationId} AND receiver_id = #{userId} AND deleted = 0
+            """)
+    int deleteNotification(@Param("tenantId") long tenantId, @Param("notificationId") long notificationId,
+                           @Param("userId") long userId);
+
+    @Update("""
+            <script>
+            UPDATE collab_notification SET deleted = 1, updated_by = #{userId}, version = version + 1
+            WHERE tenant_id = #{tenantId} AND receiver_id = #{userId} AND deleted = 0
+              AND id IN
+              <foreach collection="ids" item="id" open="(" separator="," close=")">#{id}</foreach>
+            </script>
+            """)
+    int deleteNotifications(@Param("tenantId") long tenantId, @Param("userId") long userId,
+                            @Param("ids") List<Long> ids);
+
+    @Select("""
+            SELECT count(1) FROM collab_notification
+            WHERE tenant_id = #{tenantId} AND receiver_id = #{userId} AND read_flag = 0 AND deleted = 0
+            """)
+    long countUnread(@Param("tenantId") long tenantId, @Param("userId") long userId);
 }

@@ -107,6 +107,16 @@ public class ImService {
         return PageResult.of(records, imMapper.countConversations(tenantId, userId, keyword), safePage, safeSize);
     }
 
+    /**
+     * 全量未读汇总（跨会话），供门户消息页展示总未读徽标。
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> unreadSummary() {
+        long tenantId = CollabContext.tenantId();
+        long userId = CollabContext.userId();
+        return imMapper.unreadSummary(tenantId, userId);
+    }
+
     @Transactional(readOnly = true)
     public ConversationDetailView detail(String conversationId) {
         long tenantId = CollabContext.tenantId();

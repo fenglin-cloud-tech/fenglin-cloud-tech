@@ -31,6 +31,7 @@ const objVisible = ref(false)
 const objSaving = ref(false)
 const objFormError = ref('')
 const objForm = reactive({
+  objective_id: '',
   period_id: '',
   obj_type: 'COMPANY',
   title: '',
@@ -38,11 +39,17 @@ const objForm = reactive({
   visibility: 'ALL',
 })
 
+const summary = ref<Array<Record<string, unknown>>>([])
+const summaryLoading = ref(false)
+const summaryError = ref('')
+const summaryQuery = reactive({ owner_id: '' })
+
 const krVisible = ref(false)
 const krSaving = ref(false)
 const krFormError = ref('')
 const krObjectiveId = ref('')
 const krForm = reactive({
+  kr_id: '',
   title: '',
   metric_type: 'PERCENT',
   target_value: undefined as number | undefined,
@@ -103,9 +110,9 @@ const parentOptions = computed(() => objectives.value.filter((item) => item.obje
 
 const gapItems = [
   '对齐关系用节点/边表格展示，未引入图形库。',
-  '周期关闭后没有重开接口；目标/ KR 没有删除或编辑接口。',
-  'KR 进度接口校验 biz:collab:okr:progress（已与权限种子对齐），目标/KR 维护仍需 biz:collab:okr:manage。',
-  '目标列表只能按周期/负责人过滤，没有部门树或跨周期汇总。',
+  '周期关闭后可重开；目标与 KR 支持编辑、删除（软删，目标删除会连带软删其 KR 与对齐边）。',
+  'KR 进度接口校验 biz:collab:okr:progress；目标/KR 维护仍需 biz:collab:okr:manage。',
+  '已提供跨周期汇总（目标数/KR 数/平均进度）；部门树需要人事域组织架构数据源，暂未接入。',
 ]
 
 async function loadPeriods() {
@@ -201,7 +208,7 @@ async function submitPeriod() {
 
 async function closePeriod(row: CollabPeriod) {
   try {
-    await ElMessageBox.confirm(`确认关闭周期「${row.name}」？关闭后无法重开。`, '关闭周期', {
+    await ElMessageBox.confirm(`确认关闭周期「${row.name}」？关闭后仍可重开。`, '关闭周期', {
       type: 'warning',
       confirmButtonText: '确认关闭',
       cancelButtonText: '返回',
@@ -218,20 +225,58 @@ async function closePeriod(row: CollabPeriod) {
   }
 }
 
-function openObjective() {
+async function reopenPeriod(row: CollabPeriod) {
+  try {
+    await ElMessageBox.confirm(`确认重开周期「${row.name}」？重开只改状态，不改历史目标与进度。`, '重开周期', {
+      type: 'warning',
+      confirmButtonText: '确认重开',
+      cancelButtonText: '返回',
+    })
+  } catch {
+    return
+  }
+  try {
+    await collabApi.okr.reopenPeriod(row.period_id)
+    ElMessage.success('周期已重开')
+    await loadPeriods()
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  }
+}
+
+async function loadSummary() {
+  summaryLoading.value = true
+  summaryError.value = ''
+  try {
+    summary.value = await collabApi.okr.summary({
+      ownerId: summaryQuery.owner_id || undefined,
+    })
+  } catch (err) {
+    summaryError.value = describeError(err)
+  } finally {
+    summaryLoading.value = false
+  }
+}
+
+function summaryValue(row: Record<string, unknown>, snake: string, camel: string) {
+  return row[snake] ?? row[camel] ?? '-'
+}
+
+function openObjective(row?: CollabObjective) {
   Object.assign(objForm, {
-    period_id: objQuery.period_id || '',
-    obj_type: 'COMPANY',
-    title: '',
+    objective_id: row?.objective_id ?? '',
+    period_id: row?.period_id ?? (objQuery.period_id || ''),
+    obj_type: row?.obj_type ?? 'COMPANY',
+    title: row?.title ?? '',
     description: '',
-    visibility: 'ALL',
+    visibility: row?.visibility ?? 'ALL',
   })
   objFormError.value = ''
   objVisible.value = true
 }
 
 async function submitObjective() {
-  if (!objForm.period_id) {
+  if (!objForm.period_id && !objForm.objective_id) {
     objFormError.value = '请选择所属周期'
     return
   }
@@ -242,14 +287,24 @@ async function submitObjective() {
   objSaving.value = true
   objFormError.value = ''
   try {
-    await collabApi.okr.createObjective({
-      period_id: objForm.period_id,
-      obj_type: objForm.obj_type,
-      title: objForm.title.trim(),
-      description: objForm.description.trim() || undefined,
-      visibility: objForm.visibility,
-    })
-    ElMessage.success('目标已创建')
+    if (objForm.objective_id) {
+      await collabApi.okr.updateObjective(objForm.objective_id, {
+        obj_type: objForm.obj_type,
+        title: objForm.title.trim(),
+        description: objForm.description.trim() || undefined,
+        visibility: objForm.visibility,
+      })
+      ElMessage.success('目标已更新')
+    } else {
+      await collabApi.okr.createObjective({
+        period_id: objForm.period_id,
+        obj_type: objForm.obj_type,
+        title: objForm.title.trim(),
+        description: objForm.description.trim() || undefined,
+        visibility: objForm.visibility,
+      })
+      ElMessage.success('目标已创建')
+    }
     objVisible.value = false
     await loadObjectives()
   } catch (err) {
@@ -259,14 +314,34 @@ async function submitObjective() {
   }
 }
 
-function openKr(objectiveId: string) {
+async function removeObjective(row: CollabObjective) {
+  try {
+    await ElMessageBox.confirm(
+      `确认删除目标「${row.title}」？其下 KR 与对齐关系会一并删除，不可恢复。`,
+      '删除目标',
+      { type: 'warning', confirmButtonText: '确认删除', cancelButtonText: '返回' },
+    )
+  } catch {
+    return
+  }
+  try {
+    await collabApi.okr.deleteObjective(row.objective_id)
+    ElMessage.success('目标已删除')
+    await loadObjectives()
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  }
+}
+
+function openKr(objectiveId: string, kr?: { kr_id?: CollabId; title?: string; metric_type?: string; target_value?: number; current_value?: number; confidence?: string }) {
   krObjectiveId.value = objectiveId
   Object.assign(krForm, {
-    title: '',
-    metric_type: 'PERCENT',
-    target_value: undefined,
-    current_value: undefined,
-    confidence: 'MID',
+    kr_id: kr?.kr_id ?? '',
+    title: kr?.title ?? '',
+    metric_type: kr?.metric_type ?? 'PERCENT',
+    target_value: kr?.target_value,
+    current_value: kr?.current_value,
+    confidence: kr?.confidence ?? 'MID',
   })
   krFormError.value = ''
   krVisible.value = true
@@ -280,20 +355,50 @@ async function submitKr() {
   krSaving.value = true
   krFormError.value = ''
   try {
-    await collabApi.okr.createKr(krObjectiveId.value, {
-      title: krForm.title.trim(),
-      metric_type: krForm.metric_type,
-      target_value: krForm.target_value,
-      current_value: krForm.current_value,
-      confidence: krForm.confidence,
-    })
-    ElMessage.success('KR 已创建')
+    if (krForm.kr_id) {
+      await collabApi.okr.updateKr(krForm.kr_id, {
+        title: krForm.title.trim(),
+        metric_type: krForm.metric_type,
+        target_value: krForm.target_value,
+        current_value: krForm.current_value,
+        confidence: krForm.confidence,
+      })
+      ElMessage.success('KR 已更新')
+    } else {
+      await collabApi.okr.createKr(krObjectiveId.value, {
+        title: krForm.title.trim(),
+        metric_type: krForm.metric_type,
+        target_value: krForm.target_value,
+        current_value: krForm.current_value,
+        confidence: krForm.confidence,
+      })
+      ElMessage.success('KR 已创建')
+    }
     krVisible.value = false
     await loadObjectives()
   } catch (err) {
     krFormError.value = describeError(err)
   } finally {
     krSaving.value = false
+  }
+}
+
+async function removeKr(krId: CollabId, title: string) {
+  try {
+    await ElMessageBox.confirm(`确认删除 KR「${title}」？删除后不可恢复。`, '删除 KR', {
+      type: 'warning',
+      confirmButtonText: '确认删除',
+      cancelButtonText: '返回',
+    })
+  } catch {
+    return
+  }
+  try {
+    await collabApi.okr.deleteKr(krId)
+    ElMessage.success('KR 已删除')
+    await loadObjectives()
+  } catch (err) {
+    ElMessage.error(describeError(err))
   }
 }
 
@@ -393,7 +498,7 @@ onMounted(() => {
             <template #default="{ row }">{{ row.end_date || '-' }}</template>
           </el-table-column>
           <el-table-column prop="status" label="状态" width="110" />
-          <el-table-column label="操作" width="120" fixed="right">
+          <el-table-column label="操作" width="180" fixed="right">
             <template #default="{ row }">
               <el-button
                 v-if="row.status !== 'CLOSED'"
@@ -404,8 +509,47 @@ onMounted(() => {
               >
                 关闭周期
               </el-button>
-              <el-text v-else type="info">已关闭</el-text>
+              <el-button
+                v-else
+                v-perm="'tenant:collab:okr:period:manage'"
+                link
+                type="primary"
+                @click="reopenPeriod(row)"
+              >
+                重开周期
+              </el-button>
             </template>
+          </el-table-column>
+        </el-table>
+      </el-tab-pane>
+
+      <el-tab-pane label="跨周期汇总" name="summary">
+        <div class="fl-toolbar">
+          <el-input v-model="summaryQuery.owner_id" placeholder="负责人 ID（可空）" clearable style="width: 180px" />
+          <el-button type="primary" plain :loading="summaryLoading" @click="loadSummary">查询</el-button>
+        </div>
+        <el-alert v-if="summaryError" type="error" :closable="false" show-icon :title="summaryError" style="margin-bottom: 12px" />
+        <el-table :data="summary" v-loading="summaryLoading" border stripe>
+          <el-table-column label="周期" min-width="180">
+            <template #default="{ row }">{{ summaryValue(row, 'periodName', 'period_name') }}</template>
+          </el-table-column>
+          <el-table-column label="状态" width="110">
+            <template #default="{ row }">{{ summaryValue(row, 'status', 'status') }}</template>
+          </el-table-column>
+          <el-table-column label="开始日期" width="130">
+            <template #default="{ row }">{{ summaryValue(row, 'startDate', 'start_date') }}</template>
+          </el-table-column>
+          <el-table-column label="结束日期" width="130">
+            <template #default="{ row }">{{ summaryValue(row, 'endDate', 'end_date') }}</template>
+          </el-table-column>
+          <el-table-column label="目标数" width="100">
+            <template #default="{ row }">{{ summaryValue(row, 'objectiveCount', 'objective_count') }}</template>
+          </el-table-column>
+          <el-table-column label="KR 数" width="100">
+            <template #default="{ row }">{{ summaryValue(row, 'krCount', 'kr_count') }}</template>
+          </el-table-column>
+          <el-table-column label="平均进度(%)" width="130">
+            <template #default="{ row }">{{ summaryValue(row, 'avgProgress', 'avg_progress') }}</template>
           </el-table-column>
         </el-table>
       </el-tab-pane>
@@ -441,7 +585,7 @@ onMounted(() => {
                     <template #default="{ row: kr }">{{ kr.progress ?? '-' }}</template>
                   </el-table-column>
                   <el-table-column prop="confidence" label="信心" width="80" />
-                  <el-table-column label="操作" width="100">
+                  <el-table-column label="操作" width="200">
                     <template #default="{ row: kr }">
                       <el-button
                         v-perm="'biz:collab:okr:manage'"
@@ -451,6 +595,8 @@ onMounted(() => {
                       >
                         更新进度
                       </el-button>
+                      <el-button v-perm="'biz:collab:okr:manage'" link @click="openKr(row.objective_id, kr)">编辑</el-button>
+                      <el-button v-perm="'biz:collab:okr:manage'" link type="danger" @click="removeKr(kr.kr_id, kr.title)">删除</el-button>
                     </template>
                   </el-table-column>
                 </el-table>
@@ -464,10 +610,12 @@ onMounted(() => {
           <el-table-column prop="visibility" label="可见性" width="100" />
           <el-table-column prop="status" label="状态" width="100" />
           <el-table-column prop="period_id" label="周期 ID" width="190" show-overflow-tooltip />
-          <el-table-column label="操作" width="170" fixed="right">
+          <el-table-column label="操作" width="240" fixed="right">
             <template #default="{ row }">
               <el-button v-perm="'biz:collab:okr:manage'" link type="primary" @click="openKr(row.objective_id)">新增 KR</el-button>
               <el-button v-perm="'biz:collab:okr:manage'" link type="warning" @click="openAlign(row.objective_id)">对齐</el-button>
+              <el-button v-perm="'biz:collab:okr:manage'" link @click="openObjective(row)">编辑</el-button>
+              <el-button v-perm="'biz:collab:okr:manage'" link type="danger" @click="removeObjective(row)">删除</el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -540,7 +688,7 @@ onMounted(() => {
       </template>
     </el-dialog>
 
-    <el-dialog v-model="objVisible" title="新建目标" width="560px">
+    <el-dialog v-model="objVisible" :title="objForm.objective_id ? '编辑目标' : '新建目标'" width="560px">
       <el-alert v-if="objFormError" type="error" :closable="false" show-icon :title="objFormError" style="margin-bottom: 12px" />
       <el-form label-width="90px">
         <el-form-item label="所属周期" required>
@@ -571,7 +719,7 @@ onMounted(() => {
       </template>
     </el-dialog>
 
-    <el-dialog v-model="krVisible" title="新增关键结果（KR）" width="540px">
+    <el-dialog v-model="krVisible" :title="krForm.kr_id ? '编辑关键结果（KR）' : '新增关键结果（KR）'" width="540px">
       <el-alert v-if="krFormError" type="error" :closable="false" show-icon :title="krFormError" style="margin-bottom: 12px" />
       <el-form label-width="100px">
         <el-form-item label="KR 标题" required>

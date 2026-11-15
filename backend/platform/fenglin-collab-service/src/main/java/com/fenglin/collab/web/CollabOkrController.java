@@ -5,17 +5,21 @@ import com.fenglin.collab.web.dto.CollabDtos.AlignRequest;
 import com.fenglin.collab.web.dto.CollabDtos.AlignResult;
 import com.fenglin.collab.web.dto.CollabDtos.AlignmentGraph;
 import com.fenglin.collab.web.dto.CollabDtos.KrCreateRequest;
+import com.fenglin.collab.web.dto.CollabDtos.KrUpdateRequest;
 import com.fenglin.collab.web.dto.CollabDtos.KrView;
 import com.fenglin.collab.web.dto.CollabDtos.ObjectiveCreateRequest;
+import com.fenglin.collab.web.dto.CollabDtos.ObjectiveUpdateRequest;
 import com.fenglin.collab.web.dto.CollabDtos.ObjectiveView;
 import com.fenglin.collab.web.dto.CollabDtos.PeriodView;
 import com.fenglin.collab.web.dto.CollabDtos.ProgressRequest;
 import com.fenglin.collab.web.dto.CollabDtos.ProgressResult;
 import com.fenglin.common.core.ApiResponse;
 import com.fenglin.common.security.PermissionGuard;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -23,6 +27,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * OKR 接口（API-OKR-001 ~ 006 / 050）。
@@ -67,6 +72,60 @@ public class CollabOkrController {
             @PathVariable("periodId") String periodId) {
         PermissionGuard.require(permissions, PERIOD_ADMIN);
         okrService.closePeriod(periodId);
+        return ApiResponse.success(null);
+    }
+
+    /** 重开已关闭周期（只改状态，不改历史数据）。 */
+    @PostMapping("/periods/{periodId}/reopen")
+    public ApiResponse<PeriodView> reopenPeriod(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("periodId") String periodId) {
+        PermissionGuard.require(permissions, PERIOD_ADMIN);
+        return ApiResponse.success(okrService.reopenPeriod(periodId));
+    }
+
+    /** 跨周期汇总：目标数 / KR 数 / 平均进度，可按负责人过滤。 */
+    @GetMapping("/summary")
+    public ApiResponse<List<Map<String, Object>>> summary(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(value = "ownerId", required = false) Long ownerId) {
+        PermissionGuard.require(permissions, READ);
+        return ApiResponse.success(okrService.periodSummary(ownerId));
+    }
+
+    @PutMapping("/objectives/{objectiveId}")
+    public ApiResponse<ObjectiveView> updateObjective(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("objectiveId") String objectiveId,
+            @RequestBody ObjectiveUpdateRequest request) {
+        PermissionGuard.require(permissions, MANAGE);
+        return ApiResponse.success(okrService.updateObjective(objectiveId, request));
+    }
+
+    @DeleteMapping("/objectives/{objectiveId}")
+    public ApiResponse<Void> deleteObjective(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("objectiveId") String objectiveId) {
+        PermissionGuard.require(permissions, MANAGE);
+        okrService.deleteObjective(objectiveId);
+        return ApiResponse.success(null);
+    }
+
+    @PutMapping("/key-results/{krId}")
+    public ApiResponse<KrView> updateKr(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("krId") String krId,
+            @RequestBody KrUpdateRequest request) {
+        PermissionGuard.require(permissions, MANAGE);
+        return ApiResponse.success(okrService.updateKr(krId, request));
+    }
+
+    @DeleteMapping("/key-results/{krId}")
+    public ApiResponse<Void> deleteKr(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("krId") String krId) {
+        PermissionGuard.require(permissions, MANAGE);
+        okrService.deleteKr(krId);
         return ApiResponse.success(null);
     }
 

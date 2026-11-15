@@ -32,12 +32,15 @@ const createForm = reactive({
   all_day: false,
   location: '',
   attendee_ids: '',
+  reminder_minutes: [] as number[],
 })
+
+const invitedOnly = ref(false)
 
 const gapItems = [
   '列表由服务端按「本人日历 + 本人参会」收敛，不接受 calendarId 指定他人日历；日历下拉仅用于新建日程时的默认日历。',
   '重复日程 rrule 仅透传保存，前端不展开。',
-  '没有日程接受/拒绝/提醒设置接口。',
+  '收到邀请的日程可直接接受/暂定/拒绝（只改自己的参会响应，组织者不能自响应）；提醒时间在新建时设置。',
 ]
 
 function pad(value: number) {
@@ -92,6 +95,7 @@ async function loadEvents() {
     events.value = await collabApi.calendar.myEvents({
       startTime: new Date(start).toISOString(),
       endTime: new Date(end).toISOString(),
+      invitedOnly: invitedOnly.value || undefined,
     })
   } catch (err) {
     error.value = describeError(err)
@@ -141,6 +145,7 @@ function openCreate() {
     all_day: false,
     location: '',
     attendee_ids: '',
+    reminder_minutes: [],
   })
   createError.value = ''
   createVisible.value = true
@@ -181,6 +186,7 @@ async function submitCreate() {
       all_day: createForm.all_day,
       location: createForm.location.trim() || undefined,
       attendee_ids: attendeeIds.length ? attendeeIds : undefined,
+      reminder_minutes: createForm.reminder_minutes.length ? createForm.reminder_minutes : undefined,
     })
     ElMessage.success('日程已创建')
     createVisible.value = false
@@ -206,6 +212,16 @@ async function cancelEvent(row: CollabEvent) {
     await collabApi.calendar.cancelEvent(row.event_id)
     ElMessage.success('日程已取消')
     refresh()
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  }
+}
+
+async function respondEvent(row: CollabEvent, response: 'ACCEPTED' | 'DECLINED' | 'TENTATIVE') {
+  try {
+    await collabApi.calendar.respondEvent(row.event_id, response)
+    ElMessage.success(response === 'ACCEPTED' ? '已接受邀请' : response === 'DECLINED' ? '已拒绝邀请' : '已标记暂定')
+    await loadEvents()
   } catch (err) {
     ElMessage.error(describeError(err))
   }
@@ -253,6 +269,7 @@ onMounted(async () => {
           style="width: 380px"
         />
         <el-button type="primary" plain :loading="loading" @click="refresh">查询</el-button>
+        <el-switch v-model="invitedOnly" active-text="仅看我参与的" @change="loadEvents" />
       </div>
 
       <el-alert v-if="error" type="error" :closable="false" show-icon :title="error" style="margin-bottom: 12px" />
@@ -273,6 +290,14 @@ onMounted(async () => {
             <el-tag :type="row.status === 'CANCELLED' ? 'info' : 'primary'" size="small">{{ row.status }}</el-tag>
           </template>
         </el-table-column>
+        <el-table-column label="我的响应" width="110">
+          <template #default="{ row }">
+            <el-tag v-if="row.my_response" size="small" :type="row.my_response === 'DECLINED' ? 'danger' : row.my_response === 'ACCEPTED' ? 'success' : 'warning'">
+              {{ row.my_response }}
+            </el-tag>
+            <span v-else class="fl-muted">-</span>
+          </template>
+        </el-table-column>
         <el-table-column label="参会人" min-width="180" show-overflow-tooltip>
           <template #default="{ row }">
             <template v-if="row.attendees && row.attendees.length">
@@ -288,8 +313,13 @@ onMounted(async () => {
             <span class="fl-mono">{{ row.meeting_id || '-' }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="100" fixed="right">
+        <el-table-column label="操作" width="230" fixed="right">
           <template #default="{ row }">
+            <template v-if="!row.organizer && row.my_response !== 'ACCEPTED' && row.my_response !== 'DECLINED'">
+              <el-button v-perm="'biz:collab:calendar:self:respond'" link type="primary" @click="respondEvent(row, 'ACCEPTED')">接受</el-button>
+              <el-button v-perm="'biz:collab:calendar:self:respond'" link @click="respondEvent(row, 'TENTATIVE')">暂定</el-button>
+              <el-button v-perm="'biz:collab:calendar:self:respond'" link type="danger" @click="respondEvent(row, 'DECLINED')">拒绝</el-button>
+            </template>
             <el-button
               v-perm="'biz:collab:calendar:manage'"
               link
@@ -366,6 +396,15 @@ onMounted(async () => {
         </el-form-item>
         <el-form-item label="参会人 ID">
           <el-input v-model="createForm.attendee_ids" placeholder="用户 ID，逗号分隔" />
+        </el-form-item>
+        <el-form-item label="提醒">
+          <el-select v-model="createForm.reminder_minutes" multiple placeholder="提前提醒（可多选）" style="width: 100%">
+            <el-option label="不提醒" :value="0" />
+            <el-option label="提前 5 分钟" :value="5" />
+            <el-option label="提前 15 分钟" :value="15" />
+            <el-option label="提前 30 分钟" :value="30" />
+            <el-option label="提前 60 分钟" :value="60" />
+          </el-select>
         </el-form-item>
       </el-form>
       <template #footer>

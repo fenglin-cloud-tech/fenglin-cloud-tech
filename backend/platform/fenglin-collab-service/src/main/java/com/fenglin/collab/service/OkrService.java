@@ -13,8 +13,10 @@ import com.fenglin.collab.web.dto.CollabDtos.AlignmentGraph;
 import com.fenglin.collab.web.dto.CollabDtos.GraphEdge;
 import com.fenglin.collab.web.dto.CollabDtos.GraphNode;
 import com.fenglin.collab.web.dto.CollabDtos.KrCreateRequest;
+import com.fenglin.collab.web.dto.CollabDtos.KrUpdateRequest;
 import com.fenglin.collab.web.dto.CollabDtos.KrView;
 import com.fenglin.collab.web.dto.CollabDtos.ObjectiveCreateRequest;
+import com.fenglin.collab.web.dto.CollabDtos.ObjectiveUpdateRequest;
 import com.fenglin.collab.web.dto.CollabDtos.ObjectiveView;
 import com.fenglin.collab.web.dto.CollabDtos.PeriodUpsertRequest;
 import com.fenglin.collab.web.dto.CollabDtos.PeriodView;
@@ -133,6 +135,103 @@ public class OkrService {
         }
         okrMapper.updatePeriodStatus(tenantId, periodId, "CLOSED", userId);
         audit.publish("COLLAB_OKR_PERIOD_CLOSED", "UPDATE", "collab_okr_period", periodId, "MEDIUM");
+    }
+
+    /**
+     * 重开已关闭周期。关闭只是写状态，不锁定历史数据；重开同样只改状态，便于跨季度复盘。
+     */
+    @Transactional
+    public PeriodView reopenPeriod(String periodId) {
+        long tenantId = CollabContext.tenantId();
+        Map<String, Object> period = okrMapper.findPeriod(tenantId, periodId);
+        if (period == null) {
+            throw new BizException(CollabErrorCode.RESOURCE_NOT_FOUND, "OKR 周期不存在");
+        }
+        okrMapper.reopenPeriod(tenantId, periodId, CollabContext.userId());
+        audit.publish("COLLAB_OKR_PERIOD_REOPENED", "UPDATE", "collab_okr_period", periodId, "MEDIUM");
+        return new PeriodView(periodId, Rows.str(period, "name"), Rows.date(period, "startDate"),
+                Rows.date(period, "endDate"), "OPEN");
+    }
+
+    @Transactional
+    public ObjectiveView updateObjective(String objectiveId, ObjectiveUpdateRequest request) {
+        long tenantId = CollabContext.tenantId();
+        if (request == null || request.title() == null || request.title().isBlank()) {
+            throw new BizException(CollabErrorCode.PARAM_INVALID, "目标标题不能为空");
+        }
+        if (okrMapper.findObjective(tenantId, objectiveId) == null) {
+            throw new BizException(CollabErrorCode.RESOURCE_NOT_FOUND, "目标不存在");
+        }
+        String objType = request.objType() == null ? "PERSONAL" : request.objType();
+        if (!OBJ_TYPES.contains(objType)) {
+            throw new BizException(CollabErrorCode.PARAM_INVALID, "目标类型必须为 COMPANY/DEPT/TEAM/PERSONAL");
+        }
+        String visibility = request.visibility() == null ? "DEPT" : request.visibility();
+        if (!VISIBILITIES.contains(visibility)) {
+            throw new BizException(CollabErrorCode.PARAM_INVALID, "可见范围必须为 PRIVATE/DEPT/ALL");
+        }
+        okrMapper.updateObjective(tenantId, objectiveId, objType, request.deptId(), request.title(),
+                crypto.encrypt(tenantId, "collab_okr_objective", "description", request.description()),
+                visibility, CollabContext.userId());
+        audit.publish("COLLAB_OKR_OBJECTIVE_UPDATED", "UPDATE", "collab_okr_objective", objectiveId, "LOW");
+        return objectiveView(tenantId, okrMapper.findObjective(tenantId, objectiveId));
+    }
+
+    /**
+     * 删除目标（软删）：同时软删其下 KR 与对齐关系，避免对齐图出现指向已删目标的悬挂边。
+     */
+    @Transactional
+    public void deleteObjective(String objectiveId) {
+        long tenantId = CollabContext.tenantId();
+        long userId = CollabContext.userId();
+        if (okrMapper.findObjective(tenantId, objectiveId) == null) {
+            throw new BizException(CollabErrorCode.RESOURCE_NOT_FOUND, "目标不存在");
+        }
+        okrMapper.deleteKrsByObjective(tenantId, objectiveId, userId);
+        okrMapper.deleteAlignmentsByObjective(tenantId, objectiveId, userId);
+        okrMapper.deleteObjective(tenantId, objectiveId, userId);
+        audit.publish("COLLAB_OKR_OBJECTIVE_DELETED", "DELETE", "collab_okr_objective", objectiveId, "MEDIUM");
+    }
+
+    @Transactional
+    public KrView updateKr(String krId, KrUpdateRequest request) {
+        long tenantId = CollabContext.tenantId();
+        if (request == null || request.title() == null || request.title().isBlank()) {
+            throw new BizException(CollabErrorCode.PARAM_INVALID, "KR 标题不能为空");
+        }
+        if (okrMapper.findKr(tenantId, krId) == null) {
+            throw new BizException(CollabErrorCode.RESOURCE_NOT_FOUND, "关键结果不存在");
+        }
+        String metricType = request.metricType() == null ? "PERCENT" : request.metricType();
+        if (!METRIC_TYPES.contains(metricType)) {
+            throw new BizException(CollabErrorCode.PARAM_INVALID, "指标类型必须为 PERCENT/NUMBER/BOOLEAN");
+        }
+        String confidence = request.confidence() == null ? "MID" : request.confidence();
+        if (!CONFIDENCE.contains(confidence)) {
+            throw new BizException(CollabErrorCode.PARAM_INVALID, "信心指数必须为 HIGH/MID/LOW");
+        }
+        okrMapper.updateKr(tenantId, krId, request.title(), metricType, request.targetValue(),
+                request.currentValue(), confidence, CollabContext.userId());
+        audit.publish("COLLAB_OKR_KR_UPDATED", "UPDATE", "collab_okr_key_result", krId, "LOW");
+        return krView(okrMapper.findKr(tenantId, krId));
+    }
+
+    @Transactional
+    public void deleteKr(String krId) {
+        long tenantId = CollabContext.tenantId();
+        if (okrMapper.findKr(tenantId, krId) == null) {
+            throw new BizException(CollabErrorCode.RESOURCE_NOT_FOUND, "关键结果不存在");
+        }
+        okrMapper.deleteKr(tenantId, krId, CollabContext.userId());
+        audit.publish("COLLAB_OKR_KR_DELETED", "DELETE", "collab_okr_key_result", krId, "MEDIUM");
+    }
+
+    /**
+     * 跨周期汇总：每周期目标数、KR 数与平均进度；ownerId 为空表示全租户。
+     */
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> periodSummary(Long ownerId) {
+        return okrMapper.periodSummary(CollabContext.tenantId(), ownerId);
     }
 
     @Transactional

@@ -148,10 +148,44 @@ public class WorkbenchService {
                 .listNotifications(tenantId, userId, unreadOnly, (safePage - 1) * safeSize, safeSize).stream()
                 .map(row -> new NotificationView(Rows.lngVal(row, "notificationId"), Rows.str(row, "category"),
                         Rows.str(row, "title"), Rows.str(row, "content"),
-                        Rows.intVal(row, "readFlag") == 1, Rows.instant(row, "createdAt")))
+                        Rows.intVal(row, "readFlag") == 1, Rows.instant(row, "createdAt"),
+                        Rows.str(row, "bizType"), Rows.str(row, "bizId")))
                 .toList();
         return PageResult.of(records, workbenchMapper.countNotifications(tenantId, userId, unreadOnly),
                 safePage, safeSize);
+    }
+
+    /**
+     * 未读数：独立统计，不受分页与列表过滤影响。
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> unreadCount() {
+        long tenantId = CollabContext.tenantId();
+        long userId = CollabContext.userId();
+        return Map.of("unread", workbenchMapper.countUnread(tenantId, userId));
+    }
+
+    @Transactional
+    public Map<String, Object> markAllRead() {
+        int updated = workbenchMapper.markAllNotificationsRead(CollabContext.tenantId(), CollabContext.userId());
+        return Map.of("updated", updated);
+    }
+
+    @Transactional
+    public void deleteNotification(long notificationId) {
+        if (workbenchMapper.deleteNotification(CollabContext.tenantId(), notificationId,
+                CollabContext.userId()) == 0) {
+            throw new BizException(CollabErrorCode.RESOURCE_NOT_FOUND, "通知不存在");
+        }
+    }
+
+    @Transactional
+    public Map<String, Object> deleteNotifications(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            throw new BizException(CollabErrorCode.PARAM_INVALID, "请选择要删除的通知");
+        }
+        int deleted = workbenchMapper.deleteNotifications(CollabContext.tenantId(), CollabContext.userId(), ids);
+        return Map.of("deleted", deleted);
     }
 
     /**

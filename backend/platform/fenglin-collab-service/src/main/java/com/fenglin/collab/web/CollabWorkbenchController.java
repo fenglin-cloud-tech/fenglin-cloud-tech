@@ -10,6 +10,7 @@ import com.fenglin.collab.web.dto.CollabDtos.WidgetCreateRequest;
 import com.fenglin.common.core.ApiResponse;
 import com.fenglin.common.core.PageResult;
 import com.fenglin.common.security.PermissionGuard;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -105,5 +106,36 @@ public class CollabWorkbenchController {
             @PathVariable("notificationId") long notificationId) {
         PermissionGuard.require(permissions, PERSONAL);
         return ApiResponse.success(workbenchService.markNotificationRead(notificationId));
+    }
+
+    @GetMapping("/notifications/unread-count")
+    public ApiResponse<Map<String, Object>> unreadCount(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions) {
+        PermissionGuard.require(permissions, PERSONAL);
+        return ApiResponse.success(workbenchService.unreadCount());
+    }
+
+    @PostMapping("/notifications/read-all")
+    public ApiResponse<Map<String, Object>> readAll(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions) {
+        PermissionGuard.require(permissions, PERSONAL);
+        return ApiResponse.success(workbenchService.markAllRead());
+    }
+
+    @DeleteMapping("/notifications/{notificationId}")
+    public ApiResponse<Void> deleteNotification(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("notificationId") long notificationId) {
+        PermissionGuard.require(permissions, PERSONAL);
+        workbenchService.deleteNotification(notificationId);
+        return ApiResponse.success(null);
+    }
+
+    @PostMapping("/notifications/batch-delete")
+    public ApiResponse<Map<String, Object>> batchDelete(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestBody Map<String, List<Long>> body) {
+        PermissionGuard.require(permissions, PERSONAL);
+        return ApiResponse.success(workbenchService.deleteNotifications(body == null ? null : body.get("ids")));
     }
 }

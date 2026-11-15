@@ -26,6 +26,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * IM 接口（API-IM-001/002/003/004/005/006/007/008/009/010/011/012/013）。
@@ -73,6 +74,14 @@ public class CollabImController {
             @RequestParam(value = "size", required = false) Integer size) {
         PermissionGuard.require(permissions, SELF_CHAT);
         return ApiResponse.success(imService.listConversations(keyword, page, size));
+    }
+
+    /** 员工自助：全量未读汇总（跨会话）。 */
+    @GetMapping("/conversations/my/unread-summary")
+    public ApiResponse<Map<String, Object>> unreadSummary(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions) {
+        PermissionGuard.require(permissions, SELF_CHAT);
+        return ApiResponse.success(imService.unreadSummary());
     }
 
     @GetMapping("/conversations/{convId}")

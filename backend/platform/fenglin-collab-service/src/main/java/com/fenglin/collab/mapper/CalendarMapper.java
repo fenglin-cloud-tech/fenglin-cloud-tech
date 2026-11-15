@@ -64,7 +64,7 @@ public interface CalendarMapper {
                    (EXTRACT(EPOCH FROM e.start_at) * 1000)::bigint AS "startAt",
                    (EXTRACT(EPOCH FROM e.end_at) * 1000)::bigint AS "endAt",
                    e.all_day AS "allDay", e.status AS "status", CAST(e.meeting_id AS varchar) AS "meetingId",
-                   c.owner_id AS "ownerId"
+                   c.owner_id AS "ownerId", CAST(e.reminder_minutes AS varchar) AS "reminderMinutes"
             FROM collab_event e
             JOIN collab_calendar c ON c.id = e.calendar_id AND c.tenant_id = e.tenant_id
             WHERE e.tenant_id = #{tenantId} AND e.id = CAST(#{eventId} AS uuid) AND e.deleted = 0
@@ -75,7 +75,14 @@ public interface CalendarMapper {
             SELECT e.id AS "eventId", e.calendar_id AS "calendarId", e.title AS "title",
                    (EXTRACT(EPOCH FROM e.start_at) * 1000)::bigint AS "startAt",
                    (EXTRACT(EPOCH FROM e.end_at) * 1000)::bigint AS "endAt",
-                   e.all_day AS "allDay", e.status AS "status"
+                   e.all_day AS "allDay", e.status AS "status",
+                   CAST(e.reminder_minutes AS varchar) AS "reminderMinutes",
+                   (SELECT a3.response FROM collab_event_attendee a3
+                     WHERE a3.tenant_id = e.tenant_id AND a3.event_id = e.id
+                       AND a3.attendee_id = #{userId} AND a3.deleted = 0 LIMIT 1) AS "myResponse",
+                   (SELECT a4.is_organizer FROM collab_event_attendee a4
+                     WHERE a4.tenant_id = e.tenant_id AND a4.event_id = e.id
+                       AND a4.attendee_id = #{userId} AND a4.deleted = 0 LIMIT 1) AS "myOrganizer"
             FROM collab_event e
             WHERE e.tenant_id = #{tenantId} AND e.deleted = 0
               AND ((e.calendar_id = CAST(#{calendarId,jdbcType=VARCHAR} AS uuid)
@@ -88,13 +95,35 @@ public interface CalendarMapper {
                             OR EXISTS (SELECT 1 FROM collab_event_attendee a
                                        WHERE a.tenant_id = e.tenant_id AND a.event_id = e.id
                                          AND a.attendee_id = #{userId} AND a.deleted = 0))))
+              AND (CAST(#{invitedOnly,jdbcType=BOOLEAN} AS boolean) IS NOT TRUE
+                   OR EXISTS (SELECT 1 FROM collab_event_attendee ai
+                              WHERE ai.tenant_id = e.tenant_id AND ai.event_id = e.id
+                                AND ai.attendee_id = #{userId} AND ai.is_organizer = 0 AND ai.deleted = 0))
               AND e.start_at >= #{startAt} AND e.end_at <= #{endAt}
             ORDER BY e.start_at
             """)
     List<Map<String, Object>> listEvents(@Param("tenantId") long tenantId, @Param("userId") long userId,
                                          @Param("calendarId") String calendarId,
+                                         @Param("invitedOnly") Boolean invitedOnly,
                                          @Param("startAt") OffsetDateTime startAt,
                                          @Param("endAt") OffsetDateTime endAt);
+
+    @Update("""
+            UPDATE collab_event_attendee SET response = #{response}, updated_by = #{userId}, version = version + 1
+            WHERE tenant_id = #{tenantId} AND event_id = CAST(#{eventId} AS uuid)
+              AND attendee_id = #{userId} AND deleted = 0
+            """)
+    int respondAttendee(@Param("tenantId") long tenantId, @Param("eventId") String eventId,
+                        @Param("userId") long userId, @Param("response") String response);
+
+    @Select("""
+            SELECT attendee_id AS "attendeeId", response AS "response", is_organizer AS "isOrganizer"
+            FROM collab_event_attendee
+            WHERE tenant_id = #{tenantId} AND event_id = CAST(#{eventId} AS uuid)
+              AND attendee_id = #{userId} AND deleted = 0
+            """)
+    Map<String, Object> findAttendee(@Param("tenantId") long tenantId, @Param("eventId") String eventId,
+                                     @Param("userId") long userId);
 
     @Update("""
             UPDATE collab_event

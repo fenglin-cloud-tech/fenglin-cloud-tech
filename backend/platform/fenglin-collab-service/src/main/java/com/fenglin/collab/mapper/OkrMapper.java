@@ -140,6 +140,87 @@ public interface OkrMapper {
     List<Map<String, Object>> listKrs(@Param("tenantId") long tenantId, @Param("objectiveId") String objectiveId);
 
     @Update("""
+            UPDATE collab_okr_period SET status = 'OPEN', updated_by = #{userId}, version = version + 1
+            WHERE tenant_id = #{tenantId} AND id = CAST(#{periodId} AS uuid) AND deleted = 0
+            """)
+    int reopenPeriod(@Param("tenantId") long tenantId, @Param("periodId") String periodId,
+                     @Param("userId") long userId);
+
+    @Update("""
+            UPDATE collab_okr_objective SET obj_type = #{objType}, dept_id = #{deptId,jdbcType=BIGINT},
+                   title = #{title}, description_cipher = #{descriptionCipher,jdbcType=VARCHAR},
+                   visibility = #{visibility}, updated_by = #{userId}, version = version + 1
+            WHERE tenant_id = #{tenantId} AND id = CAST(#{objectiveId} AS uuid) AND deleted = 0
+            """)
+    int updateObjective(@Param("tenantId") long tenantId, @Param("objectiveId") String objectiveId,
+                        @Param("objType") String objType, @Param("deptId") Long deptId,
+                        @Param("title") String title, @Param("descriptionCipher") String descriptionCipher,
+                        @Param("visibility") String visibility, @Param("userId") long userId);
+
+    @Update("""
+            UPDATE collab_okr_key_result SET deleted = 1, updated_by = #{userId}, version = version + 1
+            WHERE tenant_id = #{tenantId} AND objective_id = CAST(#{objectiveId} AS uuid) AND deleted = 0
+            """)
+    int deleteKrsByObjective(@Param("tenantId") long tenantId, @Param("objectiveId") String objectiveId,
+                             @Param("userId") long userId);
+
+    @Update("""
+            UPDATE collab_okr_objective SET deleted = 1, updated_by = #{userId}, version = version + 1
+            WHERE tenant_id = #{tenantId} AND id = CAST(#{objectiveId} AS uuid) AND deleted = 0
+            """)
+    int deleteObjective(@Param("tenantId") long tenantId, @Param("objectiveId") String objectiveId,
+                        @Param("userId") long userId);
+
+    @Update("""
+            UPDATE collab_okr_alignment SET deleted = 1, updated_by = #{userId}, version = version + 1
+            WHERE tenant_id = #{tenantId}
+              AND (child_objective_id = CAST(#{objectiveId} AS uuid)
+                   OR parent_objective_id = CAST(#{objectiveId} AS uuid))
+              AND deleted = 0
+            """)
+    int deleteAlignmentsByObjective(@Param("tenantId") long tenantId, @Param("objectiveId") String objectiveId,
+                                    @Param("userId") long userId);
+
+    @Update("""
+            UPDATE collab_okr_key_result SET title = #{title}, metric_type = #{metricType},
+                   target_value = #{targetValue,jdbcType=NUMERIC}, current_value = #{currentValue,jdbcType=NUMERIC},
+                   confidence = #{confidence}, updated_by = #{userId}, version = version + 1
+            WHERE tenant_id = #{tenantId} AND id = CAST(#{krId} AS uuid) AND deleted = 0
+            """)
+    int updateKr(@Param("tenantId") long tenantId, @Param("krId") String krId, @Param("title") String title,
+                 @Param("metricType") String metricType, @Param("targetValue") BigDecimal targetValue,
+                 @Param("currentValue") BigDecimal currentValue, @Param("confidence") String confidence,
+                 @Param("userId") long userId);
+
+    @Update("""
+            UPDATE collab_okr_key_result SET deleted = 1, updated_by = #{userId}, version = version + 1
+            WHERE tenant_id = #{tenantId} AND id = CAST(#{krId} AS uuid) AND deleted = 0
+            """)
+    int deleteKr(@Param("tenantId") long tenantId, @Param("krId") String krId, @Param("userId") long userId);
+
+    /**
+     * 跨周期汇总：每个周期下目标数、KR 数、平均进度。ownerId 为空时统计全租户（管理端）。
+     */
+    @Select("""
+            SELECT p.id AS "periodId", p.name AS "periodName", p.status AS "status",
+                   p.start_date AS "startDate", p.end_date AS "endDate",
+                   count(DISTINCT o.id) AS "objectiveCount",
+                   count(k.id) AS "krCount",
+                   COALESCE(round(avg(k.progress), 2), 0) AS "avgProgress"
+            FROM collab_okr_period p
+            LEFT JOIN collab_okr_objective o
+              ON o.period_id = p.id AND o.tenant_id = p.tenant_id AND o.deleted = 0
+             AND (CAST(#{ownerId,jdbcType=BIGINT} AS bigint) IS NULL OR o.owner_id = #{ownerId})
+            LEFT JOIN collab_okr_key_result k
+              ON k.objective_id = o.id AND k.tenant_id = o.tenant_id AND k.deleted = 0
+            WHERE p.tenant_id = #{tenantId} AND p.deleted = 0
+            GROUP BY p.id, p.name, p.status, p.start_date, p.end_date
+            ORDER BY p.start_date DESC
+            """)
+    List<Map<String, Object>> periodSummary(@Param("tenantId") long tenantId,
+                                            @Param("ownerId") Long ownerId);
+
+    @Update("""
             UPDATE collab_okr_key_result
             SET progress = #{progress}, current_value = #{currentValue,jdbcType=NUMERIC},
                 confidence = #{confidence}, updated_by = #{userId}

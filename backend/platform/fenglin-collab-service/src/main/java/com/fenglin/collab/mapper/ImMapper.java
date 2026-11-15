@@ -55,6 +55,29 @@ public interface ImMapper {
     long countConversations(@Param("tenantId") long tenantId, @Param("userId") long userId,
                             @Param("keyword") String keyword);
 
+    /**
+     * 全量未读汇总：把本人所在会话的未读数相加，并给出有未读的会话数。
+     */
+    @Select("""
+            SELECT COALESCE(sum(sub.unread), 0) AS "unreadTotal",
+                   count(1) FILTER (WHERE sub.unread > 0) AS "unreadConversations"
+            FROM (
+                SELECT (SELECT count(1) FROM collab_message msg
+                         WHERE msg.tenant_id = c.tenant_id AND msg.conversation_id = c.id
+                           AND msg.deleted = 0 AND msg.revoked = 0 AND msg.sender_id <> #{userId}
+                           AND (cm.last_read_message_id IS NULL
+                                OR msg.seq > (SELECT r.seq FROM collab_message r
+                                               WHERE r.id = cm.last_read_message_id))
+                       ) AS unread
+                FROM collab_conversation c
+                JOIN collab_conversation_member cm
+                  ON cm.conversation_id = c.id AND cm.tenant_id = c.tenant_id
+                 AND cm.member_id = #{userId} AND cm.deleted = 0
+                WHERE c.tenant_id = #{tenantId} AND c.deleted = 0 AND c.status <> 'DISSOLVED'
+            ) sub
+            """)
+    Map<String, Object> unreadSummary(@Param("tenantId") long tenantId, @Param("userId") long userId);
+
     @Select("""
             SELECT id AS "conversationId", conv_type AS "convType", title AS "title", owner_id AS "ownerId",
                    member_count AS "memberCount", announcement AS "announcement", status AS "status",

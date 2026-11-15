@@ -24,9 +24,11 @@ const draft = reactive({ msg_type: 'TEXT', content: '' })
 
 const gapItems = [
   '消息正文只返回 summary 字段，富文本/附件详情不在列表接口中，附件仅展示 file_id。',
-  '未读数是会话级 unread_count，没有全量未读汇总接口。',
+  '已提供全量未读汇总接口（总未读 + 有未读的会话数），会话级仍有 unread_count。',
   '撤回是否允许由后端校验，前端仅按 sender_id 与当前账号比较显示入口。',
 ]
+
+const unreadSummary = ref({ unreadTotal: 0, unreadConversations: 0 })
 
 function fmt(value?: string) {
   return value ? new Date(value).toLocaleString() : '-'
@@ -46,6 +48,11 @@ async function loadConversations() {
       size: 50,
     })
     conversations.value = result.records
+    const summary = await collabApi.im.unreadSummary()
+    unreadSummary.value = {
+      unreadTotal: Number(summary.unreadTotal ?? summary.unread_total ?? 0),
+      unreadConversations: Number(summary.unreadConversations ?? summary.unread_conversations ?? 0),
+    }
   } catch (err) {
     error.value = describeError(err)
   } finally {
@@ -184,6 +191,9 @@ onMounted(loadConversations)
               @keyup.enter="loadConversations"
             />
             <el-button type="primary" plain @click="loadConversations">查询</el-button>
+          </div>
+          <div class="fl-muted" style="margin-bottom: 8px">
+            全量未读 {{ unreadSummary.unreadTotal }} 条 · 有未读会话 {{ unreadSummary.unreadConversations }} 个
           </div>
 
           <div v-loading="convLoading" class="conv-list">
