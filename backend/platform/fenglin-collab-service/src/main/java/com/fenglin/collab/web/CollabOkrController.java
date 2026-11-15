@@ -34,6 +34,7 @@ public class CollabOkrController {
     private static final String READ = "biz:collab:okr:read";
     private static final String SELF_READ = "biz:collab:okr:self:read";
     private static final String MANAGE = "biz:collab:okr:manage";
+    private static final String SELF_CREATE = "biz:collab:okr:self:create";
     private static final String PROGRESS = "biz:collab:okr:progress";
     private static final String PERIOD_ADMIN = "tenant:collab:okr:period:manage";
 
@@ -104,6 +105,19 @@ public class CollabOkrController {
             @RequestBody KrCreateRequest request) {
         PermissionGuard.require(permissions, MANAGE);
         return ApiResponse.success(okrService.createKr(objectiveId, request));
+    }
+
+    /**
+     * 员工自助：只能在本人名下的目标下创建 KR。归属由服务端取 X-User-Id，
+     * 服务层校验 objective.owner_id == 当前用户，否则 403（NO_PERMISSION）。
+     */
+    @PostMapping("/objectives/{objectiveId}/key-results/self")
+    public ApiResponse<KrView> createKrSelf(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("objectiveId") String objectiveId,
+            @RequestBody KrCreateRequest request) {
+        PermissionGuard.require(permissions, SELF_CREATE);
+        return ApiResponse.success(okrService.createKrSelf(objectiveId, request));
     }
 
     @PostMapping("/objectives/{objectiveId}/align")

@@ -619,6 +619,15 @@ export const collabApi = {
     }) {
       return post<CollabKr>(`/api/collab/v1/okr/objectives/${objectiveId}/key-results`, body)
     },
+    createKrSelf(objectiveId: CollabId, body: {
+      title: string
+      metric_type: string
+      target_value?: number
+      current_value?: number
+      confidence?: string
+    }) {
+      return post<CollabKr>(`/api/collab/v1/okr/objectives/${objectiveId}/key-results/self`, body)
+    },
     align(objectiveId: CollabId, body: { parent_objective_id: CollabId; align_type?: string; weight?: number }) {
       return post<{ alignment_id: CollabId }>(`/api/collab/v1/okr/objectives/${objectiveId}/align`, body)
     },

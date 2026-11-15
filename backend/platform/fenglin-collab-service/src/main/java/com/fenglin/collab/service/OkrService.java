@@ -188,6 +188,24 @@ public class OkrService {
     /**
      * 缺口补齐 API-OKR-006：为对齐后的目标创建关键结果。
      */
+    /**
+     * 员工自助：在本人名下目标下创建 KR（self 作用域）。
+     * 目标归属只从服务端上下文取，不接受请求体传入，非本人目标一律 403。
+     */
+    @Transactional
+    public KrView createKrSelf(String objectiveId, KrCreateRequest request) {
+        long tenantId = CollabContext.tenantId();
+        long userId = CollabContext.userId();
+        Map<String, Object> objective = okrMapper.findObjective(tenantId, objectiveId);
+        if (objective == null) {
+            throw new BizException(CollabErrorCode.RESOURCE_NOT_FOUND, "目标不存在");
+        }
+        if (Rows.lngVal(objective, "ownerId") != userId) {
+            throw new BizException(CollabErrorCode.NO_PERMISSION, "只能在自己的目标下创建 KR");
+        }
+        return createKr(objectiveId, request);
+    }
+
     @Transactional
     public KrView createKr(String objectiveId, KrCreateRequest request) {
         long tenantId = CollabContext.tenantId();

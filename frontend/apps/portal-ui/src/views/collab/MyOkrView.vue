@@ -57,7 +57,7 @@ const confidenceOptions = [
 
 const gapItems = [
   '员工端只展示 owner_id 等于当前账号的目标，没有团队/下属 OKR 视图。',
-  'KR 进度接口校验 biz:collab:okr:progress（已与权限种子对齐），新增/编辑目标与 KR 仍需 biz:collab:okr:manage。',
+  '员工可在本人目标下新增 KR（biz:collab:okr:self:create，服务端校验目标负责人）；新增/编辑目标与对齐仍需 biz:collab:okr:manage。',
   '目标/KR 没有编辑、删除接口；对齐关系只能在管理端维护。',
   'KR 指标类型后端只接受 PERCENT/NUMBER/BOOLEAN，CURRENCY 会被参数校验拒绝。',
 ]
@@ -194,13 +194,18 @@ async function submitKr() {
   krSaving.value = true
   krError.value = ''
   try {
-    await collabApi.okr.createKr(krObjectiveId.value, {
+    const body = {
       title: krForm.title.trim(),
       metric_type: krForm.metric_type,
       target_value: parseNumber(krForm.target_value),
       current_value: parseNumber(krForm.current_value),
       confidence: krForm.confidence,
-    })
+    }
+    if (auth.can('biz:collab:okr:manage')) {
+      await collabApi.okr.createKr(krObjectiveId.value, body)
+    } else {
+      await collabApi.okr.createKrSelf(krObjectiveId.value, body)
+    }
     ElMessage.success('KR 已创建')
     krVisible.value = false
     await loadObjectives()
@@ -290,7 +295,12 @@ onMounted(() => {
               <el-tag size="small" type="info">{{ objTypeLabel(obj.obj_type) }}</el-tag>
               <el-tag size="small" type="info">{{ visibilityLabel(obj.visibility) }}</el-tag>
               <el-tag size="small" :type="statusTag(obj.status)">{{ obj.status }}</el-tag>
-              <el-button v-perm="'biz:collab:okr:manage'" link type="primary" @click="openKr(obj)">新增 KR</el-button>
+              <el-button
+                v-perm="['biz:collab:okr:manage', 'biz:collab:okr:self:create']"
+                link
+                type="primary"
+                @click="openKr(obj)"
+              >新增 KR</el-button>
             </div>
           </div>
 
@@ -388,7 +398,12 @@ onMounted(() => {
       </el-form>
       <template #footer>
         <el-button @click="krVisible = false">取消</el-button>
-        <el-button v-perm="'biz:collab:okr:manage'" type="primary" :loading="krSaving" @click="submitKr">提交</el-button>
+        <el-button
+          v-perm="['biz:collab:okr:manage', 'biz:collab:okr:self:create']"
+          type="primary"
+          :loading="krSaving"
+          @click="submitKr"
+        >提交</el-button>
       </template>
     </el-dialog>
 
