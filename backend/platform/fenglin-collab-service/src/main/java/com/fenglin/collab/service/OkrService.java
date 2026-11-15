@@ -21,6 +21,7 @@ import com.fenglin.collab.web.dto.CollabDtos.PeriodView;
 import com.fenglin.collab.web.dto.CollabDtos.ProgressRequest;
 import com.fenglin.collab.web.dto.CollabDtos.ProgressResult;
 import com.fenglin.common.core.BizException;
+import com.fenglin.common.security.PermissionGuard;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -263,7 +264,7 @@ public class OkrService {
     }
 
     @Transactional
-    public ProgressResult updateProgress(String krId, ProgressRequest request) {
+    public ProgressResult updateProgress(String krId, ProgressRequest request, String permissions) {
         long tenantId = CollabContext.tenantId();
         long userId = CollabContext.userId();
         Map<String, Object> kr = okrMapper.findKr(tenantId, krId);
@@ -284,6 +285,11 @@ public class OkrService {
         Map<String, Object> objective = okrMapper.findObjective(tenantId, Rows.str(kr, "objectiveId"));
         if (objective == null) {
             throw new BizException(CollabErrorCode.RESOURCE_NOT_FOUND, "目标不存在");
+        }
+        // 员工只可更新自己目标的进度；管理端（okr:manage）保留跨人维护能力
+        if (Rows.lngVal(objective, "ownerId") != userId
+                && !PermissionGuard.has(permissions, "biz:collab:okr:manage")) {
+            throw new BizException(CollabErrorCode.NO_PERMISSION, "仅目标负责人可更新进度");
         }
         Map<String, Object> period = okrMapper.findPeriod(tenantId, Rows.str(objective, "periodId"));
         if (period != null && "CLOSED".equals(Rows.str(period, "status"))) {

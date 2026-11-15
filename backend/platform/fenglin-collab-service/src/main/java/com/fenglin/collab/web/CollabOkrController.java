@@ -121,7 +121,7 @@ public class CollabOkrController {
             @PathVariable("krId") String krId,
             @RequestBody ProgressRequest request) {
         PermissionGuard.require(permissions, PROGRESS);
-        return ApiResponse.success(okrService.updateProgress(krId, request));
+        return ApiResponse.success(okrService.updateProgress(krId, request, permissions));
     }
 
     @GetMapping("/alignment-graph")

@@ -111,6 +111,40 @@ public interface DocMapper {
     long countDocumentsByOwner(@Param("tenantId") long tenantId, @Param("userId") long userId,
                                @Param("keyword") String keyword);
 
+    /**
+     * 员工自助：共享给我的文档（本人为 USER 协作者，排除本人创建）。
+     */
+    @Select("""
+            SELECT d.id AS "docId", d.title AS "title", d.doc_type AS "docType", d.owner_id AS "ownerId",
+                   d.current_version AS "currentVersion", d.secret_level AS "secretLevel",
+                   d.share_scope AS "shareScope", d.status AS "status",
+                   (EXTRACT(EPOCH FROM d.updated_at) * 1000)::bigint AS "updatedAt"
+            FROM collab_document d
+            WHERE d.tenant_id = #{tenantId} AND d.owner_id <> #{userId} AND d.deleted = 0
+              AND (CAST(#{keyword,jdbcType=VARCHAR} AS varchar) IS NULL OR d.title ILIKE '%' || #{keyword} || '%')
+              AND EXISTS (SELECT 1 FROM collab_document_collaborator c
+                          WHERE c.tenant_id = d.tenant_id AND c.document_id = d.id
+                            AND c.subject_type = 'USER' AND c.subject_id = #{userId} AND c.deleted = 0)
+            ORDER BY d.updated_at DESC
+            LIMIT #{size} OFFSET #{offset}
+            """)
+    List<Map<String, Object>> listSharedDocuments(@Param("tenantId") long tenantId,
+                                                  @Param("userId") long userId,
+                                                  @Param("keyword") String keyword,
+                                                  @Param("offset") int offset, @Param("size") int size);
+
+    @Select("""
+            SELECT count(1)
+            FROM collab_document d
+            WHERE d.tenant_id = #{tenantId} AND d.owner_id <> #{userId} AND d.deleted = 0
+              AND (CAST(#{keyword,jdbcType=VARCHAR} AS varchar) IS NULL OR d.title ILIKE '%' || #{keyword} || '%')
+              AND EXISTS (SELECT 1 FROM collab_document_collaborator c
+                          WHERE c.tenant_id = d.tenant_id AND c.document_id = d.id
+                            AND c.subject_type = 'USER' AND c.subject_id = #{userId} AND c.deleted = 0)
+            """)
+    long countSharedDocuments(@Param("tenantId") long tenantId, @Param("userId") long userId,
+                              @Param("keyword") String keyword);
+
     @Update("""
             UPDATE collab_document
             SET title = COALESCE(#{title,jdbcType=VARCHAR}, title),

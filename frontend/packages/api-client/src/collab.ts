@@ -339,6 +339,9 @@ export const collabApi = {
     conversation(convId: CollabId) {
       return get<CollabConversationDetail>(`/api/collab/v1/im/conversations/${convId}`)
     },
+    myConversation(convId: CollabId) {
+      return get<CollabConversationDetail>(`/api/collab/v1/im/conversations/${convId}/self`)
+    },
     addMembers(convId: CollabId, memberIds: CollabId[]) {
       return post<CollabMember[]>(`/api/collab/v1/im/conversations/${convId}/members`, { member_ids: memberIds })
     },
@@ -354,6 +357,9 @@ export const collabApi = {
     messages(convId: CollabId, params: { cursor?: number; size?: number } = {}) {
       return get<CollabMessagePage>(`/api/collab/v1/im/conversations/${convId}/messages`, params)
     },
+    myMessages(convId: CollabId, params: { cursor?: number; size?: number } = {}) {
+      return get<CollabMessagePage>(`/api/collab/v1/im/conversations/${convId}/messages/self`, params)
+    },
     send(convId: CollabId, body: {
       client_msg_id?: string
       msg_type?: string
@@ -364,12 +370,30 @@ export const collabApi = {
     }) {
       return post<CollabMessage>(`/api/collab/v1/im/conversations/${convId}/messages`, body)
     },
+    sendSelf(convId: CollabId, body: {
+      client_msg_id?: string
+      msg_type?: string
+      content?: string
+      reply_to_id?: CollabId
+      mention_ids?: CollabId[]
+      file_id?: string
+    }) {
+      return post<CollabMessage>(`/api/collab/v1/im/conversations/${convId}/messages/self`, body)
+    },
     revoke(messageId: CollabId, reason?: string) {
       return post<void>(`/api/collab/v1/im/messages/${messageId}/revoke`, { reason })
+    },
+    revokeSelf(messageId: CollabId, reason?: string) {
+      return post<void>(`/api/collab/v1/im/messages/${messageId}/revoke/self`, { reason })
     },
     read(messageId: CollabId, conversationId: CollabId) {
       return post<{ conversation_id: CollabId; unread_count: number }>(
         `/api/collab/v1/im/messages/${messageId}/read?conversationId=${encodeURIComponent(String(conversationId))}`,
+      )
+    },
+    readSelf(messageId: CollabId, conversationId: CollabId) {
+      return post<{ conversation_id: CollabId; unread_count: number }>(
+        `/api/collab/v1/im/messages/${messageId}/read/self?conversationId=${encodeURIComponent(String(conversationId))}`,
       )
     },
     react(messageId: CollabId, emoji: string) {
@@ -395,6 +419,9 @@ export const collabApi = {
     },
     my(params: { keyword?: string; page?: number; size?: number } = {}) {
       return get<PageResult<CollabDoc>>('/api/collab/v1/docs/my', params)
+    },
+    shared(params: { keyword?: string; page?: number; size?: number } = {}) {
+      return get<PageResult<CollabDoc>>('/api/collab/v1/docs/shared', params)
     },
     create(body: { title: string; doc_type?: string; folder_id?: string; secret_level?: string }) {
       return post<CollabDoc>('/api/collab/v1/docs', body)

@@ -315,7 +315,7 @@ onMounted(() => {
             <el-table-column label="操作" width="110" fixed="right">
               <template #default="{ row: kr }">
                 <el-button
-                  v-perm="'biz:collab:okr:manage'"
+                  v-perm="'biz:collab:okr:progress'"
                   link
                   type="primary"
                   @click="openProgress(kr.kr_id, kr.title)"
@@ -420,7 +420,7 @@ onMounted(() => {
       <template #footer>
         <el-button @click="progressVisible = false">取消</el-button>
         <el-button
-          v-perm="'biz:collab:okr:manage'"
+          v-perm="'biz:collab:okr:progress'"
           type="primary"
           :loading="progressSaving"
           @click="submitProgress"

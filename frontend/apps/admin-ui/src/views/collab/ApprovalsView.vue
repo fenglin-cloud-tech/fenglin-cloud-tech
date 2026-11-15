@@ -571,7 +571,7 @@ onMounted(() => {
           <el-button
             v-perm="'tenant:collab:approval:template:manage'"
             type="primary"
-            @click="openTemplate"
+            @click="openTemplate()"
           >
             新建模板
           </el-button>

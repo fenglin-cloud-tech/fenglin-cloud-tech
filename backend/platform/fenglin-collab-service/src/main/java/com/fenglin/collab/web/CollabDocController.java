@@ -79,11 +79,25 @@ public class CollabDocController {
         return ApiResponse.success(docService.myDocuments(keyword, page, size));
     }
 
+    /**
+     * 员工自助：共享给我的文档（当前用户为 USER 协作者，且非本人创建）。
+     * 与「我的文档」互补，解决管理端加协作者后门户看不到的问题。
+     */
+    @GetMapping("/shared")
+    public ApiResponse<PageResult<DocView>> sharedDocuments(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(value = "keyword", required = false) String keyword,
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false) Integer size) {
+        PermissionGuard.require(permissions, SELF_READ);
+        return ApiResponse.success(docService.sharedDocuments(keyword, page, size));
+    }
+
     @GetMapping("/{docId}")
     public ApiResponse<DocView> detail(
             @RequestHeader(value = "X-Permissions", required = false) String permissions,
             @PathVariable("docId") String docId) {
-        PermissionGuard.require(permissions, READ);
+        PermissionGuard.requireAny(permissions, READ, SELF_READ);
         return ApiResponse.success(docService.detail(docId));
     }
 
@@ -102,7 +116,7 @@ public class CollabDocController {
             @PathVariable("docId") String docId,
             @RequestParam(value = "page", required = false) Integer page,
             @RequestParam(value = "size", required = false) Integer size) {
-        PermissionGuard.require(permissions, READ);
+        PermissionGuard.requireAny(permissions, READ, SELF_READ);
         return ApiResponse.success(docService.versions(docId, page, size));
     }
 
@@ -137,7 +151,7 @@ public class CollabDocController {
     public ApiResponse<List<CollaboratorView>> collaborators(
             @RequestHeader(value = "X-Permissions", required = false) String permissions,
             @PathVariable("docId") String docId) {
-        PermissionGuard.require(permissions, READ);
+        PermissionGuard.requireAny(permissions, READ, SELF_READ);
         return ApiResponse.success(docService.collaborators(docId));
     }
 
@@ -171,7 +185,7 @@ public class CollabDocController {
     public ApiResponse<List<CommentView>> comments(
             @RequestHeader(value = "X-Permissions", required = false) String permissions,
             @PathVariable("docId") String docId) {
-        PermissionGuard.require(permissions, READ);
+        PermissionGuard.requireAny(permissions, READ, SELF_READ);
         return ApiResponse.success(docService.comments(docId));
     }
 }

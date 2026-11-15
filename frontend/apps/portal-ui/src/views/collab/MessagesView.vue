@@ -58,7 +58,7 @@ async function loadMessages() {
   msgLoading.value = true
   error.value = ''
   try {
-    const result = await collabApi.im.messages(selected.value.conversation_id, { size: 50 })
+    const result = await collabApi.im.myMessages(selected.value.conversation_id, { size: 50 })
     messages.value = result.records
     nextCursor.value = result.next_cursor
     sortMessages()
@@ -73,7 +73,7 @@ async function loadEarlier() {
   if (!selected.value || nextCursor.value === undefined) return
   msgLoadingMore.value = true
   try {
-    const result = await collabApi.im.messages(selected.value.conversation_id, {
+    const result = await collabApi.im.myMessages(selected.value.conversation_id, {
       cursor: nextCursor.value,
       size: 50,
     })
@@ -93,7 +93,7 @@ async function markRead() {
   if (!conv || !messages.value.length) return
   const latest = messages.value[messages.value.length - 1]
   try {
-    await collabApi.im.read(latest.message_id, conv.conversation_id)
+    await collabApi.im.readSelf(latest.message_id, conv.conversation_id)
     conv.unread_count = 0
     const target = conversations.value.find((item) => item.conversation_id === conv.conversation_id)
     if (target) target.unread_count = 0
@@ -119,7 +119,7 @@ async function sendMessage() {
   }
   sending.value = true
   try {
-    await collabApi.im.send(selected.value.conversation_id, {
+    await collabApi.im.sendSelf(selected.value.conversation_id, {
       client_msg_id: `${Date.now()}-${Math.random()}`,
       msg_type: draft.msg_type,
       content,
@@ -147,7 +147,7 @@ async function revokeMessage(message: CollabMessage) {
     return
   }
   try {
-    await collabApi.im.revoke(message.message_id, reason || undefined)
+    await collabApi.im.revokeSelf(message.message_id, reason || undefined)
     const target = messages.value.find((item) => item.message_id === message.message_id)
     if (target) target.revoked = true
     ElMessage.success('消息已撤回')

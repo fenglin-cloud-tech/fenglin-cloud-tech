@@ -15,6 +15,7 @@ const rows = ref<CollabDoc[]>([])
 const total = ref(0)
 const loading = ref(false)
 const error = ref('')
+const scope = ref<'mine' | 'shared'>('mine')
 const query = reactive({ keyword: '', page: 1, size: 10 })
 
 const createVisible = ref(false)
@@ -80,7 +81,8 @@ async function load() {
   loading.value = true
   error.value = ''
   try {
-    const result = await collabApi.docs.my({
+    const api = scope.value === 'shared' ? collabApi.docs.shared : collabApi.docs.my
+    const result = await api({
       keyword: query.keyword || undefined,
       page: query.page,
       size: query.size,
@@ -92,6 +94,11 @@ async function load() {
   } finally {
     loading.value = false
   }
+}
+
+function changeScope() {
+  query.page = 1
+  void load()
 }
 
 function openCreate() {
@@ -276,7 +283,7 @@ onMounted(load)
 
 <template>
   <div>
-    <PageHeader title="文档" description="我创建的文档与详情，支持正文编辑、版本、协作者与评论查看；列表来自 /api/collab/v1/docs/my。">
+    <PageHeader title="文档" description="我创建的与共享给我的文档；详情支持正文查看、版本、协作者与评论。">
       <template #actions>
         <el-button v-perm="'biz:collab:doc:edit'" type="primary" @click="openCreate">新建文档</el-button>
         <el-button :loading="loading" @click="load">刷新</el-button>
@@ -287,6 +294,10 @@ onMounted(load)
 
     <el-card shadow="never">
       <div class="fl-toolbar">
+        <el-radio-group v-model="scope" @change="changeScope">
+          <el-radio-button value="mine">我创建的</el-radio-button>
+          <el-radio-button value="shared">共享给我</el-radio-button>
+        </el-radio-group>
         <el-input
           v-model="query.keyword"
           placeholder="文档标题关键词"

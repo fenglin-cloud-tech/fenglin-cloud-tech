@@ -129,6 +129,70 @@ public class CollabImController {
         return ApiResponse.success(imService.sendMessage(convId, request));
     }
 
+    /**
+     * 员工自助发送：发送者固定为当前登录用户（X-User-Id），请求体不接受 owner/sender 字段；
+     * 仍要求当前用户是该会话成员，避免跨会话越权。
+     */
+    @PostMapping("/conversations/{convId}/messages/self")
+    public ApiResponse<MessageView> sendSelf(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("convId") String convId,
+            @RequestBody MessageSendRequest request) {
+        PermissionGuard.require(permissions, SELF_CHAT);
+        return ApiResponse.success(imService.sendMessage(convId, request));
+    }
+
+    /** 员工自助：会话详情（仅本人所在会话，服务端校验成员关系）。 */
+    @GetMapping("/conversations/{convId}/self")
+    public ApiResponse<ConversationDetailView> detailSelf(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("convId") String convId) {
+        PermissionGuard.require(permissions, SELF_CHAT);
+        return ApiResponse.success(imService.detail(convId));
+    }
+
+    /** 员工自助：消息列表（仅本人所在会话）。 */
+    @GetMapping("/conversations/{convId}/messages/self")
+    public ApiResponse<MessagePage> messagesSelf(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("convId") String convId,
+            @RequestParam(value = "cursor", required = false) Long cursor,
+            @RequestParam(value = "size", required = false) Integer size) {
+        PermissionGuard.require(permissions, SELF_CHAT);
+        return ApiResponse.success(imService.listMessages(convId, cursor, size));
+    }
+
+    /** 员工自助：已读回执（仅本人所在会话）。 */
+    @PostMapping("/messages/{messageId}/read/self")
+    public ApiResponse<ReadResult> readSelf(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("messageId") long messageId,
+            @RequestParam("conversationId") String conversationId) {
+        PermissionGuard.require(permissions, SELF_CHAT);
+        return ApiResponse.success(imService.markRead(conversationId, messageId));
+    }
+
+    /** 员工自助：撤回本人消息（群管理员口径由服务端按成员角色判断）。 */
+    @PostMapping("/messages/{messageId}/revoke/self")
+    public ApiResponse<Void> revokeSelf(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("messageId") long messageId,
+            @RequestBody(required = false) RevokeRequest request) {
+        PermissionGuard.require(permissions, SELF_CHAT);
+        imService.revokeMessage(messageId, request == null ? null : request.reason());
+        return ApiResponse.success(null);
+    }
+
+    /** 员工自助：退出本人所在会话。 */
+    @PostMapping("/conversations/{convId}/leave/self")
+    public ApiResponse<Void> leaveSelf(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("convId") String convId) {
+        PermissionGuard.require(permissions, SELF_CHAT);
+        imService.leave(convId);
+        return ApiResponse.success(null);
+    }
+
     @GetMapping("/conversations/{convId}/messages")
     public ApiResponse<MessagePage> messages(
             @RequestHeader(value = "X-Permissions", required = false) String permissions,
