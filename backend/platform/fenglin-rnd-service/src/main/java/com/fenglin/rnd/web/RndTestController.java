@@ -49,10 +49,13 @@ public class RndTestController {
         return ApiResponse.success(testService.createCase(request));
     }
 
+    /**
+     * 测试用例列表：productId 缺省时跨产品返回（RND-08）。
+     */
     @GetMapping("/test-cases")
     public ApiResponse<List<TestCaseView>> listCases(
             @RequestHeader(value = "X-Permissions", required = false) String permissions,
-            @RequestParam("productId") long productId,
+            @RequestParam(value = "productId", required = false) Long productId,
             @RequestParam(value = "reviewStatus", required = false) String reviewStatus,
             @RequestParam(value = "page", required = false) Integer page,
             @RequestParam(value = "size", required = false) Integer size) {
@@ -83,6 +86,20 @@ public class RndTestController {
             @RequestBody TestPlanCreateRequest request) {
         PermissionGuard.require(permissions, PLAN_MANAGE);
         return ApiResponse.success(testService.createPlan(request));
+    }
+
+    /**
+     * 测试计划列表：productId 缺省时跨产品返回（RND-08）。
+     */
+    @GetMapping("/test-plans")
+    public ApiResponse<List<TestPlanView>> listPlans(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(value = "productId", required = false) Long productId,
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false) Integer size) {
+        PermissionGuard.require(permissions, PLAN_VIEW);
+        return ApiResponse.success(testService.listPlans(productId, status, page, size));
     }
 
     @GetMapping("/test-plans/{id}")

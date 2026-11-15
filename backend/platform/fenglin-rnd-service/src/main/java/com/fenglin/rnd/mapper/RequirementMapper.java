@@ -70,6 +70,9 @@ public interface RequirementMapper {
             WHERE r.tenant_id = #{tenantId} AND r.deleted = 0 AND r.product_id = #{productId}
               <if test="sprintId != null">AND r.sprint_id = #{sprintId}</if>
               <if test="statusCode != null">AND s.status_code = #{statusCode}</if>
+              <if test="assigneeId != null">AND r.assignee_id = #{assigneeId}</if>
+              <if test="keyword != null">AND (r.title ILIKE '%' || #{keyword} || '%'
+                    OR r.req_no ILIKE '%' || #{keyword} || '%')</if>
             ORDER BY r.id DESC
             LIMIT #{limit} OFFSET #{offset}
             </script>
@@ -77,6 +80,8 @@ public interface RequirementMapper {
     List<Map<String, Object>> listRequirements(@Param("tenantId") long tenantId, @Param("productId") long productId,
                                                @Param("sprintId") Long sprintId,
                                                @Param("statusCode") String statusCode,
+                                               @Param("assigneeId") Long assigneeId,
+                                               @Param("keyword") String keyword,
                                                @Param("limit") int limit, @Param("offset") int offset);
 
     @Update("""
@@ -113,6 +118,29 @@ public interface RequirementMapper {
     int insertRelation(@Param("id") long id, @Param("tenantId") long tenantId, @Param("srcId") long srcId,
                        @Param("dstId") long dstId, @Param("relationType") String relationType,
                        @Param("userId") long userId);
+
+    /**
+     * 需求关联双向查询：当前需求作为 src 或 dst 均返回，direction 标明方向。
+     */
+    @Select("""
+            SELECT rel.id AS "id", rel.src_requirement_id AS "srcRequirementId",
+                   src.req_no AS "srcReqNo", src.title AS "srcTitle",
+                   rel.dst_requirement_id AS "dstRequirementId",
+                   dst.req_no AS "dstReqNo", dst.title AS "dstTitle",
+                   rel.relation_type AS "relationType",
+                   CASE WHEN rel.src_requirement_id = #{requirementId} THEN 'out' ELSE 'in' END AS "direction",
+                   rel.created_at::text AS "createdAt"
+            FROM devops_requirement_relation rel
+            LEFT JOIN devops_requirement src
+                   ON src.tenant_id = rel.tenant_id AND src.id = rel.src_requirement_id AND src.deleted = 0
+            LEFT JOIN devops_requirement dst
+                   ON dst.tenant_id = rel.tenant_id AND dst.id = rel.dst_requirement_id AND dst.deleted = 0
+            WHERE rel.tenant_id = #{tenantId} AND rel.deleted = 0
+              AND (rel.src_requirement_id = #{requirementId} OR rel.dst_requirement_id = #{requirementId})
+            ORDER BY rel.id DESC
+            """)
+    List<Map<String, Object>> listRelations(@Param("tenantId") long tenantId,
+                                            @Param("requirementId") long requirementId);
 
     @Select("SELECT count(1) FROM devops_requirement WHERE tenant_id = #{tenantId} AND product_id = #{productId} "
             + "AND deleted = 0")

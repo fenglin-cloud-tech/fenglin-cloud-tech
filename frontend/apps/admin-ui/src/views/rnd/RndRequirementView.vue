@@ -2,15 +2,23 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { GapNotice, PageHeader, ID_COLUMN_WIDTH } from '@fenglin/ui-admin'
-import { rndApi, type RndId, type RndProduct, type RndRequirement } from '@fenglin/api-client'
+import { rndApi, type RndId, type RndProduct, type RndRelation, type RndRequirement } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 
 const products = ref<RndProduct[]>([])
 const requirements = ref<RndRequirement[]>([])
 const selectedProductId = ref<RndId | ''>('')
 const statusFilter = ref('')
+const assigneeFilter = ref('')
+const keywordFilter = ref('')
 const loading = ref(false)
 const error = ref('')
+
+const relationVisible = ref(false)
+const relationLoading = ref(false)
+const relationTarget = ref<RndRequirement | null>(null)
+const relations = ref<RndRelation[]>([])
+const relationForm = reactive({ dst_requirement_id: '', relation_type: 'relate' })
 
 const createVisible = ref(false)
 const createSaving = ref(false)
@@ -46,9 +54,8 @@ const statusLabels: Record<string, string> = {
 }
 
 const gapItems = [
-  '需求列表只支持按产品/迭代/状态过滤，没有按负责人或关键字查询的接口。',
   '需求评审会调用工作流服务（rndRequirementReview），工作流服务不可用时提交评审返回真实错误。',
-  '需求关联（relations）与改派迭代接口已实现，但本页未暴露关联关系可视化，仅保留流转与评审。',
+  '关联关系以「关联 / 被关联」列表展示，不做图形化拓扑。',
 ]
 
 const filteredRequirements = computed(() =>
@@ -88,6 +95,9 @@ async function loadRequirements() {
   try {
     requirements.value = await rndApi.requirements.list({
       productId: selectedProductId.value,
+      statusCode: statusFilter.value || undefined,
+      assigneeId: assigneeFilter.value.trim() || undefined,
+      keyword: keywordFilter.value.trim() || undefined,
       page: 1,
       size: 200,
     })
@@ -149,6 +159,44 @@ async function submitReview(row: RndRequirement) {
   }
 }
 
+async function openRelations(row: RndRequirement) {
+  relationTarget.value = row
+  relationVisible.value = true
+  relationForm.dst_requirement_id = ''
+  await loadRelations()
+}
+
+async function loadRelations() {
+  if (!relationTarget.value) return
+  relationLoading.value = true
+  try {
+    relations.value = await rndApi.requirements.relations(relationTarget.value.id)
+  } catch (err) {
+    relations.value = []
+    ElMessage.error(describeError(err))
+  } finally {
+    relationLoading.value = false
+  }
+}
+
+async function submitRelation() {
+  if (!relationTarget.value || !relationForm.dst_requirement_id) {
+    ElMessage.warning('请选择被关联需求')
+    return
+  }
+  try {
+    await rndApi.requirements.addRelation(relationTarget.value.id, {
+      dst_requirement_id: relationForm.dst_requirement_id,
+      relation_type: relationForm.relation_type,
+    })
+    ElMessage.success('关联已建立')
+    relationForm.dst_requirement_id = ''
+    await loadRelations()
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  }
+}
+
 onMounted(loadProducts)
 </script>
 
@@ -163,7 +211,9 @@ onMounted(loadProducts)
         <el-select v-model="selectedProductId" placeholder="选择产品" style="width: 220px" @change="loadRequirements">
           <el-option v-for="product in products" :key="product.id" :label="`${product.product_code} ${product.name}`" :value="product.id" />
         </el-select>
-        <el-select v-model="statusFilter" placeholder="全部状态" clearable style="width: 140px">
+        <el-input v-model="keywordFilter" placeholder="标题/编号关键字" clearable style="width: 170px" @change="loadRequirements" />
+        <el-input v-model="assigneeFilter" placeholder="负责人ID" clearable style="width: 140px" @change="loadRequirements" />
+        <el-select v-model="statusFilter" placeholder="全部状态" clearable style="width: 140px" @change="loadRequirements">
           <el-option v-for="(label, code) in statusLabels" :key="code" :label="label" :value="code" />
         </el-select>
         <el-button v-perm="'biz:devops:requirement:create'" type="primary" @click="createVisible = true">新建需求</el-button>
@@ -188,7 +238,7 @@ onMounted(loadProducts)
         <el-table-column prop="assignee_id" label="负责人" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
         <el-table-column prop="estimate_hours" label="预估工时" width="110" />
         <el-table-column prop="plan_end_at" label="计划完成" width="130" />
-        <el-table-column label="操作" width="220">
+        <el-table-column label="操作" width="300">
           <template #default="{ row }">
             <el-button
               v-if="row.status_code === 'TODO'"
@@ -197,6 +247,7 @@ onMounted(loadProducts)
               type="primary"
               @click="submitReview(row)"
             >提交评审</el-button>
+            <el-button v-perm="'biz:devops:requirement:view'" link type="primary" @click="openRelations(row)">关联</el-button>
             <el-dropdown v-if="transitions[row.status_code]" trigger="click" @command="(target: string) => transition(row, target)">
               <el-button v-perm="'biz:devops:requirement:transition'" link type="primary">流转</el-button>
               <template #dropdown>
@@ -211,6 +262,37 @@ onMounted(loadProducts)
         </el-table-column>
       </el-table>
     </el-card>
+
+    <el-dialog v-model="relationVisible" :title="`需求关联 · ${relationTarget?.req_no ?? ''}`" width="720px">
+      <div class="fl-toolbar">
+        <el-select v-model="relationForm.dst_requirement_id" filterable placeholder="选择被关联需求" style="width: 300px">
+          <el-option
+            v-for="item in requirements.filter((r) => r.id !== relationTarget?.id)"
+            :key="item.id"
+            :label="`${item.req_no ?? item.id} ${item.title}`"
+            :value="item.id"
+          />
+        </el-select>
+        <el-select v-model="relationForm.relation_type" style="width: 140px">
+          <el-option label="关联" value="relate" />
+          <el-option label="依赖" value="depends" />
+          <el-option label="阻塞" value="blocks" />
+        </el-select>
+        <el-button v-perm="'biz:devops:requirement:update'" type="primary" @click="submitRelation">建立关联</el-button>
+      </div>
+      <el-table :data="relations" v-loading="relationLoading" border stripe size="small" max-height="320">
+        <el-table-column label="方向" width="90">
+          <template #default="{ row }">{{ row.direction === 'out' ? '关联' : '被关联' }}</template>
+        </el-table-column>
+        <el-table-column label="需求" min-width="260">
+          <template #default="{ row }">
+            {{ row.direction === 'out' ? `${row.dst_req_no ?? row.dst_requirement_id} ${row.dst_title ?? ''}` : `${row.src_req_no ?? row.src_requirement_id} ${row.src_title ?? ''}` }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="relation_type" label="类型" width="110" />
+      </el-table>
+      <el-empty v-if="!relationLoading && !relations.length" description="暂无关联需求" :image-size="60" />
+    </el-dialog>
 
     <el-dialog v-model="createVisible" title="新建需求" width="580px">
       <el-alert v-if="createError" type="error" :closable="false" show-icon :title="createError" style="margin-bottom: 12px" />

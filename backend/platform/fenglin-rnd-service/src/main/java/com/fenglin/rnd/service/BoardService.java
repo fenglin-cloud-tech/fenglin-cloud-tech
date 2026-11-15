@@ -16,6 +16,7 @@ import com.fenglin.rnd.support.Rows;
 import com.fenglin.rnd.web.dto.RndDtos.BoardColumnRequest;
 import com.fenglin.rnd.web.dto.RndDtos.BoardColumnView;
 import com.fenglin.rnd.web.dto.RndDtos.BoardCreateRequest;
+import com.fenglin.rnd.web.dto.RndDtos.BoardListItem;
 import com.fenglin.rnd.web.dto.RndDtos.BoardView;
 import com.fenglin.rnd.web.dto.RndDtos.MoveRequest;
 import org.springframework.stereotype.Service;
@@ -80,6 +81,15 @@ public class BoardService {
         }
         audit.publish("BOARD_CREATED", "create", "devops_board", id, "low");
         return get(id);
+    }
+
+    public List<BoardListItem> list(Long productId) {
+        long tenantId = RndContext.tenantId();
+        return boardMapper.listBoards(tenantId, productId).stream()
+                .map(row -> new BoardListItem(Rows.lng(row, "id"), Rows.lng(row, "productId"),
+                        Rows.str(row, "name"), Rows.str(row, "boardType"), Rows.lng(row, "sprintId"),
+                        Rows.intg(row, "columnCount"), Rows.str(row, "createdAt")))
+                .toList();
     }
 
     public BoardView get(long id) {

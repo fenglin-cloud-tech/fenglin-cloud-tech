@@ -1,0 +1,111 @@
+{
+  "results": [
+    {
+      "page": "rnd/code",
+      "hasRepo": true,
+      "hasPipeline": false
+    },
+    {
+      "num": 19,
+      "name": "rnd01-cross-product-code",
+      "file": "e:/fenglin-cloud-tech/2026-11-15/ledger-highfix/work/shots/19-rnd01-cross-product-code.jpg",
+      "bytes": 89909
+    },
+    {
+      "page": "rnd/defects",
+      "defectRows": 1
+    },
+    {
+      "num": 20,
+      "name": "rnd02-defect-filter",
+      "file": "e:/fenglin-cloud-tech/2026-11-15/ledger-highfix/work/shots/20-rnd02-defect-filter.jpg",
+      "bytes": 90108
+    },
+    {
+      "page": "rnd/requirements",
+      "reqRows": 1
+    },
+    {
+      "num": 21,
+      "name": "rnd03-requirement-keyword",
+      "file": "e:/fenglin-cloud-tech/2026-11-15/ledger-highfix/work/shots/21-rnd03-requirement-keyword.jpg",
+      "bytes": 88836
+    },
+    {
+      "page": "rnd/requirements",
+      "relationDialog": "需求关联 · REQ-1 选择被关联需求 关联 建立关联 方向 需求 类型 关联 REQ-2 RND-03 关键字乙需求 relate"
+    },
+    {
+      "num": 22,
+      "name": "rnd03-requirement-relations",
+      "file": "e:/fenglin-cloud-tech/2026-11-15/ledger-highfix/work/shots/22-rnd03-requirement-relations.jpg",
+      "bytes": 77099
+    },
+    {
+      "page": "rnd/products",
+      "hasArchive": true,
+      "hasDelete": true
+    },
+    {
+      "num": 23,
+      "name": "rnd04-product-actions",
+      "file": "e:/fenglin-cloud-tech/2026-11-15/ledger-highfix/work/shots/23-rnd04-product-actions.jpg",
+      "bytes": 102436
+    },
+    {
+      "page": "rnd/products",
+      "memberDialog": "添加成员 搜索用户 搜索 用户ID 搜索后选择，或直接输入用户 ID 角色 研发 数据范围 全部 取消 添加"
+    },
+    {
+      "num": 24,
+      "name": "rnd04-member-user-search",
+      "file": "e:/fenglin-cloud-tech/2026-11-15/ledger-highfix/work/shots/24-rnd04-member-user-search.jpg",
+      "bytes": 90523
+    },
+    {
+      "page": "rnd/sprints",
+      "hasMemberBtn": true,
+      "hasBoardSelect": true
+    },
+    {
+      "num": 25,
+      "name": "rnd06-board-list-sprint",
+      "file": "e:/fenglin-cloud-tech/2026-11-15/ledger-highfix/work/shots/25-rnd06-board-list-sprint.jpg",
+      "bytes": 94554
+    },
+    {
+      "page": "rnd/sprints",
+      "capacityDialog": "成员容量 · RND-06 回归迭代 用户ID 可用工时 保存 用户ID 可用工时 操作 9101 32 移除 迭代总容量：80；成员合计工时不得超过该值。"
+    },
+    {
+      "num": 26,
+      "name": "rnd06-sprint-members",
+      "file": "e:/fenglin-cloud-tech/2026-11-15/ledger-highfix/work/shots/26-rnd06-sprint-members.jpg",
+      "bytes": 83089
+    },
+    {
+      "page": "rnd/testing",
+      "hasPlanList": true
+    },
+    {
+      "num": 27,
+      "name": "rnd08-test-plan-list",
+      "file": "e:/fenglin-cloud-tech/2026-11-15/ledger-highfix/work/shots/27-rnd08-test-plan-list.jpg",
+      "bytes": 89402
+    },
+    {
+      "page": "rnd/testing",
+      "hasCrossProductCase": true
+    },
+    {
+      "num": 28,
+      "name": "rnd08-test-case-cross-product",
+      "file": "e:/fenglin-cloud-tech/2026-11-15/ledger-highfix/work/shots/28-rnd08-test-case-cross-product.jpg",
+      "bytes": 88158
+    }
+  ],
+  "consoleErrors": [
+    "Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "httpBad": []
+}

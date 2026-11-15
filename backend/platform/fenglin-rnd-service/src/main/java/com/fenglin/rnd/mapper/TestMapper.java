@@ -47,13 +47,15 @@ public interface TestMapper {
                    preconditions AS "preconditions", steps::text AS "steps", requirement_id AS "requirementId",
                    review_status AS "reviewStatus", status AS "status", created_at::text AS "createdAt"
             FROM devops_test_case
-            WHERE tenant_id = #{tenantId} AND product_id = #{productId} AND deleted = 0
+            WHERE tenant_id = #{tenantId} AND deleted = 0
+              <if test="productId != null">AND product_id = #{productId}</if>
               <if test="reviewStatus != null">AND review_status = #{reviewStatus}</if>
             ORDER BY id DESC
             LIMIT #{limit} OFFSET #{offset}
             </script>
             """)
-    List<Map<String, Object>> listCases(@Param("tenantId") long tenantId, @Param("productId") long productId,
+    List<Map<String, Object>> listCases(@Param("tenantId") long tenantId,
+                                        @Param("productId") Long productId,
                                         @Param("reviewStatus") String reviewStatus, @Param("limit") int limit,
                                         @Param("offset") int offset);
 
@@ -105,6 +107,38 @@ public interface TestMapper {
             """)
     int updatePlanStatus(@Param("tenantId") long tenantId, @Param("id") long id, @Param("status") String status,
                          @Param("userId") long userId);
+
+    /**
+     * 测试计划列表：productId 缺省时跨产品返回（RND-08）。
+     */
+    @Select("""
+            <script>
+            SELECT p.id AS "id", p.product_id AS "productId", p.plan_no AS "planNo", p.name AS "name",
+                   p.sprint_id AS "sprintId", p.build_id AS "buildId", p.status AS "status",
+                   p.start_date AS "startDate", p.end_date AS "endDate", p.created_at::text AS "createdAt",
+                   (SELECT count(1) FROM devops_test_execution_item i
+                     JOIN devops_test_execution e ON e.tenant_id = i.tenant_id AND e.id = i.execution_id
+                    WHERE e.tenant_id = p.tenant_id AND e.plan_id = p.id AND i.deleted = 0) AS "caseCount",
+                   (SELECT count(1) FROM devops_test_execution_item i
+                     JOIN devops_test_execution e ON e.tenant_id = i.tenant_id AND e.id = i.execution_id
+                    WHERE e.tenant_id = p.tenant_id AND e.plan_id = p.id AND i.result = 'pass'
+                      AND i.deleted = 0) AS "passCount",
+                   (SELECT count(1) FROM devops_test_execution_item i
+                     JOIN devops_test_execution e ON e.tenant_id = i.tenant_id AND e.id = i.execution_id
+                    WHERE e.tenant_id = p.tenant_id AND e.plan_id = p.id AND i.result = 'fail'
+                      AND i.deleted = 0) AS "failCount"
+            FROM devops_test_plan p
+            WHERE p.tenant_id = #{tenantId} AND p.deleted = 0
+              <if test="productId != null">AND p.product_id = #{productId}</if>
+              <if test="status != null">AND p.status = #{status}</if>
+            ORDER BY p.id DESC
+            LIMIT #{limit} OFFSET #{offset}
+            </script>
+            """)
+    List<Map<String, Object>> listPlans(@Param("tenantId") long tenantId,
+                                        @Param("productId") Long productId,
+                                        @Param("status") String status,
+                                        @Param("limit") int limit, @Param("offset") int offset);
 
     @Insert("""
             INSERT INTO devops_test_execution

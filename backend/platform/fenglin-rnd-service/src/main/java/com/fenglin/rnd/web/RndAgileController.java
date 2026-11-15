@@ -6,10 +6,13 @@ import com.fenglin.rnd.service.BoardService;
 import com.fenglin.rnd.service.SprintService;
 import com.fenglin.rnd.service.TaskService;
 import com.fenglin.rnd.web.dto.RndDtos.BoardCreateRequest;
+import com.fenglin.rnd.web.dto.RndDtos.BoardListItem;
 import com.fenglin.rnd.web.dto.RndDtos.BoardView;
 import com.fenglin.rnd.web.dto.RndDtos.BurndownView;
 import com.fenglin.rnd.web.dto.RndDtos.MoveRequest;
 import com.fenglin.rnd.web.dto.RndDtos.SprintCreateRequest;
+import com.fenglin.rnd.web.dto.RndDtos.SprintMemberAddRequest;
+import com.fenglin.rnd.web.dto.RndDtos.SprintMemberView;
 import com.fenglin.rnd.web.dto.RndDtos.SprintView;
 import com.fenglin.rnd.web.dto.RndDtos.TaskCreateRequest;
 import com.fenglin.rnd.web.dto.RndDtos.TaskTransitionRequest;
@@ -17,6 +20,7 @@ import com.fenglin.rnd.web.dto.RndDtos.TaskView;
 import com.fenglin.rnd.web.dto.RndDtos.WorklogCreateRequest;
 import com.fenglin.rnd.web.dto.RndDtos.WorklogView;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -108,12 +112,53 @@ public class RndAgileController {
         return ApiResponse.success(sprintService.burndown(id));
     }
 
+    /**
+     * 迭代成员容量列表与维护（RND-06）：容量合计不得超过迭代 capacity_hours。
+     */
+    @GetMapping("/sprints/{id}/members")
+    public ApiResponse<List<SprintMemberView>> listSprintMembers(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id) {
+        PermissionGuard.require(permissions, SPRINT_VIEW);
+        return ApiResponse.success(sprintService.listMembers(id));
+    }
+
+    @PostMapping("/sprints/{id}/members")
+    public ApiResponse<SprintMemberView> upsertSprintMember(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id,
+            @RequestBody SprintMemberAddRequest request) {
+        PermissionGuard.require(permissions, SPRINT_MANAGE);
+        return ApiResponse.success(sprintService.upsertMember(id, request));
+    }
+
+    @DeleteMapping("/sprints/{id}/members/{memberId}")
+    public ApiResponse<Void> deleteSprintMember(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id,
+            @PathVariable("memberId") long memberId) {
+        PermissionGuard.require(permissions, SPRINT_MANAGE);
+        sprintService.deleteMember(id, memberId);
+        return ApiResponse.success();
+    }
+
     @PostMapping("/boards")
     public ApiResponse<BoardView> createBoard(
             @RequestHeader(value = "X-Permissions", required = false) String permissions,
             @RequestBody BoardCreateRequest request) {
         PermissionGuard.require(permissions, BOARD_MANAGE);
         return ApiResponse.success(boardService.create(request));
+    }
+
+    /**
+     * 看板列表：productId 缺省时返回租户内全部看板（RND-06）。
+     */
+    @GetMapping("/boards")
+    public ApiResponse<List<BoardListItem>> listBoards(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(value = "productId", required = false) Long productId) {
+        PermissionGuard.require(permissions, BOARD_VIEW);
+        return ApiResponse.success(boardService.list(productId));
     }
 
     @GetMapping("/boards/{id}")

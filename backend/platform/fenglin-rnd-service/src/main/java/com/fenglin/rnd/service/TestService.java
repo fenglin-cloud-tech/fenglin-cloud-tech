@@ -76,10 +76,16 @@ public class TestService {
         return toCaseView(row);
     }
 
-    public List<TestCaseView> listCases(long productId, String reviewStatus, Integer page, Integer size) {
+    public List<TestCaseView> listCases(Long productId, String reviewStatus, Integer page, Integer size) {
         return testMapper.listCases(RndContext.tenantId(), productId, RndContext.text(reviewStatus),
                         RndContext.size(size), RndContext.offset(page, size))
                 .stream().map(TestService::toCaseView).toList();
+    }
+
+    public List<TestPlanView> listPlans(Long productId, String status, Integer page, Integer size) {
+        return testMapper.listPlans(RndContext.tenantId(), productId, RndContext.text(status),
+                        RndContext.size(size), RndContext.offset(page, size))
+                .stream().map(TestService::toPlanView).toList();
     }
 
     @Transactional
@@ -116,6 +122,10 @@ public class TestService {
         if (row == null) {
             throw new BizException(RndErrorCode.RESOURCE_NOT_FOUND);
         }
+        return toPlanView(row);
+    }
+
+    public static TestPlanView toPlanView(Map<String, Object> row) {
         return new TestPlanView(Rows.lng(row, "id"), Rows.lng(row, "productId"), Rows.str(row, "planNo"),
                 Rows.str(row, "name"), Rows.lng(row, "sprintId"), Rows.lng(row, "buildId"),
                 Rows.str(row, "status"), Rows.intg(row, "caseCount"), Rows.intg(row, "passCount"),

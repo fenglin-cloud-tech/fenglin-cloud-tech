@@ -36,7 +36,6 @@ const pipelineError = ref('')
 const pipelineForm = reactive({ name: '', ci_type: 'JENKINS', trigger_mode: 'MANUAL' })
 
 const gapItems = [
-  '后端没有跨产品的代码库/流水线聚合接口，需先选择产品。',
   '提交入库依赖外部 Webhook 或 /commits 主动上报，管理端只读展示，不提供手工补录。',
   '流水线运行回调 /runs/{id}/finish 由 CI 侧调用，管理端仅提供触发与查看。',
 ]
@@ -52,14 +51,10 @@ async function loadProducts() {
 }
 
 async function loadRepos() {
-  if (!selectedProductId.value) {
-    repos.value = []
-    return
-  }
   loading.value = true
   error.value = ''
   try {
-    repos.value = await rndApi.code.repos.list(selectedProductId.value)
+    repos.value = await rndApi.code.repos.list(selectedProductId.value || undefined)
     if (!selectedRepoId.value && repos.value.length) {
       selectedRepoId.value = repos.value[0].id
       await loadCommits()
@@ -73,12 +68,8 @@ async function loadRepos() {
 }
 
 async function loadPipelines() {
-  if (!selectedProductId.value) {
-    pipelines.value = []
-    return
-  }
   try {
-    pipelines.value = await rndApi.pipelines.list(selectedProductId.value)
+    pipelines.value = await rndApi.pipelines.list(selectedProductId.value || undefined)
     if (!selectedPipelineId.value && pipelines.value.length) {
       selectedPipelineId.value = pipelines.value[0].id
       await loadRuns()
@@ -220,7 +211,7 @@ onMounted(async () => {
       description="代码库、提交记录、流水线运行；数据来自 /api/rnd/v1/repos、/commits、/pipelines。"
     >
       <template #actions>
-        <el-select v-model="selectedProductId" placeholder="选择产品" style="width: 220px" @change="loadRepos(); loadPipelines()">
+        <el-select v-model="selectedProductId" placeholder="全部产品" clearable style="width: 220px" @change="loadRepos(); loadPipelines()">
           <el-option v-for="product in products" :key="product.id" :label="`${product.product_code} ${product.name}`" :value="product.id" />
         </el-select>
         <el-button v-perm="'biz:devops:repo:manage'" type="primary" @click="repoVisible = true">新增代码库</el-button>

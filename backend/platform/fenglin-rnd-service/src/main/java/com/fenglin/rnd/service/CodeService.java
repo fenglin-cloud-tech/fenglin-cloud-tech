@@ -90,7 +90,7 @@ public class CodeService {
         return toRepoView(row);
     }
 
-    public List<RepoView> listRepos(long productId) {
+    public List<RepoView> listRepos(Long productId) {
         return codeMapper.listRepos(RndContext.tenantId(), productId).stream()
                 .map(this::toRepoView).toList();
     }

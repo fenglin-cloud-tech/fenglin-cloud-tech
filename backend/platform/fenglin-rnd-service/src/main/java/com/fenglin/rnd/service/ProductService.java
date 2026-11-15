@@ -88,8 +88,22 @@ public class ProductService {
         return get(id);
     }
 
-    public ProductView get(long id) {
+    /**
+     * 产品删除：仅允许删除无任何研发数据的产品；有数据时提示改用归档（status=archived）。
+     * 归档走既有 PUT /products/{id} 的状态字段，不新增表也不做物理删除。
+     */
+    @Transactional
+    public void delete(long id) {
         long tenantId = RndContext.tenantId();
+        requireProduct(tenantId, id);
+        if (productMapper.countProductRefs(tenantId, id) > 0) {
+            throw new BizException(RndErrorCode.PRODUCT_NOT_EMPTY);
+        }
+        productMapper.deleteProduct(tenantId, id, RndContext.userId());
+        audit.publish("PRODUCT_DELETED", "delete", "devops_product", id, "medium");
+    }
+
+    public ProductView get(long id) {        long tenantId = RndContext.tenantId();
         Map<String, Object> row = productMapper.findProduct(tenantId, id);
         if (row == null) {
             throw new BizException(RndErrorCode.RESOURCE_NOT_FOUND);

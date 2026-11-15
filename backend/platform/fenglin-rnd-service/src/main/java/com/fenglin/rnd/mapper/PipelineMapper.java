@@ -35,14 +35,17 @@ public interface PipelineMapper {
     Map<String, Object> findPipeline(@Param("tenantId") long tenantId, @Param("id") long id);
 
     @Select("""
+            <script>
             SELECT id AS "id", product_id AS "productId", name AS "name", ci_type AS "ciType",
                    trigger_mode AS "triggerMode", status AS "status", created_at::text AS "createdAt"
             FROM devops_pipeline
-            WHERE tenant_id = #{tenantId} AND product_id = #{productId} AND deleted = 0
+            WHERE tenant_id = #{tenantId} AND deleted = 0
+              <if test="productId != null">AND product_id = #{productId}</if>
             ORDER BY id DESC
+            </script>
             """)
     List<Map<String, Object>> listPipelines(@Param("tenantId") long tenantId,
-                                            @Param("productId") long productId);
+                                            @Param("productId") Long productId);
 
     @Insert("""
             INSERT INTO devops_pipeline_run

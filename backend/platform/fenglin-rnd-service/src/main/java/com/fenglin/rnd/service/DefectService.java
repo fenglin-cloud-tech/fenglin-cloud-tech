@@ -75,9 +75,11 @@ public class DefectService {
         return toView(row);
     }
 
-    public List<DefectView> list(long productId, String status, String severity, Integer page, Integer size) {
+    public List<DefectView> list(long productId, String status, String severity, Long assigneeId, Long sprintId,
+                                 String keyword, Integer page, Integer size) {
         return defectMapper.listDefects(RndContext.tenantId(), productId, RndContext.text(status),
-                        RndContext.text(severity), RndContext.size(size), RndContext.offset(page, size))
+                        RndContext.text(severity), assigneeId, sprintId, RndContext.text(keyword),
+                        RndContext.size(size), RndContext.offset(page, size))
                 .stream().map(DefectService::toView).toList();
     }
 

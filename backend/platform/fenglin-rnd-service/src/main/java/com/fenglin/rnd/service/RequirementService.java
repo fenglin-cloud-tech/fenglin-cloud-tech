@@ -11,6 +11,7 @@ import com.fenglin.rnd.support.RndAudit;
 import com.fenglin.rnd.support.RndContext;
 import com.fenglin.rnd.support.Rows;
 import com.fenglin.rnd.web.dto.RndDtos.RelationCreateRequest;
+import com.fenglin.rnd.web.dto.RndDtos.RelationView;
 import com.fenglin.rnd.web.dto.RndDtos.RequirementCreateRequest;
 import com.fenglin.rnd.web.dto.RndDtos.RequirementReviewResult;
 import com.fenglin.rnd.web.dto.RndDtos.RequirementView;
@@ -84,10 +85,23 @@ public class RequirementService {
         return toView(row);
     }
 
-    public List<RequirementView> list(long productId, Long sprintId, String statusCode, Integer page, Integer size) {
+    public List<RequirementView> list(long productId, Long sprintId, String statusCode, Long assigneeId,
+                                      String keyword, Integer page, Integer size) {
         return requirementMapper.listRequirements(RndContext.tenantId(), productId, sprintId,
-                        RndContext.text(statusCode), RndContext.size(size), RndContext.offset(page, size))
+                        RndContext.text(statusCode), assigneeId, RndContext.text(keyword),
+                        RndContext.size(size), RndContext.offset(page, size))
                 .stream().map(RequirementService::toView).toList();
+    }
+
+    public List<RelationView> listRelations(long id) {
+        long tenantId = RndContext.tenantId();
+        requireRequirement(tenantId, id);
+        return requirementMapper.listRelations(tenantId, id).stream()
+                .map(row -> new RelationView(Rows.lng(row, "id"), Rows.lng(row, "srcRequirementId"),
+                        Rows.str(row, "srcReqNo"), Rows.str(row, "srcTitle"),
+                        Rows.lng(row, "dstRequirementId"), Rows.str(row, "dstReqNo"), Rows.str(row, "dstTitle"),
+                        Rows.str(row, "relationType"), Rows.str(row, "direction"), Rows.str(row, "createdAt")))
+                .toList();
     }
 
     @Transactional

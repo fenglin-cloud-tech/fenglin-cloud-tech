@@ -2,7 +2,7 @@
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { GapNotice, PageHeader, ID_COLUMN_WIDTH, formatDateTime } from '@fenglin/ui-admin'
-import { rndApi, type RndId, type RndMember, type RndProduct, type RndStatus } from '@fenglin/api-client'
+import { iamApi, rndApi, type RndId, type RndMember, type RndProduct, type RndStatus, type UserView } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 
 const products = ref<RndProduct[]>([])
@@ -11,6 +11,10 @@ const statuses = ref<RndStatus[]>([])
 const selectedProductId = ref<RndId | ''>('')
 const loading = ref(false)
 const error = ref('')
+
+const userKeyword = ref('')
+const userOptions = ref<UserView[]>([])
+const searchingUsers = ref(false)
 
 const productVisible = ref(false)
 const productSaving = ref(false)
@@ -31,9 +35,8 @@ const memberError = ref('')
 const memberForm = reactive({ user_id: '', role_code: 'DEVELOPER', data_scope: 'ALL' })
 
 const gapItems = [
-  '后端没有产品删除/归档接口，产品只能创建与更新，无法在管理端移除。',
-  '后端没有成员用户检索接口，新增成员需要手工填写用户 ID（来自 IAM 用户列表）。',
   '产品状态流转接口未开放，statuses 仅用于展示产品内需求状态配置。',
+  '删除仅允许无研发数据的产品；有数据时请使用归档（archived），数据保留可查。',
 ]
 
 async function loadProducts() {
@@ -103,7 +106,7 @@ async function submitProduct() {
 
 async function submitMember() {
   if (!selectedProductId.value || !memberForm.user_id) {
-    memberError.value = '请填写用户 ID'
+    memberError.value = '请选择或填写用户 ID'
     return
   }
   memberSaving.value = true
@@ -141,6 +144,41 @@ function productLabel(product: RndProduct) {
   return `${product.product_code} ${product.name}`
 }
 
+async function searchUsers() {
+  searchingUsers.value = true
+  try {
+    const result = await iamApi.listUsers({ keyword: userKeyword.value.trim() || undefined, page: 1, size: 20 })
+    userOptions.value = result.records
+  } catch (err) {
+    userOptions.value = []
+    memberError.value = describeError(err)
+  } finally {
+    searchingUsers.value = false
+  }
+}
+
+async function archiveProduct(row: RndProduct, status: 'archived' | 'active') {
+  try {
+    await rndApi.products.update(row.id, { status })
+    ElMessage.success(status === 'archived' ? '产品已归档' : '产品已恢复')
+    await loadProducts()
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  }
+}
+
+async function removeProduct(row: RndProduct) {
+  try {
+    await ElMessageBox.confirm(`确认删除产品 ${productLabel(row)}？仅无研发数据的产品可删除。`, '删除产品', { type: 'warning' })
+    await rndApi.products.remove(row.id)
+    ElMessage.success('产品已删除')
+    if (selectedProductId.value === row.id) selectedProductId.value = ''
+    await loadProducts()
+  } catch (err) {
+    if (err !== 'cancel' && err !== 'close') ElMessage.error(describeError(err))
+  }
+}
+
 onMounted(loadProducts)
 </script>
 
@@ -172,6 +210,25 @@ onMounted(loadProducts)
         <el-table-column prop="status" label="状态" width="100" />
         <el-table-column prop="sprint_cycle_days" label="迭代周期(天)" width="120" />
         <el-table-column prop="description" label="描述" min-width="200" />
+        <el-table-column label="操作" width="200">
+          <template #default="{ row }">
+            <el-button
+              v-if="row.status !== 'archived'"
+              v-perm="'tenant:devops:product:manage'"
+              link
+              type="warning"
+              @click="archiveProduct(row, 'archived')"
+            >归档</el-button>
+            <el-button
+              v-else
+              v-perm="'tenant:devops:product:manage'"
+              link
+              type="success"
+              @click="archiveProduct(row, 'active')"
+            >恢复</el-button>
+            <el-button v-perm="'tenant:devops:product:manage'" link type="danger" @click="removeProduct(row)">删除</el-button>
+          </template>
+        </el-table-column>
       </el-table>
     </el-card>
 
@@ -236,7 +293,27 @@ onMounted(loadProducts)
     <el-dialog v-model="memberVisible" title="添加成员" width="480px">
       <el-alert v-if="memberError" type="error" :closable="false" show-icon :title="memberError" style="margin-bottom: 12px" />
       <el-form label-width="100px">
-        <el-form-item label="用户ID" required><el-input v-model="memberForm.user_id" /></el-form-item>
+        <el-form-item label="搜索用户">
+          <el-input v-model="userKeyword" placeholder="姓名 / 工号 / 用户名" style="width: 220px" @keyup.enter="searchUsers" />
+          <el-button :loading="searchingUsers" style="margin-left: 8px" @click="searchUsers">搜索</el-button>
+        </el-form-item>
+        <el-form-item label="用户ID" required>
+          <el-select
+            v-model="memberForm.user_id"
+            filterable
+            allow-create
+            default-first-option
+            placeholder="搜索后选择，或直接输入用户 ID"
+            style="width: 100%"
+          >
+            <el-option
+              v-for="user in userOptions"
+              :key="user.user_id"
+              :label="`${user.real_name ?? user.username}（${user.username}${user.employee_no ? ' / ' + user.employee_no : ''}）`"
+              :value="user.user_id"
+            />
+          </el-select>
+        </el-form-item>
         <el-form-item label="角色">
           <el-select v-model="memberForm.role_code" style="width: 100%">
             <el-option label="产品负责人" value="OWNER" />

@@ -2,17 +2,25 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { GapNotice, PageHeader } from '@fenglin/ui-admin'
-import { rndApi, type RndBoard, type RndBurndown, type RndId, type RndProduct, type RndSprint } from '@fenglin/api-client'
+import { rndApi, type RndBoard, type RndBoardListItem, type RndBurndown, type RndId, type RndProduct, type RndSprint, type RndSprintMember } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 
 const products = ref<RndProduct[]>([])
 const sprints = ref<RndSprint[]>([])
+const boards = ref<RndBoardListItem[]>([])
 const selectedProductId = ref<RndId | ''>('')
 const burndown = ref<RndBurndown | null>(null)
 const board = ref<RndBoard | null>(null)
-const boardId = ref('')
+const selectedBoardId = ref<RndId | ''>('')
 const loading = ref(false)
 const error = ref('')
+
+const memberVisible = ref(false)
+const memberSaving = ref(false)
+const memberError = ref('')
+const memberSprint = ref<RndSprint | null>(null)
+const sprintMembers = ref<RndSprintMember[]>([])
+const memberForm = reactive({ user_id: '', available_hours: '' })
 
 const createVisible = ref(false)
 const createSaving = ref(false)
@@ -25,9 +33,7 @@ const boardError = ref('')
 const boardForm = reactive({ name: '', board_type: 'SCRUM', columns: '待处理:todo|进行中:doing|已完成:done' })
 
 const gapItems = [
-  '后端没有看板列表接口（仅按 ID 查询与创建），因此管理端需要手工输入看板 ID 才能查看。',
-  '燃尽图接口 /sprints/{id}/burndown 依赖任务工时数据，缺少工时记录时曲线为全量理想线。',
-  '迭代成员容量在创建时提交，后端未提供单独的成员容量维护接口。',
+  '燃尽图接口 /sprints/{id}/burndown 依赖任务预估工时与完成时间，缺少预估工时时曲线为全量理想线。',
 ]
 
 const activeSprints = computed(() => sprints.value.filter((item) => item.status !== 'COMPLETED'))
@@ -51,11 +57,21 @@ async function loadSprints() {
   error.value = ''
   try {
     sprints.value = await rndApi.sprints.list({ productId: selectedProductId.value })
+    await loadBoards()
   } catch (err) {
     sprints.value = []
+    boards.value = []
     error.value = describeError(err)
   } finally {
     loading.value = false
+  }
+}
+
+async function loadBoards() {
+  try {
+    boards.value = await rndApi.boards.list(selectedProductId.value ? { productId: selectedProductId.value } : {})
+  } catch {
+    boards.value = []
   }
 }
 
@@ -106,12 +122,64 @@ async function loadBurndown(id: RndId) {
 }
 
 async function loadBoard() {
-  if (!boardId.value) {
-    ElMessage.warning('请输入看板 ID')
+  if (!selectedBoardId.value) {
+    board.value = null
     return
   }
   try {
-    board.value = await rndApi.boards.get(boardId.value)
+    board.value = await rndApi.boards.get(selectedBoardId.value)
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  }
+}
+
+async function openMembers(row: RndSprint) {
+  memberSprint.value = row
+  memberForm.user_id = ''
+  memberForm.available_hours = ''
+  memberVisible.value = true
+  await loadMembers()
+}
+
+async function loadMembers() {
+  if (!memberSprint.value) return
+  try {
+    sprintMembers.value = await rndApi.sprints.members(memberSprint.value.id)
+  } catch (err) {
+    sprintMembers.value = []
+    memberError.value = describeError(err)
+  }
+}
+
+async function submitMember() {
+  if (!memberSprint.value || !memberForm.user_id) {
+    memberError.value = '请填写成员用户 ID'
+    return
+  }
+  memberSaving.value = true
+  memberError.value = ''
+  try {
+    await rndApi.sprints.upsertMember(memberSprint.value.id, {
+      user_id: memberForm.user_id,
+      available_hours: memberForm.available_hours || undefined,
+    })
+    ElMessage.success('成员容量已保存')
+    memberForm.user_id = ''
+    memberForm.available_hours = ''
+    await loadMembers()
+  } catch (err) {
+    memberError.value = describeError(err)
+  } finally {
+    memberSaving.value = false
+  }
+}
+
+async function removeMember(row: RndSprintMember) {
+  if (!memberSprint.value) return
+  try {
+    await rndApi.sprints.removeMember(memberSprint.value.id, row.id)
+    ElMessage.success('成员已移除')
+    await loadMembers()
   } catch (err) {
     ElMessage.error(describeError(err))
   }
@@ -140,9 +208,10 @@ async function submitBoard() {
       columns,
     })
     board.value = created
-    boardId.value = String(created.id)
+    selectedBoardId.value = created.id
     ElMessage.success(`看板已创建（ID ${created.id}）`)
     boardVisible.value = false
+    await loadBoards()
   } catch (err) {
     boardError.value = describeError(err)
   } finally {
@@ -193,6 +262,7 @@ onMounted(loadProducts)
             <el-button v-perm="'biz:devops:sprint:manage'" v-if="row.status !== 'ACTIVE'" link type="primary" @click="sprintAction(row, 'start')">开始</el-button>
             <el-button v-perm="'biz:devops:sprint:manage'" v-if="row.status === 'ACTIVE'" link type="warning" @click="sprintAction(row, 'complete')">完成</el-button>
             <el-button v-perm="'biz:devops:sprint:view'" link @click="loadBurndown(row.id)">燃尽图</el-button>
+            <el-button v-perm="'biz:devops:sprint:manage'" link type="primary" @click="openMembers(row)">成员容量</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -211,8 +281,10 @@ onMounted(loadProducts)
 
     <el-card shadow="never">
       <div class="fl-toolbar">
-        <el-input v-model="boardId" placeholder="看板 ID" style="width: 180px" />
-        <el-button @click="loadBoard">按 ID 查看看板</el-button>
+        <el-select v-model="selectedBoardId" placeholder="选择看板" clearable style="width: 240px" @change="loadBoard">
+          <el-option v-for="item in boards" :key="item.id" :label="`${item.name}（${item.board_type ?? '-'}，${item.column_count ?? 0} 列）`" :value="item.id" />
+        </el-select>
+        <el-button :loading="loading" @click="loadBoards">刷新看板</el-button>
       </div>
       <template v-if="board">
         <h4 style="margin: 8px 0">{{ board.name }}（{{ board.board_type }}）</h4>
@@ -229,8 +301,35 @@ onMounted(loadProducts)
           </el-col>
         </el-row>
       </template>
-      <el-empty v-else description="输入看板 ID 查看列配置" :image-size="70" />
+      <el-empty v-else description="选择看板查看列配置" :image-size="70" />
     </el-card>
+
+    <el-dialog v-model="memberVisible" :title="`成员容量 · ${memberSprint?.name ?? ''}`" width="600px">
+      <el-alert v-if="memberError" type="error" :closable="false" show-icon :title="memberError" style="margin-bottom: 12px" />
+      <el-form inline>
+        <el-form-item label="用户ID">
+          <el-input v-model="memberForm.user_id" style="width: 180px" placeholder="IAM 用户 ID" />
+        </el-form-item>
+        <el-form-item label="可用工时">
+          <el-input v-model="memberForm.available_hours" style="width: 120px" placeholder="如 40" />
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" :loading="memberSaving" @click="submitMember">保存</el-button>
+        </el-form-item>
+      </el-form>
+      <el-table :data="sprintMembers" border stripe size="small" max-height="320">
+        <el-table-column prop="user_id" label="用户ID" min-width="190" />
+        <el-table-column prop="available_hours" label="可用工时" width="120" />
+        <el-table-column label="操作" width="100">
+          <template #default="{ row }">
+            <el-button v-perm="'biz:devops:sprint:manage'" link type="danger" @click="removeMember(row)">移除</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+      <div class="fl-muted" style="margin-top: 8px">
+        迭代总容量：{{ memberSprint?.capacity_hours ?? '未设置' }}；成员合计工时不得超过该值。
+      </div>
+    </el-dialog>
 
     <el-dialog v-model="createVisible" title="新建迭代" width="520px">
       <el-alert v-if="createError" type="error" :closable="false" show-icon :title="createError" style="margin-bottom: 12px" />

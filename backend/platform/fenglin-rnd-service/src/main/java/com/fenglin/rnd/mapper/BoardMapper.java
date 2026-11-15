@@ -34,6 +34,22 @@ public interface BoardMapper {
                       @Param("userId") long userId);
 
     @Select("""
+            <script>
+            SELECT b.id AS "id", b.product_id AS "productId", b.name AS "name", b.board_type AS "boardType",
+                   b.sprint_id AS "sprintId",
+                   (SELECT count(1) FROM devops_board_column c
+                     WHERE c.tenant_id = b.tenant_id AND c.board_id = b.id AND c.deleted = 0) AS "columnCount",
+                   b.created_at::text AS "createdAt"
+            FROM devops_board b
+            WHERE b.tenant_id = #{tenantId} AND b.deleted = 0
+              <if test="productId != null">AND b.product_id = #{productId}</if>
+            ORDER BY b.id DESC
+            </script>
+            """)
+    List<Map<String, Object>> listBoards(@Param("tenantId") long tenantId,
+                                         @Param("productId") Long productId);
+
+    @Select("""
             SELECT id AS "id", product_id AS "productId", name AS "name", board_type AS "boardType",
                    sprint_id AS "sprintId", created_at::text AS "createdAt"
             FROM devops_board

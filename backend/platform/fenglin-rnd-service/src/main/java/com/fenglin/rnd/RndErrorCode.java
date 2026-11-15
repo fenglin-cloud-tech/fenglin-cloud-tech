@@ -14,6 +14,7 @@ public enum RndErrorCode implements ErrorCode {
 
     PRODUCT_CODE_DUPLICATED("4101001", "产品编码已存在", 409),
     MEMBER_DUPLICATED("4101002", "成员已在产品中", 409),
+    PRODUCT_NOT_EMPTY("4101003", "产品下存在研发数据，不能删除，请改用归档", 409),
 
     REQUIREMENT_STATUS_INVALID("4102001", "需求状态不存在或不属于该产品", 400),
     REQUIREMENT_TRANSITION_INVALID("4102002", "需求状态流转不允许", 409),

@@ -77,8 +77,19 @@ public class RndProductController {
         return ApiResponse.success(productService.update(id, request));
     }
 
-    @PostMapping("/{id}/members")
-    public ApiResponse<MemberView> addMember(
+    /**
+     * 删除产品：仅允许删除无研发数据的产品，否则返回 409 提示改用归档（status=archived）。
+     */
+    @DeleteMapping("/{id}")
+    public ApiResponse<Void> delete(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id) {
+        PermissionGuard.require(permissions, MANAGE);
+        productService.delete(id);
+        return ApiResponse.success();
+    }
+
+    @PostMapping("/{id}/members")    public ApiResponse<MemberView> addMember(
             @RequestHeader(value = "X-Permissions", required = false) String permissions,
             @PathVariable("id") long id,
             @RequestBody MemberCreateRequest request) {

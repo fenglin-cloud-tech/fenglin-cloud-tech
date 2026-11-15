@@ -44,10 +44,13 @@ public class RndPipelineController {
         return ApiResponse.success(pipelineService.create(request));
     }
 
+    /**
+     * 流水线列表：productId 缺省时返回租户内全部产品的流水线（RND-01 跨产品聚合）。
+     */
     @GetMapping("/pipelines")
     public ApiResponse<List<PipelineView>> list(
             @RequestHeader(value = "X-Permissions", required = false) String permissions,
-            @RequestParam("productId") long productId) {
+            @RequestParam(value = "productId", required = false) Long productId) {
         PermissionGuard.require(permissions, VIEW);
         return ApiResponse.success(pipelineService.list(productId));
     }

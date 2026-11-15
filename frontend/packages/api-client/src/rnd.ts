@@ -61,6 +61,36 @@ export interface RndRequirement {
   created_at?: string
 }
 
+export interface RndRelation {
+  id: RndId
+  src_requirement_id: RndId
+  src_req_no?: string
+  src_title?: string
+  dst_requirement_id: RndId
+  dst_req_no?: string
+  dst_title?: string
+  relation_type: string
+  direction: 'out' | 'in'
+  created_at?: string
+}
+
+export interface RndSprintMember {
+  id: RndId
+  sprint_id: RndId
+  user_id: RndId
+  available_hours?: string
+}
+
+export interface RndBoardListItem {
+  id: RndId
+  product_id: RndId
+  name: string
+  board_type?: string
+  sprint_id?: RndId | null
+  column_count?: number
+  created_at?: string
+}
+
 export interface RndSprint {
   id: RndId
   product_id: RndId
@@ -447,6 +477,9 @@ export const rndApi = {
     ) {
       return put<RndProduct>(`${BASE}/products/${id}`, body)
     },
+    remove(id: RndId) {
+      return request<void>(`${BASE}/products/${id}`, { method: 'DELETE' })
+    },
     members(id: RndId) {
       return get<RndMember[]>(`${BASE}/products/${id}/members`)
     },
@@ -464,7 +497,15 @@ export const rndApi = {
     },
   },
   requirements: {
-    list(params: { productId: RndId; sprintId?: RndId; statusCode?: string; page?: number; size?: number }) {
+    list(params: {
+      productId: RndId
+      sprintId?: RndId
+      statusCode?: string
+      assigneeId?: RndId
+      keyword?: string
+      page?: number
+      size?: number
+    }) {
       return get<RndRequirement[]>(`${BASE}/requirements`, params)
     },
     get(id: RndId) {
@@ -493,6 +534,9 @@ export const rndApi = {
     },
     addRelation(id: RndId, body: { dst_requirement_id: RndId; relation_type: string }) {
       return post<void>(`${BASE}/requirements/${id}/relations`, body)
+    },
+    relations(id: RndId) {
+      return get<RndRelation[]>(`${BASE}/requirements/${id}/relations`)
     },
     assignSprint(id: RndId, sprintId: RndId | null) {
       return post<RndRequirement>(`${BASE}/requirements/${id}/sprint`, { sprint_id: sprintId })
@@ -525,8 +569,20 @@ export const rndApi = {
     burndown(id: RndId) {
       return get<RndBurndown>(`${BASE}/sprints/${id}/burndown`)
     },
+    members(id: RndId) {
+      return get<RndSprintMember[]>(`${BASE}/sprints/${id}/members`)
+    },
+    upsertMember(id: RndId, body: { user_id: RndId; available_hours?: string }) {
+      return post<RndSprintMember>(`${BASE}/sprints/${id}/members`, body)
+    },
+    removeMember(id: RndId, memberId: RndId) {
+      return request<void>(`${BASE}/sprints/${id}/members/${memberId}`, { method: 'DELETE' })
+    },
   },
   boards: {
+    list(params: { productId?: RndId } = {}) {
+      return get<RndBoardListItem[]>(`${BASE}/boards`, params)
+    },
     get(id: RndId) {
       return get<RndBoard>(`${BASE}/boards/${id}`)
     },
@@ -596,7 +652,16 @@ export const rndApi = {
     },
   },
   defects: {
-    list(params: { productId: RndId; status?: string; severity?: string; page?: number; size?: number }) {
+    list(params: {
+      productId: RndId
+      status?: string
+      severity?: string
+      assigneeId?: RndId
+      sprintId?: RndId
+      keyword?: string
+      page?: number
+      size?: number
+    }) {
       return get<RndDefect[]>(`${BASE}/defects`, params)
     },
     get(id: RndId) {
@@ -626,7 +691,12 @@ export const rndApi = {
   },
   test: {
     cases: {
-      list(params: { productId: RndId; reviewStatus?: string; page?: number; size?: number }) {
+      list(params: {
+        productId?: RndId
+        reviewStatus?: string
+        page?: number
+        size?: number
+      }) {
         return get<RndTestCase[]>(`${BASE}/test-cases`, params)
       },
       get(id: RndId) {
@@ -649,6 +719,9 @@ export const rndApi = {
       },
     },
     plans: {
+      list(params: { productId?: RndId; status?: string; page?: number; size?: number } = {}) {
+        return get<RndTestPlan[]>(`${BASE}/test-plans`, params)
+      },
       get(id: RndId) {
         return get<RndTestPlan>(`${BASE}/test-plans/${id}`)
       },
@@ -677,8 +750,8 @@ export const rndApi = {
   },
   code: {
     repos: {
-      list(productId: RndId) {
-        return get<RndRepo[]>(`${BASE}/repos`, { productId })
+      list(productId?: RndId) {
+        return get<RndRepo[]>(`${BASE}/repos`, productId ? { productId } : {})
       },
       get(id: RndId) {
         return get<RndRepo>(`${BASE}/repos/${id}`)
@@ -732,8 +805,8 @@ export const rndApi = {
     },
   },
   pipelines: {
-    list(productId: RndId) {
-      return get<RndPipeline[]>(`${BASE}/pipelines`, { productId })
+    list(productId?: RndId) {
+      return get<RndPipeline[]>(`${BASE}/pipelines`, productId ? { productId } : {})
     },
     get(id: RndId) {
       return get<RndPipeline>(`${BASE}/pipelines/${id}`)

@@ -2,14 +2,18 @@
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { GapNotice, PageHeader, ID_COLUMN_WIDTH } from '@fenglin/ui-admin'
-import { rndApi, type RndDefect, type RndId, type RndProduct } from '@fenglin/api-client'
+import { rndApi, type RndDefect, type RndId, type RndProduct, type RndSprint } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 
 const products = ref<RndProduct[]>([])
+const sprints = ref<RndSprint[]>([])
 const defects = ref<RndDefect[]>([])
 const selectedProductId = ref<RndId | ''>('')
 const statusFilter = ref('')
 const severityFilter = ref('')
+const assigneeFilter = ref('')
+const sprintFilter = ref<RndId | ''>('')
+const keywordFilter = ref('')
 const loading = ref(false)
 const error = ref('')
 
@@ -48,7 +52,6 @@ const statusLabels: Record<string, string> = {
 }
 
 const gapItems = [
-  '缺陷列表仅支持按产品/状态/严重度过滤，缺少按负责人、迭代或关键字查询的接口。',
   '关闭缺陷需要 biz:devops:defect:verify，普通研发账号只能流转到 verifying。',
   '重新打开超过 3 次会被后端拒绝（reopen_count 上限），本页原样展示后端错误。',
 ]
@@ -74,10 +77,27 @@ async function loadProducts() {
   try {
     products.value = await rndApi.products.list({ page: 1, size: 100 })
     if (!selectedProductId.value && products.value.length) selectedProductId.value = products.value[0].id
-    await loadDefects()
+    await Promise.all([loadSprints(), loadDefects()])
   } catch (err) {
     error.value = describeError(err)
   }
+}
+
+async function loadSprints() {
+  if (!selectedProductId.value) {
+    sprints.value = []
+    return
+  }
+  try {
+    sprints.value = await rndApi.sprints.list({ productId: selectedProductId.value })
+  } catch {
+    sprints.value = []
+  }
+}
+
+async function onProductChange() {
+  sprintFilter.value = ''
+  await Promise.all([loadSprints(), loadDefects()])
 }
 
 async function loadDefects() {
@@ -92,6 +112,9 @@ async function loadDefects() {
       productId: selectedProductId.value,
       status: statusFilter.value || undefined,
       severity: severityFilter.value || undefined,
+      assigneeId: assigneeFilter.value.trim() || undefined,
+      sprintId: sprintFilter.value || undefined,
+      keyword: keywordFilter.value.trim() || undefined,
       page: 1,
       size: 200,
     })
@@ -153,9 +176,14 @@ onMounted(loadProducts)
       description="缺陷提报、严重度与流转闭环；数据来自 /api/rnd/v1/defects。"
     >
       <template #actions>
-        <el-select v-model="selectedProductId" placeholder="选择产品" style="width: 220px" @change="loadDefects">
+        <el-select v-model="selectedProductId" placeholder="选择产品" style="width: 220px" @change="onProductChange">
           <el-option v-for="product in products" :key="product.id" :label="`${product.product_code} ${product.name}`" :value="product.id" />
         </el-select>
+        <el-input v-model="keywordFilter" placeholder="标题/编号关键字" clearable style="width: 170px" @change="loadDefects" />
+        <el-select v-model="sprintFilter" placeholder="全部迭代" clearable style="width: 150px" @change="loadDefects">
+          <el-option v-for="sprint in sprints" :key="sprint.id" :label="sprint.name" :value="sprint.id" />
+        </el-select>
+        <el-input v-model="assigneeFilter" placeholder="负责人ID" clearable style="width: 140px" @change="loadDefects" />
         <el-select v-model="statusFilter" placeholder="全部状态" clearable style="width: 130px" @change="loadDefects">
           <el-option v-for="(label, code) in statusLabels" :key="code" :label="label" :value="code" />
         </el-select>

@@ -53,10 +53,13 @@ public class RndCodeController {
         return ApiResponse.success(codeService.createRepo(request));
     }
 
+    /**
+     * 代码库列表：productId 缺省时返回租户内全部产品的代码库（RND-01 跨产品聚合）。
+     */
     @GetMapping("/repos")
     public ApiResponse<List<RepoView>> listRepos(
             @RequestHeader(value = "X-Permissions", required = false) String permissions,
-            @RequestParam("productId") long productId) {
+            @RequestParam(value = "productId", required = false) Long productId) {
         PermissionGuard.require(permissions, REPO_VIEW);
         return ApiResponse.success(codeService.listRepos(productId));
     }

@@ -12,7 +12,9 @@ import com.fenglin.rnd.support.Rows;
 import com.fenglin.rnd.web.dto.RndDtos.BurndownPoint;
 import com.fenglin.rnd.web.dto.RndDtos.BurndownView;
 import com.fenglin.rnd.web.dto.RndDtos.SprintCreateRequest;
+import com.fenglin.rnd.web.dto.RndDtos.SprintMemberAddRequest;
 import com.fenglin.rnd.web.dto.RndDtos.SprintMemberRequest;
+import com.fenglin.rnd.web.dto.RndDtos.SprintMemberView;
 import com.fenglin.rnd.web.dto.RndDtos.SprintView;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -162,6 +164,62 @@ public class SprintService {
             points.add(new BurndownPoint(day.toString(), remaining.setScale(2, RoundingMode.HALF_UP), ideal));
         }
         return new BurndownView(id, Rows.str(sprint, "name"), totalTasks, (int) doneTasks, points);
+    }
+
+    /**
+     * 迭代成员容量：按用户 upsert（同用户重复添加则覆盖可用工时），并校验不超过迭代容量。
+     */
+    @Transactional
+    public SprintMemberView upsertMember(long sprintId, SprintMemberAddRequest request) {
+        long tenantId = RndContext.tenantId();
+        long userId = RndContext.userId();
+        Map<String, Object> sprint = requireSprint(tenantId, sprintId);
+        if (request.userId() == null) {
+            throw new BizException(RndErrorCode.PARAM_INVALID);
+        }
+        BigDecimal hours = request.availableHours() == null ? BigDecimal.ZERO : request.availableHours();
+        if (hours.compareTo(BigDecimal.ZERO) < 0) {
+            throw new BizException(RndErrorCode.PARAM_INVALID);
+        }
+        Map<String, Object> existing = sprintMapper.findMemberByUser(tenantId, sprintId, request.userId());
+        BigDecimal existingHours = existing == null ? BigDecimal.ZERO : Rows.dec(existing, "availableHours");
+        BigDecimal capacity = Rows.dec(sprint, "capacityHours");
+        BigDecimal others = sprintMapper.sumAvailableHours(tenantId, sprintId).subtract(existingHours);
+        if (capacity != null && others.add(hours).compareTo(capacity) > 0) {
+            throw new BizException(RndErrorCode.SPRINT_CAPACITY_EXCEEDED);
+        }
+        long id;
+        if (existing == null) {
+            id = IdWorker.getId();
+            sprintMapper.insertMember(id, tenantId, sprintId, request.userId(), hours, userId);
+        } else {
+            id = Rows.lng(existing, "id");
+            sprintMapper.updateMemberHours(tenantId, sprintId, id, hours, userId);
+        }
+        audit.publish("SPRINT_MEMBER_UPSERTED", "upsert", "devops_sprint_member", id, "low");
+        return toMemberView(sprintMapper.findMember(tenantId, sprintId, id));
+    }
+
+    public List<SprintMemberView> listMembers(long sprintId) {
+        long tenantId = RndContext.tenantId();
+        requireSprint(tenantId, sprintId);
+        return sprintMapper.listMembers(tenantId, sprintId).stream()
+                .map(SprintService::toMemberView).toList();
+    }
+
+    @Transactional
+    public void deleteMember(long sprintId, long memberId) {
+        long tenantId = RndContext.tenantId();
+        requireSprint(tenantId, sprintId);
+        if (sprintMapper.deleteMember(tenantId, sprintId, memberId, RndContext.userId()) == 0) {
+            throw new BizException(RndErrorCode.RESOURCE_NOT_FOUND);
+        }
+        audit.publish("SPRINT_MEMBER_DELETED", "delete", "devops_sprint_member", memberId, "low");
+    }
+
+    private static SprintMemberView toMemberView(Map<String, Object> row) {
+        return new SprintMemberView(Rows.lng(row, "id"), Rows.lng(row, "sprintId"), Rows.lng(row, "userId"),
+                Rows.dec(row, "availableHours"));
     }
 
     private Map<String, Object> requireSprint(long tenantId, long id) {

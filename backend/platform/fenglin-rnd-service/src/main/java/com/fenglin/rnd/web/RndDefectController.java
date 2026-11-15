@@ -66,10 +66,14 @@ public class RndDefectController {
             @RequestParam("productId") long productId,
             @RequestParam(value = "status", required = false) String status,
             @RequestParam(value = "severity", required = false) String severity,
+            @RequestParam(value = "assigneeId", required = false) Long assigneeId,
+            @RequestParam(value = "sprintId", required = false) Long sprintId,
+            @RequestParam(value = "keyword", required = false) String keyword,
             @RequestParam(value = "page", required = false) Integer page,
             @RequestParam(value = "size", required = false) Integer size) {
         PermissionGuard.require(permissions, VIEW);
-        return ApiResponse.success(defectService.list(productId, status, severity, page, size));
+        return ApiResponse.success(defectService.list(productId, status, severity, assigneeId, sprintId,
+                keyword, page, size));
     }
 
     @GetMapping("/{id}")

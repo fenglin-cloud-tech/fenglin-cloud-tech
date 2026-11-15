@@ -14,6 +14,7 @@ import { describeError } from '@/utils/error'
 
 const products = ref<RndProduct[]>([])
 const cases = ref<RndTestCase[]>([])
+const plans = ref<RndTestPlan[]>([])
 const selectedProductId = ref<RndId | ''>('')
 const reviewFilter = ref('')
 const loading = ref(false)
@@ -25,7 +26,6 @@ const caseSaving = ref(false)
 const caseError = ref('')
 const caseForm = reactive({ title: '', module: '', level: 'P2', case_type: 'FUNCTIONAL', preconditions: '', steps_json: '' })
 
-const planId = ref('')
 const plan = ref<RndTestPlan | null>(null)
 const planVisible = ref(false)
 const planSaving = ref(false)
@@ -36,8 +36,6 @@ const execution = ref<RndExecution | null>(null)
 const itemForm = reactive({ case_id: '', result: 'PASS', remark: '' })
 
 const gapItems = [
-  '后端没有测试计划列表接口（仅有按 ID 查询与创建），需要手工输入计划 ID。',
-  '测试用例列表必须携带产品 ID，没有跨产品用例库查询。',
   '用例评审状态通过 query 参数 reviewStatus 提交，评审通过后仍可重新评审，后端未限制次数。',
 ]
 
@@ -63,22 +61,22 @@ async function loadProducts() {
   try {
     products.value = await rndApi.products.list({ page: 1, size: 100 })
     if (!selectedProductId.value && products.value.length) selectedProductId.value = products.value[0].id
-    await loadCases()
+    await Promise.all([loadCases(), loadPlans()])
   } catch (err) {
     error.value = describeError(err)
   }
 }
 
+async function onProductChange() {
+  await Promise.all([loadCases(), loadPlans()])
+}
+
 async function loadCases() {
-  if (!selectedProductId.value) {
-    cases.value = []
-    return
-  }
   loading.value = true
   error.value = ''
   try {
     cases.value = await rndApi.test.cases.list({
-      productId: selectedProductId.value,
+      productId: selectedProductId.value || undefined,
       reviewStatus: reviewFilter.value || undefined,
       page: 1,
       size: 200,
@@ -88,6 +86,19 @@ async function loadCases() {
     error.value = describeError(err)
   } finally {
     loading.value = false
+  }
+}
+
+async function loadPlans() {
+  try {
+    plans.value = await rndApi.test.plans.list({
+      productId: selectedProductId.value || undefined,
+      page: 1,
+      size: 100,
+    })
+  } catch (err) {
+    plans.value = []
+    error.value = describeError(err)
   }
 }
 
@@ -129,13 +140,9 @@ async function reviewCase(row: RndTestCase, reviewStatus: string) {
   }
 }
 
-async function loadPlan() {
-  if (!planId.value) {
-    ElMessage.warning('请输入测试计划 ID')
-    return
-  }
+async function loadPlan(id: RndId) {
   try {
-    plan.value = await rndApi.test.plans.get(planId.value)
+    plan.value = await rndApi.test.plans.get(id)
   } catch (err) {
     ElMessage.error(describeError(err))
   }
@@ -156,9 +163,9 @@ async function submitPlan() {
       end_date: planForm.end_date || undefined,
     })
     plan.value = created
-    planId.value = String(created.id)
     planVisible.value = false
     ElMessage.success(`测试计划已创建（ID ${created.id}）`)
+    await loadPlans()
   } catch (err) {
     planError.value = describeError(err)
   } finally {
@@ -207,7 +214,7 @@ onMounted(loadProducts)
       description="测试用例、测试计划与执行结果；数据来自 /api/rnd/v1/test-cases 与 /test-plans。"
     >
       <template #actions>
-        <el-select v-model="selectedProductId" placeholder="选择产品" style="width: 220px" @change="loadCases">
+        <el-select v-model="selectedProductId" placeholder="全部产品" clearable style="width: 220px" @change="onProductChange">
           <el-option v-for="product in products" :key="product.id" :label="`${product.product_code} ${product.name}`" :value="product.id" />
         </el-select>
         <el-button v-perm="'biz:devops:testcase:manage'" type="primary" @click="caseVisible = true">新增用例</el-button>
@@ -250,10 +257,22 @@ onMounted(loadProducts)
 
         <el-tab-pane label="测试计划与执行" name="plans">
           <div class="fl-toolbar">
-            <el-input v-model="planId" placeholder="测试计划 ID" style="width: 180px" />
-            <el-button @click="loadPlan">加载计划</el-button>
-            <el-button v-perm="'biz:devops:testplan:execute'" type="primary" plain @click="createExecution">创建执行</el-button>
+            <el-button :loading="loading" @click="loadPlans">刷新计划</el-button>
+            <span class="fl-muted">共 {{ plans.length }} 个测试计划</span>
           </div>
+          <el-table :data="plans" border stripe size="small" max-height="260" style="margin-bottom: 12px">
+            <el-table-column prop="plan_no" label="计划编号" width="150" />
+            <el-table-column prop="name" label="名称" min-width="200" />
+            <el-table-column prop="status" label="状态" width="110" />
+            <el-table-column prop="case_count" label="用例" width="80" />
+            <el-table-column prop="pass_count" label="通过" width="80" />
+            <el-table-column prop="fail_count" label="失败" width="80" />
+            <el-table-column label="操作" width="100">
+              <template #default="{ row }">
+                <el-button link type="primary" @click="loadPlan(row.id)">查看/执行</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
           <el-descriptions v-if="plan" :column="3" border style="margin-bottom: 12px">
             <el-descriptions-item label="计划编号">{{ plan.plan_no }}</el-descriptions-item>
             <el-descriptions-item label="名称">{{ plan.name }}</el-descriptions-item>
@@ -262,7 +281,13 @@ onMounted(loadProducts)
             <el-descriptions-item label="通过">{{ plan.pass_count ?? 0 }}</el-descriptions-item>
             <el-descriptions-item label="失败">{{ plan.fail_count ?? 0 }}</el-descriptions-item>
           </el-descriptions>
-          <el-empty v-else description="输入计划 ID 查看详情" :image-size="70" />
+          <el-empty v-else description="从上方列表选择测试计划查看详情与执行" :image-size="70" />
+
+          <template v-if="plan">
+            <div class="fl-toolbar">
+              <el-button v-perm="'biz:devops:testplan:execute'" type="primary" plain @click="createExecution">创建执行</el-button>
+            </div>
+          </template>
 
           <template v-if="execution">
             <el-divider content-position="left">执行 #{{ execution.id }}（{{ execution.result ?? '进行中' }}）</el-divider>

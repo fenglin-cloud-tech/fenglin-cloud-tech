@@ -142,4 +142,37 @@ public interface ProductMapper {
 
     @Select("SELECT count(1) FROM devops_product WHERE tenant_id = #{tenantId} AND id = #{id} AND deleted = 0")
     long countProduct(@Param("tenantId") long tenantId, @Param("id") long id);
+
+    /**
+     * 统计产品下挂载的研发数据总量，用于删除前置校验，避免产生悬挂引用。
+     */
+    @Select("""
+            SELECT (SELECT count(1) FROM devops_requirement WHERE tenant_id = #{tenantId}
+                      AND product_id = #{productId} AND deleted = 0)
+                 + (SELECT count(1) FROM devops_defect WHERE tenant_id = #{tenantId}
+                      AND product_id = #{productId} AND deleted = 0)
+                 + (SELECT count(1) FROM devops_task WHERE tenant_id = #{tenantId}
+                      AND product_id = #{productId} AND deleted = 0)
+                 + (SELECT count(1) FROM devops_sprint WHERE tenant_id = #{tenantId}
+                      AND product_id = #{productId} AND deleted = 0)
+                 + (SELECT count(1) FROM devops_board WHERE tenant_id = #{tenantId}
+                      AND product_id = #{productId} AND deleted = 0)
+                 + (SELECT count(1) FROM devops_test_case WHERE tenant_id = #{tenantId}
+                      AND product_id = #{productId} AND deleted = 0)
+                 + (SELECT count(1) FROM devops_test_plan WHERE tenant_id = #{tenantId}
+                      AND product_id = #{productId} AND deleted = 0)
+                 + (SELECT count(1) FROM devops_repo WHERE tenant_id = #{tenantId}
+                      AND product_id = #{productId} AND deleted = 0)
+                 + (SELECT count(1) FROM devops_pipeline WHERE tenant_id = #{tenantId}
+                      AND product_id = #{productId} AND deleted = 0)
+                 + (SELECT count(1) FROM devops_release WHERE tenant_id = #{tenantId}
+                      AND product_id = #{productId} AND deleted = 0)
+            """)
+    long countProductRefs(@Param("tenantId") long tenantId, @Param("productId") long productId);
+
+    @Update("""
+            UPDATE devops_product SET deleted = 1, updated_by = #{userId}, version = version + 1
+            WHERE tenant_id = #{tenantId} AND id = #{id} AND deleted = 0
+            """)
+    int deleteProduct(@Param("tenantId") long tenantId, @Param("id") long id, @Param("userId") long userId);
 }

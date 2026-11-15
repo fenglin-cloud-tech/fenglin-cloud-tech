@@ -57,12 +57,18 @@ public interface DefectMapper {
             WHERE tenant_id = #{tenantId} AND product_id = #{productId} AND deleted = 0
               <if test="status != null">AND status = #{status}</if>
               <if test="severity != null">AND severity = #{severity}</if>
+              <if test="assigneeId != null">AND assignee_id = #{assigneeId}</if>
+              <if test="sprintId != null">AND sprint_id = #{sprintId}</if>
+              <if test="keyword != null">AND (title ILIKE '%' || #{keyword} || '%'
+                    OR defect_no ILIKE '%' || #{keyword} || '%')</if>
             ORDER BY id DESC
             LIMIT #{limit} OFFSET #{offset}
             </script>
             """)
     List<Map<String, Object>> listDefects(@Param("tenantId") long tenantId, @Param("productId") long productId,
                                           @Param("status") String status, @Param("severity") String severity,
+                                          @Param("assigneeId") Long assigneeId, @Param("sprintId") Long sprintId,
+                                          @Param("keyword") String keyword,
                                           @Param("limit") int limit, @Param("offset") int offset);
 
     /**

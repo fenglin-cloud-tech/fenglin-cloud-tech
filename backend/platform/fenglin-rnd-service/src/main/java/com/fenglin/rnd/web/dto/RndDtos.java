@@ -55,10 +55,24 @@ public final class RndDtos {
     public record RelationCreateRequest(Long dstRequirementId, String relationType) {
     }
 
+    /**
+     * 需求关联视图：direction=out 表示当前需求为 src，in 表示为 dst。
+     */
+    public record RelationView(Long id, Long srcRequirementId, String srcReqNo, String srcTitle,
+                               Long dstRequirementId, String dstReqNo, String dstTitle,
+                               String relationType, String direction, String createdAt) {
+    }
+
     public record SprintAssignRequest(Long sprintId) {
     }
 
     public record SprintMemberRequest(Long userId, BigDecimal availableHours) {
+    }
+
+    public record SprintMemberAddRequest(Long userId, BigDecimal availableHours) {
+    }
+
+    public record SprintMemberView(Long id, Long sprintId, Long userId, BigDecimal availableHours) {
     }
 
     public record SprintCreateRequest(Long productId, String name, String goal, LocalDate startDate,
@@ -91,6 +105,10 @@ public final class RndDtos {
 
     public record BoardView(Long id, Long productId, String name, String boardType, Long sprintId,
                             List<BoardColumnView> columns) {
+    }
+
+    public record BoardListItem(Long id, Long productId, String name, String boardType, Long sprintId,
+                                Integer columnCount, String createdAt) {
     }
 
     public record MoveRequest(String bizType, Long bizId, Long columnId) {

@@ -38,6 +38,55 @@ public interface SprintMapper {
                       @Param("operatorId") long operatorId);
 
     @Select("""
+            SELECT id AS "id", sprint_id AS "sprintId", user_id AS "userId",
+                   available_hours AS "availableHours"
+            FROM devops_sprint_member
+            WHERE tenant_id = #{tenantId} AND sprint_id = #{sprintId} AND deleted = 0
+            ORDER BY id
+            """)
+    List<Map<String, Object>> listMembers(@Param("tenantId") long tenantId, @Param("sprintId") long sprintId);
+
+    @Select("""
+            SELECT id AS "id", sprint_id AS "sprintId", user_id AS "userId",
+                   available_hours AS "availableHours"
+            FROM devops_sprint_member
+            WHERE tenant_id = #{tenantId} AND sprint_id = #{sprintId} AND id = #{id} AND deleted = 0
+            """)
+    Map<String, Object> findMember(@Param("tenantId") long tenantId, @Param("sprintId") long sprintId,
+                                   @Param("id") long id);
+
+    @Select("""
+            SELECT id AS "id", sprint_id AS "sprintId", user_id AS "userId",
+                   available_hours AS "availableHours"
+            FROM devops_sprint_member
+            WHERE tenant_id = #{tenantId} AND sprint_id = #{sprintId} AND user_id = #{userId} AND deleted = 0
+            """)
+    Map<String, Object> findMemberByUser(@Param("tenantId") long tenantId, @Param("sprintId") long sprintId,
+                                         @Param("userId") long userId);
+
+    @Update("""
+            UPDATE devops_sprint_member
+            SET available_hours = #{availableHours}, updated_by = #{userId}, version = version + 1
+            WHERE tenant_id = #{tenantId} AND sprint_id = #{sprintId} AND id = #{id} AND deleted = 0
+            """)
+    int updateMemberHours(@Param("tenantId") long tenantId, @Param("sprintId") long sprintId,
+                          @Param("id") long id, @Param("availableHours") BigDecimal availableHours,
+                          @Param("userId") long userId);
+
+    @Update("""
+            UPDATE devops_sprint_member SET deleted = 1, updated_by = #{userId}, version = version + 1
+            WHERE tenant_id = #{tenantId} AND sprint_id = #{sprintId} AND id = #{id} AND deleted = 0
+            """)
+    int deleteMember(@Param("tenantId") long tenantId, @Param("sprintId") long sprintId, @Param("id") long id,
+                     @Param("userId") long userId);
+
+    @Select("""
+            SELECT COALESCE(sum(available_hours), 0) FROM devops_sprint_member
+            WHERE tenant_id = #{tenantId} AND sprint_id = #{sprintId} AND deleted = 0
+            """)
+    BigDecimal sumAvailableHours(@Param("tenantId") long tenantId, @Param("sprintId") long sprintId);
+
+    @Select("""
             SELECT s.id AS "id", s.product_id AS "productId", s.sprint_no AS "sprintNo", s.name AS "name",
                    s.goal AS "goal", s.start_date AS "startDate", s.end_date AS "endDate",
                    s.capacity_hours AS "capacityHours", s.status AS "status", s.created_at::text AS "createdAt",

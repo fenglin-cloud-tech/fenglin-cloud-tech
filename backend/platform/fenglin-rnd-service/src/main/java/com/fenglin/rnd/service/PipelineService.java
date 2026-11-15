@@ -63,7 +63,7 @@ public class PipelineService {
         return toView(row);
     }
 
-    public List<PipelineView> list(long productId) {
+    public List<PipelineView> list(Long productId) {
         return pipelineMapper.listPipelines(RndContext.tenantId(), productId).stream()
                 .map(PipelineService::toView).toList();
     }

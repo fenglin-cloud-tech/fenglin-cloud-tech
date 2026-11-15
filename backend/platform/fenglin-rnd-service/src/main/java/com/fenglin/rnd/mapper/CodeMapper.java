@@ -46,11 +46,13 @@ public interface CodeMapper {
                    access_token_cipher AS "tokenCipher", last_sync_at::text AS "lastSyncAt",
                    created_at::text AS "createdAt"
             FROM devops_repo
-            WHERE tenant_id = #{tenantId} AND product_id = #{productId} AND deleted = 0
+            WHERE tenant_id = #{tenantId} AND deleted = 0
+              <if test="productId != null">AND product_id = #{productId}</if>
             ORDER BY id DESC
             </script>
             """)
-    List<Map<String, Object>> listRepos(@Param("tenantId") long tenantId, @Param("productId") long productId);
+    List<Map<String, Object>> listRepos(@Param("tenantId") long tenantId,
+                                        @Param("productId") Long productId);
 
     @Update("""
             UPDATE devops_repo SET sync_status = 'ok', last_sync_at = now(), updated_by = #{userId},

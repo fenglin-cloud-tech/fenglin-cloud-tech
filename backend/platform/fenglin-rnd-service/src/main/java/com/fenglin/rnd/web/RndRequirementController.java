@@ -5,6 +5,7 @@ import com.fenglin.common.security.PermissionGuard;
 import com.fenglin.rnd.service.RequirementService;
 import com.fenglin.rnd.support.RndContext;
 import com.fenglin.rnd.web.dto.RndDtos.RelationCreateRequest;
+import com.fenglin.rnd.web.dto.RndDtos.RelationView;
 import com.fenglin.rnd.web.dto.RndDtos.RequirementCreateRequest;
 import com.fenglin.rnd.web.dto.RndDtos.RequirementReviewResult;
 import com.fenglin.rnd.web.dto.RndDtos.RequirementTransitionRequest;
@@ -54,10 +55,13 @@ public class RndRequirementController {
             @RequestParam("productId") long productId,
             @RequestParam(value = "sprintId", required = false) Long sprintId,
             @RequestParam(value = "statusCode", required = false) String statusCode,
+            @RequestParam(value = "assigneeId", required = false) Long assigneeId,
+            @RequestParam(value = "keyword", required = false) String keyword,
             @RequestParam(value = "page", required = false) Integer page,
             @RequestParam(value = "size", required = false) Integer size) {
         PermissionGuard.require(permissions, VIEW);
-        return ApiResponse.success(requirementService.list(productId, sprintId, statusCode, page, size));
+        return ApiResponse.success(requirementService.list(productId, sprintId, statusCode, assigneeId,
+                keyword, page, size));
     }
 
     @GetMapping("/{id}")
@@ -93,6 +97,17 @@ public class RndRequirementController {
         PermissionGuard.require(permissions, UPDATE);
         requirementService.addRelation(id, request);
         return ApiResponse.success();
+    }
+
+    /**
+     * 需求关联双向查询，供前端做关联关系可视化（RND-03）。
+     */
+    @GetMapping("/{id}/relations")
+    public ApiResponse<List<RelationView>> listRelations(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id) {
+        PermissionGuard.require(permissions, VIEW);
+        return ApiResponse.success(requirementService.listRelations(id));
     }
 
     @PostMapping("/{id}/sprint")
