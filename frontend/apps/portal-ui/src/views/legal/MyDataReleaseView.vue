@@ -30,7 +30,8 @@ const timeline = ref<LegalRecord[]>([])
 const detailLoading = ref(false)
 
 const gapItems = [
-  '本页调用 /dlp/releases；无 legal:dlp:release:approve 时后端强制 applicant 为当前用户，只有 legal:dlp:release:apply 也能看到本人申请。',
+  '本页调用 /dlp/releases；读接口只校验 legal:dlp:release:view，无 legal:dlp:release:approve 时后端强制 applicant 为当前用户。',
+  '提交放行申请另需 legal:dlp:release:apply；“发起放行”按钮按该码隐藏，查看本人记录不需要申请/审批权。',
   '放行申请复用 legal_dlp_event(event_type=RELEASE_APPLY)，不另建表；可按申请人、状态、时间筛选。',
   '用途会写入 matched_snippet（详情/列表显示的“用途说明”），放行对象仅传给审批工作流、不落事件表。',
   '提交会真实调用审批工作流 legalDlpReleaseApproval；工作流不可用时会返回真实错误，不做前端假成功。',
@@ -118,7 +119,7 @@ onMounted(load)
         </el-select>
         <el-date-picker v-model="filters.from" type="date" value-format="YYYY-MM-DD" placeholder="起始" style="width: 140px" />
         <el-date-picker v-model="filters.to" type="date" value-format="YYYY-MM-DD" placeholder="截止" style="width: 140px" />
-        <el-button type="primary" @click="createVisible = true">发起放行</el-button>
+        <el-button v-perm="'legal:dlp:release:apply'" type="primary" @click="createVisible = true">发起放行</el-button>
         <el-button :loading="loading" @click="load">查询</el-button>
       </template>
     </PageHeader>

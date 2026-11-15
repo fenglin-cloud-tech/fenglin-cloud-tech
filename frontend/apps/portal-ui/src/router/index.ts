@@ -270,7 +270,7 @@ const routes: RouteRecordRaw[] = [
         path: 'my-data-release',
         name: 'my-data-release',
         component: () => import('@/views/legal/MyDataReleaseView.vue'),
-        meta: { title: '数据放行申请', perm: 'legal:dlp:release:apply' },
+        meta: { title: '数据放行申请', perm: 'legal:dlp:release:view' },
       },
       {
         path: 'my-evidence',

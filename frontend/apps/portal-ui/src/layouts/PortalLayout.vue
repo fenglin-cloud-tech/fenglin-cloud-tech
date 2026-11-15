@@ -106,7 +106,7 @@ const legalItems = [
   { path: '/my-contracts', title: '我的合同', icon: Document, perm: 'legal:contract:view:self' },
   { path: '/my-sign-tasks', title: '我的签署任务', icon: Finished, perm: 'legal:sign:self:execute' },
   { path: '/my-seal-applications', title: '用印申请', icon: Stamp, perm: 'legal:seal:apply' },
-  { path: '/my-data-release', title: '数据放行申请', icon: Share, perm: 'legal:dlp:release:apply' },
+  { path: '/my-data-release', title: '数据放行申请', icon: Share, perm: 'legal:dlp:release:view' },
   { path: '/my-evidence', title: '我的存证', icon: Warning, perm: 'legal:evidence:view' },
 ]
 

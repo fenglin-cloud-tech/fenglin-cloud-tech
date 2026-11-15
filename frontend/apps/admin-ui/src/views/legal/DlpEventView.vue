@@ -1,12 +1,13 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { GapNotice, PageHeader, ID_COLUMN_WIDTH } from '@fenglin/ui-admin'
+import { GapNotice, PageHeader, ID_COLUMN_WIDTH, canUse } from '@fenglin/ui-admin'
 import { legalApi, type LegalRecord } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 import { dataLevel, eventStatus, fmtTime, label } from './labels'
 
 const tab = ref('events')
+const canViewReleases = computed(() => canUse('legal:dlp:release:view'))
 
 const events = ref<LegalRecord[]>([])
 const eventTotal = ref(0)
@@ -37,7 +38,7 @@ const approveForm = reactive({ id: 0, action: 'APPROVE', comment: '' })
 
 const gapItems = [
   '后端事件查询实际校验 legal:dlp:audit:view（不是 legal:dlp:event:view），处置校验 legal:dlp:event:handle；页面权限码已按后端真实校验对齐。',
-  '放行申请查询复用 legal_dlp_event(event_type=RELEASE_APPLY)，不另建表；审批需 legal:dlp:release:approve，非审批人只能看本人申请。',
+  '放行申请查询校验 legal:dlp:release:view（只读码），审批校验 legal:dlp:release:approve；非审批人只能看本人申请。',
   '放行申请的“用途”在后端落在 matched_snippet 字段，页面按真实字段展示；target 只传给审批工作流，不落库。',
 ]
 
@@ -242,7 +243,7 @@ onMounted(loadEvents)
         </el-card>
       </el-tab-pane>
 
-      <el-tab-pane label="放行申请" name="releases">
+      <el-tab-pane v-if="canViewReleases" label="放行申请" name="releases">
         <el-alert v-if="releaseError" type="error" :closable="false" show-icon :title="releaseError" style="margin-bottom: 12px" />
         <el-card shadow="never">
           <div class="toolbar">

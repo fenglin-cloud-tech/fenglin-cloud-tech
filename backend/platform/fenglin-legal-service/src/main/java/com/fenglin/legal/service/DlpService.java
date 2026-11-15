@@ -275,7 +275,8 @@ public class DlpService {
                                                        Long applicantId, String status, String from, String to) {
         boolean approver = PermissionGuard.has(permissions, "legal:dlp:release:approve");
         if (!approver) {
-            PermissionGuard.requireAny(permissions, "legal:dlp:release:approve", "legal:dlp:release:apply");
+            // 读接口只认只读权限 legal:dlp:release:view，申请/审批码不再兼作查看凭证。
+            PermissionGuard.require(permissions, "legal:dlp:release:view");
         }
         long tenantId = LegalContext.tenantId();
         // 没有放行审批权限时强制收敛到本人，忽略前端传入的 applicant_id。
@@ -313,7 +314,7 @@ public class DlpService {
     private Map<String, Object> loadRelease(String permissions, long releaseId) {
         boolean approver = PermissionGuard.has(permissions, "legal:dlp:release:approve");
         if (!approver) {
-            PermissionGuard.requireAny(permissions, "legal:dlp:release:approve", "legal:dlp:release:apply");
+            PermissionGuard.require(permissions, "legal:dlp:release:view");
         }
         Map<String, Object> release = mapper.findRelease(LegalContext.tenantId(), releaseId);
         if (release == null) {
