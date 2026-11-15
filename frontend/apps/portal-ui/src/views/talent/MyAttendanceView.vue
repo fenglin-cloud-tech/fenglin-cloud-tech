@@ -41,7 +41,7 @@ const applyVisible = ref(false)
 const applySaving = ref(false)
 const applyError = ref('')
 const applyForm = reactive({
-  leave_type_id: '' as string | number | '',
+  leave_type_id: '' as string | '',
   start_date: '',
   end_date: '',
   days: 1,

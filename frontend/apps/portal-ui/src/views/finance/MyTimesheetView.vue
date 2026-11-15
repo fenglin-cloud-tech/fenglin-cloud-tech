@@ -52,7 +52,7 @@ function statusType(value?: string) {
 
 const today = new Date().toISOString().slice(0, 10)
 const form = reactive({
-  project_id: '' as number | '',
+  project_id: '' as string,
   work_date: today,
   hours: '8',
   task_desc: '',
@@ -104,7 +104,7 @@ async function handleCreate() {
   }
 }
 
-function projectName(id: number) {
+function projectName(id: string) {
   return projects.value.find((item) => item.id === id)?.project_name ?? String(id)
 }
 

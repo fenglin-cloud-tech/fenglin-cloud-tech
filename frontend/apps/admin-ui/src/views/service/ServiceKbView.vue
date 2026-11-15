@@ -10,7 +10,7 @@ const articles = ref<ServiceRecord[]>([])
 const total = ref(0)
 const page = ref(1)
 const size = ref(20)
-const filters = reactive({ status: '', categoryId: '' as number | '', keyword: '' })
+const filters = reactive({ status: '', categoryId: '' as string, keyword: '' })
 const loading = ref(false)
 const error = ref('')
 
@@ -24,7 +24,7 @@ const articleSaving = ref(false)
 const articleError = ref('')
 const articleForm = reactive({
   id: '',
-  category_id: '' as number | '',
+  category_id: '' as string,
   title: '',
   summary: '',
   content: '',

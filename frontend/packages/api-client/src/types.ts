@@ -63,10 +63,10 @@ export interface UpdateUserRequest {
   nickname?: string
   mobile?: string
   email?: string
-  primary_org_id?: string | number
+  primary_org_id?: string
   status?: string
   employee_no?: string
-  employee_id?: string | number
+  employee_id?: string
   unbind_employee_id?: boolean
   version?: number
 }
@@ -77,9 +77,9 @@ export interface CreateUserRequest {
   employee_no?: string
   mobile: string
   email?: string
-  primary_org_id: string | number
-  primary_position_id?: string | number
-  role_ids?: (string | number)[]
+  primary_org_id: string
+  primary_position_id?: string
+  role_ids?: string[]
   password?: string
 }
 
@@ -104,23 +104,23 @@ export interface OrgNode {
 }
 
 export interface CreateOrgRequest {
-  parent_id?: string | number | null
+  parent_id?: string | null
   name: string
   org_type: string
   sort?: number
-  leader_id?: string | number
+  leader_id?: string
 }
 
 export interface UpdateOrgRequest {
   name?: string
   sort?: number
-  leader_id?: string | number
+  leader_id?: string
   status?: string
   version?: number
 }
 
 export interface MoveOrgRequest {
-  parent_id?: string | number | null
+  parent_id?: string | null
 }
 
 export interface RoleView {
@@ -139,7 +139,7 @@ export interface CreateRoleRequest {
   role_type?: string
   /** 保留字段：后端接受但不参与鉴权，前端表单不再提交 */
   data_scope?: string
-  parent_id?: string | number
+  parent_id?: string
 }
 
 export interface PermissionNode {
@@ -242,7 +242,7 @@ export interface MessageView {
 }
 
 export interface MessageChannelView {
-  id: string | number
+  id: string
   channel_type: string
   name: string
   config?: string
@@ -252,7 +252,7 @@ export interface MessageChannelView {
 }
 
 export interface MessageChannelRequest {
-  id?: string | number
+  id?: string
   channel_type: string
   name: string
   config?: Record<string, unknown>
@@ -640,10 +640,17 @@ export interface SandboxCallResult {
 // ---------- 云客 CRM（/api/crm/v1） ----------
 
 /**
- * CRM 主键为雪花 ID（19 位），后端按字符串序列化以避免 JavaScript 精度丢失。
+ * 雪花 ID 在前端一律用字符串承载：19 位超过 Number.MAX_SAFE_INTEGER，
+ * 任何 number 化都会截断末位。后端统一按字符串序列化（Long → string）。
+ * 规范见《丰麟云枢 · 平台总体规范与统一标准》5.6。
+ */
+export type SnowflakeId = string
+
+/**
+ * CRM 主键仅允许字符串，禁止 number 赋值（TS 编译期拦截）。
  * 前端不应对该值做数值运算，仅透传或展示。
  */
-export type CrmId = string | number
+export type CrmId = SnowflakeId
 
 export interface LeadView {
   lead_id: CrmId
@@ -658,8 +665,8 @@ export interface LeadView {
   score: number
   grade?: string
   status: string
-  owner_id?: string | number
-  dept_id?: string | number
+  owner_id?: string
+  dept_id?: string
   last_activity_at?: string
   converted_customer_id?: CrmId
   created_at?: string
@@ -678,14 +685,14 @@ export interface LeadCreateRequest {
   industry?: string
   region_code?: string
   source?: string
-  owner_id?: string | number
+  owner_id?: string
   grade?: string
   remark?: string
 }
 
 export interface LeadAssignRequest {
-  owner_id?: string | number
-  dept_id?: string | number
+  owner_id?: string
+  dept_id?: string
   reason?: string
 }
 
@@ -717,9 +724,9 @@ export interface CustomerView {
   region_code?: string
   grade?: string
   segment?: string
-  owner_id?: string | number
-  csm_id?: string | number
-  dept_id?: string | number
+  owner_id?: string
+  csm_id?: string
+  dept_id?: string
   mobile_masked?: string
   annual_revenue?: number
   arr?: number
@@ -756,8 +763,8 @@ export interface CustomerCreateRequest {
   region_code?: string
   grade?: string
   segment?: string
-  owner_id?: string | number
-  csm_id?: string | number
+  owner_id?: string
+  csm_id?: string
   mobile?: string
   annual_revenue?: number
   arr?: number
@@ -766,7 +773,7 @@ export interface CustomerCreateRequest {
 }
 
 export interface CustomerOwnerRequest {
-  owner_id?: string | number
+  owner_id?: string
   reason?: string
 }
 
@@ -792,7 +799,7 @@ export interface OpportunityView {
   amount?: number
   weighted_amount?: number
   expected_close_date?: string
-  owner_id?: string | number
+  owner_id?: string
   status: string
   next_step?: string
   lost_reason?: string
@@ -808,7 +815,7 @@ export interface OpportunityCreateRequest {
   source?: string
   next_step?: string
   win_rate?: number
-  owner_id?: string | number
+  owner_id?: string
 }
 
 export interface StageChangeRequest {
@@ -891,7 +898,7 @@ export interface QuotationListItemView {
   total_amount?: number
   status: string
   approve_instance_id?: string
-  owner_id?: string | number
+  owner_id?: string
   created_at?: string
 }
 
@@ -956,7 +963,7 @@ export interface ContractListItemView {
   start_date?: string
   end_date?: string
   status: string
-  owner_id?: string | number
+  owner_id?: string
   created_at?: string
 }
 
@@ -1063,7 +1070,7 @@ export interface ActivityView {
   result?: string
   next_plan?: string
   occurred_at?: string
-  owner_id?: string | number
+  owner_id?: string
 }
 
 export interface ActivityCreateRequest {

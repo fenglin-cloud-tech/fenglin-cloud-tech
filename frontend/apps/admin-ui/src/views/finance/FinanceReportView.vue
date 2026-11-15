@@ -14,7 +14,7 @@ import { describeError } from '@/utils/error'
 
 const ledgers = ref<FinanceLedger[]>([])
 const periods = ref<FinancePeriod[]>([])
-const ledgerId = ref<string | number | ''>('')
+const ledgerId = ref<string>('')
 const periodCode = ref('')
 const subjectCode = ref('')
 const activeTab = ref('balance')

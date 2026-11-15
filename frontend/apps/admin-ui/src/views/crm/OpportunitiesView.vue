@@ -24,7 +24,7 @@ const creating = ref(false)
 const createError = ref('')
 const createForm = reactive({
   name: '',
-  customer_id: undefined as string | number | undefined,
+  customer_id: undefined as string | undefined,
   amount: undefined as number | undefined,
   stage: 'S1',
   expected_close_date: '',

@@ -22,7 +22,7 @@ const createVisible = ref(false)
 const creating = ref(false)
 const createError = ref('')
 const createForm = reactive({
-  customer_id: undefined as string | number | undefined,
+  customer_id: undefined as string | undefined,
   sla_level: 'P2',
   service_package: '',
   amount: undefined as number | undefined,

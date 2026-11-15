@@ -338,7 +338,7 @@ async function submitSettlement() {
   }
 }
 
-async function approveSettlement(id: number) {
+async function approveSettlement(id: string) {
   try {
     const result = await financeApi.projects.approveSettlement(id)
     ElMessage.success(`结算单 ${result.settlement_no} 状态 ${statusLabel(result.status)}`)

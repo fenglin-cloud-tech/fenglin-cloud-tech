@@ -22,8 +22,8 @@ const createVisible = ref(false)
 const creating = ref(false)
 const createError = ref('')
 const createForm = reactive({
-  customer_id: undefined as string | number | undefined,
-  opportunity_id: undefined as string | number | undefined,
+  customer_id: undefined as string | undefined,
+  opportunity_id: undefined as string | undefined,
   tax_rate: 6,
   valid_until: '',
   remark: '',

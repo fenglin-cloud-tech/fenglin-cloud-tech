@@ -58,7 +58,7 @@ const contactForm = reactive({
 const ownerVisible = ref(false)
 const ownerSaving = ref(false)
 const ownerError = ref('')
-const ownerForm = reactive({ owner_id: undefined as string | number | undefined, reason: '' })
+const ownerForm = reactive({ owner_id: undefined as string | undefined, reason: '' })
 
 const activityVisible = ref(false)
 

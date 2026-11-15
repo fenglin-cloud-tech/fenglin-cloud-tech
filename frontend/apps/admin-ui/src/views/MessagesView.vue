@@ -40,7 +40,7 @@ const channelVisible = ref(false)
 const channelSaving = ref(false)
 const channelFormError = ref('')
 const channelForm = reactive<{
-  id?: number
+  id?: string
   channel_type: string
   name: string
   configText: string

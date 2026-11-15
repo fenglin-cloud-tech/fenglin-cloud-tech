@@ -48,7 +48,7 @@ const userForm = reactive<CreateUserRequest>({
   mobile: '',
   email: '',
   employee_no: '',
-  primary_org_id: 0,
+  primary_org_id: '',
   role_ids: [],
   password: '',
 })
@@ -73,7 +73,7 @@ const orgFlat = computed(() => {
   return list
 })
 
-function orgName(id?: number) {
+function orgName(id?: string) {
   if (!id) return '-'
   return orgFlat.value.find((item) => item.id === id)?.label.trim() ?? String(id)
 }
@@ -88,7 +88,7 @@ const orgDialogTitle = computed(() => {
 const orgSaving = ref(false)
 const orgFormError = ref('')
 const orgTarget = ref<OrgNode | null>(null)
-const orgForm = reactive({ parent_id: 0, name: '', org_type: 'DEPT', sort: 0, leader_id: '' })
+const orgForm = reactive({ parent_id: '', name: '', org_type: 'DEPT', sort: 0, leader_id: '' })
 const orgTypeOptions = [
   { value: 'COMPANY', label: '公司' },
   { value: 'DEPT', label: '部门' },
@@ -105,7 +105,7 @@ const userEditForm = reactive({
   email: '',
   employee_no: '',
   status: 'ACTIVE',
-  primary_org_id: 0,
+  primary_org_id: '',
 })
 
 const roleDialog = ref(false)
@@ -216,7 +216,7 @@ function openCreateUser() {
     mobile: '',
     email: '',
     employee_no: '',
-    primary_org_id: 0,
+    primary_org_id: '',
     role_ids: [],
     password: '',
   })
@@ -254,7 +254,7 @@ function openCreateOrg(parent: OrgNode | null) {
   orgDialogMode.value = 'create'
   orgTarget.value = parent
   Object.assign(orgForm, {
-    parent_id: parent?.id ?? 0,
+    parent_id: parent?.id ?? '',
     name: '',
     org_type: 'DEPT',
     sort: 0,
@@ -268,7 +268,7 @@ function openRenameOrg(node: OrgNode) {
   if (!canManageOrg.value) return
   orgDialogMode.value = 'rename'
   orgTarget.value = node
-  Object.assign(orgForm, { parent_id: node.parent_id ?? 0, name: node.name, org_type: node.org_type, sort: node.sort, leader_id: node.leader_id != null ? String(node.leader_id) : '' })
+  Object.assign(orgForm, { parent_id: node.parent_id ?? '', name: node.name, org_type: node.org_type, sort: node.sort, leader_id: node.leader_id != null ? String(node.leader_id) : '' })
   orgFormError.value = ''
   orgDialogVisible.value = true
 }
@@ -277,7 +277,7 @@ function openMoveOrg(node: OrgNode) {
   if (!canManageOrg.value) return
   orgDialogMode.value = 'move'
   orgTarget.value = node
-  Object.assign(orgForm, { parent_id: node.parent_id ?? 0, name: node.name, org_type: node.org_type, sort: node.sort, leader_id: node.leader_id != null ? String(node.leader_id) : '' })
+  Object.assign(orgForm, { parent_id: node.parent_id ?? '', name: node.name, org_type: node.org_type, sort: node.sort, leader_id: node.leader_id != null ? String(node.leader_id) : '' })
   orgFormError.value = ''
   orgDialogVisible.value = true
 }
@@ -377,7 +377,7 @@ function openEditUser(row: UserView) {
     email: '',
     employee_no: row.employee_no ?? '',
     status: row.status || 'ACTIVE',
-    primary_org_id: row.primary_org_id ?? 0,
+    primary_org_id: row.primary_org_id ?? '',
   })
   userEditError.value = ''
   userEditVisible.value = true
@@ -658,13 +658,13 @@ onMounted(async () => {
       <el-form label-width="100px">
         <el-form-item v-if="orgDialogMode === 'create'" label="上级组织">
           <el-select v-model="orgForm.parent_id" filterable style="width: 100%">
-            <el-option label="（根组织）" :value="0" />
+            <el-option label="（根组织）" value="" />
             <el-option v-for="item in orgFlat" :key="item.id" :label="item.label" :value="item.id" />
           </el-select>
         </el-form-item>
         <el-form-item v-if="orgDialogMode === 'move'" label="新上级组织">
           <el-select v-model="orgForm.parent_id" filterable style="width: 100%">
-            <el-option label="（根组织）" :value="0" />
+            <el-option label="（根组织）" value="" />
             <el-option v-for="item in orgFlat" :key="item.id" :label="item.label" :value="item.id" />
           </el-select>
         </el-form-item>

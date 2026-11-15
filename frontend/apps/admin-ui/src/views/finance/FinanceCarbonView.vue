@@ -48,7 +48,7 @@ const activityForm = reactive({
   activity_date: new Date().toISOString().slice(0, 10),
   amount: '',
   unit: 'L',
-  factor_id: '' as number | '',
+  factor_id: '' as string,
   data_source: 'MANUAL',
 })
 

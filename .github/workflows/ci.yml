@@ -76,6 +76,20 @@ jobs:
       - name: Run external integration tests
         run: mvn -B -T 4 -f backend/pom.xml -Dtest='FileFlowIntegrationTest,SearchIntegrationTest,OpenApiIntegrationTest' -Dsurefire.failIfNoSpecifiedTests=false test
 
+  frontend-id-precision:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Check snowflake ID handling
+        run: node frontend/scripts/check-id-precision.mjs frontend
+
   common-web-gate:
     runs-on: ubuntu-latest
     steps:

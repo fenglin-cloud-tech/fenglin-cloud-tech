@@ -36,7 +36,7 @@ const sendForm = reactive({ content: '', sec_level: 2, model_code: '' })
 
 const feedbackVisible = ref(false)
 const feedbackSaving = ref(false)
-const feedbackForm = reactive({ messageId: '' as string | number, feedback_type: 'LIKE', rating: 0, comment: '' })
+const feedbackForm = reactive({ messageId: '' as string, feedback_type: 'LIKE', rating: 0, comment: '' })
 
 const gapItems = [
   '后端未提供流式输出（SSE）接口，发送消息后需同步等待完整回答返回。',

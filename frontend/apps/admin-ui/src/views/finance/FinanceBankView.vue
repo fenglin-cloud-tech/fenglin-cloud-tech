@@ -13,7 +13,7 @@ import { describeError } from '@/utils/error'
 const accounts = ref<FinanceBankAccount[]>([])
 const transactions = ref<FinanceBankTransaction[]>([])
 const reconciliations = ref<FinanceReconciliation[]>([])
-const selectedAccountId = ref<string | number | ''>('')
+const selectedAccountId = ref<string>('')
 const activeTab = ref('accounts')
 const loading = ref(false)
 const error = ref('')
@@ -37,7 +37,7 @@ const importRows = ref<Array<{ txn_no: string; txn_date: string; direction: 'IN'
 
 const reconVisible = ref(false)
 const reconError = ref('')
-const reconForm = reactive({ account_id: '' as string | number | '', period_code: '' })
+const reconForm = reactive({ account_id: '' as string | '', period_code: '' })
 
 const gapItems = [
   '银行账户没有修改/停用接口，只能新增与查询；账户余额由后端维护。',

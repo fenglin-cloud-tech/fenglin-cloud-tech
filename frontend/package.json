@@ -10,7 +10,8 @@
     "dev:developer": "pnpm --filter @fenglin/developer-portal dev",
     "build": "pnpm -r --filter \"./apps/*\" build",
     "build:admin": "pnpm --filter @fenglin/admin-ui build",
-    "typecheck": "pnpm -r --if-present typecheck"
+    "typecheck": "pnpm -r --if-present typecheck",
+    "lint:id-precision": "node scripts/check-id-precision.mjs ."
   },
   "devDependencies": {
     "@types/node": "22.10.2",

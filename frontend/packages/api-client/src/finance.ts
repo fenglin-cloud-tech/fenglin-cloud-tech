@@ -1,7 +1,7 @@
 import type { PageResult } from '@fenglin/shared'
 import { download, get, post, put, request } from './http'
 
-export type FinanceId = string | number
+export type FinanceId = string
 
 /** 云财接口金额均为字符串（后端 BigDecimal），日期为 ISO 字符串。 */
 export interface FinanceLedger {
@@ -927,7 +927,7 @@ export const financeApi = {
     },
     create(body: {
       // 雪花 ID 以字符串下发，后端 Long 兼容字符串入参
-      applicant_id: string | number
+      applicant_id: string
       applicant_name: string
       dept_id?: FinanceId | null
       claim_type: string
@@ -1123,7 +1123,7 @@ export const financeApi = {
     createTimesheet(
       id: FinanceId,
       body: {
-        employee_id: string | number
+        employee_id: string
         employee_name: string
         milestone_id?: FinanceId | null
         work_date: string

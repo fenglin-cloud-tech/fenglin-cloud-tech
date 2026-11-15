@@ -20,7 +20,7 @@ const currencies = ref<FinanceCurrency[]>([])
 const exchangeRates = ref<FinanceExchangeRate[]>([])
 const trialBalance = ref<FinanceTrialBalance | null>(null)
 
-const selectedLedgerId = ref<string | number | ''>('')
+const selectedLedgerId = ref<string>('')
 const selectedPeriod = ref('')
 const activeTab = ref('subjects')
 const loading = ref(false)

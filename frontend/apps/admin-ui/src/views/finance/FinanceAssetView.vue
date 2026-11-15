@@ -40,7 +40,7 @@ const cardVisible = ref(false)
 const cardError = ref('')
 const cardForm = reactive({
   asset_name: '',
-  category_id: '' as string | number | '',
+  category_id: '' as string | '',
   specification: '',
   location: '',
   enable_date: '',
@@ -52,7 +52,7 @@ const cardForm = reactive({
   ip_address: '',
 })
 
-const depreciationForm = reactive({ ledger_id: '' as string | number | '', period_code: '' })
+const depreciationForm = reactive({ ledger_id: '' as string | '', period_code: '' })
 
 const stocktakingVisible = ref(false)
 const stocktakingError = ref('')
