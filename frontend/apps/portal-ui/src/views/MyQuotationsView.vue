@@ -24,6 +24,11 @@ const quotationDetailVisible = ref(false)
 const quotationDetailLoading = ref(false)
 const quotationDetail = ref<QuotationView | null>(null)
 const submitting = ref(false)
+const createVisible = ref(false)
+const creating = ref(false)
+const createError = ref('')
+const createForm = reactive({ customer_id: '', opportunity_id: '', tax_rate: 6, valid_until: '', remark: '' })
+const createItems = ref([{ product_code: '', product_name: '', quantity: 1, unit_price: 0, discount_rate: 0 }])
 
 const contractDetailVisible = ref(false)
 const contractDetailLoading = ref(false)
@@ -135,8 +140,59 @@ async function submitQuotation() {
   }
 }
 
-async function openContract(row: ContractListItemView) {
-  contractDetailVisible.value = true
+function openCreate() {
+  createError.value = ''
+  Object.assign(createForm, { customer_id: '', opportunity_id: '', tax_rate: 6, valid_until: '', remark: '' })
+  createItems.value = [{ product_code: '', product_name: '', quantity: 1, unit_price: 0, discount_rate: 0 }]
+  createVisible.value = true
+}
+
+function addCreateItem() {
+  createItems.value.push({ product_code: '', product_name: '', quantity: 1, unit_price: 0, discount_rate: 0 })
+}
+
+function removeCreateItem(index: number) {
+  if (createItems.value.length > 1) createItems.value.splice(index, 1)
+}
+
+async function submitCreate() {
+  if (!createForm.customer_id) {
+    createError.value = '请填写客户 ID'
+    return
+  }
+  if (createItems.value.some((item) => !item.product_code || !item.product_name || item.quantity <= 0 || item.unit_price < 0)) {
+    createError.value = '明细需填写产品编码、产品名称、数量与单价'
+    return
+  }
+  creating.value = true
+  createError.value = ''
+  try {
+    await crmApi.quotations.create({
+      customer_id: createForm.customer_id,
+      opportunity_id: createForm.opportunity_id || undefined,
+      tax_rate: Number(createForm.tax_rate) || 0,
+      valid_until: createForm.valid_until || undefined,
+      remark: createForm.remark || undefined,
+      items: createItems.value.map((item) => ({
+        product_code: item.product_code,
+        product_name: item.product_name,
+        quantity: Number(item.quantity),
+        unit_price: Number(item.unit_price),
+        discount_rate: Number(item.discount_rate) || 0,
+      })),
+    })
+    ElMessage.success('报价已创建（草稿）')
+    createVisible.value = false
+    quotationQuery.page = 1
+    await loadQuotations()
+  } catch (err) {
+    createError.value = describeError(err)
+  } finally {
+    creating.value = false
+  }
+}
+
+async function openContract(row: ContractListItemView) {  contractDetailVisible.value = true
   contractDetailLoading.value = true
   contractDetail.value = null
   contractChanges.value = []
@@ -172,6 +228,7 @@ onMounted(() => {
             <el-input v-model="quotationQuery.keyword" placeholder="报价编号/客户" clearable style="width: 220px" @keyup.enter="quotationQuery.page = 1; loadQuotations()" />
             <el-button type="primary" plain @click="quotationQuery.page = 1; loadQuotations()">查询</el-button>
             <el-button :loading="quotationLoading" @click="loadQuotations">刷新</el-button>
+            <el-button type="primary" v-perm="'crm:quotation:create'" @click="openCreate">新建报价</el-button>
             <span class="fl-muted">负责人：{{ auth.displayName }} · 共 {{ quotationTotal }} 条</span>
           </div>
 
@@ -205,6 +262,53 @@ onMounted(() => {
             @change="loadQuotations"
           />
         </el-tab-pane>
+
+        <el-dialog v-model="createVisible" title="新建报价" width="720px">
+          <el-alert v-if="createError" type="error" :closable="false" show-icon :title="createError" style="margin-bottom: 12px" />
+          <el-form label-width="96px">
+            <el-form-item label="客户 ID" required>
+              <el-input v-model="createForm.customer_id" placeholder="客户雪花 ID" />
+            </el-form-item>
+            <el-form-item label="商机 ID">
+              <el-input v-model="createForm.opportunity_id" placeholder="可选" />
+            </el-form-item>
+            <el-form-item label="税率(%)">
+              <el-input-number v-model="createForm.tax_rate" :min="0" :max="100" :precision="2" />
+            </el-form-item>
+            <el-form-item label="有效期至">
+              <el-date-picker v-model="createForm.valid_until" type="date" value-format="YYYY-MM-DD" />
+            </el-form-item>
+            <el-form-item label="备注">
+              <el-input v-model="createForm.remark" maxlength="200" />
+            </el-form-item>
+          </el-form>
+          <h4 style="margin: 8px 0">报价明细</h4>
+          <el-table :data="createItems" size="small" border>
+            <el-table-column label="产品编码" min-width="140">
+              <template #default="{ row }"><el-input v-model="row.product_code" /></template>
+            </el-table-column>
+            <el-table-column label="产品名称" min-width="140">
+              <template #default="{ row }"><el-input v-model="row.product_name" /></template>
+            </el-table-column>
+            <el-table-column label="数量" width="110">
+              <template #default="{ row }"><el-input-number v-model="row.quantity" :min="1" /></template>
+            </el-table-column>
+            <el-table-column label="单价" width="130">
+              <template #default="{ row }"><el-input-number v-model="row.unit_price" :min="0" :precision="2" /></template>
+            </el-table-column>
+            <el-table-column label="折扣(%)" width="120">
+              <template #default="{ row }"><el-input-number v-model="row.discount_rate" :min="0" :max="100" :precision="2" /></template>
+            </el-table-column>
+            <el-table-column label="操作" width="80">
+              <template #default="{ $index }"><el-button link type="danger" @click="removeCreateItem($index)">删除</el-button></template>
+            </el-table-column>
+          </el-table>
+          <el-button link type="primary" style="margin-top: 8px" @click="addCreateItem">+ 添加明细</el-button>
+          <template #footer>
+            <el-button @click="createVisible = false">取消</el-button>
+            <el-button type="primary" :loading="creating" @click="submitCreate">提交</el-button>
+          </template>
+        </el-dialog>
 
         <el-tab-pane label="我的合同" name="contracts">
           <div class="fl-toolbar">

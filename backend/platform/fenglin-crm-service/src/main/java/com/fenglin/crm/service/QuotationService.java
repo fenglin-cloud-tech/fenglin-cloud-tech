@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.fenglin.common.core.BizException;
 import com.fenglin.common.core.CommonErrorCode;
 import com.fenglin.common.core.PageResult;
+import com.fenglin.common.security.PermissionGuard;
 import com.fenglin.crm.CrmErrorCode;
 import com.fenglin.crm.client.WorkflowClient;
 import com.fenglin.crm.mapper.CustomerMapper;
@@ -27,6 +28,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 @Service
 public class QuotationService {
@@ -159,6 +161,10 @@ public class QuotationService {
     public QuotationSubmitResult submit(long quotationId, String permissions, String requestId) {
         long tenantId = CrmContext.tenantId();
         Map<String, Object> row = requireQuotation(tenantId, quotationId);
+        if (!PermissionGuard.has(permissions, "crm:quotation:view")
+                && !Objects.equals(Rows.lngVal(row, "ownerId"), CrmContext.userId())) {
+            throw new BizException(CommonErrorCode.FORBIDDEN, "仅能提交本人的报价");
+        }
         if (!"DRAFT".equals(Rows.str(row, "status"))) {
             throw new BizException(CrmErrorCode.QUOTATION_STATUS_INVALID, "仅草稿报价可提交审批");
         }
