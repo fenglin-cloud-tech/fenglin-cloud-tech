@@ -50,6 +50,9 @@ import type {
   UserInfo,
   UserView,
   VersionListResult,
+  WorkflowPendingTask,
+  WorkflowHandleRequest,
+  WorkflowHandleResult,
   DownloadResult,
   AiModelView,
   AiPromptView,
@@ -204,6 +207,15 @@ export const workflowApi = {
   },
   stats(params: { from?: string; to?: string } = {}) {
     return get<MonitorStatsResult>('/api/hub/v1/admin/workflow/monitor/stats', params)
+  },
+  pending(params: { domain?: string; urgent?: boolean; page?: number; size?: number } = {}) {
+    return get<PageResult<WorkflowPendingTask>>('/api/hub/v1/workflow/pending', params)
+  },
+  pendingByInstance(instanceNo: string) {
+    return get<WorkflowPendingTask[]>(`/api/hub/v1/workflow/instances/by-no/${instanceNo}/pending-tasks`)
+  },
+  handle(taskId: string, body: WorkflowHandleRequest) {
+    return post<WorkflowHandleResult>(`/api/hub/v1/workflow/tasks/${taskId}:handle`, body)
   },
 }
 
@@ -561,9 +573,6 @@ export const crmApi = {
     },
     convertToContract(id: CrmId, body: QuotationConvertRequest) {
       return post<ContractView>(`/api/crm/v1/quotations/${id}/convert-to-contract`, body)
-    },
-    approve(id: CrmId, body: { result: 'APPROVED' | 'REJECTED'; comment?: string }) {
-      return post<QuotationView>(`/api/crm/v1/internal/quotations/${id}/approval`, body)
     },
   },
   contracts: {

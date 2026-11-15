@@ -61,6 +61,7 @@ public interface QuotationMapper {
     String LIST_COLUMNS = " q.id AS \"quotationId\", q.quotation_no AS \"quotationNo\", "
             + "q.opportunity_id AS \"opportunityId\", q.customer_id AS \"customerId\", cu.name AS \"customerName\", "
             + "q.version_no AS \"versionNo\", q.total_amount AS \"totalAmount\", q.status AS \"status\", "
+            + "q.approve_instance_id AS \"approveInstanceId\", "
             + "q.owner_id AS \"ownerId\", (EXTRACT(EPOCH FROM q.created_at) * 1000)::bigint AS \"createdMs\" ";
 
     String LIST_FROM = " FROM crm_quotation q "

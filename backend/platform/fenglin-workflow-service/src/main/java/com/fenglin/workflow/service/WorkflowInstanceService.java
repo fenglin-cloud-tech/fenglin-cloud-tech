@@ -160,23 +160,38 @@ public class WorkflowInstanceService {
                 onlyUrgent, urgentBefore, currentSize, (currentPage - 1) * currentSize);
         long total = taskMapper.pendingCount(tenantId, userId, blankToNull(domain), onlyUrgent, urgentBefore);
         List<PendingTaskView> views = rows.stream()
-                .map(row -> {
-                    Instant dueAt = toInstant(row.get("due_at"));
-                    String title = (String) row.get("title");
-                    return new PendingTaskView(
-                            longValue(row.get("id")),
-                            longValue(row.get("instance_id")),
-                            (String) row.get("instance_no"),
-                            title == null || title.isBlank() ? (String) row.get("instance_no") : title,
-                            (String) row.get("node_key"),
-                            (String) row.get("node_name"),
-                            row.get("initiator_id") == null ? null : longValue(row.get("initiator_id")),
-                            (String) row.get("initiator_name"),
-                            dueAt,
-                            dueAt != null && dueAt.isBefore(urgentBefore));
-                })
+                .map(row -> toPendingView(row, urgentBefore))
                 .toList();
         return PageResult.of(views, total, currentPage, currentSize);
+    }
+
+    /** CRM-09：按实例号返回待办任务，供管理端业务审批页定位流程任务。 */
+    @Transactional(readOnly = true)
+    public List<PendingTaskView> pendingByInstanceNo(String instanceNo) {
+        long tenantId = TenantContext.requireTenantId();
+        if (instanceNo == null || instanceNo.isBlank()) {
+            throw new BizException(CommonErrorCode.BAD_REQUEST, "instance_no 不能为空");
+        }
+        Instant urgentBefore = Instant.now().plusSeconds(24 * 3600);
+        return taskMapper.findPendingByInstanceNo(tenantId, instanceNo).stream()
+                .map(row -> toPendingView(row, urgentBefore))
+                .toList();
+    }
+
+    private PendingTaskView toPendingView(Map<String, Object> row, Instant urgentBefore) {
+        Instant dueAt = toInstant(row.get("due_at"));
+        String title = (String) row.get("title");
+        return new PendingTaskView(
+                longValue(row.get("id")),
+                longValue(row.get("instance_id")),
+                (String) row.get("instance_no"),
+                title == null || title.isBlank() ? (String) row.get("instance_no") : title,
+                (String) row.get("node_key"),
+                (String) row.get("node_name"),
+                row.get("initiator_id") == null ? null : longValue(row.get("initiator_id")),
+                (String) row.get("initiator_name"),
+                dueAt,
+                dueAt != null && dueAt.isBefore(urgentBefore));
     }
 
     @Transactional(readOnly = true)

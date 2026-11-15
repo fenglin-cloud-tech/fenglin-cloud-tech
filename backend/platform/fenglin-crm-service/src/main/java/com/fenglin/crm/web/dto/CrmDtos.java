@@ -129,7 +129,7 @@ public final class CrmDtos {
     /** 扩展：报价列表（01 文档未定义列表接口，员工端「我的报价」与客户详情需要）。 */
     public record QuotationListItemView(long quotationId, String quotationNo, Long opportunityId, long customerId,
                                         String customerName, int versionNo, BigDecimal totalAmount,
-                                        String status, Long ownerId, Instant createdAt) {
+                                        String status, String approveInstanceId, Long ownerId, Instant createdAt) {
     }
 
     public record QuotationSubmitRequest(String comment) {
@@ -140,6 +140,11 @@ public final class CrmDtos {
     }
 
     public record ApprovalResultRequest(String result, String comment) {
+    }
+
+    /** CRM-09：工作流中心实例结束回调（payload 由 hub_wf_callback 配置投递）。 */
+    public record WorkflowApprovalCallbackRequest(Long tenantId, String event, String businessKey, String result,
+                                                  Long operatorId) {
     }
 
     // ---------- 合同 / 回款计划 ----------

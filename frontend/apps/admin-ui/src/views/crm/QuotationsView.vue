@@ -2,7 +2,7 @@
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { PageHeader, GapNotice, CODE_COLUMN_WIDTH, ID_COLUMN_WIDTH } from '@fenglin/ui-admin'
-import { crmApi, type CrmId, type QuotationListItemView, type QuotationView } from '@fenglin/api-client'
+import { crmApi, workflowApi, type CrmId, type QuotationListItemView, type QuotationView } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 
 const rows = ref<QuotationListItemView[]>([])
@@ -159,17 +159,30 @@ async function approve(row: QuotationListItemView | null, result: 'APPROVED' | '
   const target = row ?? detail.value
   if (!target) return
   const id = target.quotation_id
+  const instanceNo =
+    target.approve_instance_id ??
+    (detail.value?.quotation_id === id ? detail.value.approve_instance_id : undefined)
+  if (!instanceNo) {
+    ElMessage.warning('该报价未关联审批流程实例，无法办理流程任务')
+    return
+  }
+  const task = (await workflowApi.pendingByInstance(instanceNo))[0]
+  if (!task) {
+    ElMessage.error('该报价没有待办的流程任务：审批须在流程中心办理，历史直调审批的记录不可再操作')
+    return
+  }
   try {
-    const { value } = await ElMessageBox.prompt(`请输入${result === 'APPROVED' ? '批准' : '驳回'}意见`, '报价审批回调', {
-      inputPlaceholder: '意见将写入审批记录',
+    const { value } = await ElMessageBox.prompt(`请输入${result === 'APPROVED' ? '批准' : '驳回'}意见`, '办理流程任务', {
+      inputPlaceholder: '意见将写入流程审批记录',
       inputValue: result === 'APPROVED' ? '同意' : '价格需调整',
     })
-    await crmApi.quotations.approve(id, { result, comment: value })
-    ElMessage.success('审批结果已回写')
+    await workflowApi.handle(task.task_id, {
+      action: result === 'APPROVED' ? 'APPROVE' : 'REJECT',
+      comment: value,
+    })
+    ElMessage.success('流程任务已办理，报价状态由流程回调回写')
     await load()
-    window.setTimeout(async () => {
-      if (detailVisible.value) detail.value = await crmApi.quotations.detail(id)
-    }, 300)
+    if (detailVisible.value) detail.value = await crmApi.quotations.detail(id)
   } catch (err) {
     if (err !== 'cancel' && err !== 'close') ElMessage.error(describeError(err))
   }
@@ -234,7 +247,8 @@ onMounted(load)
       :items="[
         '原 01 契约未定义报价列表接口，本页使用本次补齐的 GET /api/crm/v1/quotations（只读）。',
         '综合折扣 > 20% 或含税总额 > 100 万时提交会进入工作流中心；否则后端自动通过。',
-        '工作流审批任务在本页以“审批回调”接口演示回写；流程中心的任务办理 UI 尚未联动到报价。',
+        '工作流审批任务在本页直接办理：批准/驳回会办结对应流程任务，报价状态由流程回调回写。',
+        '流程中心的任务办理是唯一审批入口；历史直调审批的记录没有待办任务，不可再审批。',
       ]"
     />
 

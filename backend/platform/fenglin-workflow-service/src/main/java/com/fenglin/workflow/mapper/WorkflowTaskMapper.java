@@ -130,6 +130,21 @@ public interface WorkflowTaskMapper {
                                           @Param("limit") int limit,
                                           @Param("offset") int offset);
 
+    /** CRM-09：按实例号查待办任务（管理端办理业务审批时定位任务，不按候选人过滤）。 */
+    @Select("""
+            SELECT t.id, t.instance_id, t.node_key, t.node_name, t.due_at, t.created_at,
+                   i.instance_no, i.title, i.initiator_id,
+                   COALESCE(u.real_name, u.nickname, u.username, i.initiator_id::text) AS initiator_name
+              FROM hub_wf_task t
+              JOIN hub_wf_instance i ON i.id = t.instance_id AND i.tenant_id = t.tenant_id
+              LEFT JOIN hub_user u ON u.id = i.initiator_id AND u.tenant_id = i.tenant_id
+             WHERE t.tenant_id = #{tenantId} AND t.status = 'PENDING' AND t.deleted = 0
+               AND i.instance_no = #{instanceNo}
+             ORDER BY t.created_at ASC
+            """)
+    List<Map<String, Object>> findPendingByInstanceNo(@Param("tenantId") long tenantId,
+                                                      @Param("instanceNo") String instanceNo);
+
     @Select("""
             <script>
             SELECT count(*)

@@ -21,6 +21,8 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 @RestController
 public class WorkflowController {
 
@@ -53,6 +55,15 @@ public class WorkflowController {
             @RequestParam(value = "size", required = false) Integer size) {
         PermissionGuard.require(permissions, VIEW_PERMISSION);
         return ApiResponse.success(instanceService.pending(domain, urgent, page, size));
+    }
+
+    /** CRM-09：管理端业务审批页按实例号定位待办流程任务。 */
+    @GetMapping("/api/hub/v1/workflow/instances/by-no/{instanceNo}/pending-tasks")
+    public ApiResponse<List<PendingTaskView>> pendingByInstanceNo(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("instanceNo") String instanceNo) {
+        PermissionGuard.require(permissions, VIEW_PERMISSION);
+        return ApiResponse.success(instanceService.pendingByInstanceNo(instanceNo));
     }
 
     @PostMapping("/api/hub/v1/workflow/tasks/{id}:handle")

@@ -9,6 +9,7 @@ import com.fenglin.workflow.mapper.WorkflowCallbackMapper;
 import com.fenglin.workflow.mapper.WorkflowInstanceMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,19 +33,22 @@ public class WorkflowCallbackService {
     private final ObjectMapper objectMapper;
     private final WorkflowAuditor auditor;
     private final WorkflowCallbackProperties properties;
+    private final String callbackToken;
 
     public WorkflowCallbackService(WorkflowCallbackMapper callbackMapper,
                                    WorkflowCallbackLogMapper callbackLogMapper,
                                    WorkflowInstanceMapper instanceMapper,
                                    ObjectMapper objectMapper,
                                    WorkflowAuditor auditor,
-                                   WorkflowCallbackProperties properties) {
+                                   WorkflowCallbackProperties properties,
+                                   @Value("${fenglin.workflow.callback-token:fenglin-dev-callback}") String callbackToken) {
         this.callbackMapper = callbackMapper;
         this.callbackLogMapper = callbackLogMapper;
         this.instanceMapper = instanceMapper;
         this.objectMapper = objectMapper;
         this.auditor = auditor;
         this.properties = properties;
+        this.callbackToken = callbackToken;
     }
 
     @Transactional
@@ -93,6 +97,7 @@ public class WorkflowCallbackService {
                         .header("Content-Type", "application/json")
                         .header("X-Fenglin-Event", action)
                         .header("Idempotency-Key", idempotencyKey)
+                        .header("X-Callback-Token", callbackToken)
                         .POST(HttpRequest.BodyPublishers.ofString(payload))
                         .build();
                 HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
@@ -138,6 +143,7 @@ public class WorkflowCallbackService {
         payload.put("title", instance.get("title"));
         payload.put("status", instance.get("status"));
         payload.put("result", instance.get("result"));
+        payload.put("operator_id", instance.get("updated_by"));
         payload.put("occurred_at", Instant.now().toString());
         try {
             return objectMapper.writeValueAsString(payload);

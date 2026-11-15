@@ -18,6 +18,7 @@ import com.fenglin.crm.web.dto.CrmDtos.QuotationItemView;
 import com.fenglin.crm.web.dto.CrmDtos.QuotationListItemView;
 import com.fenglin.crm.web.dto.CrmDtos.QuotationSubmitResult;
 import com.fenglin.crm.web.dto.CrmDtos.QuotationView;
+import com.fenglin.crm.web.dto.CrmDtos.WorkflowApprovalCallbackRequest;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -138,8 +139,8 @@ public class QuotationService {
                 .map(row -> new QuotationListItemView(
                         Rows.lngVal(row, "quotationId"), Rows.str(row, "quotationNo"), Rows.lng(row, "opportunityId"),
                         Rows.lngVal(row, "customerId"), Rows.str(row, "customerName"), Rows.intVal(row, "versionNo"),
-                        Rows.dec(row, "totalAmount"), Rows.str(row, "status"), Rows.lng(row, "ownerId"),
-                        Rows.instant(row, "createdMs")))
+                        Rows.dec(row, "totalAmount"), Rows.str(row, "status"), Rows.str(row, "approveInstanceId"),
+                        Rows.lng(row, "ownerId"), Rows.instant(row, "createdMs")))
                 .toList();
         long total = quotationMapper.count(tenantId, blankToNull(status), ownerId, customerId, blankToNull(keyword));
         return PageResult.of(records, total, safePage, safeSize);
@@ -185,23 +186,48 @@ public class QuotationService {
     }
 
     /**
-     * 扩展：审批结果回调。工作流中心审批完成后回写报价单状态（下一步可替换为 MQ 事件订阅）。
+     * 审批结果回调（保留为流程节点触发的实现手段）。
+     * 流程回调可能因重试重复投递，因此对“目标状态与当前状态一致”的重复回调按幂等处理。
      */
     @Transactional
     public QuotationView handleApproval(long quotationId, String result, String comment) {
         long tenantId = CrmContext.tenantId();
         Map<String, Object> row = requireQuotation(tenantId, quotationId);
-        if (!"PENDING".equals(Rows.str(row, "status"))) {
-            throw new BizException(CrmErrorCode.QUOTATION_STATUS_INVALID, "仅审批中的报价可回写结果");
-        }
         String target = "APPROVED".equalsIgnoreCase(result) ? "APPROVED"
                 : "REJECTED".equalsIgnoreCase(result) ? "REJECTED" : null;
         if (target == null) {
             throw new BizException(CommonErrorCode.BAD_REQUEST, "审批结果必须为 APPROVED 或 REJECTED");
         }
+        String current = Rows.str(row, "status");
+        if (!"PENDING".equals(current)) {
+            if (target.equals(current)) {
+                return detail(quotationId);
+            }
+            throw new BizException(CrmErrorCode.QUOTATION_STATUS_INVALID, "仅审批中的报价可回写结果");
+        }
         quotationMapper.updateStatus(tenantId, quotationId, target, null, CrmContext.userId());
         audit.publish("CRM_QUOTATION_" + target, "APPROVE", "crm_quotation", quotationId, "HIGH");
         return detail(quotationId);
+    }
+
+    /**
+     * CRM-09 方案 A：工作流实例结束回调。payload 由 hub_wf_callback 投递，
+     * business_key 形如 {@code CRM_QUOTATION:<报价ID>}，状态回写复用 {@link #handleApproval}。
+     */
+    @Transactional
+    public QuotationView handleWorkflowCallback(WorkflowApprovalCallbackRequest request) {
+        String businessKey = request == null ? null : request.businessKey();
+        String prefix = "CRM_QUOTATION:";
+        if (businessKey == null || !businessKey.startsWith(prefix)) {
+            throw new BizException(CommonErrorCode.BAD_REQUEST, "business_key 不匹配 CRM_QUOTATION");
+        }
+        long quotationId;
+        try {
+            quotationId = Long.parseLong(businessKey.substring(prefix.length()));
+        } catch (NumberFormatException ex) {
+            throw new BizException(CommonErrorCode.BAD_REQUEST, "business_key 中报价 ID 非法");
+        }
+        return handleApproval(quotationId, request.result(), null);
     }
 
     private BigDecimal lineOrigin(QuotationItemRequest item) {

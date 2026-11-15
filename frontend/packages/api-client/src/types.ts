@@ -178,6 +178,32 @@ export interface MonitorStatsResult {
   by_node: Array<{ node_key: string; avg_minutes: number; count: number }>
 }
 
+export interface WorkflowPendingTask {
+  task_id: string
+  instance_id: string
+  instance_no: string
+  title: string
+  node_key?: string
+  node_name?: string
+  initiator_id?: string
+  initiator?: string
+  due_at?: string
+  urgent: boolean
+}
+
+export interface WorkflowHandleRequest {
+  action: 'APPROVE' | 'REJECT' | 'TRANSFER' | 'ADD_SIGN' | 'DELEGATE'
+  comment?: string
+  assignee_id?: string
+}
+
+export interface WorkflowHandleResult {
+  task_id: string
+  status: string
+  instance_status: string
+  next_task_ids?: string[]
+}
+
 export interface TemplateView {
   code: string
   name: string
@@ -864,6 +890,7 @@ export interface QuotationListItemView {
   version_no: number
   total_amount?: number
   status: string
+  approve_instance_id?: string
   owner_id?: string | number
   created_at?: string
 }
