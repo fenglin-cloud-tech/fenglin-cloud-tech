@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { GapNotice, PageHeader, ID_COLUMN_WIDTH } from '@fenglin/ui-admin'
+import { IdInput, GapNotice, PageHeader, ID_COLUMN_WIDTH } from '@fenglin/ui-admin'
 import { legalApi, type LegalRecord } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 import { fmtTime } from './labels'
@@ -22,7 +22,7 @@ const form = reactive({
   image_ref: '',
   cert_serial: '',
   provider_code: 'ESIGN',
-  keeper_id: undefined as number | undefined,
+  keeper_id: undefined as string | undefined,
   remark: '',
 })
 
@@ -163,7 +163,7 @@ onMounted(load)
         <el-form-item label="图片引用"><el-input v-model="form.image_ref" placeholder="文件中台 file_ref" /></el-form-item>
         <el-form-item label="证书序列号"><el-input v-model="form.cert_serial" /></el-form-item>
         <el-form-item label="服务商"><el-input v-model="form.provider_code" /></el-form-item>
-        <el-form-item label="保管人ID"><el-input-number v-model="form.keeper_id" :min="1" style="width: 100%" /></el-form-item>
+        <el-form-item label="保管人ID"><IdInput v-model="form.keeper_id" style="width: 100%" /></el-form-item>
         <el-form-item label="备注"><el-input v-model="form.remark" type="textarea" :rows="3" /></el-form-item>
       </el-form>
       <template #footer>

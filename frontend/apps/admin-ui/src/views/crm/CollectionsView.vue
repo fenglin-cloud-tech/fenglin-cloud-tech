@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { PageHeader, GapNotice, formatMoney } from '@fenglin/ui-admin'
+import { IdInput, PageHeader, GapNotice, formatMoney } from '@fenglin/ui-admin'
 import { crmApi, type OverduePlanView } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 
@@ -9,7 +9,7 @@ const rows = ref<OverduePlanView[]>([])
 const total = ref(0)
 const loading = ref(false)
 const error = ref('')
-const query = reactive({ customer_id: undefined as number | undefined, page: 1, size: 10 })
+const query = reactive({ customer_id: undefined as string | undefined, page: 1, size: 10 })
 
 const collectionVisible = ref(false)
 const collectionSaving = ref(false)
@@ -91,7 +91,7 @@ onMounted(load)
 
     <div class="fl-card">
       <div class="fl-toolbar">
-        <el-input-number v-model="query.customer_id" :min="1" placeholder="客户 ID" :controls="false" style="width: 150px" />
+        <IdInput v-model="query.customer_id" placeholder="客户 ID" style="width: 150px" />
         <el-button type="primary" plain @click="query.page = 1; load()">查询</el-button>
         <el-button @click="query.customer_id = undefined; query.page = 1; load()">重置</el-button>
       </div>

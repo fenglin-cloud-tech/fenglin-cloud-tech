@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { GapNotice, PageHeader, ID_COLUMN_WIDTH } from '@fenglin/ui-admin'
+import { IdInput, GapNotice, PageHeader, ID_COLUMN_WIDTH } from '@fenglin/ui-admin'
 import { legalApi, type LegalRecord } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 import { fmtTime } from './labels'
@@ -40,7 +40,7 @@ const watermarkForm = reactive({
   biz_id: '',
   watermark_type: 'BOTH',
   file_hash: '',
-  terminal_id: undefined as number | undefined,
+  terminal_id: undefined as string | undefined,
   user_id: undefined as string | undefined,
   ip: '',
 })
@@ -297,7 +297,7 @@ onMounted(loadWatermarks)
         </el-form-item>
         <el-form-item label="文件哈希"><el-input v-model="watermarkForm.file_hash" placeholder="可选，溯源用" /></el-form-item>
         <el-form-item label="用户ID"><el-input v-model="watermarkForm.user_id" placeholder="19 位数字用户ID" maxlength="25" /></el-form-item>
-        <el-form-item label="终端ID"><el-input-number v-model="watermarkForm.terminal_id" :min="1" style="width: 100%" /></el-form-item>
+        <el-form-item label="终端ID"><IdInput v-model="watermarkForm.terminal_id" style="width: 100%" /></el-form-item>
         <el-form-item label="IP"><el-input v-model="watermarkForm.ip" placeholder="可选" /></el-form-item>
       </el-form>
       <template #footer>

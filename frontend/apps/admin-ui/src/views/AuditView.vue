@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { PageHeader, GapNotice, ID_COLUMN_WIDTH } from '@fenglin/ui-admin'
+import { IdInput, PageHeader, GapNotice, ID_COLUMN_WIDTH } from '@fenglin/ui-admin'
 import { toIsoOrUndefined } from '@fenglin/shared'
 import {
   auditApi,
@@ -34,7 +34,7 @@ const query = reactive({
 const detailVisible = ref(false)
 const detail = ref<AuditLogView | null>(null)
 
-const chainForm = reactive({ tenant_id: undefined as number | undefined, from: '', to: '' })
+const chainForm = reactive({ tenant_id: undefined as string | undefined, from: '', to: '' })
 const chainLoading = ref(false)
 const chainError = ref('')
 const chainResult = ref<ChainVerifyResult | null>(null)
@@ -289,7 +289,7 @@ onMounted(loadLogs)
 
         <el-tab-pane label="哈希链校验" name="chain">
           <el-form inline>
-            <el-form-item label="租户 ID"><el-input-number v-model="chainForm.tenant_id" :min="1" placeholder="默认当前租户" /></el-form-item>
+            <el-form-item label="租户 ID"><IdInput v-model="chainForm.tenant_id" placeholder="默认当前租户" /></el-form-item>
             <el-form-item label="开始"><el-date-picker v-model="chainForm.from" type="datetime" value-format="YYYY-MM-DDTHH:mm:ss" /></el-form-item>
             <el-form-item label="结束"><el-date-picker v-model="chainForm.to" type="datetime" value-format="YYYY-MM-DDTHH:mm:ss" /></el-form-item>
             <el-form-item><el-button type="primary" :loading="chainLoading" @click="verifyChain">开始校验</el-button></el-form-item>
@@ -316,7 +316,7 @@ onMounted(loadLogs)
           </el-form>
           <el-alert v-if="exportError" type="error" :closable="false" show-icon :title="exportError" style="margin-bottom: 12px" />
           <div class="fl-toolbar">
-            <el-input-number v-model="taskId" :min="1" placeholder="任务 ID" />
+            <IdInput v-model="taskId" placeholder="任务 ID" />
             <el-button :loading="taskQueryLoading" @click="queryTask">查询任务</el-button>
             <el-button :disabled="!exportTask && !taskId" @click="downloadTask">下载</el-button>
           </div>

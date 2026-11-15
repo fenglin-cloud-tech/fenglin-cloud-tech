@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { GapNotice, PageHeader, ID_COLUMN_WIDTH } from '@fenglin/ui-admin'
+import { IdInput, GapNotice, PageHeader, ID_COLUMN_WIDTH } from '@fenglin/ui-admin'
 import { legalApi, type LegalRecord } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 import { contractCategory, fmtTime, label } from './labels'
@@ -24,7 +24,7 @@ const publishForm = reactive({ id: 0, content_ref: '', change_summary: '' })
 
 const varVisible = ref(false)
 const varSaving = ref(false)
-const varForm = reactive({ id: 0, version_id: undefined as number | undefined, variables: '' })
+const varForm = reactive({ id: 0, version_id: undefined as string | undefined, variables: '' })
 
 const gapItems = [
   '模板正文存储于文件中台，本页只登记 content_ref 与内容哈希，不承载富文本编辑器。',
@@ -233,7 +233,7 @@ onMounted(load)
 
     <el-dialog v-model="varVisible" title="模板变量" width="640px">
       <el-form label-width="100px">
-        <el-form-item label="版本ID"><el-input-number v-model="varForm.version_id" :min="1" style="width: 100%" /></el-form-item>
+        <el-form-item label="版本ID"><IdInput v-model="varForm.version_id" style="width: 100%" /></el-form-item>
         <el-form-item label="变量JSON">
           <el-input v-model="varForm.variables" type="textarea" :rows="10" />
         </el-form-item>

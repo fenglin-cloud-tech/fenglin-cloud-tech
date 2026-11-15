@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { PageHeader, GapNotice, ID_COLUMN_WIDTH, formatMoney } from '@fenglin/ui-admin'
+import { IdInput, PageHeader, GapNotice, ID_COLUMN_WIDTH, formatMoney } from '@fenglin/ui-admin'
 import { crmApi, type OpportunityView, type PipelineView, type StageLogView } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 
@@ -14,7 +14,7 @@ const query = reactive({
   stage: '',
   status: '',
   customer_id: undefined as string | undefined,
-  owner_id: undefined as number | undefined,
+  owner_id: undefined as string | undefined,
   page: 1,
   size: 10,
 })
@@ -30,7 +30,7 @@ const createForm = reactive({
   expected_close_date: '',
   next_step: '',
   source: '',
-  owner_id: undefined as number | undefined,
+  owner_id: undefined as string | undefined,
 })
 
 const stageVisible = ref(false)
@@ -219,7 +219,7 @@ onMounted(load)
           <el-option v-for="opt in statusOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
         </el-select>
         <el-input v-model="query.customer_id" placeholder="客户 ID" clearable style="width: 160px" />
-        <el-input-number v-model="query.owner_id" :min="1" placeholder="负责人 ID" :controls="false" style="width: 140px" />
+        <IdInput v-model="query.owner_id" placeholder="负责人 ID" style="width: 140px" />
         <el-button type="primary" plain @click="query.page = 1; load()">查询</el-button>
         <el-button @click="query.stage = ''; query.status = ''; query.customer_id = undefined; query.owner_id = undefined; query.page = 1; load()">重置</el-button>
       </div>
@@ -288,7 +288,7 @@ onMounted(load)
           </el-select>
         </el-form-item>
         <el-form-item label="负责人 ID">
-          <el-input-number v-model="createForm.owner_id" :min="1" />
+          <IdInput v-model="createForm.owner_id" />
         </el-form-item>
       </el-form>
       <template #footer>

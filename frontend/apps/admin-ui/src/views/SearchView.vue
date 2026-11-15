@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { PageHeader, GapNotice } from '@fenglin/ui-admin'
+import { IdInput, PageHeader, GapNotice } from '@fenglin/ui-admin'
 import { BarChart } from '@fenglin/charts'
 import { searchApi, type AnalyticsResponse, type IndexTaskView } from '@/api'
 import { useAuthStore } from '@/stores/auth'
@@ -135,7 +135,7 @@ onMounted(loadAnalytics)
           </el-form-item>
         </el-form>
         <div class="fl-toolbar">
-          <el-input-number v-model="taskId" :min="1" placeholder="任务 ID" />
+          <IdInput v-model="taskId" placeholder="任务 ID" />
           <el-button :loading="taskQuerying" @click="queryTask">查询状态</el-button>
         </div>
         <el-descriptions v-if="task" :column="1" border size="small">

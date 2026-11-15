@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { GapNotice, PageHeader, ID_COLUMN_WIDTH, formatDateTime } from '@fenglin/ui-admin'
+import { IdInput, GapNotice, PageHeader, ID_COLUMN_WIDTH, formatDateTime } from '@fenglin/ui-admin'
 import { serviceApi, type ServiceRecord } from '@fenglin/api-client'
 import { useAuthStore } from '@/stores/auth'
 import { describeError } from '@/utils/error'
@@ -113,7 +113,7 @@ const releaseLoading = ref(false)
 const releasePage = ref(1)
 const releaseSize = ref(20)
 const releaseHasNext = ref(false)
-const releaseAppId = ref<number | undefined>()
+const releaseAppId = ref<string>('')
 const releaseVisible = ref(false)
 const releaseSaving = ref(false)
 const releaseForm = reactive({ to_env: 'PROD', release_note: '' })
@@ -261,9 +261,9 @@ onMounted(async () => {
     <el-card v-if="tab === 'releases'" shadow="never">
       <div class="fl-toolbar" style="margin-bottom: 8px">
         <el-space>
-          <el-input-number v-model="releaseAppId" placeholder="应用ID" :min="1" style="width: 160px" />
+          <IdInput v-model="releaseAppId" placeholder="应用ID" style="width: 160px" />
           <el-button @click="releasePage = 1; loadReleases()">按应用筛选</el-button>
-          <el-button @click="releaseAppId = undefined; releasePage = 1; loadReleases()">全部</el-button>
+          <el-button @click="releaseAppId = ''; releasePage = 1; loadReleases()">全部</el-button>
         </el-space>
       </div>
       <el-table :data="releases" v-loading="releaseLoading" border stripe size="small">
@@ -318,7 +318,7 @@ onMounted(async () => {
 
     <el-dialog v-model="releaseVisible" title="提交发布" width="500px">
       <el-form label-width="100px">
-        <el-form-item label="应用ID"><el-input-number v-model="releaseAppId" :min="1" style="width: 100%" /></el-form-item>
+        <el-form-item label="应用ID"><IdInput v-model="releaseAppId" style="width: 100%" /></el-form-item>
         <el-form-item label="目标环境">
           <el-select v-model="releaseForm.to_env" style="width: 100%">
             <el-option label="生产 PROD" value="PROD" />

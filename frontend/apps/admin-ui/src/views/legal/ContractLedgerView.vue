@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { GapNotice, PageHeader, ID_COLUMN_WIDTH } from '@fenglin/ui-admin'
+import { IdInput, GapNotice, PageHeader, ID_COLUMN_WIDTH } from '@fenglin/ui-admin'
 import { legalApi, type LegalRecord } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 import { contractCategory, contractStatus, fmtAmount, fmtTime, label, riskLevel, sealStatus as sealStatusName, signStatusMap as signStatusMapName } from './labels'
@@ -28,7 +28,7 @@ const form = reactive({
   start_date: '',
   end_date: '',
   owner_id: undefined as string | undefined,
-  org_id: undefined as number | undefined,
+  org_id: undefined as string | undefined,
   risk_level: 'LOW',
   remark: '',
 })
@@ -316,7 +316,7 @@ onMounted(load)
         <el-form-item label="开始日期"><el-date-picker v-model="form.start_date" type="date" value-format="YYYY-MM-DD" style="width: 100%" /></el-form-item>
         <el-form-item label="结束日期"><el-date-picker v-model="form.end_date" type="date" value-format="YYYY-MM-DD" style="width: 100%" /></el-form-item>
         <el-form-item label="负责人ID"><el-input v-model="form.owner_id" placeholder="19 位数字用户ID" maxlength="25" /></el-form-item>
-        <el-form-item label="组织ID"><el-input-number v-model="form.org_id" :min="1" style="width: 100%" /></el-form-item>
+        <el-form-item label="组织ID"><IdInput v-model="form.org_id" style="width: 100%" /></el-form-item>
         <el-form-item label="风险等级">
           <el-select v-model="form.risk_level" style="width: 100%">
             <el-option v-for="(text, code) in riskLevel" :key="code" :label="text" :value="code" />

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { PageHeader, GapNotice, CODE_COLUMN_WIDTH, ID_COLUMN_WIDTH } from '@fenglin/ui-admin'
+import { IdInput, PageHeader, GapNotice, CODE_COLUMN_WIDTH, ID_COLUMN_WIDTH } from '@fenglin/ui-admin'
 import { crmApi, workflowApi, type CrmId, type QuotationListItemView, type QuotationView } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 
@@ -13,7 +13,7 @@ const query = reactive({
   keyword: '',
   status: '',
   customer_id: undefined as string | undefined,
-  owner_id: undefined as number | undefined,
+  owner_id: undefined as string | undefined,
   page: 1,
   size: 10,
 })
@@ -259,7 +259,7 @@ onMounted(load)
           <el-option v-for="opt in statusOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
         </el-select>
         <el-input v-model="query.customer_id" placeholder="客户 ID" clearable style="width: 160px" />
-        <el-input-number v-model="query.owner_id" :min="1" placeholder="负责人 ID" :controls="false" style="width: 140px" />
+        <IdInput v-model="query.owner_id" placeholder="负责人 ID" style="width: 140px" />
         <el-button type="primary" plain @click="query.page = 1; load()">查询</el-button>
         <el-button @click="query.keyword = ''; query.status = ''; query.customer_id = undefined; query.owner_id = undefined; query.page = 1; load()">重置</el-button>
       </div>

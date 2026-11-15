@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { PageHeader, GapNotice, ID_COLUMN_WIDTH } from '@fenglin/ui-admin'
+import { IdInput, PageHeader, GapNotice, ID_COLUMN_WIDTH } from '@fenglin/ui-admin'
 import { openApi, type AdminAppView, type OpenApiCallLogView, type OpenApiKeyResponse, type OpenAppCreateResponse, type PortalQuotaRequestView } from '@/api'
 import { toIsoOrUndefined } from '@fenglin/shared'
 import { useAuthStore } from '@/stores/auth'
@@ -21,7 +21,7 @@ const appCreating = ref(false)
 const appError = ref('')
 const created = ref<OpenAppCreateResponse | null>(null)
 
-const reviewForm = reactive({ id: undefined as number | undefined, action: 'APPROVE', reason: '' })
+const reviewForm = reactive({ id: undefined as string | undefined, action: 'APPROVE', reason: '' })
 const reviewLoading = ref(false)
 
 const appRows = ref<AdminAppView[]>([])
@@ -51,12 +51,12 @@ async function loadApps() {
   }
 }
 
-const keyForm = reactive({ id: undefined as number | undefined, action: '', grace_hours: 24 })
+const keyForm = reactive({ id: undefined as string | undefined, action: '', grace_hours: 24 })
 const keyLoading = ref(false)
 const keyError = ref('')
 const keyResult = ref<OpenApiKeyResponse | null>(null)
 
-const quotaAppId = ref<number | undefined>(undefined)
+const quotaAppId = ref<string>('')
 const quotaRows = ref<Array<{ api_path: string; qps_limit?: number; daily_limit?: number }>>([])
 const quotaLoading = ref(false)
 const quotaResult = ref<unknown>(null)
@@ -66,7 +66,7 @@ const logs = ref<OpenApiCallLogView[]>([])
 const logTotal = ref(0)
 const logLoading = ref(false)
 const logError = ref('')
-const logQuery = reactive({ app_id: undefined as number | undefined, api_path: '', status: undefined as number | undefined, from: '', to: '', page: 1, size: 10 })
+const logQuery = reactive({ app_id: undefined as string | undefined, api_path: '', status: undefined as number | undefined, from: '', to: '', page: 1, size: 10 })
 
 const quotaReqRows = ref<PortalQuotaRequestView[]>([])
 const quotaReqTotal = ref(0)
@@ -271,7 +271,7 @@ onMounted(() => {
         <div class="fl-section-title"><span>审核 · 密钥 · 配额</span><span class="fl-muted">HUB-API-1002~1004</span></div>
         <h4>应用审核</h4>
         <div class="fl-toolbar">
-          <el-input-number v-model="reviewForm.id" :min="1" placeholder="app_id" />
+          <IdInput v-model="reviewForm.id" placeholder="app_id" />
           <el-select v-model="reviewForm.action" style="width: 130px">
             <el-option label="APPROVE" value="APPROVE" />
             <el-option label="REJECT" value="REJECT" />
@@ -282,7 +282,7 @@ onMounted(() => {
         <h4>密钥生成 / 轮换</h4>
         <el-alert v-if="keyError" type="error" :closable="false" show-icon :title="keyError" style="margin-bottom: 8px" />
         <div class="fl-toolbar">
-          <el-input-number v-model="keyForm.id" :min="1" placeholder="app_id" />
+          <IdInput v-model="keyForm.id" placeholder="app_id" />
           <el-input v-model="keyForm.action" placeholder="动作（可空，如 ROTATE）" style="width: 180px" />
           <el-input-number v-model="keyForm.grace_hours" :min="0" :max="168" />
           <el-button v-perm="'platform:openapi:key:manage'" :loading="keyLoading" @click="issueKey">生成密钥</el-button>
@@ -295,7 +295,7 @@ onMounted(() => {
         <h4>配额</h4>
         <el-alert v-if="quotaError" type="error" :closable="false" show-icon :title="quotaError" style="margin-bottom: 8px" />
         <div class="fl-toolbar">
-          <el-input-number v-model="quotaAppId" :min="1" placeholder="app_id" />
+          <IdInput v-model="quotaAppId" placeholder="app_id" />
           <el-button @click="addQuotaRow">添加配额项</el-button>
           <el-button v-perm="'platform:openapi:quota:manage'" type="primary" :loading="quotaLoading" @click="saveQuota">保存配额</el-button>
         </div>
@@ -420,7 +420,7 @@ onMounted(() => {
     <div class="fl-card">
       <div class="fl-section-title"><span>调用日志</span><span class="fl-muted">HUB-API-1005</span></div>
       <div class="fl-toolbar">
-        <el-input-number v-model="logQuery.app_id" :min="1" placeholder="app_id" />
+        <IdInput v-model="logQuery.app_id" placeholder="app_id" />
         <el-input v-model="logQuery.api_path" placeholder="API 路径" clearable style="width: 220px" />
         <el-input-number v-model="logQuery.status" :min="100" :max="599" placeholder="HTTP 状态" />
         <el-date-picker v-model="logQuery.from" type="datetime" placeholder="开始" value-format="YYYY-MM-DDTHH:mm:ss" style="width: 180px" />

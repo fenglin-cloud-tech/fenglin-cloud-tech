@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { GapNotice, PageHeader, ID_COLUMN_WIDTH, formatDateTime } from '@fenglin/ui-admin'
+import { IdInput, GapNotice, PageHeader, ID_COLUMN_WIDTH, formatDateTime } from '@fenglin/ui-admin'
 import { serviceApi, type ServiceRecord } from '@fenglin/api-client'
 import { useAuthStore } from '@/stores/auth'
 import { describeError } from '@/utils/error'
@@ -239,7 +239,7 @@ const scheduleVisible = ref(false)
 const scheduleSaving = ref(false)
 const scheduleForm = reactive({
   name: '',
-  automation_flow_id: undefined as number | undefined,
+  automation_flow_id: undefined as string | undefined,
   trigger_type: 'CRON',
   cron_expr: '',
   event_topic: '',
@@ -575,7 +575,7 @@ onMounted(async () => {
     <el-dialog v-model="scheduleVisible" title="新增调度" width="520px">
       <el-form label-width="110px">
         <el-form-item label="名称"><el-input v-model="scheduleForm.name" /></el-form-item>
-        <el-form-item label="自动化流程ID"><el-input-number v-model="scheduleForm.automation_flow_id" :min="1" style="width: 100%" /></el-form-item>
+        <el-form-item label="自动化流程ID"><IdInput v-model="scheduleForm.automation_flow_id" style="width: 100%" /></el-form-item>
         <el-form-item label="触发方式">
           <el-select v-model="scheduleForm.trigger_type" style="width: 100%">
             <el-option label="Cron" value="CRON" />

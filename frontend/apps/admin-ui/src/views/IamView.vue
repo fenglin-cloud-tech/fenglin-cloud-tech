@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { PageHeader, GapNotice } from '@fenglin/ui-admin'
+import { IdInput, PageHeader, GapNotice } from '@fenglin/ui-admin'
 import {
   iamApi,
   type CreateRoleRequest,
@@ -88,7 +88,7 @@ const orgDialogTitle = computed(() => {
 const orgSaving = ref(false)
 const orgFormError = ref('')
 const orgTarget = ref<OrgNode | null>(null)
-const orgForm = reactive({ parent_id: 0, name: '', org_type: 'DEPT', sort: 0, leader_id: 0 })
+const orgForm = reactive({ parent_id: 0, name: '', org_type: 'DEPT', sort: 0, leader_id: '' })
 const orgTypeOptions = [
   { value: 'COMPANY', label: '公司' },
   { value: 'DEPT', label: '部门' },
@@ -258,7 +258,7 @@ function openCreateOrg(parent: OrgNode | null) {
     name: '',
     org_type: 'DEPT',
     sort: 0,
-    leader_id: 0,
+    leader_id: '',
   })
   orgFormError.value = ''
   orgDialogVisible.value = true
@@ -268,7 +268,7 @@ function openRenameOrg(node: OrgNode) {
   if (!canManageOrg.value) return
   orgDialogMode.value = 'rename'
   orgTarget.value = node
-  Object.assign(orgForm, { parent_id: node.parent_id ?? 0, name: node.name, org_type: node.org_type, sort: node.sort, leader_id: node.leader_id ?? 0 })
+  Object.assign(orgForm, { parent_id: node.parent_id ?? 0, name: node.name, org_type: node.org_type, sort: node.sort, leader_id: node.leader_id != null ? String(node.leader_id) : '' })
   orgFormError.value = ''
   orgDialogVisible.value = true
 }
@@ -277,7 +277,7 @@ function openMoveOrg(node: OrgNode) {
   if (!canManageOrg.value) return
   orgDialogMode.value = 'move'
   orgTarget.value = node
-  Object.assign(orgForm, { parent_id: node.parent_id ?? 0, name: node.name, org_type: node.org_type, sort: node.sort, leader_id: node.leader_id ?? 0 })
+  Object.assign(orgForm, { parent_id: node.parent_id ?? 0, name: node.name, org_type: node.org_type, sort: node.sort, leader_id: node.leader_id != null ? String(node.leader_id) : '' })
   orgFormError.value = ''
   orgDialogVisible.value = true
 }
@@ -681,7 +681,7 @@ onMounted(async () => {
             <el-input-number v-model="orgForm.sort" :min="0" />
           </el-form-item>
           <el-form-item label="负责人 ID">
-            <el-input-number v-model="orgForm.leader_id" :min="0" />
+            <IdInput v-model="orgForm.leader_id" />
           </el-form-item>
         </template>
       </el-form>

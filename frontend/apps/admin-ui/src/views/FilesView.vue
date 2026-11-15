@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { PageHeader, GapNotice } from '@fenglin/ui-admin'
+import { IdInput, PageHeader, GapNotice } from '@fenglin/ui-admin'
 import { fileApi, type DownloadResult, type FilePolicyView, type PreviewResult, type UploadResult } from '@/api'
 import { describeError } from '@/utils/error'
 
@@ -212,7 +212,7 @@ onMounted(loadPolicy)
             <div class="operation-block">
               <h4>按 file_id 操作</h4>
               <div class="fl-toolbar">
-                <el-input-number v-model="fileId" :min="1" placeholder="file_id" />
+                <IdInput v-model="fileId" placeholder="file_id" />
                 <el-button :loading="previewing" @click="doPreview">预览</el-button>
                 <el-button @click="doDownload">下载</el-button>
                 <el-button :loading="versionLoading" @click="loadVersions">版本</el-button>

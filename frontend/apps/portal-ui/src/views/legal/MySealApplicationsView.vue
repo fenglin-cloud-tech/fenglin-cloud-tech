@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { GapNotice, PageHeader, ID_COLUMN_WIDTH_COMFORT } from '@fenglin/ui-admin'
+import { IdInput, GapNotice, PageHeader, ID_COLUMN_WIDTH_COMFORT } from '@fenglin/ui-admin'
 import { legalApi, type LegalRecord } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 import { fmtTime, label, sealAppStatus } from './labels'
@@ -18,7 +18,7 @@ const saving = ref(false)
 const seals = ref<LegalRecord[]>([])
 const sealsLoading = ref(false)
 const form = reactive({
-  contract_id: undefined as number | undefined,
+  contract_id: undefined as string | undefined,
   seal_id: undefined as number | undefined,
   copies: 1,
   purpose: '',
@@ -134,7 +134,7 @@ onMounted(load)
 
     <el-dialog v-model="createVisible" title="发起用印申请" width="520px">
       <el-form label-width="100px">
-        <el-form-item label="合同ID" required><el-input-number v-model="form.contract_id" :min="1" style="width: 100%" /></el-form-item>
+        <el-form-item label="合同ID" required><IdInput v-model="form.contract_id" style="width: 100%" /></el-form-item>
         <el-form-item label="印章" required>
           <el-select v-model="form.seal_id" :loading="sealsLoading" placeholder="选择可用印章" style="width: 100%">
             <el-option

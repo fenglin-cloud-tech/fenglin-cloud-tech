@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { PageHeader, GapNotice } from '@fenglin/ui-admin'
+import { IdInput, PageHeader, GapNotice } from '@fenglin/ui-admin'
 import { reportApi, type DashboardData, type DatasetQueryResult, type MetricCreateRequest, type MetricView } from '@/api'
 import { useAuthStore } from '@/stores/auth'
 import { describeError } from '@/utils/error'
@@ -30,19 +30,19 @@ const metricForm = reactive<MetricCreateRequest>({
   dimensions: [],
 })
 
-const datasetId = ref<number | undefined>(undefined)
+const datasetId = ref<string>('')
 const datasetForm = reactive({ dimensions: '', measures: '', filters: '', limit: 100 })
 const datasetLoading = ref(false)
 const datasetError = ref('')
 const datasetResult = ref<DatasetQueryResult | null>(null)
 
-const dashboardId = ref<number | undefined>(undefined)
+const dashboardId = ref<string>('')
 const chartIds = ref('')
 const dashboardLoading = ref(false)
 const dashboardError = ref('')
 const dashboardResult = ref<DashboardData | null>(null)
 
-const exportForm = reactive({ report_id: undefined as number | undefined, format: 'XLSX' })
+const exportForm = reactive({ report_id: undefined as string | undefined, format: 'XLSX' })
 const exportLoading = ref(false)
 const exportError = ref('')
 const exportResult = ref<{ file_id: string; download_url: string; watermark: boolean; format: string } | null>(null)
@@ -209,7 +209,7 @@ onMounted(loadMetrics)
         <div class="fl-section-title"><span>数据集查询</span><span class="fl-muted">HUB-API-1103</span></div>
         <el-alert v-if="datasetError" type="error" :closable="false" show-icon :title="datasetError" style="margin-bottom: 12px" />
         <el-form label-width="100px">
-          <el-form-item label="数据集 ID"><el-input-number v-model="datasetId" :min="1" /></el-form-item>
+          <el-form-item label="数据集 ID"><IdInput v-model="datasetId" /></el-form-item>
           <el-form-item label="维度"><el-input v-model="datasetForm.dimensions" placeholder="逗号分隔，例如 dept,month" /></el-form-item>
           <el-form-item label="度量"><el-input v-model="datasetForm.measures" placeholder="逗号分隔，例如 amount,cnt" /></el-form-item>
           <el-form-item label="过滤条件"><el-input v-model="datasetForm.filters" type="textarea" :rows="3" placeholder='JSON 数组，例如 [{"field":"status","op":"EQ","value":"ACTIVE"}]' /></el-form-item>
@@ -225,7 +225,7 @@ onMounted(loadMetrics)
         <div class="fl-section-title"><span>看板数据</span><span class="fl-muted">HUB-API-1104</span></div>
         <el-alert v-if="dashboardError" type="error" :closable="false" show-icon :title="dashboardError" style="margin-bottom: 12px" />
         <el-form label-width="100px">
-          <el-form-item label="看板 ID"><el-input-number v-model="dashboardId" :min="1" /></el-form-item>
+          <el-form-item label="看板 ID"><IdInput v-model="dashboardId" /></el-form-item>
           <el-form-item label="图表 ID"><el-input v-model="chartIds" placeholder="逗号分隔，可选" /></el-form-item>
           <el-form-item><el-button type="primary" :loading="dashboardLoading" @click="loadDashboard">加载</el-button></el-form-item>
         </el-form>
@@ -247,7 +247,7 @@ onMounted(loadMetrics)
       <div class="fl-section-title"><span>报表导出</span><span class="fl-muted">HUB-API-1105</span></div>
       <el-alert v-if="exportError" type="error" :closable="false" show-icon :title="exportError" style="margin-bottom: 12px" />
       <div class="fl-toolbar">
-        <el-input-number v-model="exportForm.report_id" :min="1" placeholder="report_id" />
+        <IdInput v-model="exportForm.report_id" placeholder="report_id" />
         <el-select v-model="exportForm.format" style="width: 130px">
           <el-option label="XLSX" value="XLSX" />
           <el-option label="CSV" value="CSV" />

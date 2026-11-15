@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { CrmActivityDialog as ActivityDialog, PageHeader, GapNotice, ID_COLUMN_WIDTH } from '@fenglin/ui-admin'
+import { IdInput, CrmActivityDialog as ActivityDialog, PageHeader, GapNotice, ID_COLUMN_WIDTH } from '@fenglin/ui-admin'
 import { crmApi, type CrmId, type LeadView } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 
@@ -9,7 +9,7 @@ const rows = ref<LeadView[]>([])
 const total = ref(0)
 const loading = ref(false)
 const error = ref('')
-const query = reactive({ keyword: '', status: '', owner_id: undefined as number | undefined, page: 1, size: 10 })
+const query = reactive({ keyword: '', status: '', owner_id: undefined as string | undefined, page: 1, size: 10 })
 
 const createVisible = ref(false)
 const creating = ref(false)
@@ -23,7 +23,7 @@ const createForm = reactive({
   region_code: '',
   source: 'MANUAL',
   grade: 'B',
-  owner_id: undefined as number | undefined,
+  owner_id: undefined as string | undefined,
   remark: '',
 })
 
@@ -250,7 +250,7 @@ onMounted(load)
         <el-select v-model="query.status" placeholder="全部状态" clearable style="width: 150px">
           <el-option v-for="opt in statusOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
         </el-select>
-        <el-input-number v-model="query.owner_id" :min="1" placeholder="负责人 ID" :controls="false" style="width: 140px" />
+        <IdInput v-model="query.owner_id" placeholder="负责人 ID" style="width: 140px" />
         <el-button type="primary" plain @click="query.page = 1; load()">查询</el-button>
         <el-button @click="query.keyword = ''; query.status = ''; query.owner_id = undefined; query.page = 1; load()">重置</el-button>
         <span class="fl-muted">共 {{ total }} 条线索</span>
@@ -343,7 +343,7 @@ onMounted(load)
           </el-select>
         </el-form-item>
         <el-form-item label="负责人 ID">
-          <el-input-number v-model="createForm.owner_id" :min="1" />
+          <IdInput v-model="createForm.owner_id" />
         </el-form-item>
         <el-form-item label="备注">
           <el-input v-model="createForm.remark" type="textarea" :rows="2" maxlength="500" />
@@ -359,10 +359,10 @@ onMounted(load)
       <el-alert v-if="assignError" type="error" :closable="false" show-icon :title="assignError" style="margin-bottom: 12px" />
       <el-form label-width="90px">
         <el-form-item label="负责人 ID">
-          <el-input-number v-model="assignForm.owner_id" :min="1" />
+          <IdInput v-model="assignForm.owner_id" />
         </el-form-item>
         <el-form-item label="部门 ID">
-          <el-input-number v-model="assignForm.dept_id" :min="1" />
+          <IdInput v-model="assignForm.dept_id" />
         </el-form-item>
         <el-form-item label="分配原因">
           <el-input v-model="assignForm.reason" type="textarea" :rows="2" maxlength="200" />
