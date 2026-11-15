@@ -32,7 +32,7 @@ public interface DocMapper {
             SELECT id AS "docId", title AS "title", doc_type AS "docType", owner_id AS "ownerId",
                    content_cipher AS "contentCipher", current_version AS "currentVersion",
                    secret_level AS "secretLevel", watermark_enabled AS "watermarkEnabled",
-                   share_scope AS "shareScope", link_token AS "linkToken",
+                   share_scope AS "shareScope", link_token AS "linkToken", folder_id AS "folderId",
                    (EXTRACT(EPOCH FROM link_expire_at) * 1000)::bigint AS "linkExpireAt",
                    status AS "status", version AS "version",
                    (EXTRACT(EPOCH FROM updated_at) * 1000)::bigint AS "updatedAt"
@@ -53,7 +53,7 @@ public interface DocMapper {
     @Select("""
             SELECT d.id AS "docId", d.title AS "title", d.doc_type AS "docType", d.owner_id AS "ownerId",
                    d.current_version AS "currentVersion", d.secret_level AS "secretLevel",
-                   d.share_scope AS "shareScope", d.status AS "status",
+                   d.share_scope AS "shareScope", d.status AS "status", CAST(d.folder_id AS varchar) AS "folderId",
                    (EXTRACT(EPOCH FROM d.updated_at) * 1000)::bigint AS "updatedAt"
             FROM collab_document d
             WHERE d.tenant_id = #{tenantId} AND d.deleted = 0
@@ -69,6 +69,89 @@ public interface DocMapper {
     List<Map<String, Object>> listDocuments(@Param("tenantId") long tenantId, @Param("userId") long userId,
                                             @Param("keyword") String keyword, @Param("offset") int offset,
                                             @Param("size") int size);
+
+    // ---------- COL-07 文档目录 ----------
+
+    @Select("""
+            SELECT f.id AS "folderId", f.parent_id AS "parentId", f.name AS "name", f.sort_no AS "sortNo",
+                   (SELECT count(1) FROM collab_document d
+                     WHERE d.tenant_id = f.tenant_id AND d.folder_id = f.uuid AND d.deleted = 0) AS "docCount"
+            FROM collab_doc_folder f
+            WHERE f.tenant_id = #{tenantId} AND f.owner_id = #{ownerId} AND f.deleted = 0
+            ORDER BY f.sort_no, f.name
+            """)
+    List<Map<String, Object>> listFolders(@Param("tenantId") long tenantId, @Param("ownerId") long ownerId);
+
+    @Select("""
+            SELECT id AS "folderId", name AS "name", parent_id AS "parentId"
+            FROM collab_doc_folder
+            WHERE tenant_id = #{tenantId} AND owner_id = #{ownerId}
+              AND id = #{folderId} AND deleted = 0
+            """)
+    Map<String, Object> findFolder(@Param("tenantId") long tenantId, @Param("ownerId") long ownerId,
+                                   @Param("folderId") long folderId);
+
+    @Select("""
+            SELECT count(1) FROM collab_doc_folder
+            WHERE tenant_id = #{tenantId} AND owner_id = #{ownerId}
+              AND parent_id = (SELECT uuid FROM collab_doc_folder WHERE id = #{folderId})
+              AND deleted = 0
+            """)
+    long countChildFolders(@Param("tenantId") long tenantId, @Param("ownerId") long ownerId,
+                           @Param("folderId") long folderId);
+
+    @Select("""
+            SELECT count(1) FROM collab_document d
+            JOIN collab_doc_folder f ON f.uuid = d.folder_id
+            WHERE f.tenant_id = #{tenantId} AND f.owner_id = #{ownerId}
+              AND f.id = #{folderId} AND d.deleted = 0
+            """)
+    long countFolderDocs(@Param("tenantId") long tenantId, @Param("ownerId") long ownerId,
+                         @Param("folderId") long folderId);
+
+    @Insert("""
+            INSERT INTO collab_doc_folder (id, tenant_id, parent_id, name, sort_no, owner_id, created_by)
+            VALUES (#{id}, #{tenantId}, CAST(#{parentId,jdbcType=VARCHAR} AS uuid), #{name}, #{sortNo},
+                    #{ownerId}, #{ownerId})
+            """)
+    void insertFolder(@Param("id") long id, @Param("tenantId") long tenantId,
+                      @Param("parentId") String parentId, @Param("name") String name,
+                      @Param("sortNo") int sortNo, @Param("ownerId") long ownerId);
+
+    @Update("""
+            UPDATE collab_doc_folder SET name = #{name}, updated_by = #{ownerId}, version = version + 1
+            WHERE tenant_id = #{tenantId} AND owner_id = #{ownerId}
+              AND id = #{folderId} AND deleted = 0
+            """)
+    int renameFolder(@Param("tenantId") long tenantId, @Param("ownerId") long ownerId,
+                     @Param("folderId") long folderId, @Param("name") String name);
+
+    @Update("""
+            UPDATE collab_doc_folder SET deleted = 1, updated_by = #{ownerId}, version = version + 1
+            WHERE tenant_id = #{tenantId} AND owner_id = #{ownerId}
+              AND id = #{folderId} AND deleted = 0
+            """)
+    int deleteFolder(@Param("tenantId") long tenantId, @Param("ownerId") long ownerId,
+                     @Param("folderId") long folderId);
+
+    @Update("""
+            UPDATE collab_document SET folder_id = (SELECT uuid FROM collab_doc_folder
+                                                    WHERE tenant_id = #{tenantId} AND owner_id = #{ownerId}
+                                                      AND id = #{folderId} AND deleted = 0),
+                   updated_by = #{ownerId}, version = version + 1
+            WHERE tenant_id = #{tenantId} AND owner_id = #{ownerId}
+              AND id = CAST(#{docId} AS uuid) AND deleted = 0
+            """)
+    int moveDocToFolder(@Param("tenantId") long tenantId, @Param("ownerId") long ownerId,
+                        @Param("folderId") long folderId, @Param("docId") String docId);
+
+    @Update("""
+            UPDATE collab_document SET folder_id = NULL, updated_by = #{ownerId}, version = version + 1
+            WHERE tenant_id = #{tenantId} AND owner_id = #{ownerId}
+              AND id = CAST(#{docId} AS uuid) AND deleted = 0
+            """)
+    int clearDocFolder(@Param("tenantId") long tenantId, @Param("ownerId") long ownerId,
+                       @Param("docId") String docId);
 
     @Select("""
             SELECT count(1)
@@ -90,7 +173,7 @@ public interface DocMapper {
     @Select("""
             SELECT d.id AS "docId", d.title AS "title", d.doc_type AS "docType", d.owner_id AS "ownerId",
                    d.current_version AS "currentVersion", d.secret_level AS "secretLevel",
-                   d.share_scope AS "shareScope", d.status AS "status",
+                   d.share_scope AS "shareScope", d.status AS "status", CAST(d.folder_id AS varchar) AS "folderId",
                    (EXTRACT(EPOCH FROM d.updated_at) * 1000)::bigint AS "updatedAt"
             FROM collab_document d
             WHERE d.tenant_id = #{tenantId} AND d.owner_id = #{userId} AND d.deleted = 0
@@ -117,7 +200,7 @@ public interface DocMapper {
     @Select("""
             SELECT d.id AS "docId", d.title AS "title", d.doc_type AS "docType", d.owner_id AS "ownerId",
                    d.current_version AS "currentVersion", d.secret_level AS "secretLevel",
-                   d.share_scope AS "shareScope", d.status AS "status",
+                   d.share_scope AS "shareScope", d.status AS "status", CAST(d.folder_id AS varchar) AS "folderId",
                    (EXTRACT(EPOCH FROM d.updated_at) * 1000)::bigint AS "updatedAt"
             FROM collab_document d
             WHERE d.tenant_id = #{tenantId} AND d.owner_id <> #{userId} AND d.deleted = 0

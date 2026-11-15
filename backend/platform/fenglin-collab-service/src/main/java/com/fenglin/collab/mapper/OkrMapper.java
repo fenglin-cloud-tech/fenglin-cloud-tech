@@ -101,10 +101,12 @@ public interface OkrMapper {
               AND (o.visibility <> 'PRIVATE' OR o.owner_id = #{userId})
               AND (CAST(#{periodId,jdbcType=VARCHAR} AS uuid) IS NULL OR o.period_id = CAST(#{periodId} AS uuid))
               AND (CAST(#{ownerId,jdbcType=BIGINT} AS bigint) IS NULL OR o.owner_id = #{ownerId})
+              AND (CAST(#{deptId,jdbcType=BIGINT} AS bigint) IS NULL OR o.dept_id = #{deptId})
             ORDER BY o.created_at
             """)
     List<Map<String, Object>> listObjectives(@Param("tenantId") long tenantId, @Param("userId") long userId,
-                                             @Param("periodId") String periodId, @Param("ownerId") Long ownerId);
+                                             @Param("periodId") String periodId, @Param("ownerId") Long ownerId,
+                                             @Param("deptId") Long deptId);
 
     @Insert("""
             INSERT INTO collab_okr_key_result

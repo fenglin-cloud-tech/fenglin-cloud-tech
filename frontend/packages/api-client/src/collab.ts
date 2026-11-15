@@ -63,6 +63,8 @@ export interface CollabDoc {
   content?: string
   watermark_enabled: boolean
   share_scope: string
+  folder_id?: string | null
+  folder_name?: string
   updated_at?: string
 }
 
@@ -307,8 +309,15 @@ export interface CollabDocPolicy {
   max_concurrent_editors: number
 }
 
-export interface CollabNotification {
-  notification_id: string
+export interface CollabDocFolder {
+  folder_id: string
+  parent_id?: string | null
+  name: string
+  sort_no?: number
+  doc_count?: number
+}
+
+export interface CollabNotification {  notification_id: string
   category: string
   title: string
   content: string
@@ -469,11 +478,41 @@ export const collabApi = {
     shareLink(docId: CollabId, body: { expire_days?: number; access_code?: string } = {}) {
       return post<CollabShareLink>(`/api/collab/v1/docs/${docId}/share-link`, body)
     },
+    openShared(token: string) {
+      return get<CollabDoc>(`/api/collab/v1/docs/shared/${token}`)
+    },
     comments(docId: CollabId) {
       return get<CollabComment[]>(`/api/collab/v1/docs/${docId}/comments`)
     },
     createComment(docId: CollabId, body: { content: string; parent_id?: CollabId; mention_ids?: CollabId[] }) {
       return post<CollabComment>(`/api/collab/v1/docs/${docId}/comments`, body)
+    },
+    folders() {
+      return get<CollabDocFolder[]>('/api/collab/v1/docs/folders')
+    },
+    createFolder(body: { name: string; parent_id?: string }) {
+      return post<{ folder_id: string; name: string }>('/api/collab/v1/docs/folders', body)
+    },
+    renameFolder(folderId: string, name: string) {
+      return put<{ folder_id: string; name: string }>(`/api/collab/v1/docs/folders/${folderId}`, { name })
+    },
+    deleteFolder(folderId: string) {
+      return del<void>(`/api/collab/v1/docs/folders/${folderId}`)
+    },
+    moveDocToFolder(folderId: string, docId: CollabId) {
+      return post<{ folder_id: string; doc_id: string }>(
+        `/api/collab/v1/docs/folders/${folderId}/documents`,
+        { doc_id: String(docId) },
+      )
+    },
+    unfileDoc(folderId: string, docId: CollabId) {
+      return del<void>(`/api/collab/v1/docs/folders/${folderId}/documents/${docId}`)
+    },
+  },
+
+  docFolders: {
+    list() {
+      return get<CollabDocFolder[]>('/api/collab/v1/docs/folders')
     },
   },
 
@@ -617,6 +656,11 @@ export const collabApi = {
     summary(params: { ownerId?: CollabId } = {}) {
       return get<Array<Record<string, unknown>>>(`/api/collab/v1/okr/summary`, params)
     },
+    deptTree() {
+      return get<{ degraded: boolean; reason?: string | null; departments: Array<Record<string, unknown>> }>(
+        '/api/collab/v1/okr/dept-tree',
+      )
+    },
     updateObjective(objectiveId: CollabId, body: {
       obj_type?: string
       dept_id?: CollabId
@@ -641,7 +685,7 @@ export const collabApi = {
     deleteKr(krId: CollabId) {
       return del<void>(`/api/collab/v1/okr/key-results/${krId}`)
     },
-    objectives(params: { periodId?: CollabId; ownerId?: CollabId } = {}) {
+    objectives(params: { periodId?: CollabId; ownerId?: CollabId; deptId?: CollabId } = {}) {
       return get<CollabObjective[]>('/api/collab/v1/okr/objectives', params)
     },
     myObjectives(params: { periodId?: CollabId } = {}) {

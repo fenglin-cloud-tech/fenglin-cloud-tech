@@ -63,6 +63,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '文档', perm: 'biz:collab:doc:self:read' },
       },
       {
+        path: 'docs/share/:token',
+        name: 'doc-share',
+        component: () => import('@/views/collab/DocShareView.vue'),
+        meta: { title: '分享文档' },
+      },
+      {
         path: 'my-schedule',
         name: 'my-schedule',
         component: () => import('@/views/collab/MyScheduleView.vue'),

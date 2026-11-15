@@ -52,11 +52,13 @@ public class OkrService {
     private final OkrMapper okrMapper;
     private final CollabCrypto crypto;
     private final CollabAudit audit;
+    private final DeptTreeClient deptTreeClient;
 
-    public OkrService(OkrMapper okrMapper, CollabCrypto crypto, CollabAudit audit) {
+    public OkrService(OkrMapper okrMapper, CollabCrypto crypto, CollabAudit audit, DeptTreeClient deptTreeClient) {
         this.okrMapper = okrMapper;
         this.crypto = crypto;
         this.audit = audit;
+        this.deptTreeClient = deptTreeClient;
     }
 
     /**
@@ -267,10 +269,28 @@ public class OkrService {
 
     @Transactional(readOnly = true)
     public List<ObjectiveView> listObjectives(String periodId, Long ownerId) {
+        return listObjectives(periodId, ownerId, null);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ObjectiveView> listObjectives(String periodId, Long ownerId, Long deptId) {
         long tenantId = CollabContext.tenantId();
         long userId = CollabContext.userId();
-        return okrMapper.listObjectives(tenantId, userId, periodId, ownerId).stream()
+        return okrMapper.listObjectives(tenantId, userId, periodId, ownerId, deptId).stream()
                 .map(row -> objectiveView(tenantId, row)).toList();
+    }
+
+    /**
+     * 部门树：按需调用云才组织架构接口；云才不可用时限时降级为空树并标记 degraded，不影响 OKR 其它接口。
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> deptTree() {
+        DeptTreeClient.Result result = deptTreeClient.tree(CollabContext.tenantId(), CollabContext.userId());
+        Map<String, Object> payload = new java.util.LinkedHashMap<>();
+        payload.put("degraded", result.degraded());
+        payload.put("reason", result.reason());
+        payload.put("departments", result.departments());
+        return payload;
     }
 
     /**
@@ -280,7 +300,7 @@ public class OkrService {
     public List<ObjectiveView> myObjectives(String periodId) {
         long tenantId = CollabContext.tenantId();
         long userId = CollabContext.userId();
-        return okrMapper.listObjectives(tenantId, userId, periodId, userId).stream()
+        return okrMapper.listObjectives(tenantId, userId, periodId, userId, null).stream()
                 .map(row -> objectiveView(tenantId, row)).toList();
     }
 
@@ -426,7 +446,7 @@ public class OkrService {
     public AlignmentGraph alignmentGraph(String periodId) {
         long tenantId = CollabContext.tenantId();
         long userId = CollabContext.userId();
-        List<Map<String, Object>> objectives = okrMapper.listObjectives(tenantId, userId, periodId, null);
+        List<Map<String, Object>> objectives = okrMapper.listObjectives(tenantId, userId, periodId, null, null);
         List<GraphNode> nodes = objectives.stream()
                 .map(row -> new GraphNode(Rows.str(row, "objectiveId"), Rows.str(row, "title"),
                         Rows.str(row, "objType"), Rows.lng(row, "ownerId")))

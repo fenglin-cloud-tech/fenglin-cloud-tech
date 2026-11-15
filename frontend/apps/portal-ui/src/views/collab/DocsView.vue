@@ -1,15 +1,19 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { GapNotice, PageHeader } from '@fenglin/ui-admin'
 import {
   collabApi,
   type CollabCollaborator,
   type CollabComment,
   type CollabDoc,
+  type CollabDocFolder,
   type CollabDocVersion,
 } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
+import { useAuthStore } from '@/stores/auth'
+
+const auth = useAuthStore()
 
 const rows = ref<CollabDoc[]>([])
 const total = ref(0)
@@ -68,10 +72,128 @@ const canEdit = computed(() => {
 })
 
 const gapItems = [
-  '员工端没有文档删除、目录管理、分享链接接口（分享仅管理端提供）。',
+  '目录管理已接入：可新建/重命名/删除自己的目录，把文档归入或移出目录；目录非空时禁止删除。',
+  '分享链接：文档所有者可用 self:share 生成带有效期的同租户链接（1-365 天），过期返回 2002009。',
   '评论 anchor 无可视化定位，本页按时间顺序展示。',
-  '文档正文是纯文本 content。',
+  '文档正文维持纯文本（换行保留），富文本编辑器放二期。',
 ]
+
+const folders = ref<CollabDocFolder[]>([])
+const foldersLoading = ref(false)
+const folderDialogVisible = ref(false)
+const folderEditing = ref<CollabDocFolder | null>(null)
+const folderForm = reactive({ name: '' })
+const folderSaving = ref(false)
+
+const shareVisible = ref(false)
+const shareLoading = ref(false)
+const shareLink = ref('')
+const shareExpire = ref('')
+
+function folderName(id?: string | null) {
+  if (!id) return '未归类'
+  return folders.value.find((item) => item.folder_id === id)?.name ?? '未归类'
+}
+
+async function loadFolders() {
+  foldersLoading.value = true
+  try {
+    folders.value = await collabApi.docs.folders()
+  } catch (err) {
+    console.warn('folders failed', err)
+    folders.value = []
+  } finally {
+    foldersLoading.value = false
+  }
+}
+
+function openFolderDialog(folder?: CollabDocFolder) {
+  folderEditing.value = folder ?? null
+  folderForm.name = folder?.name ?? ''
+  folderDialogVisible.value = true
+}
+
+async function submitFolder() {
+  if (!folderForm.name.trim()) {
+    ElMessage.warning('目录名不能为空')
+    return
+  }
+  folderSaving.value = true
+  try {
+    if (folderEditing.value) {
+      await collabApi.docs.renameFolder(folderEditing.value.folder_id, folderForm.name.trim())
+      ElMessage.success('目录已重命名')
+    } else {
+      await collabApi.docs.createFolder({ name: folderForm.name.trim() })
+      ElMessage.success('目录已创建')
+    }
+    folderDialogVisible.value = false
+    await loadFolders()
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  } finally {
+    folderSaving.value = false
+  }
+}
+
+async function removeFolder(folder: CollabDocFolder) {
+  try {
+    await ElMessageBox.confirm(`确认删除目录「${folder.name}」？只有空目录可以删除。`, '删除目录', { type: 'warning' })
+  } catch {
+    return
+  }
+  try {
+    await collabApi.docs.deleteFolder(folder.folder_id)
+    ElMessage.success('目录已删除')
+    await loadFolders()
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  }
+}
+
+async function moveToFolder(row: CollabDoc, folderId: string) {
+  try {
+    if (!folderId) {
+      if (!row.folder_id) return
+      await collabApi.docs.unfileDoc(row.folder_id, row.doc_id)
+      ;(row as CollabDoc & { folder_name?: string }).folder_name = '未归类'
+      row.folder_id = null
+      ElMessage.success('已移出目录')
+    } else {
+      await collabApi.docs.moveDocToFolder(folderId, row.doc_id)
+      row.folder_id = folderId
+      ;(row as CollabDoc & { folder_name?: string }).folder_name = folderName(folderId)
+      ElMessage.success('已归入目录')
+    }
+    await loadFolders()
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  }
+}
+
+async function createShareLink() {
+  if (!detailDoc.value) return
+  shareLoading.value = true
+  try {
+    const link = await collabApi.docs.shareLink(detailDoc.value.doc_id, { expire_days: 7 })
+    shareLink.value = `${window.location.origin}/#/docs/share/${link.link_token}`
+    shareExpire.value = fmt(link.expire_at)
+    shareVisible.value = true
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  } finally {
+    shareLoading.value = false
+  }
+}
+
+async function copyShareLink() {
+  try {
+    await navigator.clipboard.writeText(shareLink.value)
+    ElMessage.success('链接已复制')
+  } catch {
+    ElMessage.warning('复制失败，请手动选择文本复制')
+  }
+}
 
 function fmt(value?: string) {
   return value ? new Date(value).toLocaleString() : '-'
@@ -278,7 +400,10 @@ async function submitComment() {
   }
 }
 
-onMounted(load)
+onMounted(() => {
+  void load()
+  void loadFolders()
+})
 </script>
 
 <template>
@@ -291,6 +416,29 @@ onMounted(load)
     </PageHeader>
 
     <GapNotice :items="gapItems" />
+
+    <el-card shadow="never" style="margin-bottom: 12px" v-loading="foldersLoading">
+      <div class="fl-toolbar">
+        <span class="fl-muted">我的目录：</span>
+        <el-tag v-for="folder in folders" :key="folder.folder_id" size="small" type="info" style="margin-right: 6px">
+          {{ folder.name }}（{{ folder.doc_count ?? 0 }}）
+        </el-tag>
+        <span v-if="!folders.length" class="fl-muted">暂无目录</span>
+        <el-button size="small" type="primary" plain @click="openFolderDialog()">新建目录</el-button>
+      </div>
+      <el-table v-if="folders.length" :data="folders" size="small" border style="margin-top: 8px">
+        <el-table-column prop="name" label="目录" min-width="200" />
+        <el-table-column label="文档数" width="100">
+          <template #default="{ row }">{{ row.doc_count ?? 0 }}</template>
+        </el-table-column>
+        <el-table-column label="操作" width="150">
+          <template #default="{ row }">
+            <el-button link type="primary" @click="openFolderDialog(row)">重命名</el-button>
+            <el-button link type="danger" @click="removeFolder(row)">删除</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-card>
 
     <el-card shadow="never">
       <div class="fl-toolbar">
@@ -329,12 +477,26 @@ onMounted(load)
           <template #default="{ row }">v{{ row.current_version }}</template>
         </el-table-column>
         <el-table-column prop="my_permission" label="我的权限" width="110" />
+        <el-table-column label="所属目录" width="130">
+          <template #default="{ row }">{{ row.folder_name ?? folderName(row.folder_id) }}</template>
+        </el-table-column>
         <el-table-column label="更新时间" width="180">
           <template #default="{ row }">{{ fmt(row.updated_at) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="90" fixed="right">
+        <el-table-column label="操作" width="220" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" @click="openDetail(row)">打开</el-button>
+            <el-dropdown v-if="folders.length" trigger="click" @command="(folderId: string) => moveToFolder(row, folderId)">
+              <el-button link type="primary">归入目录</el-button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item v-for="folder in folders" :key="folder.folder_id" :command="folder.folder_id">
+                    {{ folder.name }}
+                  </el-dropdown-item>
+                  <el-dropdown-item v-if="row.folder_id" command="" divided>移出目录（未归类）</el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
           </template>
         </el-table-column>
       </el-table>
@@ -373,6 +535,28 @@ onMounted(load)
       </template>
     </el-dialog>
 
+    <el-dialog v-model="folderDialogVisible" :title="folderEditing ? '重命名目录' : '新建目录'" width="420px">
+      <el-form label-width="80px">
+        <el-form-item label="目录名" required>
+          <el-input v-model="folderForm.name" maxlength="64" placeholder="例如：2026 年度制度" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="folderDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="folderSaving" @click="submitFolder">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="shareVisible" title="分享链接" width="560px">
+      <el-alert type="info" :closable="false" show-icon title="链接仅同租户内可访问，7 天后自动失效。" style="margin-bottom: 12px" />
+      <el-input v-model="shareLink" readonly />
+      <div class="fl-muted" style="margin-top: 8px">过期时间：{{ shareExpire }}</div>
+      <template #footer>
+        <el-button @click="shareVisible = false">关闭</el-button>
+        <el-button type="primary" @click="copyShareLink">复制链接</el-button>
+      </template>
+    </el-dialog>
+
     <el-drawer v-model="drawerVisible" title="文档详情" size="760px">
       <div v-loading="detailLoading">
         <el-alert v-if="detailError" type="error" :closable="false" show-icon :title="detailError" style="margin-bottom: 12px" />
@@ -387,6 +571,12 @@ onMounted(load)
             <el-descriptions-item label="所有者">{{ detailDoc.owner_id }}</el-descriptions-item>
             <el-descriptions-item label="更新时间">{{ fmt(detailDoc.updated_at) }}</el-descriptions-item>
           </el-descriptions>
+
+          <div v-if="String(detailDoc.owner_id) === String(auth.userId)" style="margin-top: 8px">
+            <el-button v-perm="'biz:collab:doc:self:share'" size="small" :loading="shareLoading" @click="createShareLink">
+              生成分享链接（7 天有效）
+            </el-button>
+          </div>
 
           <el-tabs v-model="activeTab" style="margin-top: 16px" @tab-change="onTabChange">
             <el-tab-pane label="正文" name="content">

@@ -18,6 +18,10 @@ import com.fenglin.collab.web.dto.CollabDtos.DocVersionCreateRequest;
 import com.fenglin.collab.web.dto.CollabDtos.DocVersionResult;
 import com.fenglin.collab.web.dto.CollabDtos.DocVersionView;
 import com.fenglin.collab.web.dto.CollabDtos.DocView;
+import com.fenglin.collab.web.dto.CollabDtos.FolderMoveResult;
+import com.fenglin.collab.web.dto.CollabDtos.FolderRequest;
+import com.fenglin.collab.web.dto.CollabDtos.FolderResult;
+import com.fenglin.collab.web.dto.CollabDtos.FolderView;
 import com.fenglin.collab.web.dto.CollabDtos.ShareLinkRequest;
 import com.fenglin.collab.web.dto.CollabDtos.ShareLinkView;
 import com.fenglin.common.core.BizException;
@@ -266,11 +270,19 @@ public class DocService {
     }
 
     @Transactional
-    public ShareLinkView shareLink(String docId, ShareLinkRequest request) {
+    public ShareLinkView shareLink(String docId, ShareLinkRequest request, boolean manageGranted) {
         long tenantId = CollabContext.tenantId();
         long userId = CollabContext.userId();
         Map<String, Object> doc = requireDoc(tenantId, docId);
-        requirePermission(resolvePermission(tenantId, doc, userId), "MANAGE");
+        String permission = resolvePermission(tenantId, doc, userId);
+        if (manageGranted) {
+            requirePermission(permission, "MANAGE");
+        } else {
+            // self:share 仅允许给“自己拥有的文档”建链，不能借分享链接读取他人文档
+            if (Rows.lngVal(doc, "ownerId") != userId) {
+                throw new BizException(CollabErrorCode.NO_PERMISSION, "只能为自己拥有的文档创建分享链接");
+            }
+        }
         if ("CONFIDENTIAL".equals(Rows.str(doc, "secretLevel")) && settingService.docPolicy().confidentialNoLink()) {
             throw new BizException(CollabErrorCode.DOC_CONFIDENTIAL_FORBIDDEN);
         }
@@ -285,9 +297,123 @@ public class DocService {
         return new ShareLinkView(token, "/collab/docs/" + token, expireAt.toInstant());
     }
 
+    // ---------- COL-07 文档目录 ----------
+
     @Transactional(readOnly = true)
-    public DocView openByLink(String token) {
+    public List<FolderView> folders() {
+        return docMapper.listFolders(CollabContext.tenantId(), CollabContext.userId()).stream()
+                .map(row -> new FolderView(Rows.str(row, "folderId"), Rows.str(row, "parentId"),
+                        Rows.str(row, "name"), Rows.intVal(row, "sortNo"), Rows.lng(row, "docCount")))
+                .toList();
+    }
+
+    @Transactional
+    public FolderResult createFolder(FolderRequest request) {
         long tenantId = CollabContext.tenantId();
+        long userId = CollabContext.userId();
+        String name = request == null ? null : trimName(request.name());
+        if (name == null || name.isEmpty()) {
+            throw new BizException(CollabErrorCode.PARAM_INVALID, "目录名不能为空");
+        }
+        if (name.length() > 64) {
+            throw new BizException(CollabErrorCode.PARAM_INVALID, "目录名不能超过 64 个字符");
+        }
+        String parentId = request.parentId() == null || request.parentId().isBlank() ? null : request.parentId();
+        if (parentId != null && docMapper.findFolder(tenantId, userId, Long.parseLong(parentId)) == null) {
+            throw new BizException(CollabErrorCode.RESOURCE_NOT_FOUND, "上级目录不存在");
+        }
+        long id = IdWorker.getId();
+        docMapper.insertFolder(id, tenantId, parentId, name, 0, userId);
+        audit.publish("COLLAB_DOC_FOLDER_CREATED", "CREATE", "collab_doc_folder", String.valueOf(id), "LOW");
+        return new FolderResult(String.valueOf(id), name, parentId);
+    }
+
+    @Transactional
+    public FolderResult renameFolder(String folderId, FolderRequest request) {
+        long tenantId = CollabContext.tenantId();
+        long userId = CollabContext.userId();
+        String name = request == null ? null : trimName(request.name());
+        if (name == null || name.isEmpty()) {
+            throw new BizException(CollabErrorCode.PARAM_INVALID, "目录名不能为空");
+        }
+        long id = parseId(folderId);
+        if (docMapper.renameFolder(tenantId, userId, id, name) == 0) {
+            throw new BizException(CollabErrorCode.RESOURCE_NOT_FOUND, "目录不存在");
+        }
+        audit.publish("COLLAB_DOC_FOLDER_RENAMED", "UPDATE", "collab_doc_folder", folderId, "LOW");
+        return new FolderResult(String.valueOf(id), name, null);
+    }
+
+    /**
+     * 删除目录：非空目录（有子目录或仍有文档归入）拒绝删除，避免文档指向已删目录。
+     */
+    @Transactional
+    public void deleteFolder(String folderId) {
+        long tenantId = CollabContext.tenantId();
+        long userId = CollabContext.userId();
+        long id = parseId(folderId);
+        if (docMapper.findFolder(tenantId, userId, id) == null) {
+            throw new BizException(CollabErrorCode.RESOURCE_NOT_FOUND, "目录不存在");
+        }
+        if (docMapper.countChildFolders(tenantId, userId, id) > 0 || docMapper.countFolderDocs(tenantId, userId, id) > 0) {
+            throw new BizException(CollabErrorCode.STATE_CONFLICT, "目录非空，请先移出文档或删除子目录");
+        }
+        docMapper.deleteFolder(tenantId, userId, id);
+        audit.publish("COLLAB_DOC_FOLDER_DELETED", "DELETE", "collab_doc_folder", folderId, "MEDIUM");
+    }
+
+    @Transactional
+    public FolderMoveResult moveDocToFolder(String folderId, String docId) {
+        long tenantId = CollabContext.tenantId();
+        long userId = CollabContext.userId();
+        if (docId == null || docId.isBlank()) {
+            throw new BizException(CollabErrorCode.PARAM_INVALID, "缺少 doc_id");
+        }
+        long id = parseId(folderId);
+        if (docMapper.findFolder(tenantId, userId, id) == null) {
+            throw new BizException(CollabErrorCode.RESOURCE_NOT_FOUND, "目录不存在");
+        }
+        if (docMapper.moveDocToFolder(tenantId, userId, id, docId) == 0) {
+            throw new BizException(CollabErrorCode.NO_PERMISSION, "只能归置自己拥有的文档");
+        }
+        audit.publish("COLLAB_DOC_MOVED_TO_FOLDER", "UPDATE", "collab_document", docId, "LOW");
+        return new FolderMoveResult(String.valueOf(id), docId);
+    }
+
+    /**
+     * 从目录移出：文档回到未归类（folder_id 置空），仅限本人文档。
+     */
+    @Transactional
+    public void unfileDoc(String folderId, String docId) {
+        long tenantId = CollabContext.tenantId();
+        long userId = CollabContext.userId();
+        if (docId == null || docId.isBlank()) {
+            throw new BizException(CollabErrorCode.PARAM_INVALID, "缺少 doc_id");
+        }
+        long id = parseId(folderId);
+        if (docMapper.findFolder(tenantId, userId, id) == null) {
+            throw new BizException(CollabErrorCode.RESOURCE_NOT_FOUND, "目录不存在");
+        }
+        if (docMapper.clearDocFolder(tenantId, userId, docId) == 0) {
+            throw new BizException(CollabErrorCode.NO_PERMISSION, "只能移出自己的文档");
+        }
+        audit.publish("COLLAB_DOC_MOVED_OUT_FOLDER", "UPDATE", "collab_document", docId, "LOW");
+    }
+
+    private long parseId(String value) {
+        try {
+            return Long.parseLong(value);
+        } catch (NumberFormatException ex) {
+            throw new BizException(CollabErrorCode.PARAM_INVALID, "目录 ID 非法");
+        }
+    }
+
+    private String trimName(String value) {
+        return value == null ? null : value.trim();
+    }
+
+    @Transactional(readOnly = true)
+    public DocView openByLink(String token) {        long tenantId = CollabContext.tenantId();
         Map<String, Object> doc = docMapper.findByLinkToken(tenantId, token);
         if (doc == null) {
             throw new BizException(CollabErrorCode.RESOURCE_NOT_FOUND, "分享链接不存在");
@@ -302,7 +428,8 @@ public class DocService {
         String content = crypto.decrypt(tenantId, "collab_document", "content", Rows.str(doc, "contentCipher"));
         return new DocView(Rows.str(doc, "docId"), Rows.str(doc, "title"), "RICH",
                 Rows.str(doc, "secretLevel"), Rows.intVal(doc, "currentVersion"), "PUBLISHED",
-                Rows.lngVal(doc, "ownerId"), "READ", content, false, "LINK", null);
+                Rows.lngVal(doc, "ownerId"), "READ", content, false, "LINK",
+                Rows.str(doc, "folderId"), null);
     }
 
     @Transactional
@@ -393,6 +520,6 @@ public class DocService {
                 Rows.str(row, "status"), Rows.lngVal(row, "ownerId"), permission, content,
                 Rows.intVal(row, "watermarkEnabled") == 1,
                 Rows.str(row, "shareScope") == null ? "PRIVATE" : Rows.str(row, "shareScope"),
-                Rows.instant(row, "updatedAt"));
+                Rows.str(row, "folderId"), Rows.instant(row, "updatedAt"));
     }
 }

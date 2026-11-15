@@ -63,7 +63,7 @@ public final class CollabDtos {
 
     public record DocView(String docId, String title, String docType, String secretLevel, int currentVersion,
                           String status, long ownerId, String myPermission, String content, boolean watermarkEnabled,
-                          String shareScope, Instant updatedAt) {
+                          String shareScope, String folderId, Instant updatedAt) {
     }
 
     public record DocUpdateRequest(String title, String content, Integer version) {
@@ -92,6 +92,18 @@ public final class CollabDtos {
     }
 
     public record ShareLinkView(String linkToken, String url, Instant expireAt) {
+    }
+
+    public record FolderRequest(String name, String parentId) {
+    }
+
+    public record FolderView(String folderId, String parentId, String name, Integer sortNo, Long docCount) {
+    }
+
+    public record FolderResult(String folderId, String name, String parentId) {
+    }
+
+    public record FolderMoveResult(String folderId, String docId) {
     }
 
     public record CommentCreateRequest(String content, Long parentId, Map<String, Object> anchor,

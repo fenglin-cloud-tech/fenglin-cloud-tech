@@ -25,7 +25,11 @@ const periodForm = reactive({
 const objectives = ref<CollabObjective[]>([])
 const objLoading = ref(false)
 const objError = ref('')
-const objQuery = reactive({ period_id: '', owner_id: '' })
+const objQuery = reactive({ period_id: '', owner_id: '', dept_id: '' as string })
+const deptTree = ref<Array<Record<string, unknown>>>([])
+const deptDegraded = ref(false)
+const deptReason = ref('')
+const deptLoading = ref(false)
 
 const objVisible = ref(false)
 const objSaving = ref(false)
@@ -112,7 +116,7 @@ const gapItems = [
   '对齐关系用节点/边表格展示，未引入图形库。',
   '周期关闭后可重开；目标与 KR 支持编辑、删除（软删，目标删除会连带软删其 KR 与对齐边）。',
   'KR 进度接口校验 biz:collab:okr:progress；目标/KR 维护仍需 biz:collab:okr:manage。',
-  '已提供跨周期汇总（目标数/KR 数/平均进度）；部门树需要人事域组织架构数据源，暂未接入。',
+  '部门树按需调用云才组织架构接口（1.5s 超时 + 60s 缓存）；云才不可用时降级为“所属部门未知/不可展开”，不影响其它 OKR 功能。',
 ]
 
 async function loadPeriods() {
@@ -143,12 +147,47 @@ async function loadObjectives() {
     objectives.value = await collabApi.okr.objectives({
       periodId: objQuery.period_id || undefined,
       ownerId,
+      deptId: objQuery.dept_id || undefined,
     })
   } catch (err) {
     objError.value = describeError(err)
   } finally {
     objLoading.value = false
   }
+}
+
+async function loadDeptTree() {
+  deptLoading.value = true
+  deptDegraded.value = false
+  deptReason.value = ''
+  try {
+    const result = await collabApi.okr.deptTree()
+    deptTree.value = result.departments ?? []
+    deptDegraded.value = Boolean(result.degraded)
+    deptReason.value = result.reason ?? ''
+  } catch (err) {
+    // 部门树失败不能拖垮 OKR 页面：降级为空树
+    deptTree.value = []
+    deptDegraded.value = true
+    deptReason.value = '组织架构服务不可用'
+    console.warn('dept tree degraded', err)
+  } finally {
+    deptLoading.value = false
+  }
+}
+
+function deptIdOf(node: Record<string, unknown>) {
+  return String(node.id ?? node.dept_id ?? node.deptId ?? '')
+}
+
+function pickDept(node: Record<string, unknown>) {
+  const id = deptIdOf(node)
+  objQuery.dept_id = objQuery.dept_id === id ? '' : id
+  void loadObjectives()
+}
+
+function deptLabel(node: Record<string, unknown>) {
+  return String(node.org_name ?? node.dept_name ?? node.deptName ?? node.name ?? '未命名部门')
 }
 
 async function loadGraph() {
@@ -467,6 +506,7 @@ onMounted(() => {
   void loadPeriods()
   void loadObjectives()
   void loadGraph()
+  void loadDeptTree()
 })
 </script>
 
@@ -563,6 +603,30 @@ onMounted(() => {
           <el-button type="primary" plain @click="loadObjectives">查询</el-button>
           <el-button @click="objQuery.period_id = ''; objQuery.owner_id = ''; loadObjectives()">重置</el-button>
           <el-button v-perm="'biz:collab:okr:manage'" type="primary" @click="openObjective">新建目标</el-button>
+        </div>
+
+        <el-alert
+          v-if="deptDegraded"
+          type="info"
+          :closable="false"
+          show-icon
+          :title="`所属部门未知/不可展开（${deptReason || '组织架构服务不可用'}），部门筛选暂不可用`"
+          style="margin-bottom: 12px"
+        />
+        <div v-else v-loading="deptLoading" class="dept-bar">
+          <span class="fl-muted">部门：</span>
+          <el-tag
+            v-for="node in deptTree"
+            :key="deptIdOf(node)"
+            :type="objQuery.dept_id === deptIdOf(node) ? 'primary' : 'info'"
+            :effect="objQuery.dept_id === deptIdOf(node) ? 'dark' : 'plain'"
+            style="margin-right: 6px; cursor: pointer"
+            @click="pickDept(node)"
+          >
+            {{ deptLabel(node) }}
+          </el-tag>
+          <el-button v-if="objQuery.dept_id" link type="primary" @click="objQuery.dept_id = ''; loadObjectives()">清除部门</el-button>
+          <el-button link @click="loadDeptTree">刷新部门</el-button>
         </div>
 
         <el-alert v-if="objError" type="error" :closable="false" show-icon :title="objError" style="margin-bottom: 12px" />

@@ -141,9 +141,18 @@ public class CollabOkrController {
     public ApiResponse<List<ObjectiveView>> objectives(
             @RequestHeader(value = "X-Permissions", required = false) String permissions,
             @RequestParam(value = "periodId", required = false) String periodId,
-            @RequestParam(value = "ownerId", required = false) Long ownerId) {
+            @RequestParam(value = "ownerId", required = false) Long ownerId,
+            @RequestParam(value = "deptId", required = false) Long deptId) {
         PermissionGuard.require(permissions, READ);
-        return ApiResponse.success(okrService.listObjectives(periodId, ownerId));
+        return ApiResponse.success(okrService.listObjectives(periodId, ownerId, deptId));
+    }
+
+    /** 部门树：云才不可用时返回 degraded=true + 空数组，页面给出降级提示而不是 500。 */
+    @GetMapping("/dept-tree")
+    public ApiResponse<Map<String, Object>> deptTree(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions) {
+        PermissionGuard.require(permissions, READ);
+        return ApiResponse.success(okrService.deptTree());
     }
 
     /**

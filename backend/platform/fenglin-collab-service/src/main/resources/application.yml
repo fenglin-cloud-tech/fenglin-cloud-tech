@@ -30,6 +30,7 @@ mybatis-plus:
 fenglin:
   collab:
     workflow-service-url: ${FENGLIN_WORKFLOW_SERVICE_URL:http://localhost:18084}
+    talent-service-url: ${FENGLIN_TALENT_SERVICE_URL:http://localhost:18097}
     approval-process-key: ${FENGLIN_COLLAB_APPROVAL_PROCESS_KEY:collab_approval}
     workflow-timeout-ms: 3000
     # 群成员上限（IM-R01）
