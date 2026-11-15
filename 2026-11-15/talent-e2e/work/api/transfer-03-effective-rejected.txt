@@ -1,0 +1,2 @@
+﻿{"code":"3000004","message":"异动单尚未审批通过，不能生效（当前状态：APPROVING）","request_id":"179e031a-f8f0-4fdb-b73e-842e9fd34bfb","timestamp":"2026-11-15T06:48:24.237786300Z"}
+HTTP_STATUS=409

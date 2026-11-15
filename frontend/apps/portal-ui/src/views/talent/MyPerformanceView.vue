@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { GapNotice, PageHeader } from '@fenglin/ui-admin'
+import { GapNotice, PageHeader, formatDateTime } from '@fenglin/ui-admin'
 import {
   talentApi,
   type TalentId,
@@ -194,7 +194,9 @@ onMounted(loadCycles)
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="published_at" label="发布时间" width="180" />
+            <el-table-column prop="published_at" label="发布时间" width="180">
+              <template #default="{ row }">{{ formatDateTime(row.published_at) }}</template>
+            </el-table-column>
           </el-table>
           <el-empty v-if="!results.length" description="结果尚未计算或发布" :image-size="64" />
         </el-tab-pane>

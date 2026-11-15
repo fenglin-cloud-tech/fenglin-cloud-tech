@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { GapNotice, PageHeader } from '@fenglin/ui-admin'
+import { GapNotice, PageHeader, formatDateTime } from '@fenglin/ui-admin'
 import {
   talentApi,
   type TalentCandidate,
@@ -295,6 +295,14 @@ async function submitInterview() {
     interviewResult.value = '应聘 ID 为必填项'
     return
   }
+  if (!interviewForm.interviewer_id.trim()) {
+    interviewResult.value = '面试官 ID 为必填项（后端按该字段关联面试官的待办与评价权限）'
+    return
+  }
+  if (!interviewForm.scheduled_at) {
+    interviewResult.value = '面试时间为必填项'
+    return
+  }
   interviewSaving.value = true
   interviewResult.value = ''
   try {
@@ -373,7 +381,7 @@ onMounted(async () => {
             <template #default="{ row }">{{ row.owner?.name ?? '-' }}</template>
           </el-table-column>
           <el-table-column label="创建时间" width="180">
-            <template #default="{ row }">{{ row.created_at ? new Date(row.created_at).toLocaleString() : '-' }}</template>
+            <template #default="{ row }">{{ formatDateTime(row.created_at) }}</template>
           </el-table-column>
           <el-table-column label="操作" width="110" fixed="right">
             <template #default="{ row }">
@@ -420,7 +428,7 @@ onMounted(async () => {
           </el-table-column>
           <el-table-column prop="masked_phone" label="手机号" width="140" />
           <el-table-column label="创建时间" width="180">
-            <template #default="{ row }">{{ row.created_at ? new Date(row.created_at).toLocaleString() : '-' }}</template>
+            <template #default="{ row }">{{ formatDateTime(row.created_at) }}</template>
           </el-table-column>
         </el-table>
         <el-pagination
@@ -471,10 +479,10 @@ onMounted(async () => {
                 <el-form-item label="轮次">
                   <el-input-number v-model="interviewForm.round_no" :min="1" />
                 </el-form-item>
-                <el-form-item label="面试官 ID">
-                  <el-input v-model="interviewForm.interviewer_id" />
+                <el-form-item label="面试官 ID" required>
+                  <el-input v-model="interviewForm.interviewer_id" placeholder="必填：员工 ID，面试官凭此在门户查看面试" />
                 </el-form-item>
-                <el-form-item label="面试时间">
+                <el-form-item label="面试时间" required>
                   <el-date-picker
                     v-model="interviewForm.scheduled_at"
                     type="datetime"
@@ -536,7 +544,7 @@ onMounted(async () => {
           <el-table-column prop="position_name" label="岗位" min-width="150" />
           <el-table-column prop="round_no" label="轮次" width="80" />
           <el-table-column label="面试时间" width="180">
-            <template #default="{ row }">{{ row.scheduled_at ? new Date(row.scheduled_at).toLocaleString() : '-' }}</template>
+            <template #default="{ row }">{{ formatDateTime(row.scheduled_at) }}</template>
           </el-table-column>
           <el-table-column prop="mode" label="形式" width="100" />
           <el-table-column prop="int_status" label="状态" width="110" />

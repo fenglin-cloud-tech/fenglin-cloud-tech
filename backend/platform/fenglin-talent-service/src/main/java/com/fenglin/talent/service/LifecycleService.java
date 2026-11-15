@@ -199,8 +199,10 @@ public class LifecycleService {
         if (transfer == null) {
             throw new BizException(TalentErrorCode.RESOURCE_NOT_FOUND, "异动记录不存在");
         }
-        if (!"APPROVING".equals(Rows.str(transfer, "tfStatus"))) {
-            throw new BizException(TalentErrorCode.STATE_CONFLICT, "仅审批中的异动可生效");
+        String status = Rows.str(transfer, "tfStatus");
+        if (!"APPROVED".equals(status)) {
+            throw new BizException(TalentErrorCode.STATE_CONFLICT,
+                    "异动单尚未审批通过，不能生效（当前状态：" + status + "）");
         }
         TransferAfter after = fromJson(Rows.str(transfer, "afterJson"), TransferAfter.class);
         long employeeId = Rows.lngVal(transfer, "employeeId");
@@ -238,8 +240,9 @@ public class LifecycleService {
             throw new BizException(TalentErrorCode.STATE_CONFLICT, "仅审批中的异动可处理");
         }
         if (request.approved()) {
-            TransferEffectiveResult effective = createEffectiveTransfer(id);
-            return new TransferApprovalResult(id, effective.tfStatus(), effective.employee());
+            lifecycleMapper.updateTransferStatus(tenantId, id, "APPROVED", userId);
+            audit.publish("TALENT_TRANSFER_APPROVED", "APPROVE", "talent_transfer", id, "MEDIUM");
+            return new TransferApprovalResult(id, "APPROVED", currentEmployee(tenantId, employeeId));
         }
         lifecycleMapper.updateTransferStatus(tenantId, id, "CANCELED", userId);
         audit.publish("TALENT_TRANSFER_CANCELED", "APPROVE", "talent_transfer", id, "MEDIUM");

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { GapNotice, PageHeader } from '@fenglin/ui-admin'
+import { GapNotice, PageHeader, formatDateTime } from '@fenglin/ui-admin'
 import { talentApi, type TalentEmployeeDetail, type TalentEmployeeSkill } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 
@@ -95,7 +95,9 @@ onMounted(load)
         <el-table-column label="经验年限" width="110">
           <template #default="{ row }">{{ row.years ?? '-' }}</template>
         </el-table-column>
-        <el-table-column prop="last_used_at" label="最近使用" width="140" />
+        <el-table-column prop="last_used_at" label="最近使用" width="140">
+          <template #default="{ row }">{{ formatDateTime(row.last_used_at) }}</template>
+        </el-table-column>
       </el-table>
       <el-empty v-else-if="!skillsError" description="尚未登记技能标签" :image-size="64" />
     </el-card>

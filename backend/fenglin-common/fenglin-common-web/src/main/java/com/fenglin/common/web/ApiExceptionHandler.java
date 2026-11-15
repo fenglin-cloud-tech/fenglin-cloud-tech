@@ -46,6 +46,14 @@ public class ApiExceptionHandler {
                 .body(ApiResponse.failure(CommonErrorCode.BAD_REQUEST, "缺少必填参数: " + name));
     }
 
+    @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiResponse<Void>> handleUnreadableBody(
+            org.springframework.http.converter.HttpMessageNotReadableException ex) {
+        log.warn("Unreadable request body: {}", ex.getMessage());
+        return ResponseEntity.badRequest().body(ApiResponse.failure(
+                com.fenglin.common.core.CommonErrorCode.BAD_REQUEST, "请求体格式错误，请检查 JSON 字段与类型"));
+    }
+
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ApiResponse<Void>> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
         return ResponseEntity.badRequest()

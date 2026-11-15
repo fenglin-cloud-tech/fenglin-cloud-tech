@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { PageHeader } from '@fenglin/ui-admin'
+import { PageHeader, formatDateTime } from '@fenglin/ui-admin'
 import { talentApi, type TalentCourse, type TalentId } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 
@@ -287,7 +287,9 @@ onMounted(load)
       <el-table :data="createdSessions" border size="small">
         <el-table-column prop="id" label="班次 ID" width="200" />
         <el-table-column prop="title" label="课程" min-width="180" />
-        <el-table-column prop="startAt" label="开始时间" width="200" />
+        <el-table-column prop="startAt" label="开始时间" width="200">
+          <template #default="{ row }">{{ formatDateTime(row.startAt) }}</template>
+        </el-table-column>
         <el-table-column prop="status" label="状态" width="100" />
       </el-table>
     </el-card>

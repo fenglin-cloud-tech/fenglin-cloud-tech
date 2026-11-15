@@ -1,0 +1,2 @@
+﻿{"code":"0","message":"OK","data":{"id":"2120399117411491842","emp_no":"E2E-P1","name":"绩效员工A","gender":"M","org":{"id":"2119751365497790465","name":"总部"},"employment_type":"REGULAR","hire_date":"2025-01-01","emp_status":"PENDING","work_location":"北京","version":1},"request_id":"c737bc30-d89b-42a6-b652-a9f224588311","timestamp":"2026-11-15T06:48:24.290719900Z"}
+HTTP_STATUS=200

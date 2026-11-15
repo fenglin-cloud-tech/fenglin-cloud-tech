@@ -81,12 +81,16 @@ public class WorkflowDefinitionService {
         String name = request.name() == null || request.name().isBlank()
                 ? (processDefinition.getName() == null ? processKey : processDefinition.getName())
                 : request.name();
+        // Flowable 侧无历史部署时会重新从 v1 计数，与平台已登记的版本号冲突
+        // （uk_hub_wf_definition: tenant + process_key + def_version），此处取两者较大值保证版本单调。
+        int defVersion = Math.max(processDefinition.getVersion(),
+                definitionMapper.maxVersion(tenantId, processKey) + 1);
         definitionMapper.insert(definitionId, tenantId, processKey, name, request.category(),
-                processDefinition.getVersion(), bpmnXml, request.formKey(), operatorId);
+                defVersion, bpmnXml, request.formKey(), operatorId);
         auditor.publish(tenantId, "WF_DEFINITION_DEPLOYED", "WORKFLOW_DEFINITION",
-                processKey + ":" + processDefinition.getVersion(), "MEDIUM");
+                processKey + ":" + defVersion, "MEDIUM");
         return new DefinitionView(definitionId, processKey, name, request.category(),
-                processDefinition.getVersion(), "PUBLISHED", request.formKey(), Instant.now());
+                defVersion, "PUBLISHED", request.formKey(), Instant.now());
     }
 
     @Transactional(readOnly = true)

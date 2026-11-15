@@ -1,0 +1,2 @@
+﻿{"code":"0","message":"OK","data":{"id":"2121857831824486401","tf_status":"EFFECTIVE","employee":{"org_id":"2121836718964854785"}},"request_id":"d8f5b905-f84a-4ccf-a0ed-b127330574b2","timestamp":"2026-11-15T06:48:36.573868200Z"}
+HTTP_STATUS=200

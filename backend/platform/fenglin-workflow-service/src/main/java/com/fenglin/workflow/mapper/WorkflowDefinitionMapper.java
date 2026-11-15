@@ -42,6 +42,14 @@ public interface WorkflowDefinitionMapper {
                          @Param("operatorId") Long operatorId);
 
     @Select("""
+            SELECT COALESCE(MAX(def_version), 0)
+              FROM hub_wf_definition
+             WHERE tenant_id = #{tenantId} AND process_key = #{processKey} AND deleted = 0
+            """)
+    int maxVersion(@Param("tenantId") long tenantId,
+                   @Param("processKey") String processKey);
+
+    @Select("""
             SELECT id, process_key, name, category, def_version, form_key, status, created_at
               FROM hub_wf_definition
              WHERE tenant_id = #{tenantId} AND process_key = #{processKey}

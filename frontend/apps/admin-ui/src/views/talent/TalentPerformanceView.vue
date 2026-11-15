@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { PageHeader } from '@fenglin/ui-admin'
+import { PageHeader, formatDateTime } from '@fenglin/ui-admin'
 import {
   talentApi,
   type TalentEmployeeListItem,
@@ -608,7 +608,7 @@ onMounted(() => {
             </el-table-column>
             <el-table-column label="发布时间" width="180">
               <template #default="{ row }">
-                {{ row.published_at ? new Date(row.published_at).toLocaleString() : '-' }}
+                {{ formatDateTime(row.published_at) }}
               </template>
             </el-table-column>
           </el-table>

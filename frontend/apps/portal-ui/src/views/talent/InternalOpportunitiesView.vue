@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { GapNotice, PageHeader } from '@fenglin/ui-admin'
+import { GapNotice, PageHeader, formatDateTime } from '@fenglin/ui-admin'
 import {
   talentApi,
   type TalentFlowApplication,
@@ -209,7 +209,9 @@ onMounted(() => {
           <el-table-column label="状态" width="110">
             <template #default="{ row }">{{ flowStatusLabel(row.flow_status) }}</template>
           </el-table-column>
-          <el-table-column prop="created_at" label="提交时间" width="180" />
+          <el-table-column prop="created_at" label="提交时间" width="180">
+            <template #default="{ row }">{{ formatDateTime(row.created_at) }}</template>
+          </el-table-column>
         </el-table>
         <el-empty v-else-if="!applicationLoading" description="暂无活水申请" :image-size="64" />
       </template>
