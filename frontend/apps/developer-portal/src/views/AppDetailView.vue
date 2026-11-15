@@ -185,6 +185,14 @@ onMounted(load)
 
     <GapNotice :items="gapItems" />
     <el-alert v-if="error" type="error" :closable="false" show-icon :title="error" style="margin-bottom: 12px" />
+    <el-alert
+      v-if="detail && detail.review_status === 'REJECTED'"
+      type="error"
+      :closable="false"
+      show-icon
+      :title="'审核未通过：' + (detail.review_comment || '管理员未填写驳回原因，请联系管理员')"
+      style="margin-bottom: 12px"
+    />
 
     <template v-if="detail">
       <el-card shadow="never" class="section">
@@ -199,6 +207,11 @@ onMounted(load)
           <el-descriptions-item label="日配额">{{ detail.quota_daily ?? '未配置' }}</el-descriptions-item>
           <el-descriptions-item label="接口订阅数">{{ detail.scopes.length }}</el-descriptions-item>
           <el-descriptions-item label="回调地址数">{{ detail.redirect_uris.length }}</el-descriptions-item>
+          <el-descriptions-item label="审核状态">
+            <el-tag :type="reviewTag(detail.review_status)" size="small">{{ detail.review_status }}</el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="审核时间">{{ detail.reviewed_at ? formatTime(detail.reviewed_at) : '—' }}</el-descriptions-item>
+          <el-descriptions-item label="审核意见" :span="3">{{ detail.review_comment || '—' }}</el-descriptions-item>
         </el-descriptions>
       </el-card>
 

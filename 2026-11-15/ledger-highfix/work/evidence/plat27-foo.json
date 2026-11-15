@@ -1,0 +1,1 @@
+{"code":"0000003","message":"client_type 仅支持 ADMIN / PORTAL / SYSTEM，当前值: FOO","request_id":"fd8f295b-6607-4802-9ba9-dc7eb10cf499","timestamp":"2026-11-15T08:25:20.801483300Z"}

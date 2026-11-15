@@ -45,12 +45,14 @@ public final class OpenApiDtos {
     }
 
     public record PortalAppView(long appId, String code, String name, String status, String reviewStatus,
-                                long callToday, Long quotaDaily) {
+                                long callToday, Long quotaDaily,
+                                String reviewComment, Instant reviewedAt) {
     }
 
     /** 扩展：管理端应用列表（1006 仅定义开发者门户视角）。 */
     public record AdminAppView(long appId, String code, String name, String ownerType,
-                               String reviewStatus, String status, Instant createdAt) {
+                               String reviewStatus, String status, Instant createdAt,
+                               String reviewComment, Instant reviewedAt) {
     }
 
     // ---------- 开发者门户（1001/1003/1004/1005/1006 的门户侧收敛接口） ----------
@@ -68,7 +70,8 @@ public final class OpenApiDtos {
     public record PortalAppDetail(long appId, String code, String name, String ownerType,
                                   String reviewStatus, String status, List<String> scopes,
                                   List<String> redirectUris, Instant createdAt,
-                                  long callToday, Long quotaDaily) {
+                                  long callToday, Long quotaDaily,
+                                  String reviewComment, Instant reviewedAt) {
     }
 
     /** 密钥列表视图：AppSecret 只给掩码，明文仅在签发响应中出现一次。 */

@@ -500,6 +500,20 @@ export interface PortalAppView {
   review_status: string
   call_today: number
   quota_daily?: number | null
+  review_comment?: string | null
+  reviewed_at?: string | null
+}
+
+export interface AdminAppView {
+  app_id: string
+  code: string
+  name: string
+  owner_type: string
+  review_status: string
+  status: string
+  created_at?: string
+  review_comment?: string | null
+  reviewed_at?: string | null
 }
 
 export interface PortalAppDetail {
@@ -514,6 +528,8 @@ export interface PortalAppDetail {
   created_at?: string
   call_today: number
   quota_daily?: number | null
+  review_comment?: string | null
+  reviewed_at?: string | null
 }
 
 /** 密钥列表：AppSecret 仅返回掩码，明文只在签发响应中出现一次。 */

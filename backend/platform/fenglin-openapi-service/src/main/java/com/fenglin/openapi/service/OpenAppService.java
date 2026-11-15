@@ -89,7 +89,14 @@ public class OpenAppService {
         }
         String reviewStatus = "APPROVE".equals(normalized) ? "APPROVED" : "REJECTED";
         String status = "APPROVE".equals(normalized) ? "ENABLED" : "DISABLED";
-        int updated = appMapper.updateReview(tenantId, appId, reviewStatus, status, operatorId);
+        String comment = blankToNull(reason);
+        if (comment != null && comment.length() > 500) {
+            throw new BizException(CommonErrorCode.BAD_REQUEST, "审核意见长度不能超过 500");
+        }
+        if ("REJECT".equals(normalized) && comment == null) {
+            throw new BizException(CommonErrorCode.BAD_REQUEST, "驳回时必须填写审核意见");
+        }
+        int updated = appMapper.updateReview(tenantId, appId, reviewStatus, status, comment, operatorId);
         if (updated == 0) {
             throw new BizException(CommonErrorCode.CONFLICT,
                     "应用当前状态不可审核: " + app.get("review_status"));
@@ -112,7 +119,9 @@ public class OpenAppService {
                             (String) row.get("status"),
                             (String) row.get("review_status"),
                             callLogMapper.countToday(tenantId, appId),
-                            quotaMapper.maxDailyLimit(tenantId, appId));
+                            quotaMapper.maxDailyLimit(tenantId, appId),
+                            (String) row.get("review_comment"),
+                            toInstant(row.get("reviewed_at")));
                 })
                 .toList();
     }
@@ -155,7 +164,9 @@ public class OpenAppService {
                 parseList((String) app.get("redirect_uris")),
                 toInstant(app.get("created_at")),
                 callLogMapper.countToday(tenantId, appId),
-                quotaMapper.maxDailyLimit(tenantId, appId));
+                quotaMapper.maxDailyLimit(tenantId, appId),
+                (String) app.get("review_comment"),
+                toInstant(app.get("reviewed_at")));
     }
 
     @Transactional
@@ -224,7 +235,9 @@ public class OpenAppService {
                         (String) row.get("owner_type"),
                         (String) row.get("review_status"),
                         (String) row.get("status"),
-                        toInstant(row.get("created_at"))))
+                        toInstant(row.get("created_at")),
+                        (String) row.get("review_comment"),
+                        toInstant(row.get("reviewed_at"))))
                 .toList();
         return PageResult.of(records, appMapper.countAdmin(tenantId, statusFilter, reviewFilter),
                 safePage, safeSize);

@@ -46,7 +46,7 @@ public interface OpenAppMapper {
 
     @Select("""
             SELECT id, code, name, owner_type, owner_id, scopes, redirect_uris,
-                   review_status, status, created_at
+                   review_status, status, review_comment, reviewed_at, created_at
               FROM hub_open_app
              WHERE tenant_id = #{tenantId} AND id = #{id} AND deleted = 0
             """)
@@ -54,7 +54,7 @@ public interface OpenAppMapper {
 
     /** 开发者门户：只返回当前用户创建的应用，服务端强制按 owner_id 收敛。 */
     @Select("""
-            SELECT id, code, name, owner_type, review_status, status, created_at
+            SELECT id, code, name, owner_type, review_status, status, review_comment, reviewed_at, created_at
               FROM hub_open_app
              WHERE tenant_id = #{tenantId} AND owner_id = #{ownerId} AND deleted = 0
              ORDER BY created_at DESC, id DESC
@@ -87,6 +87,7 @@ public interface OpenAppMapper {
     @Update("""
             UPDATE hub_open_app
                SET review_status = #{reviewStatus}, status = #{status},
+                   review_comment = #{reviewComment,jdbcType=VARCHAR}, reviewed_at = now(),
                    updated_by = #{operatorId,jdbcType=BIGINT}, updated_at = now()
              WHERE tenant_id = #{tenantId} AND id = #{id}
                AND review_status = 'PENDING' AND deleted = 0
@@ -95,11 +96,12 @@ public interface OpenAppMapper {
                      @Param("id") long id,
                      @Param("reviewStatus") String reviewStatus,
                      @Param("status") String status,
+                     @Param("reviewComment") String reviewComment,
                      @Param("operatorId") Long operatorId);
 
     @Select("""
             <script>
-            SELECT id, code, name, owner_type, review_status, status, created_at
+            SELECT id, code, name, owner_type, review_status, status, review_comment, reviewed_at, created_at
               FROM hub_open_app
              WHERE tenant_id = #{tenantId} AND deleted = 0
              <if test="status != null"> AND status = #{status} </if>

@@ -49,6 +49,8 @@ import java.util.UUID;
 public class AuthService {
 
     private static final String STATUS_ACTIVE = "ACTIVE";
+    private static final java.util.Set<String> CLIENT_TYPES =
+            java.util.Set.of("ADMIN", "PORTAL", "SYSTEM");
     private static final String SESSION_ONLINE = "ONLINE";
     private static final String SESSION_LOGOUT = "LOGOUT";
     private static final String SESSION_KICKED = "KICKED";
@@ -88,8 +90,13 @@ public class AuthService {
      */
     @Transactional(noRollbackFor = BizException.class)
     public TokenPayload login(LoginRequest request) {
-        String clientType = request.clientType() == null || request.clientType().isBlank()
-                ? "PORTAL" : request.clientType().toUpperCase();
+        String rawClientType = request.clientType();
+        String clientType = rawClientType == null ? "" : rawClientType.trim().toUpperCase();
+        if (!CLIENT_TYPES.contains(clientType)) {
+            throw new BizException(AuthErrorCode.INVALID_PARAMETER,
+                    "client_type 仅支持 ADMIN / PORTAL / SYSTEM，当前值: "
+                            + (rawClientType == null || rawClientType.isBlank() ? "(空)" : rawClientType));
+        }
         TenantEntity tenant = tenantMapper.selectOne(Wrappers.<TenantEntity>lambdaQuery()
                 .eq(TenantEntity::getCode, request.tenantCode())
                 .eq(TenantEntity::getDeleted, 0));

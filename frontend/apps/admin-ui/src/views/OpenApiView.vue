@@ -2,7 +2,7 @@
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { PageHeader, GapNotice, ID_COLUMN_WIDTH } from '@fenglin/ui-admin'
-import { openApi, type OpenApiCallLogView, type OpenApiKeyResponse, type OpenAppCreateResponse, type PortalQuotaRequestView } from '@/api'
+import { openApi, type AdminAppView, type OpenApiCallLogView, type OpenApiKeyResponse, type OpenAppCreateResponse, type PortalQuotaRequestView } from '@/api'
 import { toIsoOrUndefined } from '@fenglin/shared'
 import { useAuthStore } from '@/stores/auth'
 import { describeError } from '@/utils/error'
@@ -16,13 +16,40 @@ const allowed = {
   approve: 'platform:openapi:quota:approve',
 }
 
-const appForm = reactive({ name: '', owner_type: 'TENANT', scopes: '', redirect_uris: '' })
+const appForm = reactive({ name: '', owner_type: 'ISV', scopes: '', redirect_uris: '' })
 const appCreating = ref(false)
 const appError = ref('')
 const created = ref<OpenAppCreateResponse | null>(null)
 
 const reviewForm = reactive({ id: undefined as number | undefined, action: 'APPROVE', reason: '' })
 const reviewLoading = ref(false)
+
+const appRows = ref<AdminAppView[]>([])
+const appTotal = ref(0)
+const appLoading = ref(false)
+const appError2 = ref('')
+const appQuery = reactive({ status: undefined as string | undefined, review_status: undefined as string | undefined, page: 1, size: 10 })
+
+async function loadApps() {
+  appLoading.value = true
+  appError2.value = ''
+  try {
+    const result = await openApi.apps({
+      status: appQuery.status || undefined,
+      review_status: appQuery.review_status || undefined,
+      page: appQuery.page,
+      size: appQuery.size,
+    })
+    appRows.value = result.records
+    appTotal.value = result.total
+  } catch (err) {
+    appRows.value = []
+    appTotal.value = 0
+    appError2.value = describeError(err)
+  } finally {
+    appLoading.value = false
+  }
+}
 
 const keyForm = reactive({ id: undefined as number | undefined, action: '', grace_hours: 24 })
 const keyLoading = ref(false)
@@ -114,10 +141,15 @@ async function createApp() {
 
 async function submitReview() {
   if (!reviewForm.id) return
+  if (reviewForm.action === 'REJECT' && !reviewForm.reason.trim()) {
+    ElMessage.warning('驳回时必须填写审核意见')
+    return
+  }
   reviewLoading.value = true
   try {
     await openApi.reviewApp(reviewForm.id, { action: reviewForm.action, reason: reviewForm.reason || undefined })
     ElMessage.success('审核已提交')
+    await loadApps()
   } catch (err) {
     ElMessage.error(describeError(err))
   } finally {
@@ -187,6 +219,7 @@ async function loadLogs() {
 }
 
 onMounted(() => {
+  void loadApps()
   void loadLogs()
   void loadQuotaRequests()
 })
@@ -202,7 +235,7 @@ onMounted(() => {
 
     <GapNotice
       :items="[
-        '后端未提供开放应用列表/详情查询接口（仅注册、审核、密钥、配额、日志），本页所有应用操作需手工输入 app_id。',
+        '应用审核历史（OPEN-04）已接入列表接口，可查看审核意见与审核时间；密钥/配额操作仍需手工输入 app_id。',
         'AppSecret 仅在生成/轮换时返回一次，前端不持久化；关闭弹窗后不可再次查看。',
         '网关原配置未转发 /api/hub/v1/admin/openapi/**，本轮已补充网关路由（否则经网关调用 404）。',
         '当前权限：审核=' + (auth.can(allowed.review) ? '具备' : '缺失') + '，密钥=' + (auth.can(allowed.key) ? '具备' : '缺失') + '，配额=' + (auth.can(allowed.quota) ? '具备' : '缺失') + '，日志=' + (auth.can(allowed.callLog) ? '具备' : '缺失') + '，配额审批=' + (auth.can(allowed.approve) ? '具备' : '缺失') + '。',
@@ -221,8 +254,9 @@ onMounted(() => {
           <el-form-item label="应用名称" required><el-input v-model="appForm.name" /></el-form-item>
           <el-form-item label="归属类型">
             <el-select v-model="appForm.owner_type" style="width: 100%">
-              <el-option label="TENANT" value="TENANT" />
-              <el-option label="PLATFORM" value="PLATFORM" />
+              <el-option label="ISV（第三方服务商）" value="ISV" />
+              <el-option label="INTERNAL（内部系统）" value="INTERNAL" />
+              <el-option label="CUSTOMER（客户自建）" value="CUSTOMER" />
             </el-select>
           </el-form-item>
           <el-form-item label="scopes"><el-input v-model="appForm.scopes" placeholder="逗号分隔" /></el-form-item>
@@ -332,6 +366,54 @@ onMounted(() => {
         layout="sizes, prev, pager, next"
         style="margin-top: 12px; justify-content: flex-end"
         @change="loadQuotaRequests"
+      />
+    </div>
+
+    <div class="fl-card">
+      <div class="fl-section-title"><span>应用审核历史</span><span class="fl-muted">OPEN-04</span></div>
+      <div class="fl-toolbar">
+        <el-select v-model="appQuery.review_status" placeholder="审核状态" clearable style="width: 150px">
+          <el-option label="待审核" value="PENDING" />
+          <el-option label="已通过" value="APPROVED" />
+          <el-option label="已驳回" value="REJECTED" />
+        </el-select>
+        <el-select v-model="appQuery.status" placeholder="应用状态" clearable style="width: 150px">
+          <el-option label="启用" value="ENABLED" />
+          <el-option label="停用" value="DISABLED" />
+        </el-select>
+        <el-button type="primary" plain @click="appQuery.page = 1; loadApps()">查询</el-button>
+        <el-button @click="loadApps">刷新</el-button>
+      </div>
+      <el-alert v-if="appError2" :title="appError2" type="warning" :closable="false" show-icon style="margin-bottom: 12px" />
+      <el-table :data="appRows" v-loading="appLoading" size="small">
+        <el-table-column prop="app_id" label="app_id" width="190" />
+        <el-table-column prop="code" label="编码" min-width="120" />
+        <el-table-column prop="name" label="名称" min-width="150" show-overflow-tooltip />
+        <el-table-column prop="owner_type" label="归属类型" width="100" />
+        <el-table-column prop="review_status" label="审核状态" width="105">
+          <template #default="{ row }">
+            <el-tag :type="row.review_status === 'APPROVED' ? 'success' : row.review_status === 'REJECTED' ? 'danger' : 'info'" size="small">
+              {{ row.review_status === 'APPROVED' ? '已通过' : row.review_status === 'REJECTED' ? '已驳回' : '待审核' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="status" label="应用状态" width="95" />
+        <el-table-column label="审核意见" min-width="200" show-overflow-tooltip>
+          <template #default="{ row }">{{ row.review_comment || '—' }}</template>
+        </el-table-column>
+        <el-table-column label="审核时间" width="170">
+          <template #default="{ row }">{{ row.reviewed_at ? new Date(row.reviewed_at).toLocaleString() : '—' }}</template>
+        </el-table-column>
+        <template #empty><el-empty description="暂无应用" /></template>
+      </el-table>
+      <el-pagination
+        v-model:current-page="appQuery.page"
+        v-model:page-size="appQuery.size"
+        :total="appTotal"
+        :page-sizes="[10, 20, 50]"
+        layout="sizes, prev, pager, next"
+        style="margin-top: 12px; justify-content: flex-end"
+        @change="loadApps"
       />
     </div>
 

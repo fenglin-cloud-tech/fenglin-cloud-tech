@@ -57,6 +57,7 @@ import type {
   AiModeValidateResult,
   PortalAppView,
   PortalAppDetail,
+  AdminAppView,
   PortalApiDocView,
   PortalKeyView,
   PortalQuotaRequestView,
@@ -334,6 +335,14 @@ export const openApi = {
   },
   reviewApp(id: string | number, body: { action: string; reason?: string }) {
     return post<unknown>(`/api/hub/v1/admin/openapi/apps/${id}:review`, body)
+  },
+  apps(params: { status?: string; review_status?: string; page?: number; size?: number } = {}) {
+    return get<PageResult<AdminAppView>>('/api/hub/v1/admin/openapi/apps', {
+      status: params.status,
+      reviewStatus: params.review_status,
+      page: params.page,
+      size: params.size,
+    })
   },
   issueKey(id: string | number, body: { action?: string; grace_hours?: number } = {}) {
     return post<OpenApiKeyResponse>(`/api/hub/v1/admin/openapi/apps/${id}/keys`, body)
