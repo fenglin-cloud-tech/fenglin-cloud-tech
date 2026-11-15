@@ -69,6 +69,9 @@ public class QuotationService {
             if (item.productCode() == null || item.productCode().isBlank()) {
                 throw new BizException(CommonErrorCode.BAD_REQUEST, "产品编码不能为空");
             }
+            if (item.productName() == null || item.productName().isBlank()) {
+                throw new BizException(CommonErrorCode.BAD_REQUEST, "产品名称不能为空");
+            }
             if (item.quantity() == null || item.quantity().signum() <= 0) {
                 throw new BizException(CommonErrorCode.BAD_REQUEST, "报价数量必须大于 0");
             }

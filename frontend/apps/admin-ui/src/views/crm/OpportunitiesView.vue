@@ -281,7 +281,11 @@ onMounted(load)
           <el-input v-model="createForm.next_step" maxlength="200" />
         </el-form-item>
         <el-form-item label="来源">
-          <el-input v-model="createForm.source" maxlength="64" />
+          <el-select v-model="createForm.source" placeholder="请选择来源" clearable style="width: 100%">
+            <el-option label="直销" value="DIRECT" />
+            <el-option label="渠道伙伴" value="PARTNER" />
+            <el-option label="线索转化" value="LEAD" />
+          </el-select>
         </el-form-item>
         <el-form-item label="负责人 ID">
           <el-input-number v-model="createForm.owner_id" :min="1" />

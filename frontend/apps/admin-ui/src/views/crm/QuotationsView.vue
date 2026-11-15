@@ -93,8 +93,8 @@ async function submitCreate() {
     createError.value = '客户 ID 为必填项'
     return
   }
-  if (items.value.some((item) => !item.product_code || item.quantity <= 0 || item.unit_price < 0)) {
-    createError.value = '明细需填写产品编码、数量与单价'
+  if (items.value.some((item) => !item.product_code || !item.product_name || item.quantity <= 0 || item.unit_price < 0)) {
+    createError.value = '明细需填写产品编码、产品名称、数量与单价'
     return
   }
   creating.value = true
@@ -108,7 +108,7 @@ async function submitCreate() {
       remark: createForm.remark || undefined,
       items: items.value.map((item) => ({
         product_code: item.product_code,
-        product_name: item.product_name || undefined,
+        product_name: item.product_name,
         unit: item.unit || undefined,
         quantity: item.quantity,
         unit_price: item.unit_price,

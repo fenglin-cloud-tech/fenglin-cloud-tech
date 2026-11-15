@@ -29,6 +29,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Set;
 import java.util.Map;
 
 @Service
@@ -36,6 +37,7 @@ public class OpportunityService {
 
     private static final DateTimeFormatter MONTH = DateTimeFormatter.ofPattern("yyyyMM");
     private static final List<String> STAGE_ORDER = List.of("S1", "S2", "S3", "S4");
+    private static final Set<String> ALLOWED_SOURCES = Set.of("DIRECT", "PARTNER", "LEAD");
     private static final Map<String, BigDecimal> DEFAULT_WIN_RATE = Map.of(
             "S1", BigDecimal.valueOf(10), "S2", BigDecimal.valueOf(30), "S3", BigDecimal.valueOf(50),
             "S4", BigDecimal.valueOf(70), "WON", BigDecimal.valueOf(100), "LOST", BigDecimal.ZERO);
@@ -69,6 +71,14 @@ public class OpportunityService {
         if (!DEFAULT_WIN_RATE.containsKey(stage) || "WON".equals(stage) || "LOST".equals(stage)) {
             throw new BizException(CrmErrorCode.OPPORTUNITY_STAGE_REJECTED, "新建商机阶段必须为 S1~S4");
         }
+        String source = request.source() == null ? null : request.source().trim().toUpperCase();
+        if (source != null && source.isEmpty()) {
+            source = null;
+        }
+        if (source != null && !ALLOWED_SOURCES.contains(source)) {
+            throw new BizException(CommonErrorCode.BAD_REQUEST,
+                    "字段 source 取值非法，允许值：DIRECT/PARTNER/LEAD");
+        }
         BigDecimal amount = request.amount() == null ? BigDecimal.ZERO : request.amount();
         BigDecimal winRate = request.winRate() == null ? DEFAULT_WIN_RATE.get(stage) : request.winRate();
         long id = IdWorker.getId();
@@ -76,7 +86,7 @@ public class OpportunityService {
                 + String.format("%06d", opportunityMapper.nextBizSeq());
         opportunityMapper.insert(id, tenantId, opportunityNo, request.name(), request.customerId(), stage, winRate,
                 amount, weighted(amount, winRate), request.expectedCloseDate(),
-                request.ownerId() == null ? userId : request.ownerId(), null, request.source(),
+                request.ownerId() == null ? userId : request.ownerId(), null, source,
                 request.nextStep(), userId);
         audit.publish("CRM_OPPORTUNITY_CREATED", "CREATE", "crm_opportunity", id, "MEDIUM");
         return toView(requireOpportunity(tenantId, id));

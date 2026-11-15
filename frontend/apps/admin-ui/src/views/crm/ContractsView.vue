@@ -85,7 +85,7 @@ function openCreate() {
 
 function syncPlanAmount() {
   if (planRows.value.length === 1 && createForm.amount) {
-    planRows.value[0].amount = createForm.amount
+    planRows.value[0].amount = Math.round(Number(createForm.amount) * 100) / 100
   }
 }
 
@@ -106,9 +106,11 @@ async function submitCreate() {
     createError.value = '合同金额必须大于 0'
     return
   }
-  const planSum = planRows.value.reduce((sum, item) => sum + (item.amount || 0), 0)
-  if (Math.abs(planSum - createForm.amount) > 0.001) {
-    createError.value = `回款计划合计 ${planSum} 与合同金额 ${createForm.amount} 不一致`
+  const toCents = (value: number | undefined | null) => Math.round((Number(value) || 0) * 100)
+  const planCents = planRows.value.reduce((sum, item) => sum + toCents(item.amount), 0)
+  const amountCents = toCents(createForm.amount)
+  if (planCents !== amountCents) {
+    createError.value = `回款计划合计 ${(planCents / 100).toFixed(2)} 与合同金额 ${(amountCents / 100).toFixed(2)} 不一致`
     return
   }
   creating.value = true
@@ -124,7 +126,7 @@ async function submitCreate() {
       payment_plans: planRows.value.map((item, index) => ({
         period_no: index + 1,
         due_date: item.due_date || createForm.end_date,
-        amount: item.amount,
+        amount: Math.round(Number(item.amount || 0) * 100) / 100,
       })),
     })
     ElMessage.success('合同已创建')
