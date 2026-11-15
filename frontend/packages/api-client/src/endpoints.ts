@@ -394,6 +394,9 @@ export const openApiPortal = {
   appDetail(id: string | number) {
     return get<PortalAppDetail>(`/openapi/portal/apps/${id}`)
   },
+  resubmitApp(id: string | number) {
+    return post<PortalAppDetail>(`/openapi/portal/apps/${id}:resubmit`)
+  },
   updateCallback(id: string | number, body: { redirect_uris: string[] }) {
     return put<PortalAppDetail>(`/openapi/portal/apps/${id}/callback`, body)
   },

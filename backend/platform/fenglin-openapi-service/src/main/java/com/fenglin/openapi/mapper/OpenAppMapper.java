@@ -99,6 +99,18 @@ public interface OpenAppMapper {
                      @Param("reviewComment") String reviewComment,
                      @Param("operatorId") Long operatorId);
 
+    /** 驳回后重新提交：仅本人、仅 REJECTED 可回到 PENDING/DISABLED 重新排队；驳回意见保留不清空。 */
+    @Update("""
+            UPDATE hub_open_app
+               SET review_status = 'PENDING', status = 'DISABLED',
+                   updated_by = #{operatorId,jdbcType=BIGINT}, updated_at = now()
+             WHERE tenant_id = #{tenantId} AND id = #{id} AND owner_id = #{operatorId} AND deleted = 0
+               AND review_status = 'REJECTED'
+            """)
+    int resubmit(@Param("tenantId") long tenantId,
+                 @Param("id") long id,
+                 @Param("operatorId") long operatorId);
+
     @Select("""
             <script>
             SELECT id, code, name, owner_type, review_status, status, review_comment, reviewed_at, created_at

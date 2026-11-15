@@ -394,6 +394,41 @@ class OpenApiIntegrationTest {
     }
 
     @Test
+    void rejectedAppCanBeResubmittedByOwnerOnly() {
+        long ownerId = 3001L;
+        long appId = read(createPortalApp(TENANT_A, ownerId, "驳回重提应用").getBody())
+                .get("data").get("app_id").asLong();
+
+        // PENDING 不是 REJECTED，不可重提
+        assertThat(portalResubmit(TENANT_A, appId, ownerId).getStatusCode().value()).isEqualTo(409);
+
+        assertThat(review(TENANT_A, appId, "REJECT").getStatusCode().value()).isEqualTo(200);
+
+        // 非本人不可重提
+        assertThat(portalResubmit(TENANT_A, appId, 3002L).getStatusCode().value()).isEqualTo(403);
+
+        // 本人重提：回到 PENDING / DISABLED，驳回意见与时间保留
+        ResponseEntity<String> resubmitted = portalResubmit(TENANT_A, appId, ownerId);
+        assertThat(resubmitted.getStatusCode().value()).isEqualTo(200);
+        JsonNode detail = read(resubmitted.getBody()).get("data");
+        assertThat(detail.get("review_status").asText()).isEqualTo("PENDING");
+        assertThat(detail.get("status").asText()).isEqualTo("DISABLED");
+        assertThat(detail.get("review_comment").asText()).isEqualTo("test");
+        assertThat(detail.get("reviewed_at").isNull()).isFalse();
+
+        // 重复重提被条件更新挡住
+        assertThat(portalResubmit(TENANT_A, appId, ownerId).getStatusCode().value()).isEqualTo(409);
+
+        // 重新进入审核队列后可再次审核通过
+        assertThat(review(TENANT_A, appId, "APPROVE").getStatusCode().value()).isEqualTo(200);
+        JsonNode approved = read(portalDetail(TENANT_A, appId, ownerId).getBody()).get("data");
+        assertThat(approved.get("review_status").asText()).isEqualTo("APPROVED");
+        assertThat(approved.get("status").asText()).isEqualTo("ENABLED");
+
+        assertThat(AUDIT_EVENTS).anyMatch(event -> "OPENAPI_APP_RESUBMITTED".equals(event.eventType()));
+    }
+
+    @Test
     void publishesApiDocsAndRunsSandbox() {
         assertThat(get("/openapi/portal/api-docs", TENANT_A, null).getStatusCode().value()).isEqualTo(403);
 
@@ -513,6 +548,11 @@ class OpenApiIntegrationTest {
 
     private ResponseEntity<String> portalKeys(long tenantId, long appId, long userId) {
         return getPortal("/openapi/portal/apps/" + appId + "/keys", tenantId, userId, PORTAL_KEY_MANAGE);
+    }
+
+    private ResponseEntity<String> portalResubmit(long tenantId, long appId, long userId) {
+        return restTemplate.exchange(url("/openapi/portal/apps/" + appId + ":resubmit"), HttpMethod.POST,
+                new HttpEntity<>(portalHeaders(tenantId, userId, PORTAL_APP_MANAGE)), String.class);
     }
 
     private ResponseEntity<String> portalIssueKey(long tenantId, long appId, long userId, String action) {

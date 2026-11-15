@@ -111,6 +111,17 @@ public class OpenApiPortalController {
         return ApiResponse.success(appService.detailOwned(id, requireUserId()));
     }
 
+    /** HUB-API-1007 驳回后重新提交：仅应用归属人、仅 REJECTED 可重提，回到 PENDING 审核队列。 */
+    @PostMapping("/openapi/portal/apps/{id}:resubmit")
+    public ApiResponse<PortalAppDetail> resubmitApp(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable long id) {
+        PermissionGuard.require(permissions, APP_MANAGE);
+        long userId = requireUserId();
+        appService.resubmit(id, userId);
+        return ApiResponse.success(appService.detailOwned(id, userId));
+    }
+
     /** 回调地址配置。 */
     @PutMapping("/openapi/portal/apps/{id}/callback")
     public ApiResponse<PortalAppDetail> updateCallback(

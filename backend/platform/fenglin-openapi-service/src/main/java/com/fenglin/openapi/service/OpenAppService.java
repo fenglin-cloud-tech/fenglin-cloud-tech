@@ -191,6 +191,21 @@ public class OpenAppService {
         audit("OPENAPI_PORTAL_SCOPES_UPDATED", tenantId, ownerId, String.valueOf(appId));
     }
 
+    /**
+     * HUB-API-1007 驳回后重新提交：仅应用归属人、仅 REJECTED 可调用。
+     * 条件更新保证并发下只有一次生效，重复提交返回 409；驳回意见与时间保留供开发者对照。
+     */
+    @Transactional
+    public void resubmit(long appId, long ownerId) {
+        long tenantId = TenantContext.requireTenantId();
+        Map<String, Object> app = requireOwnedApp(tenantId, appId, ownerId);
+        if (appMapper.resubmit(tenantId, appId, ownerId) == 0) {
+            throw new BizException(CommonErrorCode.CONFLICT,
+                    "仅被驳回（REJECTED）的应用可重新提交，当前审核状态: " + app.get("review_status"));
+        }
+        audit("OPENAPI_APP_RESUBMITTED", tenantId, ownerId, String.valueOf(appId));
+    }
+
     /** 接口权限目录：来源为 hub_permission 真实 API 权限点，并标注当前应用是否已订阅。 */
     @Transactional(readOnly = true)
     public List<PortalScopeView> listScopes(String domain, List<String> subscribedScopes) {

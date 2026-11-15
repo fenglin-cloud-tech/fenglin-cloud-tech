@@ -27,6 +27,7 @@ const loading = ref(false)
 const savingCallback = ref(false)
 const savingScopes = ref(false)
 const issuing = ref(false)
+const resubmitting = ref(false)
 const error = ref('')
 
 const secretVisible = ref(false)
@@ -36,6 +37,7 @@ const canView = computed(() => auth.can('biz:openapi:portal:view'))
 const canManage = computed(() => auth.can('biz:openapi:app:manage'))
 const canKey = computed(() => auth.can('biz:openapi:key:manage'))
 const approved = computed(() => detail.value?.review_status === 'APPROVED')
+const rejected = computed(() => detail.value?.review_status === 'REJECTED')
 const enabled = computed(() => detail.value?.status === 'ENABLED')
 
 const scopeGroups = computed(() => {
@@ -107,6 +109,28 @@ async function saveScopes() {
     ElMessage.error(describeError(err))
   } finally {
     savingScopes.value = false
+  }
+}
+
+async function resubmit() {
+  try {
+    await ElMessageBox.confirm(
+      '重提后应用回到待审核（PENDING）并保持禁用，管理员将重新审核。'
+        + '请确认已按驳回意见修改回调地址或接口订阅，并已点击对应卡片的「保存」。确定重新提交？',
+      '修改后重新提交',
+      { type: 'warning', confirmButtonText: '重新提交' },
+    )
+  } catch {
+    return
+  }
+  resubmitting.value = true
+  try {
+    detail.value = await openApiPortal.resubmitApp(appId)
+    ElMessage.success('已重新提交审核，请等待管理员审核')
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  } finally {
+    resubmitting.value = false
   }
 }
 
@@ -186,13 +210,32 @@ onMounted(load)
     <GapNotice :items="gapItems" />
     <el-alert v-if="error" type="error" :closable="false" show-icon :title="error" style="margin-bottom: 12px" />
     <el-alert
-      v-if="detail && detail.review_status === 'REJECTED'"
+      v-if="detail && rejected"
       type="error"
       :closable="false"
       show-icon
-      :title="'审核未通过：' + (detail.review_comment || '管理员未填写驳回原因，请联系管理员')"
       style="margin-bottom: 12px"
-    />
+    >
+      <template #title>
+        审核未通过，修改后可重新提交（详见驳回意见）
+      </template>
+      <div class="reject-body">
+        <p class="reject-comment">
+          <strong>驳回意见：</strong>{{ detail.review_comment || '管理员未填写驳回原因，请联系管理员' }}
+        </p>
+        <p class="muted">
+          需要修改的通常是：回调地址是否可访问且为 https、订阅的接口权限是否与业务匹配、应用名称与类型是否真实。
+          请先在下方「回调地址」「接口权限订阅」中修改并点击对应「保存」，再重新提交审核。
+        </p>
+        <div class="reject-actions">
+          <el-button type="danger" :loading="resubmitting" :disabled="!canManage" @click="resubmit">
+            修改后重新提交
+          </el-button>
+          <span v-if="!canManage" class="muted">缺少 biz:openapi:app:manage，无法重新提交。</span>
+          <span v-else-if="detail.reviewed_at" class="muted">驳回时间：{{ formatTime(detail.reviewed_at) }}</span>
+        </div>
+      </div>
+    </el-alert>
 
     <template v-if="detail">
       <el-card shadow="never" class="section">
@@ -381,5 +424,16 @@ onMounted(load)
 .mono {
   font-family: var(--fl-font-mono, monospace);
   word-break: break-all;
+}
+.reject-comment {
+  margin: 4px 0 6px;
+  font-weight: 600;
+  word-break: break-all;
+}
+.reject-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
 }
 </style>
