@@ -1,16 +1,56 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { GapNotice, PageHeader, CODE_COLUMN_WIDTH } from '@fenglin/ui-admin'
-import { talentApi, type TalentEmployeeDetail, type TalentEmployeeListItem } from '@fenglin/api-client'
+import {
+  talentApi,
+  type TalentEmployeeDetail,
+  type TalentEmployeeListItem,
+  type TalentGrade,
+  type TalentOrgNode,
+  type TalentPosition,
+} from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 
 const gapItems = [
-  '编辑仅支持姓名、邮箱、工作地点三个字段；组织/岗位/职级 ID 未在详情中返回，需在组织或异动页面调整。',
+  '编辑仅支持姓名、邮箱、工作地点三个字段；组织/岗位/职级调整请走调动单。',
   '批量导入接口接收 JSON 行数组，后端没有模板下载，本页未做 Excel 解析。',
-  '组织筛选只接受 org_id，没有组织选择器，需手工填写组织 ID。',
   '手机号与身份证号按后端脱敏规则返回，页面不展示明文。',
 ]
+
+const orgs = ref<TalentOrgNode[]>([])
+const positions = ref<TalentPosition[]>([])
+const grades = ref<TalentGrade[]>([])
+const employeeOptions = ref<TalentEmployeeListItem[]>([])
+
+const flatOrgs = computed(() => {
+  const out: TalentOrgNode[] = []
+  const walk = (nodes: TalentOrgNode[]) => {
+    nodes.forEach((node) => {
+      out.push(node)
+      if (node.children?.length) walk(node.children)
+    })
+  }
+  walk(orgs.value)
+  return out
+})
+
+async function loadSelectors() {
+  try {
+    const [tree, posPage, gradeList, empPage] = await Promise.all([
+      talentApi.orgs.tree({ depth: 6 }),
+      talentApi.positions.list({ page: 1, size: 200 }),
+      talentApi.grades.list(),
+      talentApi.employees.list({ page: 1, size: 200 }),
+    ])
+    orgs.value = tree
+    positions.value = posPage.records
+    grades.value = gradeList
+    employeeOptions.value = empPage.records
+  } catch {
+    // 选择器加载失败时仍保留手工输入能力
+  }
+}
 
 const rows = ref<TalentEmployeeListItem[]>([])
 const total = ref(0)
@@ -225,7 +265,9 @@ async function exportRoster() {
   }
 }
 
-onMounted(load)
+onMounted(async () => {
+  await Promise.all([load(), loadSelectors()])
+})
 </script>
 
 <template>
@@ -246,7 +288,9 @@ onMounted(load)
         <el-select v-model="query.empStatus" clearable placeholder="员工状态" style="width: 160px" @change="search">
           <el-option v-for="opt in statusOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
         </el-select>
-        <el-input v-model="query.orgId" placeholder="组织 ID" clearable style="width: 160px" />
+        <el-select v-model="query.orgId" clearable filterable placeholder="组织" style="width: 200px" @change="search">
+          <el-option v-for="o in flatOrgs" :key="String(o.id)" :label="o.org_name" :value="o.id" />
+        </el-select>
         <el-checkbox v-model="query.includeSubOrg">含下级组织</el-checkbox>
         <el-button type="primary" @click="search">查询</el-button>
       </div>
@@ -364,17 +408,35 @@ onMounted(load)
         <el-form-item label="邮箱">
           <el-input v-model="createForm.email" maxlength="128" />
         </el-form-item>
-        <el-form-item label="组织 ID">
-          <el-input v-model="createForm.org_id" placeholder="选填，数字 ID" />
+        <el-form-item label="组织">
+          <el-select v-model="createForm.org_id" clearable filterable placeholder="选填" style="width: 100%">
+            <el-option v-for="o in flatOrgs" :key="String(o.id)" :label="o.org_name" :value="o.id" />
+          </el-select>
         </el-form-item>
-        <el-form-item label="岗位 ID">
-          <el-input v-model="createForm.position_id" placeholder="选填，数字 ID" />
+        <el-form-item label="岗位">
+          <el-select v-model="createForm.position_id" clearable filterable placeholder="选填" style="width: 100%">
+            <el-option
+              v-for="p in positions"
+              :key="String(p.id)"
+              :label="`${p.position_name}（${p.position_code}）`"
+              :value="p.id"
+            />
+          </el-select>
         </el-form-item>
-        <el-form-item label="职级 ID">
-          <el-input v-model="createForm.grade_id" placeholder="选填，数字 ID" />
+        <el-form-item label="职级">
+          <el-select v-model="createForm.grade_id" clearable filterable placeholder="选填" style="width: 100%">
+            <el-option v-for="g in grades" :key="String(g.id)" :label="`${g.grade_name}（${g.grade_code}）`" :value="g.id" />
+          </el-select>
         </el-form-item>
-        <el-form-item label="直属上级 ID">
-          <el-input v-model="createForm.manager_id" placeholder="选填，员工 ID" />
+        <el-form-item label="直属上级">
+          <el-select v-model="createForm.manager_id" clearable filterable placeholder="选填" style="width: 100%">
+            <el-option
+              v-for="e in employeeOptions"
+              :key="String(e.id)"
+              :label="`${e.name}（${e.emp_no}）`"
+              :value="e.id"
+            />
+          </el-select>
         </el-form-item>
         <el-form-item label="用工类型">
           <el-select v-model="createForm.employment_type" style="width: 100%">

@@ -17,6 +17,7 @@ import com.fenglin.talent.support.TalentContext;
 import com.fenglin.talent.support.TalentCrypto;
 import com.fenglin.talent.web.dto.TalentDtos.ApplicationCreateRequest;
 import com.fenglin.talent.web.dto.TalentDtos.ApplicationCreateResult;
+import com.fenglin.talent.web.dto.TalentDtos.ApplicationListItem;
 import com.fenglin.talent.web.dto.TalentDtos.ApprovalRequest;
 import com.fenglin.talent.web.dto.TalentDtos.CandidateCreateRequest;
 import com.fenglin.talent.web.dto.TalentDtos.CandidateCreateResult;
@@ -25,6 +26,7 @@ import com.fenglin.talent.web.dto.TalentDtos.InterviewCreateRequest;
 import com.fenglin.talent.web.dto.TalentDtos.InterviewCreateResult;
 import com.fenglin.talent.web.dto.TalentDtos.InterviewEvaluateRequest;
 import com.fenglin.talent.web.dto.TalentDtos.InterviewEvaluateResult;
+import com.fenglin.talent.web.dto.TalentDtos.InterviewListItem;
 import com.fenglin.talent.web.dto.TalentDtos.MyInterviewItem;
 import com.fenglin.talent.web.dto.TalentDtos.NameRef;
 import com.fenglin.talent.web.dto.TalentDtos.OfferCreateRequest;
@@ -318,6 +320,25 @@ public class RecruitService {
         return new ApplicationCreateResult(id, "IN_PROGRESS");
     }
 
+    @Transactional(readOnly = true)
+    public PageResult<ApplicationListItem> listApplications(Long candidateId, Long requisitionId, String stage,
+                                                            String appStatus, Integer page, Integer size) {
+        long tenantId = TalentContext.tenantId();
+        int pageNo = TalentContext.page(page);
+        int pageSize = TalentContext.size(size);
+        String stageFilter = blankToNull(stage);
+        String statusFilter = blankToNull(appStatus);
+        List<ApplicationListItem> records = recruitMapper.listApplications(tenantId, candidateId, requisitionId,
+                        stageFilter, statusFilter, pageSize, (pageNo - 1) * pageSize).stream()
+                .map(row -> new ApplicationListItem(Rows.lngVal(row, "id"), Rows.lngVal(row, "candidateId"),
+                        Rows.str(row, "candidateName"), Rows.lngVal(row, "requisitionId"), Rows.str(row, "reqNo"),
+                        Rows.str(row, "positionName"), Rows.str(row, "stage"), Rows.str(row, "appStatus"),
+                        Rows.instant(row, "createdAt")))
+                .toList();
+        return PageResult.of(records, recruitMapper.countApplications(tenantId, candidateId, requisitionId,
+                stageFilter, statusFilter), pageNo, pageSize);
+    }
+
     // ---------- 面试 ----------
 
     @Transactional
@@ -386,6 +407,25 @@ public class RecruitService {
                         Rows.str(row, "positionName"), Rows.intVal(row, "roundNo"),
                         Rows.instant(row, "scheduledAt"), Rows.str(row, "mode"), Rows.str(row, "intStatus")))
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public PageResult<InterviewListItem> listInterviews(Long applicationId, Long interviewerId, String intStatus,
+                                                        Integer page, Integer size) {
+        long tenantId = TalentContext.tenantId();
+        int pageNo = TalentContext.page(page);
+        int pageSize = TalentContext.size(size);
+        String statusFilter = blankToNull(intStatus);
+        List<InterviewListItem> records = recruitMapper.listInterviews(tenantId, applicationId, interviewerId,
+                        statusFilter, pageSize, (pageNo - 1) * pageSize).stream()
+                .map(row -> new InterviewListItem(Rows.lngVal(row, "id"), Rows.lngVal(row, "applicationId"),
+                        Rows.str(row, "candidateName"), Rows.str(row, "positionName"), Rows.intVal(row, "roundNo"),
+                        Rows.lngVal(row, "interviewerId"), Rows.str(row, "interviewerName"),
+                        Rows.instant(row, "scheduledAt"), Rows.intg(row, "durationMin"), Rows.str(row, "mode"),
+                        Rows.str(row, "intStatus"), Rows.str(row, "result")))
+                .toList();
+        return PageResult.of(records, recruitMapper.countInterviews(tenantId, applicationId, interviewerId,
+                statusFilter), pageNo, pageSize);
     }
 
     // ---------- Offer ----------

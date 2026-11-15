@@ -6,6 +6,7 @@ import com.fenglin.common.security.PermissionGuard;
 import com.fenglin.talent.service.RecruitService;
 import com.fenglin.talent.web.dto.TalentDtos.ApplicationCreateRequest;
 import com.fenglin.talent.web.dto.TalentDtos.ApplicationCreateResult;
+import com.fenglin.talent.web.dto.TalentDtos.ApplicationListItem;
 import com.fenglin.talent.web.dto.TalentDtos.ApprovalRequest;
 import com.fenglin.talent.web.dto.TalentDtos.CandidateCreateRequest;
 import com.fenglin.talent.web.dto.TalentDtos.CandidateCreateResult;
@@ -14,6 +15,7 @@ import com.fenglin.talent.web.dto.TalentDtos.InterviewCreateRequest;
 import com.fenglin.talent.web.dto.TalentDtos.InterviewCreateResult;
 import com.fenglin.talent.web.dto.TalentDtos.InterviewEvaluateRequest;
 import com.fenglin.talent.web.dto.TalentDtos.InterviewEvaluateResult;
+import com.fenglin.talent.web.dto.TalentDtos.InterviewListItem;
 import com.fenglin.talent.web.dto.TalentDtos.MyInterviewItem;
 import com.fenglin.talent.web.dto.TalentDtos.OfferCreateRequest;
 import com.fenglin.talent.web.dto.TalentDtos.OfferStatusResult;
@@ -137,6 +139,39 @@ public class TalentRecruitController {
             @RequestBody ApplicationCreateRequest request) {
         PermissionGuard.require(permissions, CANDIDATE_CREATE);
         return ApiResponse.success(recruitService.createApplication(request));
+    }
+
+    /**
+     * 应聘记录查询：管理端按候选人/需求/阶段筛选，供面试安排选择应聘记录。
+     */
+    @GetMapping("/applications")
+    public ApiResponse<PageResult<ApplicationListItem>> listApplications(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(value = "candidateId", required = false) Long candidateId,
+            @RequestParam(value = "requisitionId", required = false) Long requisitionId,
+            @RequestParam(value = "stage", required = false) String stage,
+            @RequestParam(value = "appStatus", required = false) String appStatus,
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false) Integer size) {
+        PermissionGuard.require(permissions, CANDIDATE_LIST);
+        return ApiResponse.success(recruitService.listApplications(candidateId, requisitionId, stage, appStatus,
+                page, size));
+    }
+
+    /**
+     * 面试记录查询：管理端按应聘/面试官/状态筛选，补齐“只有我的面试”的缺口。
+     */
+    @GetMapping("/interviews")
+    public ApiResponse<PageResult<InterviewListItem>> listInterviews(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(value = "applicationId", required = false) Long applicationId,
+            @RequestParam(value = "interviewerId", required = false) Long interviewerId,
+            @RequestParam(value = "intStatus", required = false) String intStatus,
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false) Integer size) {
+        PermissionGuard.require(permissions, CANDIDATE_LIST);
+        return ApiResponse.success(recruitService.listInterviews(applicationId, interviewerId, intStatus,
+                page, size));
     }
 
     @PostMapping("/interviews")

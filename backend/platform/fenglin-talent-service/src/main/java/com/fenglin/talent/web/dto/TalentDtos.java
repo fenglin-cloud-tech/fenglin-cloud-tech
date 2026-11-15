@@ -136,6 +136,11 @@ public final class TalentDtos {
     public record ApplicationCreateResult(Long id, String appStatus) {
     }
 
+    public record ApplicationListItem(Long id, Long candidateId, String candidateName, Long requisitionId,
+                                      String reqNo, String positionName, String stage, String appStatus,
+                                      Instant createdAt) {
+    }
+
     public record InterviewCreateRequest(Long applicationId, Integer roundNo, Long interviewerId,
                                          OffsetDateTime scheduledAt, Integer durationMin, String mode,
                                          String location) {
@@ -152,6 +157,11 @@ public final class TalentDtos {
 
     public record MyInterviewItem(Long id, String candidateName, String positionName, int roundNo,
                                   Instant scheduledAt, String mode, String intStatus) {
+    }
+
+    public record InterviewListItem(Long id, Long applicationId, String candidateName, String positionName,
+                                    int roundNo, Long interviewerId, String interviewerName, Instant scheduledAt,
+                                    Integer durationMin, String mode, String intStatus, String result) {
     }
 
     public record OfferCreateRequest(Long candidateId, Long requisitionId, Long positionId, Long gradeId,

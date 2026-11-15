@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { GapNotice, PageHeader } from '@fenglin/ui-admin'
+import { GapNotice, PageHeader, formatDateTime } from '@fenglin/ui-admin'
 import {
   talentApi,
+  type TalentAttendanceRecord,
   type TalentAttendanceSummary,
   type TalentLeaveBalance,
   type TalentLeaveRequest,
@@ -17,6 +18,12 @@ const month = ref(new Date().toISOString().slice(0, 7))
 const summary = ref<TalentAttendanceSummary | null>(null)
 const summaryLoading = ref(false)
 const summaryError = ref('')
+
+const records = ref<TalentAttendanceRecord[]>([])
+const recordTotal = ref(0)
+const recordPage = ref(1)
+const recordLoading = ref(false)
+const recordError = ref('')
 
 const balances = ref<TalentLeaveBalance[]>([])
 const leaveTypes = ref<TalentLeaveType[]>([])
@@ -42,7 +49,6 @@ const applyForm = reactive({
 })
 
 const gapItems = [
-  '“我的考勤”只提供月度汇总（GET /attendance/my），后端没有员工自助的考勤明细接口；明细记录 /attendance/records 需要 talent:admin:attendance:list。',
   '请假申请提交后走工作流审批，状态为 APPROVING；撤销调用 /leave/requests/{id}/cancel，仅审批中或已通过的申请可撤销。',
   '请假天数由前端按起止日期自动带出，可按半天调整后提交；额度不足会返回后端真实错误。',
 ]
@@ -78,6 +84,28 @@ async function loadSummary() {
     summaryError.value = describeError(err)
   } finally {
     summaryLoading.value = false
+  }
+}
+
+async function loadRecords() {
+  recordLoading.value = true
+  recordError.value = ''
+  try {
+    const year = Number(month.value.slice(0, 4)) || new Date().getFullYear()
+    const m = Number(month.value.slice(5, 7)) || new Date().getMonth() + 1
+    const lastDay = new Date(year, m, 0).getDate()
+    const data = await talentApi.attendance.myRecords({
+      from: `${month.value}-01`,
+      to: `${month.value}-${String(lastDay).padStart(2, '0')}`,
+      page: recordPage.value,
+      size: 10,
+    })
+    records.value = data.records
+    recordTotal.value = data.total
+  } catch (err) {
+    recordError.value = describeError(err)
+  } finally {
+    recordLoading.value = false
   }
 }
 
@@ -185,12 +213,15 @@ async function cancelRequest(row: TalentLeaveRequest) {
 }
 
 function changeMonth() {
+  recordPage.value = 1
   void loadSummary()
+  void loadRecords()
   void loadLeave()
 }
 
 onMounted(() => {
   void loadSummary()
+  void loadRecords()
   void loadLeave()
 })
 </script>
@@ -258,6 +289,41 @@ onMounted(() => {
           <div class="stat-value">{{ hoursOf(summary?.work_minutes) }}</div>
         </el-card>
       </div>
+    </el-card>
+
+    <el-card shadow="never" style="margin-top: 16px">
+      <template #header>我的考勤明细</template>
+      <el-alert v-if="recordError" type="error" :closable="false" show-icon :title="recordError" style="margin-bottom: 12px" />
+      <el-table :data="records" v-loading="recordLoading" border stripe size="small">
+        <el-table-column prop="work_date" label="日期" width="120" />
+        <el-table-column label="上班打卡" width="170">
+          <template #default="{ row }">{{ formatDateTime(row.clock_in_at) }}</template>
+        </el-table-column>
+        <el-table-column label="下班打卡" width="170">
+          <template #default="{ row }">{{ formatDateTime(row.clock_out_at) }}</template>
+        </el-table-column>
+        <el-table-column label="状态" width="100">
+          <template #default="{ row }">
+            <el-tag size="small" :type="row.att_status === 'NORMAL' ? 'success' : 'warning'">
+              {{ row.att_status }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="工时（小时）" width="110">
+          <template #default="{ row }">{{ hoursOf(row.work_minutes) }}</template>
+        </el-table-column>
+        <el-table-column prop="late_minutes" label="迟到（分）" width="100" />
+        <el-table-column prop="early_minutes" label="早退（分）" width="100" />
+        <el-table-column prop="exception_note" label="异常说明" min-width="140" show-overflow-tooltip />
+      </el-table>
+      <el-pagination
+        v-model:current-page="recordPage"
+        :page-size="10"
+        :total="recordTotal"
+        layout="total, prev, pager, next"
+        style="margin-top: 12px; justify-content: flex-end"
+        @change="loadRecords"
+      />
     </el-card>
 
     <el-card shadow="never" style="margin-top: 16px">

@@ -1,16 +1,45 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { GapNotice, PageHeader } from '@fenglin/ui-admin'
-import { talentApi, type TalentGrade, type TalentOrgDetail, type TalentOrgNode, type TalentPosition } from '@fenglin/api-client'
+import {
+  talentApi,
+  type TalentEmployeeListItem,
+  type TalentGrade,
+  type TalentOrgDetail,
+  type TalentOrgNode,
+  type TalentPosition,
+} from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 
 const gapItems = [
   '组织树默认只返回启用节点；停用组织需显式传 include_disabled，本页暂未提供开关。',
   '岗位列表没有状态与关键字过滤参数，只支持分页。',
   '职级只提供列表查询，没有新建/调整接口。',
-  '组织负责人只接受 leader_id，前端无法按姓名检索成员。',
 ]
+
+const employees = ref<TalentEmployeeListItem[]>([])
+
+const flatOrgs = computed(() => {
+  const out: TalentOrgNode[] = []
+  const walk = (nodes: TalentOrgNode[]) => {
+    nodes.forEach((node) => {
+      out.push(node)
+      if (node.children?.length) walk(node.children)
+    })
+  }
+  walk(tree.value)
+  return out
+})
+
+async function loadEmployees() {
+  try {
+    const page = await talentApi.employees.list({ page: 1, size: 200 })
+    employees.value = page.records
+  } catch {
+    // 选择器加载失败时仍保留手工输入能力
+  }
+}
 
 const activeTab = ref('tree')
 
@@ -198,7 +227,7 @@ async function loadGrades() {
 }
 
 onMounted(async () => {
-  await Promise.all([loadTree(), loadPositions(), loadGrades()])
+  await Promise.all([loadTree(), loadPositions(), loadGrades(), loadEmployees()])
 })
 </script>
 
@@ -292,8 +321,10 @@ onMounted(async () => {
     <el-dialog v-model="orgDialogVisible" title="新建组织" width="560px">
       <el-alert v-if="orgError" type="error" :closable="false" show-icon :title="orgError" style="margin-bottom: 12px" />
       <el-form label-width="110px">
-        <el-form-item label="上级组织 ID">
-          <el-input v-model="orgForm.parent_id" placeholder="留空表示根组织" />
+        <el-form-item label="上级组织">
+          <el-select v-model="orgForm.parent_id" clearable filterable placeholder="留空表示根组织" style="width: 100%">
+            <el-option v-for="o in flatOrgs" :key="String(o.id)" :label="o.org_name" :value="o.id" />
+          </el-select>
         </el-form-item>
         <el-form-item label="组织编码" required>
           <el-input v-model="orgForm.org_code" maxlength="64" />
@@ -306,8 +337,15 @@ onMounted(async () => {
             <el-option v-for="opt in orgTypeOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
           </el-select>
         </el-form-item>
-        <el-form-item label="负责人 ID">
-          <el-input v-model="orgForm.leader_id" placeholder="选填，成员 ID" />
+        <el-form-item label="负责人">
+          <el-select v-model="orgForm.leader_id" clearable filterable placeholder="选填" style="width: 100%">
+            <el-option
+              v-for="e in employees"
+              :key="String(e.id)"
+              :label="`${e.name}（${e.emp_no}）`"
+              :value="e.id"
+            />
+          </el-select>
         </el-form-item>
         <el-form-item label="排序号">
           <el-input-number v-model="orgForm.sort_no" :min="0" />
@@ -328,8 +366,10 @@ onMounted(async () => {
         <el-form-item label="岗位名称" required>
           <el-input v-model="positionForm.position_name" maxlength="128" />
         </el-form-item>
-        <el-form-item label="所属组织 ID">
-          <el-input v-model="positionForm.org_id" placeholder="选填，默认取当前选中组织" />
+        <el-form-item label="所属组织">
+          <el-select v-model="positionForm.org_id" clearable filterable placeholder="选填，默认取当前选中组织" style="width: 100%">
+            <el-option v-for="o in flatOrgs" :key="String(o.id)" :label="o.org_name" :value="o.id" />
+          </el-select>
         </el-form-item>
         <el-form-item label="职族">
           <el-input v-model="positionForm.job_family" maxlength="64" />

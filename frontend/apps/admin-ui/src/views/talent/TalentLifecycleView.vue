@@ -1,19 +1,57 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { GapNotice, PageHeader } from '@fenglin/ui-admin'
 import {
   talentApi,
+  type TalentEmployeeListItem,
+  type TalentGrade,
   type TalentOnboardingView,
+  type TalentOrgNode,
+  type TalentPosition,
   type TalentResignationView,
   type TalentTransferView,
 } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 
 const gapItems = [
-  '入职办理需先有 offer_id 或 employee_id，本页不提供候选人/员工选择器，需手工填写 ID。',
+  '入职办理可只选员工；offer_id 仍为手工输入（后端无 Offer 列表接口）。',
   '调动生效与审批是两个独立动作，前端按顺序调用，不保证后端幂等。',
   '试用期评估接口只按试用记录 ID 操作，没有试用期列表可查。',
 ]
+
+const employees = ref<TalentEmployeeListItem[]>([])
+const orgs = ref<TalentOrgNode[]>([])
+const positions = ref<TalentPosition[]>([])
+const grades = ref<TalentGrade[]>([])
+
+const flatOrgs = computed(() => {
+  const out: TalentOrgNode[] = []
+  const walk = (nodes: TalentOrgNode[]) => {
+    nodes.forEach((node) => {
+      out.push(node)
+      if (node.children?.length) walk(node.children)
+    })
+  }
+  walk(orgs.value)
+  return out
+})
+
+async function loadSelectors() {
+  try {
+    const [empPage, tree, posPage, gradeList] = await Promise.all([
+      talentApi.employees.list({ page: 1, size: 200 }),
+      talentApi.orgs.tree({ depth: 6 }),
+      talentApi.positions.list({ page: 1, size: 200 }),
+      talentApi.grades.list(),
+    ])
+    employees.value = empPage.records
+    orgs.value = tree
+    positions.value = posPage.records
+    grades.value = gradeList
+  } catch {
+    // 选择器加载失败时仍保留手工输入能力
+  }
+}
 
 const onboardingForm = reactive({
   offer_id: '',
@@ -161,7 +199,9 @@ function useResignationRow(row: TalentResignationView) {
   resignResult.value = `已选择离职单 ${row.id}（${row.employee_name ?? row.employee_id}），可审批`
 }
 
-onMounted(loadHistory)
+onMounted(async () => {
+  await Promise.all([loadHistory(), loadSelectors()])
+})
 
 function statusTag(value?: string) {
   if (value === 'DONE' || value === 'EFFECTIVE') return 'success'
@@ -342,14 +382,28 @@ async function approveResign() {
             <el-form-item label="Offer ID">
               <el-input v-model="onboardingForm.offer_id" placeholder="与员工 ID 二选一" />
             </el-form-item>
-            <el-form-item label="员工 ID">
-              <el-input v-model="onboardingForm.employee_id" />
+            <el-form-item label="员工">
+              <el-select v-model="onboardingForm.employee_id" clearable filterable placeholder="与 Offer ID 二选一" style="width: 100%">
+                <el-option
+                  v-for="e in employees"
+                  :key="String(e.id)"
+                  :label="`${e.name}（${e.emp_no}）`"
+                  :value="e.id"
+                />
+              </el-select>
             </el-form-item>
             <el-form-item label="入职日期">
               <el-date-picker v-model="onboardingForm.onboard_date" type="date" value-format="YYYY-MM-DD" style="width: 100%" />
             </el-form-item>
-            <el-form-item label="导师 ID">
-              <el-input v-model="onboardingForm.mentor_id" />
+            <el-form-item label="导师">
+              <el-select v-model="onboardingForm.mentor_id" clearable filterable placeholder="选填" style="width: 100%">
+                <el-option
+                  v-for="e in employees"
+                  :key="String(e.id)"
+                  :label="`${e.name}（${e.emp_no}）`"
+                  :value="e.id"
+                />
+              </el-select>
             </el-form-item>
             <el-form-item label="入职单 ID">
               <el-input v-model="onboardingId" placeholder="创建后自动回填，也可手工填写" />
@@ -389,22 +443,40 @@ async function approveResign() {
       <el-col :span="12">
         <el-card shadow="never" header="调动申请" style="margin-bottom: 16px">
           <el-form label-width="110px">
-            <el-form-item label="员工 ID">
-              <el-input v-model="transferForm.employee_id" />
+            <el-form-item label="员工">
+              <el-select v-model="transferForm.employee_id" filterable placeholder="选择员工" style="width: 100%">
+                <el-option
+                  v-for="e in employees"
+                  :key="String(e.id)"
+                  :label="`${e.name}（${e.emp_no}）`"
+                  :value="e.id"
+                />
+              </el-select>
             </el-form-item>
             <el-form-item label="调动类型">
               <el-select v-model="transferForm.transfer_type" style="width: 100%">
                 <el-option v-for="opt in transferTypeOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
               </el-select>
             </el-form-item>
-            <el-form-item label="目标组织 ID">
-              <el-input v-model="transferForm.org_id" />
+            <el-form-item label="目标组织">
+              <el-select v-model="transferForm.org_id" clearable filterable placeholder="选填" style="width: 100%">
+                <el-option v-for="o in flatOrgs" :key="String(o.id)" :label="o.org_name" :value="o.id" />
+              </el-select>
             </el-form-item>
-            <el-form-item label="目标岗位 ID">
-              <el-input v-model="transferForm.position_id" />
+            <el-form-item label="目标岗位">
+              <el-select v-model="transferForm.position_id" clearable filterable placeholder="选填" style="width: 100%">
+                <el-option
+                  v-for="p in positions"
+                  :key="String(p.id)"
+                  :label="`${p.position_name}（${p.position_code}）`"
+                  :value="p.id"
+                />
+              </el-select>
             </el-form-item>
-            <el-form-item label="目标职级 ID">
-              <el-input v-model="transferForm.grade_id" />
+            <el-form-item label="目标职级">
+              <el-select v-model="transferForm.grade_id" clearable filterable placeholder="选填" style="width: 100%">
+                <el-option v-for="g in grades" :key="String(g.id)" :label="`${g.grade_name}（${g.grade_code}）`" :value="g.id" />
+              </el-select>
             </el-form-item>
             <el-form-item label="调整后薪资">
               <el-input v-model="transferForm.salary" placeholder="数字，可选" />
@@ -429,8 +501,15 @@ async function approveResign() {
 
         <el-card shadow="never" header="离职申请">
           <el-form label-width="110px">
-            <el-form-item label="员工 ID">
-              <el-input v-model="resignForm.employee_id" />
+            <el-form-item label="员工">
+              <el-select v-model="resignForm.employee_id" filterable placeholder="选择员工" style="width: 100%">
+                <el-option
+                  v-for="e in employees"
+                  :key="String(e.id)"
+                  :label="`${e.name}（${e.emp_no}）`"
+                  :value="e.id"
+                />
+              </el-select>
             </el-form-item>
             <el-form-item label="离职类型">
               <el-select v-model="resignForm.resign_type" style="width: 100%">

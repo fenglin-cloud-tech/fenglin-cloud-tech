@@ -1,20 +1,22 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { GapNotice, PageHeader, formatDateTime } from '@fenglin/ui-admin'
 import {
   talentApi,
+  type TalentApplication,
   type TalentCandidate,
-  type TalentMyInterview,
+  type TalentEmployeeListItem,
+  type TalentInterview,
+  type TalentOrgNode,
+  type TalentPosition,
   type TalentRequisition,
 } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 
 const gapItems = [
-  '应聘记录只有创建接口，没有查询接口，面试必须手工填写应聘返回的 application_id。',
-  'Offer 创建/发送/接受接口存在，但缺少岗位与职级选择器，本页暂未接入 Offer 办理。',
+  'Offer 创建/发送/接受接口存在，但本页尚未接入 Offer 办理。',
   '候选人标签 tags 为自由 JSON，后端无标签字典接口，本页不维护标签。',
-  '面试列表只提供「我的面试」，没有按候选人/职位查询的接口。',
 ]
 
 const activeTab = ref('requisition')
@@ -62,9 +64,35 @@ const candForm = reactive({
   expected_salary: '',
 })
 
-const interviews = ref<TalentMyInterview[]>([])
+const interviews = ref<TalentInterview[]>([])
+const interviewTotal = ref(0)
 const interviewLoading = ref(false)
 const interviewError = ref('')
+const interviewQuery = reactive({ interviewerId: '', intStatus: '', page: 1, size: 10 })
+
+const applications = ref<TalentApplication[]>([])
+const appTotal = ref(0)
+const appLoading = ref(false)
+const appError = ref('')
+const appQuery = reactive({ candidateId: '', requisitionId: '', page: 1, size: 10 })
+
+const employees = ref<TalentEmployeeListItem[]>([])
+const positions = ref<TalentPosition[]>([])
+const orgs = ref<TalentOrgNode[]>([])
+const candidateOptions = ref<TalentCandidate[]>([])
+const requisitionOptions = ref<TalentRequisition[]>([])
+
+const flatOrgs = computed(() => {
+  const out: TalentOrgNode[] = []
+  const walk = (nodes: TalentOrgNode[]) => {
+    nodes.forEach((node) => {
+      out.push(node)
+      if (node.children?.length) walk(node.children)
+    })
+  }
+  walk(orgs.value)
+  return out
+})
 
 const appForm = reactive({ candidate_id: '', requisition_id: '', stage: '' })
 const appSaving = ref(false)
@@ -116,6 +144,14 @@ const resultOptions = [
   { value: 'PASS', label: '通过' },
   { value: 'HOLD', label: '待定' },
   { value: 'REJECT', label: '淘汰' },
+]
+
+const intStatusOptions = [
+  { value: 'PENDING', label: '待确认' },
+  { value: 'CONFIRMED', label: '已确认' },
+  { value: 'DONE', label: '已完成' },
+  { value: 'CANCELED', label: '已取消' },
+  { value: 'NOSHOW', label: '未到场' },
 ]
 
 function toId(text: string): string | undefined {
@@ -257,11 +293,56 @@ async function submitCandidate() {
   }
 }
 
+async function loadSelectors() {
+  try {
+    const [empPage, posPage, tree, candPage, reqPage] = await Promise.all([
+      talentApi.employees.list({ page: 1, size: 200 }),
+      talentApi.positions.list({ page: 1, size: 200 }),
+      talentApi.orgs.tree({ depth: 6 }),
+      talentApi.recruit.candidates({ page: 1, size: 200 }),
+      talentApi.recruit.requisitions({ page: 1, size: 200 }),
+    ])
+    employees.value = empPage.records
+    positions.value = posPage.records
+    orgs.value = tree
+    candidateOptions.value = candPage.records
+    requisitionOptions.value = reqPage.records
+  } catch {
+    // 选择器加载失败不阻断列表主流程，仍可手工填写 ID
+  }
+}
+
+async function loadApplications() {
+  appLoading.value = true
+  appError.value = ''
+  try {
+    const result = await talentApi.recruit.applications({
+      candidateId: appQuery.candidateId || undefined,
+      requisitionId: appQuery.requisitionId || undefined,
+      page: appQuery.page,
+      size: appQuery.size,
+    })
+    applications.value = result.records
+    appTotal.value = result.total
+  } catch (err) {
+    appError.value = describeError(err)
+  } finally {
+    appLoading.value = false
+  }
+}
+
 async function loadInterviews() {
   interviewLoading.value = true
   interviewError.value = ''
   try {
-    interviews.value = await talentApi.recruit.myInterviews()
+    const result = await talentApi.recruit.interviews({
+      interviewerId: interviewQuery.interviewerId || undefined,
+      intStatus: interviewQuery.intStatus || undefined,
+      page: interviewQuery.page,
+      size: interviewQuery.size,
+    })
+    interviews.value = result.records
+    interviewTotal.value = result.total
   } catch (err) {
     interviewError.value = describeError(err)
   } finally {
@@ -283,6 +364,8 @@ async function submitApplication() {
       stage: appForm.stage.trim() || undefined,
     })
     appResult.value = `应聘已创建，application_id = ${result.id}，状态 ${result.app_status}`
+    appQuery.page = 1
+    await loadApplications()
   } catch (err) {
     appResult.value = describeError(err)
   } finally {
@@ -316,12 +399,17 @@ async function submitInterview() {
       location: interviewForm.location.trim() || undefined,
     })
     interviewResult.value = `面试已创建，interview_id = ${result.id}，状态 ${result.int_status}`
-    await loadInterviews()
+    interviewQuery.page = 1
+    await Promise.all([loadInterviews(), loadApplications()])
   } catch (err) {
     interviewResult.value = describeError(err)
   } finally {
     interviewSaving.value = false
   }
+}
+
+function chooseEvaluateTarget(id: string) {
+  evaluateForm.id = id
 }
 
 async function submitEvaluate() {
@@ -348,7 +436,13 @@ async function submitEvaluate() {
 }
 
 onMounted(async () => {
-  await Promise.all([loadRequisitions(), loadCandidates(), loadInterviews()])
+  await Promise.all([
+    loadRequisitions(),
+    loadCandidates(),
+    loadApplications(),
+    loadInterviews(),
+    loadSelectors(),
+  ])
 })
 </script>
 
@@ -443,25 +537,80 @@ onMounted(async () => {
       </el-tab-pane>
 
       <el-tab-pane label="面试与评价" name="interview">
-        <el-alert
-          type="info"
-          :closable="false"
-          show-icon
-          title="应聘 → 面试 → 评价需按顺序创建，ID 由上一步返回值提供"
-          style="margin-bottom: 12px"
+        <el-divider content-position="left">应聘记录</el-divider>
+        <div class="fl-toolbar" style="margin-bottom: 12px; display: flex; gap: 8px">
+          <el-select
+            v-model="appQuery.candidateId"
+            clearable
+            filterable
+            placeholder="按候选人筛选"
+            style="width: 200px"
+            @change="appQuery.page = 1; loadApplications()"
+          >
+            <el-option v-for="c in candidateOptions" :key="String(c.id)" :label="c.name" :value="c.id" />
+          </el-select>
+          <el-select
+            v-model="appQuery.requisitionId"
+            clearable
+            filterable
+            placeholder="按招聘需求筛选"
+            style="width: 260px"
+            @change="appQuery.page = 1; loadApplications()"
+          >
+            <el-option
+              v-for="r in requisitionOptions"
+              :key="String(r.id)"
+              :label="`${r.req_no} · ${r.position_name}`"
+              :value="r.id"
+            />
+          </el-select>
+          <el-button :loading="appLoading" @click="loadApplications">查询</el-button>
+        </div>
+        <el-alert v-if="appError" type="error" :closable="false" show-icon :title="appError" style="margin-bottom: 12px" />
+        <el-table :data="applications" v-loading="appLoading" border stripe>
+          <el-table-column prop="id" label="应聘 ID" width="190" show-overflow-tooltip />
+          <el-table-column prop="candidate_name" label="候选人" width="130" />
+          <el-table-column prop="position_name" label="岗位" min-width="150">
+            <template #default="{ row }">{{ row.position_name ?? '-' }}</template>
+          </el-table-column>
+          <el-table-column prop="req_no" label="需求编号" width="170" />
+          <el-table-column prop="stage" label="阶段" width="130" />
+          <el-table-column prop="app_status" label="状态" width="120" />
+          <el-table-column label="创建时间" width="180">
+            <template #default="{ row }">{{ formatDateTime(row.created_at) }}</template>
+          </el-table-column>
+        </el-table>
+        <el-pagination
+          v-model:current-page="appQuery.page"
+          v-model:page-size="appQuery.size"
+          :total="appTotal"
+          :page-sizes="[10, 20, 50]"
+          layout="total, sizes, prev, pager, next"
+          style="margin-top: 16px; justify-content: flex-end"
+          @change="loadApplications"
         />
-        <el-row :gutter="16">
+
+        <el-row :gutter="16" style="margin-top: 16px">
           <el-col :span="12">
             <el-card shadow="never" header="创建应聘">
               <el-form label-width="120px">
-                <el-form-item label="候选人 ID" required>
-                  <el-input v-model="appForm.candidate_id" />
+                <el-form-item label="候选人" required>
+                  <el-select v-model="appForm.candidate_id" filterable placeholder="选择候选人" style="width: 100%">
+                    <el-option v-for="c in candidateOptions" :key="String(c.id)" :label="c.name" :value="c.id" />
+                  </el-select>
                 </el-form-item>
-                <el-form-item label="招聘需求 ID" required>
-                  <el-input v-model="appForm.requisition_id" />
+                <el-form-item label="招聘需求" required>
+                  <el-select v-model="appForm.requisition_id" filterable placeholder="选择招聘需求" style="width: 100%">
+                    <el-option
+                      v-for="r in requisitionOptions"
+                      :key="String(r.id)"
+                      :label="`${r.req_no} · ${r.position_name}`"
+                      :value="r.id"
+                    />
+                  </el-select>
                 </el-form-item>
                 <el-form-item label="阶段">
-                  <el-input v-model="appForm.stage" placeholder="选填" />
+                  <el-input v-model="appForm.stage" placeholder="选填，默认 SCREENING" />
                 </el-form-item>
               </el-form>
               <el-alert v-if="appResult" :closable="false" :title="appResult" type="success" show-icon />
@@ -473,14 +622,33 @@ onMounted(async () => {
           <el-col :span="12">
             <el-card shadow="never" header="创建面试">
               <el-form label-width="120px">
-                <el-form-item label="应聘 ID" required>
-                  <el-input v-model="interviewForm.application_id" />
+                <el-form-item label="应聘记录" required>
+                  <el-select
+                    v-model="interviewForm.application_id"
+                    filterable
+                    placeholder="按候选人/岗位选择应聘记录"
+                    style="width: 100%"
+                  >
+                    <el-option
+                      v-for="a in applications"
+                      :key="String(a.id)"
+                      :label="`${a.candidate_name} · ${a.position_name ?? '未定岗位'} · ${a.stage}`"
+                      :value="a.id"
+                    />
+                  </el-select>
                 </el-form-item>
                 <el-form-item label="轮次">
                   <el-input-number v-model="interviewForm.round_no" :min="1" />
                 </el-form-item>
-                <el-form-item label="面试官 ID" required>
-                  <el-input v-model="interviewForm.interviewer_id" placeholder="必填：员工 ID，面试官凭此在门户查看面试" />
+                <el-form-item label="面试官" required>
+                  <el-select v-model="interviewForm.interviewer_id" filterable placeholder="选择面试官（员工）" style="width: 100%">
+                    <el-option
+                      v-for="e in employees"
+                      :key="String(e.id)"
+                      :label="`${e.name}（${e.emp_no}）`"
+                      :value="e.id"
+                    />
+                  </el-select>
                 </el-form-item>
                 <el-form-item label="面试时间" required>
                   <el-date-picker
@@ -512,8 +680,21 @@ onMounted(async () => {
 
         <el-card shadow="never" header="面试评价" style="margin-top: 16px">
           <el-form label-width="120px" inline>
-            <el-form-item label="面试 ID" required>
-              <el-input v-model="evaluateForm.id" style="width: 220px" />
+            <el-form-item label="面试" required>
+              <el-select
+                v-model="evaluateForm.id"
+                filterable
+                placeholder="选择面试记录"
+                style="width: 320px"
+                @change="chooseEvaluateTarget"
+              >
+                <el-option
+                  v-for="i in interviews"
+                  :key="String(i.id)"
+                  :label="`${i.candidate_name} · 第${i.round_no}轮 · ${i.int_status}`"
+                  :value="String(i.id)"
+                />
+              </el-select>
             </el-form-item>
             <el-form-item label="评分">
               <el-input-number v-model="evaluateForm.score" :min="0" :max="100" />
@@ -527,7 +708,7 @@ onMounted(async () => {
               <el-input-number v-model="evaluateForm.version" :min="0" />
             </el-form-item>
             <el-form-item label="评语">
-              <el-input v-model="evaluateForm.evaluation" style="width: 320px" />
+              <el-input v-model="evaluateForm.evaluation" style="width: 300px" />
             </el-form-item>
             <el-form-item>
               <el-button type="primary" :loading="evaluateSaving" @click="submitEvaluate">提交评价</el-button>
@@ -536,30 +717,78 @@ onMounted(async () => {
           <el-alert v-if="evaluateResult" :closable="false" :title="evaluateResult" type="success" show-icon />
         </el-card>
 
-        <el-divider content-position="left">我的面试</el-divider>
+        <el-divider content-position="left">面试记录</el-divider>
+        <div class="fl-toolbar" style="margin-bottom: 12px; display: flex; gap: 8px">
+          <el-select
+            v-model="interviewQuery.interviewerId"
+            clearable
+            filterable
+            placeholder="按面试官筛选"
+            style="width: 220px"
+            @change="interviewQuery.page = 1; loadInterviews()"
+          >
+            <el-option v-for="e in employees" :key="String(e.id)" :label="`${e.name}（${e.emp_no}）`" :value="e.id" />
+          </el-select>
+          <el-select
+            v-model="interviewQuery.intStatus"
+            clearable
+            placeholder="面试状态"
+            style="width: 150px"
+            @change="interviewQuery.page = 1; loadInterviews()"
+          >
+            <el-option v-for="opt in intStatusOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
+          </el-select>
+          <el-button :loading="interviewLoading" @click="loadInterviews">查询</el-button>
+        </div>
         <el-alert v-if="interviewError" type="error" :closable="false" show-icon :title="interviewError" style="margin-bottom: 12px" />
         <el-table :data="interviews" v-loading="interviewLoading" border stripe>
           <el-table-column prop="id" label="面试 ID" width="190" show-overflow-tooltip />
           <el-table-column prop="candidate_name" label="候选人" width="130" />
-          <el-table-column prop="position_name" label="岗位" min-width="150" />
+          <el-table-column prop="position_name" label="岗位" min-width="150">
+            <template #default="{ row }">{{ row.position_name ?? '-' }}</template>
+          </el-table-column>
           <el-table-column prop="round_no" label="轮次" width="80" />
+          <el-table-column label="面试官" width="150">
+            <template #default="{ row }">{{ row.interviewer_name ?? row.interviewer_id ?? '-' }}</template>
+          </el-table-column>
           <el-table-column label="面试时间" width="180">
             <template #default="{ row }">{{ formatDateTime(row.scheduled_at) }}</template>
           </el-table-column>
           <el-table-column prop="mode" label="形式" width="100" />
           <el-table-column prop="int_status" label="状态" width="110" />
+          <el-table-column label="结论" width="100">
+            <template #default="{ row }">{{ row.result ?? '-' }}</template>
+          </el-table-column>
         </el-table>
+        <el-pagination
+          v-model:current-page="interviewQuery.page"
+          v-model:page-size="interviewQuery.size"
+          :total="interviewTotal"
+          :page-sizes="[10, 20, 50]"
+          layout="total, sizes, prev, pager, next"
+          style="margin-top: 16px; justify-content: flex-end"
+          @change="loadInterviews"
+        />
       </el-tab-pane>
     </el-tabs>
 
     <el-dialog v-model="reqDialogVisible" title="新建招聘需求" width="620px">
       <el-alert v-if="reqFormError" type="error" :closable="false" show-icon :title="reqFormError" style="margin-bottom: 12px" />
       <el-form label-width="120px">
-        <el-form-item label="岗位 ID">
-          <el-input v-model="reqForm.position_id" />
+        <el-form-item label="岗位" required>
+          <el-select v-model="reqForm.position_id" filterable placeholder="选择岗位" style="width: 100%">
+            <el-option
+              v-for="p in positions"
+              :key="String(p.id)"
+              :label="`${p.position_name}（${p.position_code}）`"
+              :value="p.id"
+            />
+          </el-select>
         </el-form-item>
-        <el-form-item label="组织 ID">
-          <el-input v-model="reqForm.org_id" />
+        <el-form-item label="组织" required>
+          <el-select v-model="reqForm.org_id" filterable placeholder="选择组织" style="width: 100%">
+            <el-option v-for="o in flatOrgs" :key="String(o.id)" :label="o.org_name" :value="o.id" />
+          </el-select>
         </el-form-item>
         <el-form-item label="招聘人数">
           <el-input-number v-model="reqForm.headcount" :min="1" />
@@ -581,8 +810,10 @@ onMounted(async () => {
             <el-option label="替补" value="REPLACE" />
           </el-select>
         </el-form-item>
-        <el-form-item label="负责人 ID">
-          <el-input v-model="reqForm.owner_id" placeholder="选填" />
+        <el-form-item label="负责人">
+          <el-select v-model="reqForm.owner_id" filterable clearable placeholder="选填，默认当前登录人" style="width: 100%">
+            <el-option v-for="e in employees" :key="String(e.id)" :label="`${e.name}（${e.emp_no}）`" :value="e.id" />
+          </el-select>
         </el-form-item>
         <el-form-item label="期望到岗日期">
           <el-date-picker v-model="reqForm.expect_date" type="date" value-format="YYYY-MM-DD" style="width: 100%" />

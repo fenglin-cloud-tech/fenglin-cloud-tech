@@ -119,6 +119,33 @@ export interface TalentMyInterview {
   int_status: string
 }
 
+export interface TalentApplication {
+  id: TalentId
+  candidate_id: TalentId
+  candidate_name: string
+  requisition_id: TalentId
+  req_no: string
+  position_name?: string
+  stage: string
+  app_status: string
+  created_at?: string
+}
+
+export interface TalentInterview {
+  id: TalentId
+  application_id: TalentId
+  candidate_name: string
+  position_name?: string
+  round_no: number
+  interviewer_id?: TalentId
+  interviewer_name?: string
+  scheduled_at?: string
+  duration_min?: number
+  mode: string
+  int_status: string
+  result?: string
+}
+
 export interface TalentHeadcountReport {
   total: number
   by_status: Record<string, number>
@@ -653,8 +680,27 @@ export const talentApi = {
         body,
       )
     },
+    applications(params: {
+      candidateId?: TalentId
+      requisitionId?: TalentId
+      stage?: string
+      appStatus?: string
+      page?: number
+      size?: number
+    } = {}) {
+      return get<PageResult<TalentApplication>>('/api/talent/v1/recruit/applications', params)
+    },
     createApplication(body: { candidate_id: TalentId; requisition_id: TalentId; stage?: string }) {
       return post<{ id: TalentId; app_status: string }>('/api/talent/v1/recruit/applications', body)
+    },
+    interviews(params: {
+      applicationId?: TalentId
+      interviewerId?: TalentId
+      intStatus?: string
+      page?: number
+      size?: number
+    } = {}) {
+      return get<PageResult<TalentInterview>>('/api/talent/v1/recruit/interviews', params)
     },
     createInterview(body: {
       application_id: TalentId
@@ -772,6 +818,10 @@ export const talentApi = {
     },
     my(params: { month?: string } = {}) {
       return get<TalentAttendanceSummary>('/api/talent/v1/attendance/my', params)
+    },
+    /** 员工自助：本人考勤明细，服务端按登录用户收敛，不接受 employee_id 参数。 */
+    myRecords(params: { from?: string; to?: string; status?: string; page?: number; size?: number } = {}) {
+      return get<PageResult<TalentAttendanceRecord>>('/api/talent/v1/attendance/my/records', params)
     },
   },
 

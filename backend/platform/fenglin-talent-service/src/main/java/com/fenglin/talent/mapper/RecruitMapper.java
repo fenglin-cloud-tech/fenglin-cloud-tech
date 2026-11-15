@@ -227,6 +227,42 @@ public interface RecruitMapper {
             """)
     Map<String, Object> findApplication(@Param("tenantId") long tenantId, @Param("id") long id);
 
+    @Select("""
+            SELECT a.id AS "id", a.candidate_id AS "candidateId", c.name AS "candidateName",
+                   a.requisition_id AS "requisitionId", r.req_no AS "reqNo", p.position_name AS "positionName",
+                   a.stage AS "stage", a.app_status AS "appStatus",
+                   extract(epoch FROM a.created_at) * 1000 AS "createdAt"
+            FROM talent_application a
+            JOIN talent_candidate c ON c.id = a.candidate_id AND c.tenant_id = a.tenant_id AND c.deleted = 0
+            JOIN talent_recruit_requisition r ON r.id = a.requisition_id AND r.tenant_id = a.tenant_id
+                 AND r.deleted = 0
+            LEFT JOIN talent_position p ON p.id = r.position_id AND p.tenant_id = r.tenant_id
+            WHERE a.tenant_id = #{tenantId} AND a.deleted = 0
+              AND (#{candidateId,jdbcType=BIGINT} IS NULL OR a.candidate_id = #{candidateId})
+              AND (#{requisitionId,jdbcType=BIGINT} IS NULL OR a.requisition_id = #{requisitionId})
+              AND (CAST(#{stage,jdbcType=VARCHAR} AS text) IS NULL OR a.stage = #{stage})
+              AND (CAST(#{appStatus,jdbcType=VARCHAR} AS text) IS NULL OR a.app_status = #{appStatus})
+            ORDER BY a.created_at DESC
+            LIMIT #{limit} OFFSET #{offset}
+            """)
+    List<Map<String, Object>> listApplications(@Param("tenantId") long tenantId,
+                                               @Param("candidateId") Long candidateId,
+                                               @Param("requisitionId") Long requisitionId,
+                                               @Param("stage") String stage, @Param("appStatus") String appStatus,
+                                               @Param("limit") int limit, @Param("offset") int offset);
+
+    @Select("""
+            SELECT count(1) FROM talent_application a
+            WHERE a.tenant_id = #{tenantId} AND a.deleted = 0
+              AND (#{candidateId,jdbcType=BIGINT} IS NULL OR a.candidate_id = #{candidateId})
+              AND (#{requisitionId,jdbcType=BIGINT} IS NULL OR a.requisition_id = #{requisitionId})
+              AND (CAST(#{stage,jdbcType=VARCHAR} AS text) IS NULL OR a.stage = #{stage})
+              AND (CAST(#{appStatus,jdbcType=VARCHAR} AS text) IS NULL OR a.app_status = #{appStatus})
+            """)
+    long countApplications(@Param("tenantId") long tenantId, @Param("candidateId") Long candidateId,
+                           @Param("requisitionId") Long requisitionId, @Param("stage") String stage,
+                           @Param("appStatus") String appStatus);
+
     @Update("""
             UPDATE talent_application
             SET stage = #{stage}, updated_by = #{userId}, version = version + 1
@@ -294,6 +330,42 @@ public interface RecruitMapper {
             """)
     List<Map<String, Object>> listMyInterviews(@Param("tenantId") long tenantId,
                                                @Param("interviewerId") long interviewerId);
+
+    @Select("""
+            SELECT i.id AS "id", i.application_id AS "applicationId", c.name AS "candidateName",
+                   p.position_name AS "positionName", i.round_no AS "roundNo", i.interviewer_id AS "interviewerId",
+                   e.name AS "interviewerName", extract(epoch FROM i.scheduled_at) * 1000 AS "scheduledAt",
+                   i.duration_min AS "durationMin", i.mode AS "mode", i.int_status AS "intStatus",
+                   i.result AS "result"
+            FROM talent_interview i
+            JOIN talent_application a ON a.id = i.application_id AND a.tenant_id = i.tenant_id AND a.deleted = 0
+            JOIN talent_candidate c ON c.id = a.candidate_id AND c.tenant_id = a.tenant_id AND c.deleted = 0
+            JOIN talent_recruit_requisition r ON r.id = a.requisition_id AND r.tenant_id = a.tenant_id
+                 AND r.deleted = 0
+            LEFT JOIN talent_position p ON p.id = r.position_id AND p.tenant_id = r.tenant_id
+            LEFT JOIN talent_employee e ON e.id = i.interviewer_id AND e.tenant_id = i.tenant_id
+            WHERE i.tenant_id = #{tenantId} AND i.deleted = 0
+              AND (#{applicationId,jdbcType=BIGINT} IS NULL OR i.application_id = #{applicationId})
+              AND (#{interviewerId,jdbcType=BIGINT} IS NULL OR i.interviewer_id = #{interviewerId})
+              AND (CAST(#{intStatus,jdbcType=VARCHAR} AS text) IS NULL OR i.int_status = #{intStatus})
+            ORDER BY i.scheduled_at DESC NULLS LAST, i.created_at DESC
+            LIMIT #{limit} OFFSET #{offset}
+            """)
+    List<Map<String, Object>> listInterviews(@Param("tenantId") long tenantId,
+                                             @Param("applicationId") Long applicationId,
+                                             @Param("interviewerId") Long interviewerId,
+                                             @Param("intStatus") String intStatus,
+                                             @Param("limit") int limit, @Param("offset") int offset);
+
+    @Select("""
+            SELECT count(1) FROM talent_interview i
+            WHERE i.tenant_id = #{tenantId} AND i.deleted = 0
+              AND (#{applicationId,jdbcType=BIGINT} IS NULL OR i.application_id = #{applicationId})
+              AND (#{interviewerId,jdbcType=BIGINT} IS NULL OR i.interviewer_id = #{interviewerId})
+              AND (CAST(#{intStatus,jdbcType=VARCHAR} AS text) IS NULL OR i.int_status = #{intStatus})
+            """)
+    long countInterviews(@Param("tenantId") long tenantId, @Param("applicationId") Long applicationId,
+                         @Param("interviewerId") Long interviewerId, @Param("intStatus") String intStatus);
 
     // ---------- Offer ----------
 
