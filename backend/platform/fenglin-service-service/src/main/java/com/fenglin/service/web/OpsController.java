@@ -3,6 +3,7 @@ package com.fenglin.service.web;
 import com.fenglin.common.core.ApiResponse;
 import com.fenglin.common.core.PageResult;
 import com.fenglin.common.security.PermissionGuard;
+import com.fenglin.service.service.MiningCollectorService;
 import com.fenglin.service.service.MiningService;
 import com.fenglin.service.service.RpaService;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -38,10 +39,13 @@ public class OpsController {
     private static final String TASK = "service:rpa:task:manage";
 
     private final MiningService miningService;
+    private final MiningCollectorService collectorService;
     private final RpaService rpaService;
 
-    public OpsController(MiningService miningService, RpaService rpaService) {
+    public OpsController(MiningService miningService, MiningCollectorService collectorService,
+                         RpaService rpaService) {
         this.miningService = miningService;
+        this.collectorService = collectorService;
         this.rpaService = rpaService;
     }
 
@@ -52,6 +56,38 @@ public class OpsController {
             @RequestBody Map<String, Object> body) {
         PermissionGuard.require(permissions, MINING_INGEST);
         return ApiResponse.success(miningService.importEvents(body));
+    }
+
+    // ---------- 采集器配置与执行 ----------
+    @GetMapping("/mining/collectors")
+    public ApiResponse<List<Map<String, Object>>> collectors(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions) {
+        PermissionGuard.require(permissions, MINING_VIEW);
+        return ApiResponse.success(collectorService.list());
+    }
+
+    @PutMapping("/mining/collectors/{code}")
+    public ApiResponse<Map<String, Object>> saveCollector(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("code") String code,
+            @RequestBody Map<String, Object> body) {
+        PermissionGuard.require(permissions, MINING_INGEST);
+        return ApiResponse.success(collectorService.save(code, body));
+    }
+
+    @PostMapping("/mining/collectors/{code}/run")
+    public ApiResponse<Map<String, Object>> runCollector(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("code") String code) {
+        PermissionGuard.require(permissions, MINING_INGEST);
+        return ApiResponse.success(collectorService.run(code));
+    }
+
+    @PostMapping("/mining/collectors/run-due")
+    public ApiResponse<Map<String, Object>> runDueCollectors(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions) {
+        PermissionGuard.require(permissions, MINING_INGEST);
+        return ApiResponse.success(collectorService.runDue());
     }
 
     @PostMapping("/mining/models/discover")

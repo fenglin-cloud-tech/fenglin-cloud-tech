@@ -29,10 +29,27 @@ const error = ref('')
 const formError = ref('')
 
 const gapItems = [
-  '配置以 config_json 整段存储，支持对象或数组；字段级强类型校验需先定义各配置项 schema，尚未做。',
+  '已做字段级强类型校验（保守口径）：只校验 7 类配置能从页面语义确定的字段，未知键原样保留、未知结构放行，存量配置零误拒。',
+  '保存前可先点“存量校验”跑只读 dry-run；拒绝条数必须为 0 再继续改配置。',
   'GET /admin/config/{type} 仅要求 tenant:service:config:view，PUT/DELETE 分别要求 desk/asset/rpa/report 配置权限。',
   '支持删除单个配置键（默认 default），删除后该类型回落到内置默认值。',
 ]
+
+async function dryRun() {
+  try {
+    const result = await serviceApi.admin.configDryRun()
+    const items = (result.items ?? []) as ServiceRecord[]
+    const rejected = items.filter((item) => Array.isArray(item.errors) && item.errors.length)
+    await ElMessageBox.alert(
+      `配置类型 ${result.config_types} 类，记录 ${result.records} 条，拒绝 ${result.rejected} 条` +
+        (rejected.length ? `；${rejected.map((item) => `${item.config_type}/${item.config_key}: ${(item.errors as string[]).join('、')}`).join('；')}` : ''),
+      '存量配置 dry-run',
+      { type: result.rejected ? 'warning' : 'success' },
+    )
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  }
+}
 
 function currentTab() {
   return tabs.find((item) => item.key === active.value)!
@@ -109,6 +126,7 @@ onMounted(load)
       description="工单类型、处理组、值班、分派、资产提醒、RPA 重试与服务报表配置；数据来自 /api/service/v1/admin/config。"
     >
       <template #actions>
+        <el-button @click="dryRun">存量校验</el-button>
         <el-button :loading="loading" @click="load">重新加载</el-button>
         <el-button :disabled="!auth.can(currentTab().perm) || !rows.length" plain type="danger" @click="removeConfig">删除</el-button>
         <el-button :disabled="!auth.can(currentTab().perm)" type="primary" :loading="saving" @click="save">保存</el-button>

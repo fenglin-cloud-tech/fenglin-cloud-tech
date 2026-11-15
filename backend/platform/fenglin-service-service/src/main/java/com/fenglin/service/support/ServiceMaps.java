@@ -57,6 +57,18 @@ public final class ServiceMaps {
         return MAPPER.valueToTree(value);
     }
 
+    /** 读取 JSON 文本为 Map/List/标量；非法 JSON 返回 null。 */
+    public static Object read(String text) {
+        if (text == null || text.isBlank()) {
+            return null;
+        }
+        try {
+            return MAPPER.readValue(text, Object.class);
+        } catch (Exception ex) {
+            return null;
+        }
+    }
+
     public static String json(Object value) {
         try {
             return MAPPER.writeValueAsString(value == null ? Map.of() : value);

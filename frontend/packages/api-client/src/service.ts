@@ -314,8 +314,23 @@ export const serviceApi = {
     deleteConfig(kind: ConfigKind, configKey = 'default') {
       return del<ServiceRecord>(`${BASE}/admin/config/${kind}/${configKey}`)
     },
+    configDryRun() {
+      return get<ServiceRecord>(`${BASE}/admin/config/validation/dry-run`)
+    },
   },
   mining: {
+    collectors() {
+      return get<ServiceRecord[]>(`${BASE}/mining/collectors`)
+    },
+    saveCollector(code: string, body: ServiceRecord) {
+      return put<ServiceRecord>(`${BASE}/mining/collectors/${code}`, body)
+    },
+    runCollector(code: string) {
+      return post<ServiceRecord>(`${BASE}/mining/collectors/${code}/run`)
+    },
+    runDueCollectors() {
+      return post<ServiceRecord>(`${BASE}/mining/collectors/run-due`)
+    },
     importEvents(events: ServiceRecord[]) {
       return post<ServiceRecord>(`${BASE}/mining/events`, { events })
     },

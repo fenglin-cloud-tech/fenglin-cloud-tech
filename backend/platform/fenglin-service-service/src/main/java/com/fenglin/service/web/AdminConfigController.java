@@ -96,6 +96,16 @@ public class AdminConfigController {
         return ApiResponse.success(adminConfigService.save("SERVICE_REPORT", "default", body));
     }
 
+    /**
+     * 存量配置字段级校验 dry-run（只读），上线前要求 rejected = 0。
+     */
+    @GetMapping("/config/validation/dry-run")
+    public ApiResponse<Map<String, Object>> configDryRun(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions) {
+        PermissionGuard.require(permissions, CONFIG_VIEW);
+        return ApiResponse.success(adminConfigService.dryRun());
+    }
+
     @GetMapping("/config/{configType}")
     public ApiResponse<List<Map<String, Object>>> configs(
             @RequestHeader(value = "X-Permissions", required = false) String permissions,

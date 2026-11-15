@@ -1,0 +1,1 @@
+{"code":"0","message":"OK","data":{"config_types":8,"records":1,"rejected":1,"items":[{"config_type":"TICKET_TYPE","config_key":"default","errors":["$[0].name 应为 字符串"]}]},"request_id":"b24a6e17-2a8a-4041-b1ec-9067199bad62","timestamp":"2026-11-15T13:50:07.518463500Z"}

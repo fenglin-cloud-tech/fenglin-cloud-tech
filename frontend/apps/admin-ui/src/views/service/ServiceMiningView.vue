@@ -25,9 +25,17 @@ const discoverForm = reactive({ name: '', result_type: 'PROCESS', source_system:
 const eventVisible = ref(false)
 const eventText = ref('[]')
 
+const collectors = ref<ServiceRecord[]>([])
+const collectorLoading = ref(false)
+const collectorVisible = ref(false)
+const collectorSaving = ref(false)
+const collectorForm = reactive({ code: '', json: '{}' })
+
 const gapItems = [
-  '流程挖掘依赖 svc_mining_event_log 已有事件；没有事件时发现模型返回空结果，本页不造数据。',
-  '事件写入接口 /mining/events 接受事件数组，字段需与埋点约定一致（case_id/activity/timestamp/resource）。',
+  '采集链路已可配置：采集源清单/频率/字段映射存 svc_tenant_config（MINING_COLLECTOR），支持按源立即执行与按到期批量执行。',
+  '首批采集哪些系统、按什么频率、字段如何映射，属产品确认项，本页不预置任何产品假设。',
+  '定时触发需平台调度按租户调用 /mining/collectors/run-due；当前由管理员在本页手动触发。',
+  '事件字段约定：case_id/activity 必填，其余 activity_code/event_time/resource/lifecycle/source_system/attributes 可选。',
   '候选自动化转 RPA 会创建自动化草稿，需在 RPA 页继续发布。',
 ]
 
@@ -131,12 +139,89 @@ async function ingestEvents() {
   }
 }
 
+async function loadCollectors() {
+  collectorLoading.value = true
+  try {
+    collectors.value = await serviceApi.mining.collectors()
+  } catch (err) {
+    console.warn('collectors failed', err)
+    collectors.value = []
+  } finally {
+    collectorLoading.value = false
+  }
+}
+
+function editCollector(row?: ServiceRecord) {
+  collectorForm.code = String(row?.code ?? '')
+  collectorForm.json = row ? JSON.stringify(row, null, 2) : JSON.stringify({
+    code: '',
+    name: '',
+    type: 'HTTP_JSON',
+    url: 'http://',
+    method: 'GET',
+    interval_minutes: 15,
+    enabled: false,
+    list_path: 'data.records',
+    field_mapping: { case_id: 'caseId', activity: 'activityName' },
+  }, null, 2)
+  collectorVisible.value = true
+}
+
+async function saveCollector() {
+  let body: ServiceRecord
+  try {
+    body = JSON.parse(collectorForm.json) as ServiceRecord
+  } catch {
+    ElMessage.error('采集器 JSON 不合法')
+    return
+  }
+  const code = (collectorForm.code || String(body.code ?? '')).trim()
+  if (!code) {
+    ElMessage.warning('采集源 code 不能为空')
+    return
+  }
+  collectorSaving.value = true
+  try {
+    await serviceApi.mining.saveCollector(code, body)
+    ElMessage.success('采集器已保存')
+    collectorVisible.value = false
+    await loadCollectors()
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  } finally {
+    collectorSaving.value = false
+  }
+}
+
+async function runCollector(row: ServiceRecord) {
+  try {
+    const result = await serviceApi.mining.runCollector(String(row.code))
+    ElMessage.success(`采集完成：拉取 ${result.fetched ?? 0}，入库 ${result.inserted ?? 0}`)
+    await loadCollectors()
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  }
+}
+
+async function runDueCollectors() {
+  try {
+    const result = await serviceApi.mining.runDueCollectors()
+    ElMessage.success(`到期采集源 ${result.due_sources ?? 0} 个已执行`)
+    await loadCollectors()
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  }
+}
+
 function changePage(next: number) {
   page.value = next
   load()
 }
 
-onMounted(load)
+onMounted(() => {
+  load()
+  loadCollectors()
+})
 </script>
 
 <template>
@@ -155,6 +240,59 @@ onMounted(load)
 
     <el-alert v-if="error" type="error" :closable="false" show-icon :title="error" style="margin-bottom: 12px" />
     <GapNotice :items="gapItems" />
+
+    <el-card shadow="never" style="margin-bottom: 12px">
+      <template #header>
+        <div style="display: flex; align-items: center; justify-content: space-between">
+          <span>采集器配置</span>
+          <div>
+            <el-button v-perm="'service:mining:log:ingest'" size="small" @click="runDueCollectors">执行到期采集</el-button>
+            <el-button v-perm="'service:mining:log:ingest'" size="small" type="primary" @click="editCollector()">新增采集源</el-button>
+            <el-button size="small" :loading="collectorLoading" @click="loadCollectors">刷新</el-button>
+          </div>
+        </div>
+      </template>
+      <el-table :data="collectors" v-loading="collectorLoading" border stripe size="small">
+        <el-table-column prop="code" label="采集源" width="140" />
+        <el-table-column prop="name" label="名称" min-width="140" />
+        <el-table-column prop="url" label="地址" min-width="220" show-overflow-tooltip />
+        <el-table-column label="频率(分钟)" width="100">
+          <template #default="{ row }">{{ row.interval_minutes ?? row.intervalMinutes ?? '-' }}</template>
+        </el-table-column>
+        <el-table-column label="启用" width="70">
+          <template #default="{ row }">
+            <el-tag :type="row.enabled ? 'success' : 'info'" size="small">{{ row.enabled ? '是' : '否' }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="last_status" label="上次状态" width="100" />
+        <el-table-column prop="last_run_at" label="上次执行" width="180" />
+        <el-table-column label="操作" width="170" fixed="right">
+          <template #default="{ row }">
+            <el-button link type="primary" v-perm="'service:mining:log:ingest'" @click="runCollector(row)">立即执行</el-button>
+            <el-button link v-perm="'service:mining:log:ingest'" @click="editCollector(row)">编辑</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-card>
+
+    <el-dialog v-model="collectorVisible" title="采集器配置" width="640px">
+      <el-form label-width="90px">
+        <el-form-item label="采集源 code">
+          <el-input v-model="collectorForm.code" placeholder="唯一标识，如 itsm-prod" />
+        </el-form-item>
+        <el-form-item label="配置 JSON">
+          <el-input v-model="collectorForm.json" type="textarea" :rows="16" spellcheck="false" />
+        </el-form-item>
+      </el-form>
+      <div style="color: var(--el-text-color-secondary); font-size: 12px; line-height: 1.6">
+        必填：type=HTTP_JSON、url（http/https）、field_mapping.case_id、field_mapping.activity；
+        可选：method/headers/body/list_path/interval_minutes/enabled/timeout_ms。未知键原样保留。
+      </div>
+      <template #footer>
+        <el-button @click="collectorVisible = false">取消</el-button>
+        <el-button type="primary" :loading="collectorSaving" @click="saveCollector">保存</el-button>
+      </template>
+    </el-dialog>
 
     <el-row :gutter="12">
       <el-col :span="9">
