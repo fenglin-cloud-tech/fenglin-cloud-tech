@@ -154,6 +154,19 @@ public class VoucherService {
         return new VoucherActionResult(id, Rows.str(voucher, "voucherNo"), "AUDITED", null, null);
     }
 
+    /** 反审核：仅已审核（AUDITED）可退回待审核，清空审核人与审核时间；已记账必须先冲销。 */
+    @Transactional
+    public VoucherActionResult unaudit(long id) {
+        long tenantId = FinanceContext.tenantId();
+        Map<String, Object> voucher = requireVoucher(tenantId, id);
+        if (voucherMapper.markUnaudited(tenantId, id) == 0) {
+            throw new BizException(FinanceErrorCode.STATE_CONFLICT);
+        }
+        chain.append(tenantId, id, "UNAUDITED", FinanceContext.userId(), Rows.str(voucher, "voucherNo"));
+        audit.publish("fin_voucher.unaudited", "UNAUDIT", "fin_voucher", id, "MEDIUM");
+        return new VoucherActionResult(id, Rows.str(voucher, "voucherNo"), "SUBMITTED", null, null);
+    }
+
     @Transactional
     public VoucherActionResult post(long id) {
         long tenantId = FinanceContext.tenantId();

@@ -3,12 +3,14 @@ import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { GapNotice, PageHeader } from '@fenglin/ui-admin'
 import {
+  fileApi,
   financeApi,
   type FinanceBudget,
   type FinanceBudgetAdjustment,
   type FinanceBudgetControlResult,
   type FinanceExpense,
   type FinanceInvoice,
+  type FinanceVoucherAttachment,
 } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 
@@ -63,6 +65,12 @@ const invoiceForm = reactive({
   invoice_date: new Date().toISOString().slice(0, 10),
 })
 
+const invoiceAttachmentVisible = ref(false)
+const invoiceAttachmentLoading = ref(false)
+const invoiceAttachmentUploading = ref(false)
+const invoiceAttachmentTarget = ref<FinanceInvoice | null>(null)
+const invoiceAttachments = ref<FinanceVoucherAttachment[]>([])
+
 const adjustVisible = ref(false)
 const adjustError = ref('')
 const adjustSaving = ref(false)
@@ -110,7 +118,7 @@ const adjustmentTypeLabels: Record<string, string> = {
 
 const gapItems = [
   '报销单列表只支持状态过滤，没有按申请人/部门/项目过滤参数；员工端只能按 applicant_id 在前端过滤本人单据。',
-  '发票查验只做内部状态流转，未接入税务/第三方查验服务；附件上传接口也不在本服务内。',
+  '发票查验为系统内部一致性校验（必填、金额、同租户代码+号码唯一），未接入税务/第三方查验服务。',
 ]
 
 function money(value?: string | number | null) {
@@ -374,11 +382,80 @@ async function submitInvoice() {
 async function verifyInvoice(row: FinanceInvoice) {
   try {
     const updated = await financeApi.expenses.verifyInvoice(row.id)
-    ElMessage.success(`发票 ${updated.invoice_number} 查验状态 ${invoiceStatusLabel(updated.verify_status)}`)
+    ElMessage.success(`发票 ${updated.invoice_number} 查验结果：${invoiceStatusLabel(updated.verify_status)}`)
     await loadInvoices()
   } catch (err) {
     ElMessage.error(describeError(err))
   }
+}
+
+async function openInvoiceAttachments(row: FinanceInvoice) {
+  invoiceAttachmentTarget.value = row
+  invoiceAttachmentVisible.value = true
+  invoiceAttachmentLoading.value = true
+  invoiceAttachments.value = []
+  try {
+    invoiceAttachments.value = await financeApi.expenses.invoiceAttachments(row.id)
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  } finally {
+    invoiceAttachmentLoading.value = false
+  }
+}
+
+async function uploadInvoiceAttachment(file: { raw?: File }) {
+  if (!invoiceAttachmentTarget.value || !file.raw || invoiceAttachmentUploading.value) return
+  invoiceAttachmentUploading.value = true
+  try {
+    const uploaded = await fileApi.upload(file.raw, {
+      biz_type: 'FINANCE_INVOICE',
+      biz_id: invoiceAttachmentTarget.value.id,
+    })
+    invoiceAttachments.value = await financeApi.expenses.addInvoiceAttachment(invoiceAttachmentTarget.value.id, {
+      file_id: uploaded.file_id,
+      file_name: file.raw.name,
+      file_size: file.raw.size,
+    })
+    ElMessage.success('发票附件已上传')
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  } finally {
+    invoiceAttachmentUploading.value = false
+  }
+}
+
+async function removeInvoiceAttachment(row: FinanceVoucherAttachment) {
+  if (!invoiceAttachmentTarget.value) return
+  try {
+    await ElMessageBox.confirm(`确认删除附件 ${row.file_name || row.file_id}？`, '删除附件', { type: 'warning' })
+  } catch {
+    return
+  }
+  try {
+    invoiceAttachments.value = await financeApi.expenses.deleteInvoiceAttachment(
+      invoiceAttachmentTarget.value.id,
+      row.id,
+    )
+    ElMessage.success('发票附件已删除')
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  }
+}
+
+async function downloadInvoiceAttachment(row: FinanceVoucherAttachment) {
+  try {
+    const result = await fileApi.download(row.file_id)
+    window.open(result.download_url, '_blank', 'noopener')
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  }
+}
+
+function formatFileSize(size?: number | null) {
+  if (size === undefined || size === null) return '-'
+  if (size < 1024) return `${size} B`
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`
+  return `${(size / 1024 / 1024).toFixed(1)} MB`
 }
 
 function changeTab(name: string | number) {
@@ -485,9 +562,10 @@ onMounted(async () => {
             <el-table-column label="查验" width="100">
               <template #default="{ row }">{{ invoiceStatusLabel(row.verify_status) }}</template>
             </el-table-column>
-            <el-table-column label="操作" width="100" fixed="right">
+            <el-table-column label="操作" width="160" fixed="right">
               <template #default="{ row }">
                 <el-button v-perm="'biz:finance:invoice:manage'" link type="primary" @click="verifyInvoice(row)">查验</el-button>
+                <el-button v-perm="'biz:finance:invoice:manage'" link @click="openInvoiceAttachments(row)">附件</el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -579,6 +657,32 @@ onMounted(async () => {
       <template #footer>
         <el-button @click="checkVisible = false">关闭</el-button>
         <el-button type="primary" @click="runControlCheck">校验</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="invoiceAttachmentVisible" title="发票附件" width="680px">
+      <div class="fl-toolbar" style="margin-bottom: 10px">
+        <span class="fl-muted">
+          发票 {{ invoiceAttachmentTarget?.invoice_code || '-' }} / {{ invoiceAttachmentTarget?.invoice_number || '-' }}
+        </span>
+        <el-upload :auto-upload="false" :show-file-list="false" :on-change="uploadInvoiceAttachment">
+          <el-button size="small" plain :loading="invoiceAttachmentUploading">上传附件</el-button>
+        </el-upload>
+      </div>
+      <el-table :data="invoiceAttachments" v-loading="invoiceAttachmentLoading" border size="small" empty-text="暂无附件">
+        <el-table-column prop="file_name" label="文件名" min-width="200" show-overflow-tooltip />
+        <el-table-column label="大小" width="110">
+          <template #default="{ row }">{{ formatFileSize(row.file_size) }}</template>
+        </el-table-column>
+        <el-table-column label="操作" width="130">
+          <template #default="{ row }">
+            <el-button link type="primary" @click="downloadInvoiceAttachment(row)">下载</el-button>
+            <el-button link type="danger" @click="removeInvoiceAttachment(row)">删除</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+      <template #footer>
+        <el-button @click="invoiceAttachmentVisible = false">关闭</el-button>
       </template>
     </el-dialog>
 

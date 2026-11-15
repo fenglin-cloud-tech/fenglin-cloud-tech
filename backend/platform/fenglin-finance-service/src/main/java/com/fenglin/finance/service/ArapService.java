@@ -21,6 +21,8 @@ import java.util.Map;
 
 import com.fenglin.finance.web.dto.FinanceDtos.AgingLine;
 import com.fenglin.finance.web.dto.FinanceDtos.AgingReport;
+import com.fenglin.finance.web.dto.FinanceDtos.CollectionTaskCreateRequest;
+import com.fenglin.finance.web.dto.FinanceDtos.CollectionTaskView;
 import com.fenglin.finance.web.dto.FinanceDtos.PayableView;
 import com.fenglin.finance.web.dto.FinanceDtos.PaymentCreateRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.PaymentView;
@@ -242,6 +244,93 @@ public class ArapService {
             lines.add(new AgingLine(Rows.str(row, "partyName"), Rows.str(row, "bucket"), amount));
         }
         return new AgingReport(receivable ? "AR" : "AP", lines, FinanceContext.amount(total));
+    }
+
+    public List<CollectionTaskView> listCollectionTasks(String status, Long receivableId, int limit,
+                                                        int offset) {
+        long tenantId = FinanceContext.tenantId();
+        List<CollectionTaskView> views = new ArrayList<>();
+        for (Map<String, Object> row : arapMapper.listCollectionTasks(tenantId, status, receivableId,
+                limit, offset)) {
+            views.add(collectionTaskView(row));
+        }
+        return views;
+    }
+
+    /** 按应收单发起催收任务：逾期天数按应收到期日与今天计算，金额取未收余额。 */
+    @Transactional
+    public CollectionTaskView createCollectionTask(CollectionTaskCreateRequest request) {
+        long tenantId = FinanceContext.tenantId();
+        if (request == null || request.receivableId() == null) {
+            throw new BizException(FinanceErrorCode.PARAM_INVALID);
+        }
+        Map<String, Object> receivable = arapMapper.findReceivable(tenantId, request.receivableId());
+        if (receivable == null) {
+            throw new BizException(FinanceErrorCode.RESOURCE_NOT_FOUND);
+        }
+        BigDecimal outstanding = Rows.dec(receivable, "outstanding");
+        if (outstanding.signum() <= 0) {
+            throw new BizException(FinanceErrorCode.STATE_CONFLICT);
+        }
+        String taskType = request.taskType() == null || request.taskType().isBlank()
+                ? "REMINDER" : request.taskType();
+        if (!List.of("REMINDER", "LETTER", "PHONE", "VISIT", "LEGAL").contains(taskType)) {
+            throw new BizException(FinanceErrorCode.PARAM_INVALID);
+        }
+        String dueDateText = Rows.str(receivable, "dueDate");
+        LocalDate dueDate = request.dueDate() != null ? request.dueDate()
+                : (dueDateText == null ? null : LocalDate.parse(dueDateText));
+        int overdueDays = 0;
+        if (dueDateText != null) {
+            LocalDate receivableDue = LocalDate.parse(dueDateText);
+            long days = java.time.temporal.ChronoUnit.DAYS.between(receivableDue, LocalDate.now());
+            overdueDays = days > 0 ? (int) days : 0;
+        }
+        long id = IdWorker.getId();
+        arapMapper.insertCollectionTask(id, tenantId, "CT-" + id, request.receivableId(),
+                Rows.str(receivable, "arNo"), Rows.lng(receivable, "customerId"),
+                Rows.str(receivable, "customerName"), outstanding, overdueDays, taskType,
+                request.assigneeId(), dueDate, request.remark(), FinanceContext.userId());
+        audit.publish("fin_collection_task.created", "CREATE", "fin_collection_task", id, "MEDIUM");
+        return collectionTaskView(arapMapper.findCollectionTask(tenantId, id));
+    }
+
+    @Transactional
+    public CollectionTaskView completeCollectionTask(long id, String remark) {
+        long tenantId = FinanceContext.tenantId();
+        requireCollectionTask(tenantId, id);
+        if (arapMapper.completeCollectionTask(tenantId, id, remark, FinanceContext.userId()) == 0) {
+            throw new BizException(FinanceErrorCode.STATE_CONFLICT);
+        }
+        audit.publish("fin_collection_task.completed", "COMPLETE", "fin_collection_task", id, "MEDIUM");
+        return collectionTaskView(arapMapper.findCollectionTask(tenantId, id));
+    }
+
+    @Transactional
+    public CollectionTaskView cancelCollectionTask(long id) {
+        long tenantId = FinanceContext.tenantId();
+        requireCollectionTask(tenantId, id);
+        if (arapMapper.cancelCollectionTask(tenantId, id, FinanceContext.userId()) == 0) {
+            throw new BizException(FinanceErrorCode.STATE_CONFLICT);
+        }
+        audit.publish("fin_collection_task.cancelled", "CANCEL", "fin_collection_task", id, "MEDIUM");
+        return collectionTaskView(arapMapper.findCollectionTask(tenantId, id));
+    }
+
+    private void requireCollectionTask(long tenantId, long id) {
+        if (arapMapper.findCollectionTask(tenantId, id) == null) {
+            throw new BizException(FinanceErrorCode.RESOURCE_NOT_FOUND);
+        }
+    }
+
+    private static CollectionTaskView collectionTaskView(Map<String, Object> row) {
+        return new CollectionTaskView(Rows.lngVal(row, "id"), Rows.str(row, "taskNo"),
+                Rows.lngVal(row, "receivableId"), Rows.str(row, "arNo"), Rows.lng(row, "customerId"),
+                Rows.str(row, "customerName"), Rows.dec(row, "outstandingAmount"),
+                Rows.intVal(row, "overdueDays"), Rows.str(row, "taskType"), Rows.lng(row, "assigneeId"),
+                Rows.str(row, "dueDate"), Rows.str(row, "status"), Rows.str(row, "remark"),
+                Rows.instant(row, "completedAt"), Rows.lng(row, "completedBy"),
+                Rows.instant(row, "createdAt"));
     }
 
     private List<WriteOffResult> allocateReceivables(long tenantId, List<Long> ids, BigDecimal amount,

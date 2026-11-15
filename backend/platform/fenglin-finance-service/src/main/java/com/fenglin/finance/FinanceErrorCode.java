@@ -24,6 +24,7 @@ public enum FinanceErrorCode implements ErrorCode {
     HASH_CHAIN_BROKEN("4001009", "凭证哈希链校验失败", 409),
     CLOSE_CHECK_FAILED("4001010", "结账校验未通过", 409),
     SUBJECT_NOT_LEAF("4001011", "科目非末级，不能记账", 400),
+    INVOICE_DUPLICATED("4001012", "发票代码与号码已存在", 409),
 
     PROJECT_STATE_INVALID("4002001", "项目状态不允许该操作", 409),
     TIMESHEET_HOURS_EXCEEDED("4002002", "单日工时超过 24 小时", 400),

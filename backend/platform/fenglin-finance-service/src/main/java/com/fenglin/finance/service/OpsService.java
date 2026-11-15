@@ -7,6 +7,7 @@ import com.fenglin.common.core.BizException;
 import com.fenglin.finance.FinanceErrorCode;
 import com.fenglin.finance.mapper.ExpenseMapper;
 import com.fenglin.finance.mapper.OpsMapper;
+import com.fenglin.finance.mapper.VoucherMapper;
 import com.fenglin.finance.support.FinanceAudit;
 import com.fenglin.finance.support.FinanceContext;
 import com.fenglin.finance.support.Rows;
@@ -20,6 +21,8 @@ import com.fenglin.finance.web.dto.FinanceDtos.InvoiceView;
 import com.fenglin.finance.web.dto.FinanceDtos.PaymentPlanLine;
 import com.fenglin.finance.web.dto.FinanceDtos.VoucherCreateRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.VoucherImportRequest;
+import com.fenglin.finance.web.dto.FinanceDtos.VoucherAttachmentCreateRequest;
+import com.fenglin.finance.web.dto.FinanceDtos.VoucherAttachmentView;
 import com.fenglin.finance.web.dto.FinanceDtos.VoucherTemplateUpsertRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.VoucherTemplateView;
 import org.springframework.stereotype.Service;
@@ -41,15 +44,18 @@ public class OpsService {
 
     private final OpsMapper opsMapper;
     private final ExpenseMapper expenseMapper;
+    private final VoucherMapper voucherMapper;
     private final VoucherService voucherService;
     private final LedgerService ledgerService;
     private final FinanceAudit audit;
     private final ObjectMapper objectMapper;
 
-    public OpsService(OpsMapper opsMapper, ExpenseMapper expenseMapper, VoucherService voucherService,
-                      LedgerService ledgerService, FinanceAudit audit, ObjectMapper objectMapper) {
+    public OpsService(OpsMapper opsMapper, ExpenseMapper expenseMapper, VoucherMapper voucherMapper,
+                      VoucherService voucherService, LedgerService ledgerService, FinanceAudit audit,
+                      ObjectMapper objectMapper) {
         this.opsMapper = opsMapper;
         this.expenseMapper = expenseMapper;
+        this.voucherMapper = voucherMapper;
         this.voucherService = voucherService;
         this.ledgerService = ledgerService;
         this.audit = audit;
@@ -116,12 +122,67 @@ public class OpsService {
     @Transactional
     public InvoiceView verifyInvoice(long id) {
         long tenantId = FinanceContext.tenantId();
-        if (opsMapper.findInvoice(tenantId, id) == null) {
+        Map<String, Object> invoice = opsMapper.findInvoice(tenantId, id);
+        if (invoice == null) {
             throw new BizException(FinanceErrorCode.RESOURCE_NOT_FOUND);
         }
-        opsMapper.markInvoiceVerified(tenantId, id);
-        audit.publish("finance.invoice.verified", "VERIFY", "fin_invoice", id, "MEDIUM");
+        String number = Rows.str(invoice, "invoiceNumber");
+        BigDecimal amount = Rows.dec(invoice, "amount");
+        boolean valid = number != null && !number.isBlank() && amount != null && amount.signum() > 0
+                && opsMapper.countDuplicateInvoice(tenantId, id, Rows.str(invoice, "invoiceCode"), number) == 0;
+        opsMapper.updateInvoiceVerifyStatus(tenantId, id, valid ? "VERIFIED" : "FAILED",
+                FinanceContext.userId());
+        audit.publish(valid ? "finance.invoice.verified" : "finance.invoice.verify_failed", "VERIFY",
+                "fin_invoice", id, "MEDIUM");
         return toInvoice(opsMapper.findInvoice(tenantId, id));
+    }
+
+    public List<VoucherAttachmentView> listInvoiceAttachments(long invoiceId) {
+        long tenantId = FinanceContext.tenantId();
+        requireInvoice(tenantId, invoiceId);
+        return invoiceAttachmentViews(tenantId, invoiceId);
+    }
+
+    @Transactional
+    public List<VoucherAttachmentView> addInvoiceAttachment(long invoiceId,
+                                                            VoucherAttachmentCreateRequest request) {
+        long tenantId = FinanceContext.tenantId();
+        requireInvoice(tenantId, invoiceId);
+        if (request == null || request.fileId() == null) {
+            throw new BizException(FinanceErrorCode.PARAM_INVALID);
+        }
+        voucherMapper.insertAttachment(IdWorker.getId(), tenantId, "INVOICE", invoiceId, request.fileId(),
+                request.fileName(), request.fileSize(), FinanceContext.userId());
+        audit.publish("finance.invoice_attachment.created", "CREATE", "fin_attachment", invoiceId, "MEDIUM");
+        return invoiceAttachmentViews(tenantId, invoiceId);
+    }
+
+    @Transactional
+    public List<VoucherAttachmentView> deleteInvoiceAttachment(long invoiceId, long attachmentId) {
+        long tenantId = FinanceContext.tenantId();
+        requireInvoice(tenantId, invoiceId);
+        if (voucherMapper.deleteAttachment(tenantId, "INVOICE", invoiceId, attachmentId,
+                FinanceContext.userId()) == 0) {
+            throw new BizException(FinanceErrorCode.RESOURCE_NOT_FOUND);
+        }
+        audit.publish("finance.invoice_attachment.deleted", "DELETE", "fin_attachment", invoiceId, "MEDIUM");
+        return invoiceAttachmentViews(tenantId, invoiceId);
+    }
+
+    private void requireInvoice(long tenantId, long invoiceId) {
+        if (opsMapper.findInvoice(tenantId, invoiceId) == null) {
+            throw new BizException(FinanceErrorCode.RESOURCE_NOT_FOUND);
+        }
+    }
+
+    private List<VoucherAttachmentView> invoiceAttachmentViews(long tenantId, long invoiceId) {
+        List<VoucherAttachmentView> views = new ArrayList<>();
+        for (Map<String, Object> row : voucherMapper.listAttachments(tenantId, "INVOICE", invoiceId)) {
+            views.add(new VoucherAttachmentView(Rows.lngVal(row, "id"), Rows.lngVal(row, "fileId"),
+                    Rows.str(row, "fileName"), Rows.lng(row, "fileSize"), Rows.lng(row, "uploadedBy"),
+                    Rows.instant(row, "createdAt")));
+        }
+        return views;
     }
 
     // ---------- 币种与汇率 ----------

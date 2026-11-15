@@ -5,6 +5,9 @@ import com.fenglin.common.security.PermissionGuard;
 import com.fenglin.finance.service.ArapService;
 import com.fenglin.finance.support.FinanceContext;
 import com.fenglin.finance.web.dto.FinanceDtos.AgingReport;
+import com.fenglin.finance.web.dto.FinanceDtos.CollectionTaskCompleteRequest;
+import com.fenglin.finance.web.dto.FinanceDtos.CollectionTaskCreateRequest;
+import com.fenglin.finance.web.dto.FinanceDtos.CollectionTaskView;
 import com.fenglin.finance.web.dto.FinanceDtos.PayableView;
 import com.fenglin.finance.web.dto.FinanceDtos.PaymentCreateRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.PaymentView;
@@ -15,6 +18,7 @@ import com.fenglin.finance.web.dto.FinanceDtos.SettlementDocResult;
 import com.fenglin.finance.web.dto.FinanceDtos.WriteOffRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.WriteOffResult;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -114,6 +118,44 @@ public class FinanceArapController {
         PermissionGuard.require(permissions, WRITE_OFF);
         return ApiResponse.success(arapService.writeOff(bizType, sourceId, request.amount(),
                 request.writeOffDate()));
+    }
+
+    @GetMapping("/arap/collection-tasks")
+    public ApiResponse<List<CollectionTaskView>> collectionTasks(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "receivableId", required = false) Long receivableId,
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false) Integer size) {
+        PermissionGuard.require(permissions, AR_VIEW);
+        return ApiResponse.success(arapService.listCollectionTasks(status, receivableId,
+                FinanceContext.size(size), FinanceContext.offset(page, size)));
+    }
+
+    @PostMapping("/arap/collection-tasks")
+    public ApiResponse<CollectionTaskView> createCollectionTask(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestBody CollectionTaskCreateRequest request) {
+        PermissionGuard.require(permissions, WRITE_OFF);
+        return ApiResponse.success(arapService.createCollectionTask(request));
+    }
+
+    @PostMapping("/arap/collection-tasks/{id}/complete")
+    public ApiResponse<CollectionTaskView> completeCollectionTask(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id,
+            @RequestBody(required = false) CollectionTaskCompleteRequest request) {
+        PermissionGuard.require(permissions, WRITE_OFF);
+        return ApiResponse.success(arapService.completeCollectionTask(id,
+                request == null ? null : request.remark()));
+    }
+
+    @PostMapping("/arap/collection-tasks/{id}/cancel")
+    public ApiResponse<CollectionTaskView> cancelCollectionTask(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id) {
+        PermissionGuard.require(permissions, WRITE_OFF);
+        return ApiResponse.success(arapService.cancelCollectionTask(id));
     }
 
     @GetMapping("/arap/aging")

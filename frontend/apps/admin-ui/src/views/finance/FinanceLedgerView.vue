@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { GapNotice, PageHeader } from '@fenglin/ui-admin'
 import {
   financeApi,
@@ -59,6 +59,11 @@ const rateVisible = ref(false)
 const rateError = ref('')
 const rateForm = reactive({ from_currency: 'USD', to_currency: 'CNY', rate: '', effective_date: '', source: '' })
 
+const periodVisible = ref(false)
+const periodError = ref('')
+const periodSaving = ref(false)
+const periodForm = reactive({ period_year: new Date().getFullYear(), period_month: 1 })
+
 const categoryOptions = [
   { value: 'ASSET', label: '资产' },
   { value: 'LIABILITY', label: '负债' },
@@ -73,7 +78,6 @@ const periodStatusLabels: Record<string, string> = {
 }
 
 const gapItems = [
-  '后端没有账套删除/停用接口，创建后的账套只能保留；也没有单独的新增会计期间接口，期间随账套初始化。',
   '总账（general-ledger）返回后端原始 Map 结构，本页不做图表化，避免前端臆造字段。',
   '币种与汇率列表要求 biz:finance:budget:view，创建要求 tenant:finance:ledger:manage，权限不足时后端返回真实 403。',
 ]
@@ -232,8 +236,47 @@ async function periodAction(period: FinancePeriod, action: 'close' | 'reopen' | 
   }
 }
 
-async function submitCurrency() {
-  if (!currencyForm.currency_code.trim() || !currencyForm.currency_name.trim()) {
+async function ledgerAction(row: FinanceLedger, action: 'disable' | 'enable' | 'remove') {
+  const labels = { disable: '停用', enable: '启用', remove: '删除' }
+  try {
+    await ElMessageBox.confirm(`确认${labels[action]}账套 ${row.ledger_code}？`, '账套操作', { type: 'warning' })
+  } catch {
+    return
+  }
+  try {
+    if (action === 'disable') await financeApi.ledgers.disable(row.id)
+    else if (action === 'enable') await financeApi.ledgers.enable(row.id)
+    else await financeApi.ledgers.remove(row.id)
+    ElMessage.success(`账套 ${row.ledger_code} 已${labels[action]}`)
+    await loadLedgers()
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  }
+}
+
+async function submitPeriod() {
+  if (!selectedLedgerId.value) {
+    periodError.value = '请先选择账套'
+    return
+  }
+  periodSaving.value = true
+  periodError.value = ''
+  try {
+    const created = await financeApi.ledgers.createPeriod(selectedLedgerId.value, {
+      period_year: Number(periodForm.period_year),
+      period_month: Number(periodForm.period_month),
+    })
+    ElMessage.success(`期间 ${created.period_code} 已创建`)
+    periodVisible.value = false
+    await loadLedgerDetail()
+  } catch (err) {
+    periodError.value = describeError(err)
+  } finally {
+    periodSaving.value = false
+  }
+}
+
+async function submitCurrency() {  if (!currencyForm.currency_code.trim() || !currencyForm.currency_name.trim()) {
     currencyError.value = '币种编码与名称不能为空'
     return
   }
@@ -300,6 +343,30 @@ onMounted(async () => {
 
     <el-card shadow="never">
       <el-tabs v-model="activeTab">
+        <el-tab-pane label="账套" name="ledgers">
+          <el-table :data="ledgers" v-loading="loading" border stripe>
+            <el-table-column prop="ledger_code" label="账套编码" width="140" />
+            <el-table-column prop="ledger_name" label="账套名称" min-width="170" />
+            <el-table-column prop="company_name" label="核算主体" min-width="180" />
+            <el-table-column prop="base_currency" label="本位币" width="90" />
+            <el-table-column prop="accounting_standard" label="会计准则" width="110" />
+            <el-table-column label="状态" width="100">
+              <template #default="{ row }">
+                <el-tag size="small" :type="row.status === 'ENABLED' ? 'success' : 'info'">
+                  {{ row.status === 'ENABLED' ? '启用' : '停用' }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="200" fixed="right">
+              <template #default="{ row }">
+                <el-button v-if="row.status === 'ENABLED'" v-perm="'tenant:finance:ledger:manage'" link type="warning" @click="ledgerAction(row, 'disable')">停用</el-button>
+                <el-button v-else v-perm="'tenant:finance:ledger:manage'" link type="primary" @click="ledgerAction(row, 'enable')">启用</el-button>
+                <el-button v-perm="'tenant:finance:ledger:manage'" link type="danger" @click="ledgerAction(row, 'remove')">删除</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-tab-pane>
+
         <el-tab-pane label="会计科目" name="subjects">
           <div class="fl-toolbar">
             <el-button v-perm="'tenant:finance:subject:manage'" type="primary" plain @click="subjectVisible = true">新增科目</el-button>
@@ -328,6 +395,10 @@ onMounted(async () => {
         </el-tab-pane>
 
         <el-tab-pane label="会计期间" name="periods">
+          <div class="fl-toolbar">
+            <el-button v-perm="'tenant:finance:period:manage'" type="primary" plain @click="periodVisible = true">新增期间</el-button>
+            <span class="fl-muted">共 {{ periods.length }} 个期间</span>
+          </div>
           <el-table :data="periods" border stripe>
             <el-table-column prop="period_code" label="期间" width="120" />
             <el-table-column prop="start_date" label="开始日期" width="140" />
@@ -451,6 +522,22 @@ onMounted(async () => {
       <template #footer>
         <el-button @click="subjectVisible = false">取消</el-button>
         <el-button type="primary" :loading="subjectSaving" @click="submitSubject">创建</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="periodVisible" title="新增会计期间" width="460px">
+      <el-alert v-if="periodError" type="error" :closable="false" show-icon :title="periodError" style="margin-bottom: 12px" />
+      <el-form label-width="90px">
+        <el-form-item label="年度" required>
+          <el-input-number v-model="periodForm.period_year" :min="2000" :max="2999" style="width: 100%" />
+        </el-form-item>
+        <el-form-item label="月份" required>
+          <el-input-number v-model="periodForm.period_month" :min="1" :max="12" style="width: 100%" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="periodVisible = false">取消</el-button>
+        <el-button type="primary" :loading="periodSaving" @click="submitPeriod">创建</el-button>
       </template>
     </el-dialog>
 

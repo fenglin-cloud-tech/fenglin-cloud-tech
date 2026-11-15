@@ -211,6 +211,25 @@ export interface FinanceWriteOffResult {
   amount: string
 }
 
+export interface FinanceCollectionTask {
+  id: FinanceId
+  task_no: string
+  receivable_id: FinanceId
+  ar_no: string
+  customer_id?: FinanceId | null
+  customer_name?: string | null
+  outstanding_amount: string
+  overdue_days: number
+  task_type: string
+  assignee_id?: FinanceId | null
+  due_date?: string | null
+  status: string
+  remark?: string | null
+  completed_at?: string | null
+  completed_by?: FinanceId | null
+  created_at?: string | null
+}
+
 export interface FinanceSettlementDoc {
   id: FinanceId
   doc_no: string
@@ -701,6 +720,25 @@ export interface FinanceCarbonCalculateResult {
   by_scope: Record<string, string>
 }
 
+export interface FinanceCarbonTrendPoint {
+  period_code: string
+  total: string
+  by_scope: Record<string, string>
+}
+
+export interface FinanceCarbonTrend {
+  from_period?: string | null
+  to_period?: string | null
+  total: string
+  points: FinanceCarbonTrendPoint[]
+}
+
+export interface FinanceCarbonSource {
+  period_code?: string | null
+  total: string
+  sources: Array<{ activity_type: string; emission_amount: string; percentage: string }>
+}
+
 export interface FinanceCarbonTarget {
   id: FinanceId
   target_no: string
@@ -740,6 +778,18 @@ export interface FinanceEsgReport {
   published_at?: string
 }
 
+export interface FinanceEsgReportDetail {
+  id: FinanceId
+  report_no: string
+  report_name: string
+  period_year: number
+  report_type: string
+  report_boundary?: string
+  status: string
+  snapshot?: Record<string, unknown>
+  published_at?: string
+}
+
 const BASE = '/api/finance/v1'
 
 /** 云财（Finance）全部经网关 /api/finance/v1，权限由网关注入 X-Permissions。 */
@@ -758,6 +808,18 @@ export const financeApi = {
       tax_no?: string
     }) {
       return post<FinanceLedger>(`${BASE}/ledgers`, body)
+    },
+    disable(ledgerId: FinanceId) {
+      return post<FinanceLedger>(`${BASE}/ledgers/${ledgerId}/disable`)
+    },
+    enable(ledgerId: FinanceId) {
+      return post<FinanceLedger>(`${BASE}/ledgers/${ledgerId}/enable`)
+    },
+    remove(ledgerId: FinanceId) {
+      return request<void>(`${BASE}/ledgers/${ledgerId}`, { method: 'DELETE' })
+    },
+    createPeriod(ledgerId: FinanceId, body: { period_year: number; period_month: number }) {
+      return post<FinancePeriod>(`${BASE}/ledgers/${ledgerId}/periods`, body)
     },
     subjects(ledgerId: FinanceId) {
       return get<FinanceSubject[]>(`${BASE}/ledgers/${ledgerId}/subjects`)
@@ -854,6 +916,9 @@ export const financeApi = {
     audit(id: FinanceId) {
       return post<FinanceVoucherActionResult>(`${BASE}/vouchers/${id}/audit`)
     },
+    unaudit(id: FinanceId) {
+      return post<FinanceVoucherActionResult>(`${BASE}/vouchers/${id}/unaudit`)
+    },
     post(id: FinanceId) {
       return post<FinanceVoucherActionResult>(`${BASE}/vouchers/${id}/post`)
     },
@@ -945,6 +1010,24 @@ export const financeApi = {
     },
     aging(type: 'AR' | 'AP' = 'AR') {
       return get<FinanceAgingReport>(`${BASE}/arap/aging`, { type })
+    },
+    collectionTasks(params: { status?: string; receivableId?: FinanceId } = {}) {
+      return get<FinanceCollectionTask[]>(`${BASE}/arap/collection-tasks`, params)
+    },
+    createCollectionTask(body: {
+      receivable_id: FinanceId
+      assignee_id?: FinanceId | null
+      due_date?: string
+      task_type?: string
+      remark?: string
+    }) {
+      return post<FinanceCollectionTask>(`${BASE}/arap/collection-tasks`, body)
+    },
+    completeCollectionTask(id: FinanceId, body?: { remark?: string }) {
+      return post<FinanceCollectionTask>(`${BASE}/arap/collection-tasks/${id}/complete`, body ?? {})
+    },
+    cancelCollectionTask(id: FinanceId) {
+      return post<FinanceCollectionTask>(`${BASE}/arap/collection-tasks/${id}/cancel`)
     },
     paymentPlan(limit = 100) {
       return get<FinancePaymentPlanLine[]>(`${BASE}/payment-plan`, { limit })
@@ -1083,6 +1166,17 @@ export const financeApi = {
     },
     verifyInvoice(id: FinanceId) {
       return post<FinanceInvoice>(`${BASE}/invoices/${id}/verify`)
+    },
+    invoiceAttachments(id: FinanceId) {
+      return get<FinanceVoucherAttachment[]>(`${BASE}/invoices/${id}/attachments`)
+    },
+    addInvoiceAttachment(id: FinanceId, body: { file_id: FinanceId; file_name?: string; file_size?: number }) {
+      return post<FinanceVoucherAttachment[]>(`${BASE}/invoices/${id}/attachments`, body)
+    },
+    deleteInvoiceAttachment(id: FinanceId, attachmentId: FinanceId) {
+      return request<FinanceVoucherAttachment[]>(`${BASE}/invoices/${id}/attachments/${attachmentId}`, {
+        method: 'DELETE',
+      })
     },
   },
   bank: {
@@ -1508,6 +1602,12 @@ export const financeApi = {
     calculate(body: { org_id?: FinanceId | null; period_code: string; scope?: string; recalc?: boolean }) {
       return post<FinanceCarbonCalculateResult>(`${BASE}/carbon/calculate`, body)
     },
+    emissionTrend(params: { fromPeriod?: string; toPeriod?: string; scope?: string } = {}) {
+      return get<FinanceCarbonTrend>(`${BASE}/carbon/emissions/trend`, params)
+    },
+    emissionSources(params: { periodCode?: string } = {}) {
+      return get<FinanceCarbonSource>(`${BASE}/carbon/emissions/sources`, params)
+    },
     targets() {
       return get<FinanceCarbonTarget[]>(`${BASE}/carbon/targets`)
     },
@@ -1549,6 +1649,12 @@ export const financeApi = {
     },
     publishReport(id: FinanceId) {
       return post<FinanceEsgReport>(`${BASE}/esg/reports/${id}/publish`)
+    },
+    reportDetail(id: FinanceId) {
+      return get<FinanceEsgReportDetail>(`${BASE}/esg/reports/${id}`)
+    },
+    refreshReport(id: FinanceId) {
+      return post<FinanceEsgReportDetail>(`${BASE}/esg/reports/${id}/refresh`)
     },
     exportReport(id: FinanceId) {
       return download(`${BASE}/esg/reports/${id}/export`, `esg-report-${id}.txt`)

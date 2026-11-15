@@ -1,6 +1,7 @@
 package com.fenglin.finance.service;
 
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fenglin.common.core.BizException;
 import com.fenglin.finance.FinanceErrorCode;
 import com.fenglin.finance.mapper.CarbonMapper;
@@ -12,9 +13,14 @@ import com.fenglin.finance.web.dto.FinanceDtos.CarbonActivityCreateRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.CarbonActivityView;
 import com.fenglin.finance.web.dto.FinanceDtos.CarbonCalculateRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.CarbonCalculateResult;
+import com.fenglin.finance.web.dto.FinanceDtos.CarbonSourceItem;
+import com.fenglin.finance.web.dto.FinanceDtos.CarbonSourceView;
+import com.fenglin.finance.web.dto.FinanceDtos.CarbonTrendPoint;
+import com.fenglin.finance.web.dto.FinanceDtos.CarbonTrendView;
 import com.fenglin.finance.web.dto.FinanceDtos.EsgIndicatorCreateRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.EsgIndicatorView;
 import com.fenglin.finance.web.dto.FinanceDtos.EsgReportCreateRequest;
+import com.fenglin.finance.web.dto.FinanceDtos.EsgReportDetailView;
 import com.fenglin.finance.web.dto.FinanceDtos.EsgReportView;
 import com.fenglin.finance.web.dto.FinanceDtos.FactorCreateRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.FactorView;
@@ -26,6 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -44,11 +51,14 @@ public class CarbonService {
     private final CarbonMapper carbonMapper;
     private final CommonsMapper commonsMapper;
     private final FinanceAudit audit;
+    private final ObjectMapper objectMapper;
 
-    public CarbonService(CarbonMapper carbonMapper, CommonsMapper commonsMapper, FinanceAudit audit) {
+    public CarbonService(CarbonMapper carbonMapper, CommonsMapper commonsMapper, FinanceAudit audit,
+                         ObjectMapper objectMapper) {
         this.carbonMapper = carbonMapper;
         this.commonsMapper = commonsMapper;
         this.audit = audit;
+        this.objectMapper = objectMapper;
     }
 
     @Transactional
@@ -191,6 +201,52 @@ public class CarbonService {
         byScope.forEach((key, value) -> rounded.put(key, FinanceContext.amount(value)));
         return new CarbonCalculateResult(batchNo, periodCode, calculated, FinanceContext.amount(total),
                 rounded);
+    }
+
+    /** 排放趋势：按期间汇总最新核算结果，同时给出各范围拆分。 */
+    public CarbonTrendView trend(String fromPeriod, String toPeriod, String scope) {
+        long tenantId = FinanceContext.tenantId();
+        String from = blankToNull(fromPeriod);
+        String to = blankToNull(toPeriod);
+        Map<String, Map<String, BigDecimal>> byPeriod = new LinkedHashMap<>();
+        Map<String, BigDecimal> totals = new LinkedHashMap<>();
+        for (Map<String, Object> row : carbonMapper.emissionTrend(tenantId, from, to, blankToNull(scope))) {
+            String periodCode = Rows.str(row, "periodCode");
+            byPeriod.computeIfAbsent(periodCode, key -> new LinkedHashMap<>())
+                    .merge(Rows.str(row, "scope"), Rows.dec(row, "emission"), BigDecimal::add);
+            totals.merge(periodCode, Rows.dec(row, "emission"), BigDecimal::add);
+        }
+        List<CarbonTrendPoint> points = new ArrayList<>();
+        BigDecimal total = BigDecimal.ZERO;
+        for (Map.Entry<String, BigDecimal> entry : totals.entrySet()) {
+            Map<String, BigDecimal> scopeAmounts = new LinkedHashMap<>();
+            byPeriod.get(entry.getKey()).forEach((key, value) ->
+                    scopeAmounts.put(key, FinanceContext.amount(value)));
+            points.add(new CarbonTrendPoint(entry.getKey(), FinanceContext.amount(entry.getValue()),
+                    scopeAmounts));
+            total = total.add(entry.getValue());
+        }
+        return new CarbonTrendView(from, to, FinanceContext.amount(total), points);
+    }
+
+    /** 排放源分析：按碳活动类型汇总最新核算结果，并给出占比。 */
+    public CarbonSourceView sources(String periodCode) {
+        long tenantId = FinanceContext.tenantId();
+        String period = blankToNull(periodCode);
+        List<Map<String, Object>> rows = carbonMapper.emissionByActivityType(tenantId, period);
+        BigDecimal total = BigDecimal.ZERO;
+        for (Map<String, Object> row : rows) {
+            total = total.add(Rows.dec(row, "emission"));
+        }
+        List<CarbonSourceItem> sources = new ArrayList<>();
+        for (Map<String, Object> row : rows) {
+            BigDecimal emission = Rows.dec(row, "emission");
+            BigDecimal percentage = total.signum() == 0 ? BigDecimal.ZERO
+                    : emission.multiply(BigDecimal.valueOf(100)).divide(total, 2, RoundingMode.HALF_UP);
+            sources.add(new CarbonSourceItem(Rows.str(row, "activityType"), FinanceContext.amount(emission),
+                    percentage));
+        }
+        return new CarbonSourceView(period, FinanceContext.amount(total), sources);
     }
 
     @Transactional
@@ -337,19 +393,88 @@ public class CarbonService {
         }
     }
 
-    private String summary(long tenantId, int year) {
-        StringBuilder builder = new StringBuilder("{\"period_year\":").append(year)
-                .append(",\"indicators\":[");
-        boolean first = true;
-        for (Map<String, Object> row : carbonMapper.listIndicators(tenantId, year)) {
-            if (!first) {
-                builder.append(',');
-            }
-            builder.append("{\"code\":\"").append(Rows.str(row, "indicatorCode"))
-                    .append("\",\"actual\":").append(Rows.dec(row, "actualValue")).append('}');
-            first = false;
+    public EsgReportDetailView reportDetail(long id) {
+        long tenantId = FinanceContext.tenantId();
+        Map<String, Object> row = carbonMapper.findEsgReport(tenantId, id);
+        if (row == null) {
+            throw new BizException(FinanceErrorCode.RESOURCE_NOT_FOUND);
         }
-        return builder.append("]}").toString();
+        return new EsgReportDetailView(Rows.lngVal(row, "id"), Rows.str(row, "reportNo"),
+                Rows.str(row, "reportName"), Rows.intVal(row, "periodYear"),
+                Rows.str(row, "reportType"), Rows.str(row, "reportBoundary"), Rows.str(row, "status"),
+                parseSummary(Rows.str(row, "summary")), Rows.instant(row, "publishedAt"));
+    }
+
+    /** 刷新 ESG 报告快照：按当前年度指标与碳排放重新生成章节，写入 summary。 */
+    @Transactional
+    public EsgReportDetailView refreshReport(long id) {
+        long tenantId = FinanceContext.tenantId();
+        Map<String, Object> row = carbonMapper.findEsgReport(tenantId, id);
+        if (row == null) {
+            throw new BizException(FinanceErrorCode.RESOURCE_NOT_FOUND);
+        }
+        carbonMapper.updateEsgReportSummary(tenantId, id, summary(tenantId, Rows.intVal(row, "periodYear")),
+                FinanceContext.userId());
+        audit.publish("fin_esg_report.refreshed", "REFRESH", "fin_esg_report", id, "MEDIUM");
+        return reportDetail(id);
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> parseSummary(String summary) {
+        if (summary == null || summary.isBlank()) {
+            return Map.of();
+        }
+        try {
+            return objectMapper.readValue(summary, Map.class);
+        } catch (Exception e) {
+            return Map.of("raw", summary);
+        }
+    }
+
+    private String summary(long tenantId, int year) {
+        BigDecimal total = carbonMapper.sumLatestEmission(tenantId, year + "-%");
+        Map<String, Object> metrics = new LinkedHashMap<>();
+        metrics.put("total_emission", FinanceContext.amount(total));
+        for (Map<String, Object> row : carbonMapper.sumLatestEmissionByScope(tenantId, year + "-%")) {
+            metrics.put(Rows.str(row, "scope").toLowerCase(), FinanceContext.amount(Rows.dec(row, "emission")));
+        }
+        List<Map<String, Object>> sectionList = new ArrayList<>();
+        Map<String, Object> carbonSection = new LinkedHashMap<>();
+        carbonSection.put("code", "CARBON_OVERVIEW");
+        carbonSection.put("title", "碳排放概况");
+        carbonSection.put("metrics", metrics);
+        sectionList.add(carbonSection);
+
+        List<Map<String, Object>> items = new ArrayList<>();
+        for (Map<String, Object> row : carbonMapper.listIndicators(tenantId, year)) {
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("code", Rows.str(row, "indicatorCode"));
+            item.put("name", Rows.str(row, "indicatorName"));
+            item.put("category", Rows.str(row, "category"));
+            item.put("unit", Rows.str(row, "unit"));
+            item.put("target", Rows.dec(row, "targetValue"));
+            item.put("actual", Rows.dec(row, "actualValue"));
+            items.add(item);
+        }
+        Map<String, Object> indicatorSection = new LinkedHashMap<>();
+        indicatorSection.put("code", "INDICATORS");
+        indicatorSection.put("title", "ESG 指标快照");
+        indicatorSection.put("items", items);
+        sectionList.add(indicatorSection);
+
+        Map<String, Object> root = new LinkedHashMap<>();
+        root.put("period_year", year);
+        root.put("generated_at", OffsetDateTime.now().toString());
+        root.put("sections", sectionList);
+        try {
+            return objectMapper.writeValueAsString(root);
+        } catch (Exception e) {
+            throw new IllegalStateException("ESG 报告快照序列化失败", e);
+        }
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value;
     }
 
     private FactorView factorView(Map<String, Object> row) {

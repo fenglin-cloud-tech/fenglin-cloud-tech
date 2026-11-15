@@ -313,4 +313,78 @@ public interface ArapMapper {
             WHERE tenant_id = #{tenantId} AND status IN ('OPEN', 'PARTIAL') AND deleted = 0
             """)
     long countOpenPayables(@Param("tenantId") long tenantId);
+
+    @Insert("""
+            INSERT INTO fin_collection_task
+                (id, tenant_id, task_no, receivable_id, ar_no, customer_id, customer_name,
+                 outstanding_amount, overdue_days, task_type, assignee_id, due_date, status, remark,
+                 created_by)
+            VALUES (#{id}, #{tenantId}, #{taskNo}, #{receivableId}, #{arNo}, #{customerId,jdbcType=BIGINT},
+                    #{customerName,jdbcType=VARCHAR}, #{outstandingAmount}, #{overdueDays}, #{taskType},
+                    #{assigneeId,jdbcType=BIGINT}, #{dueDate,jdbcType=DATE}, 'OPEN', #{remark,jdbcType=VARCHAR},
+                    #{userId})
+            """)
+    void insertCollectionTask(@Param("id") long id, @Param("tenantId") long tenantId,
+                              @Param("taskNo") String taskNo, @Param("receivableId") long receivableId,
+                              @Param("arNo") String arNo, @Param("customerId") Long customerId,
+                              @Param("customerName") String customerName,
+                              @Param("outstandingAmount") BigDecimal outstandingAmount,
+                              @Param("overdueDays") int overdueDays, @Param("taskType") String taskType,
+                              @Param("assigneeId") Long assigneeId, @Param("dueDate") LocalDate dueDate,
+                              @Param("remark") String remark, @Param("userId") long userId);
+
+    @Select("""
+            SELECT id AS "id", task_no AS "taskNo", receivable_id AS "receivableId", ar_no AS "arNo",
+                   customer_id AS "customerId", customer_name AS "customerName",
+                   outstanding_amount AS "outstandingAmount", overdue_days AS "overdueDays",
+                   task_type AS "taskType", assignee_id AS "assigneeId", due_date::text AS "dueDate",
+                   status AS "status", remark AS "remark",
+                   (extract(epoch FROM completed_at) * 1000)::bigint AS "completedAt",
+                   completed_by AS "completedBy",
+                   (extract(epoch FROM created_at) * 1000)::bigint AS "createdAt"
+            FROM fin_collection_task
+            WHERE tenant_id = #{tenantId} AND id = #{id} AND deleted = 0
+            """)
+    Map<String, Object> findCollectionTask(@Param("tenantId") long tenantId, @Param("id") long id);
+
+    @Select("""
+            SELECT id AS "id", task_no AS "taskNo", receivable_id AS "receivableId", ar_no AS "arNo",
+                   customer_id AS "customerId", customer_name AS "customerName",
+                   outstanding_amount AS "outstandingAmount", overdue_days AS "overdueDays",
+                   task_type AS "taskType", assignee_id AS "assigneeId", due_date::text AS "dueDate",
+                   status AS "status", remark AS "remark",
+                   (extract(epoch FROM completed_at) * 1000)::bigint AS "completedAt",
+                   completed_by AS "completedBy",
+                   (extract(epoch FROM created_at) * 1000)::bigint AS "createdAt"
+            FROM fin_collection_task
+            WHERE tenant_id = #{tenantId} AND deleted = 0
+              AND (CAST(#{status,jdbcType=VARCHAR} AS text) IS NULL OR status = #{status})
+              AND (CAST(#{receivableId,jdbcType=BIGINT} AS bigint) IS NULL OR receivable_id = #{receivableId})
+            ORDER BY created_at DESC, id DESC
+            LIMIT #{limit} OFFSET #{offset}
+            """)
+    List<Map<String, Object>> listCollectionTasks(@Param("tenantId") long tenantId,
+                                                  @Param("status") String status,
+                                                  @Param("receivableId") Long receivableId,
+                                                  @Param("limit") int limit, @Param("offset") int offset);
+
+    @Update("""
+            UPDATE fin_collection_task
+            SET status = 'DONE', completed_at = now(), completed_by = #{userId},
+                remark = COALESCE(#{remark,jdbcType=VARCHAR}, remark),
+                updated_by = #{userId}, updated_at = now(), version = version + 1
+            WHERE tenant_id = #{tenantId} AND id = #{id} AND status IN ('OPEN', 'IN_PROGRESS')
+              AND deleted = 0
+            """)
+    int completeCollectionTask(@Param("tenantId") long tenantId, @Param("id") long id,
+                               @Param("remark") String remark, @Param("userId") long userId);
+
+    @Update("""
+            UPDATE fin_collection_task
+            SET status = 'CANCELLED', updated_by = #{userId}, updated_at = now(), version = version + 1
+            WHERE tenant_id = #{tenantId} AND id = #{id} AND status IN ('OPEN', 'IN_PROGRESS')
+              AND deleted = 0
+            """)
+    int cancelCollectionTask(@Param("tenantId") long tenantId, @Param("id") long id,
+                             @Param("userId") long userId);
 }

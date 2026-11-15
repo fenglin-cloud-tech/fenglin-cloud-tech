@@ -12,8 +12,11 @@ import com.fenglin.finance.web.dto.FinanceDtos.ExchangeRateView;
 import com.fenglin.finance.web.dto.FinanceDtos.InvoiceView;
 import com.fenglin.finance.web.dto.FinanceDtos.PaymentPlanLine;
 import com.fenglin.finance.web.dto.FinanceDtos.VoucherImportRequest;
+import com.fenglin.finance.web.dto.FinanceDtos.VoucherAttachmentCreateRequest;
+import com.fenglin.finance.web.dto.FinanceDtos.VoucherAttachmentView;
 import com.fenglin.finance.web.dto.FinanceDtos.VoucherTemplateUpsertRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.VoucherTemplateView;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -86,6 +89,30 @@ public class FinanceOpsController {
             @PathVariable("id") long id) {
         PermissionGuard.require(permissions, INVOICE_MANAGE);
         return ApiResponse.success(opsService.verifyInvoice(id));
+    }
+
+    @GetMapping("/invoices/{id}/attachments")
+    public ApiResponse<List<VoucherAttachmentView>> listInvoiceAttachments(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id) {
+        PermissionGuard.require(permissions, INVOICE_MANAGE);
+        return ApiResponse.success(opsService.listInvoiceAttachments(id));
+    }
+
+    @PostMapping("/invoices/{id}/attachments")
+    public ApiResponse<List<VoucherAttachmentView>> addInvoiceAttachment(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id, @RequestBody VoucherAttachmentCreateRequest request) {
+        PermissionGuard.require(permissions, INVOICE_MANAGE);
+        return ApiResponse.success(opsService.addInvoiceAttachment(id, request));
+    }
+
+    @DeleteMapping("/invoices/{id}/attachments/{attachmentId}")
+    public ApiResponse<List<VoucherAttachmentView>> deleteInvoiceAttachment(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id, @PathVariable("attachmentId") long attachmentId) {
+        PermissionGuard.require(permissions, INVOICE_MANAGE);
+        return ApiResponse.success(opsService.deleteInvoiceAttachment(id, attachmentId));
     }
 
     @PostMapping("/currencies")

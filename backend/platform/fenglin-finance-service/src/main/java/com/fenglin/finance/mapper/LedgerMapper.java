@@ -60,6 +60,42 @@ public interface LedgerMapper {
             """)
     Long findLedgerIdByCode(@Param("tenantId") long tenantId, @Param("code") String code);
 
+    @Update("""
+            UPDATE fin_ledger SET status = 'DISABLED', updated_by = #{userId}, updated_at = now(),
+                version = version + 1
+            WHERE tenant_id = #{tenantId} AND id = #{id} AND status = 'ENABLED' AND deleted = 0
+            """)
+    int disableLedger(@Param("tenantId") long tenantId, @Param("id") long id,
+                      @Param("userId") long userId);
+
+    @Update("""
+            UPDATE fin_ledger SET status = 'ENABLED', updated_by = #{userId}, updated_at = now(),
+                version = version + 1
+            WHERE tenant_id = #{tenantId} AND id = #{id} AND status = 'DISABLED' AND deleted = 0
+            """)
+    int enableLedger(@Param("tenantId") long tenantId, @Param("id") long id,
+                     @Param("userId") long userId);
+
+    @Update("""
+            UPDATE fin_ledger SET deleted = 1, updated_by = #{userId}, updated_at = now(),
+                version = version + 1
+            WHERE tenant_id = #{tenantId} AND id = #{id} AND deleted = 0
+            """)
+    int deleteLedger(@Param("tenantId") long tenantId, @Param("id") long id,
+                     @Param("userId") long userId);
+
+    @Select("""
+            SELECT count(1) FROM fin_ledger
+            WHERE tenant_id = #{tenantId} AND status = 'ENABLED' AND deleted = 0
+            """)
+    long countEnabledLedgers(@Param("tenantId") long tenantId);
+
+    @Select("""
+            SELECT count(1) FROM fin_voucher
+            WHERE tenant_id = #{tenantId} AND ledger_id = #{ledgerId} AND deleted = 0
+            """)
+    long countVouchersByLedger(@Param("tenantId") long tenantId, @Param("ledgerId") long ledgerId);
+
     @Insert("""
             INSERT INTO fin_accounting_subject
                 (id, tenant_id, ledger_id, subject_code, subject_name, parent_id, subject_level,

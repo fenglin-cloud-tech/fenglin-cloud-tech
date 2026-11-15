@@ -94,6 +94,14 @@ public class FinanceVoucherController {
         return ApiResponse.success(voucherService.audit(id));
     }
 
+    @PostMapping("/vouchers/{id}/unaudit")
+    public ApiResponse<VoucherActionResult> unaudit(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id) {
+        PermissionGuard.require(permissions, AUDIT);
+        return ApiResponse.success(voucherService.unaudit(id));
+    }
+
     @PostMapping("/vouchers/{id}/post")
     public ApiResponse<VoucherActionResult> post(
             @RequestHeader(value = "X-Permissions", required = false) String permissions,

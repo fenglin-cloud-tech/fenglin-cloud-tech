@@ -8,9 +8,12 @@ import com.fenglin.finance.web.dto.FinanceDtos.CarbonActivityCreateRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.CarbonActivityView;
 import com.fenglin.finance.web.dto.FinanceDtos.CarbonCalculateRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.CarbonCalculateResult;
+import com.fenglin.finance.web.dto.FinanceDtos.CarbonSourceView;
+import com.fenglin.finance.web.dto.FinanceDtos.CarbonTrendView;
 import com.fenglin.finance.web.dto.FinanceDtos.EsgIndicatorCreateRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.EsgIndicatorView;
 import com.fenglin.finance.web.dto.FinanceDtos.EsgReportCreateRequest;
+import com.fenglin.finance.web.dto.FinanceDtos.EsgReportDetailView;
 import com.fenglin.finance.web.dto.FinanceDtos.EsgReportView;
 import com.fenglin.finance.web.dto.FinanceDtos.FactorCreateRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.FactorView;
@@ -180,6 +183,40 @@ public class FinanceCarbonController {
             @PathVariable("id") long id) {
         PermissionGuard.require(permissions, ESG_PUBLISH);
         return ApiResponse.success(carbonService.publish(id));
+    }
+
+    @GetMapping("/carbon/emissions/trend")
+    public ApiResponse<CarbonTrendView> emissionTrend(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(value = "fromPeriod", required = false) String fromPeriod,
+            @RequestParam(value = "toPeriod", required = false) String toPeriod,
+            @RequestParam(value = "scope", required = false) String scope) {
+        PermissionGuard.require(permissions, CARBON_CALCULATE);
+        return ApiResponse.success(carbonService.trend(fromPeriod, toPeriod, scope));
+    }
+
+    @GetMapping("/carbon/emissions/sources")
+    public ApiResponse<CarbonSourceView> emissionSources(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(value = "periodCode", required = false) String periodCode) {
+        PermissionGuard.require(permissions, CARBON_CALCULATE);
+        return ApiResponse.success(carbonService.sources(periodCode));
+    }
+
+    @GetMapping("/esg/reports/{id}")
+    public ApiResponse<EsgReportDetailView> reportDetail(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id) {
+        PermissionGuard.require(permissions, REPORT_VIEW);
+        return ApiResponse.success(carbonService.reportDetail(id));
+    }
+
+    @PostMapping("/esg/reports/{id}/refresh")
+    public ApiResponse<EsgReportDetailView> refreshReport(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id) {
+        PermissionGuard.require(permissions, ESG_MANAGE);
+        return ApiResponse.success(carbonService.refreshReport(id));
     }
 
     @GetMapping(value = "/esg/reports/{id}/export", produces = MediaType.TEXT_PLAIN_VALUE)

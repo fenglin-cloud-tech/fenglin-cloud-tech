@@ -6,9 +6,12 @@ import {
   financeApi,
   type FinanceCarbonActivity,
   type FinanceCarbonCalculateResult,
+  type FinanceCarbonSource,
   type FinanceCarbonTarget,
+  type FinanceCarbonTrend,
   type FinanceEsgIndicator,
   type FinanceEsgReport,
+  type FinanceEsgReportDetail,
   type FinanceFactor,
 } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
@@ -95,10 +98,16 @@ const activityStatusLabels: Record<string, string> = {
 }
 
 const gapItems = [
-  '碳核算只返回批次汇总（总量/分范围），没有排放趋势、排放源排名等分析接口。',
-  'ESG 报告只有列表、创建、发布与文本导出，没有报告章节/指标快照明细接口。',
-  '碳活动没有“我的活动”过滤参数，员工端只能按租户/状态查看后在前端筛选。',
+  '碳活动“我的活动”接口已存在，但本页仍按租户/状态查询后在前端筛选。',
 ]
+
+const trendQuery = reactive({ fromPeriod: '', toPeriod: '', scope: '' })
+const trend = ref<FinanceCarbonTrend | null>(null)
+const sourcePeriod = ref('')
+const sources = ref<FinanceCarbonSource | null>(null)
+const reportDetailVisible = ref(false)
+const reportDetailLoading = ref(false)
+const reportDetail = ref<FinanceEsgReportDetail | null>(null)
 
 function money(value?: string | number | null) {
   if (value === undefined || value === null || value === '') return '-'
@@ -331,11 +340,58 @@ async function exportReport(row: FinanceEsgReport) {
   }
 }
 
+async function loadTrend() {
+  try {
+    trend.value = await financeApi.carbon.emissionTrend({
+      fromPeriod: trendQuery.fromPeriod || undefined,
+      toPeriod: trendQuery.toPeriod || undefined,
+      scope: trendQuery.scope || undefined,
+    })
+  } catch (err) {
+    error.value = describeError(err)
+  }
+}
+
+async function loadSources() {
+  try {
+    sources.value = await financeApi.carbon.emissionSources({ periodCode: sourcePeriod.value || undefined })
+  } catch (err) {
+    error.value = describeError(err)
+  }
+}
+
+async function openReport(row: FinanceEsgReport) {
+  reportDetailVisible.value = true
+  reportDetailLoading.value = true
+  reportDetail.value = null
+  try {
+    reportDetail.value = await financeApi.carbon.reportDetail(row.id)
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  } finally {
+    reportDetailLoading.value = false
+  }
+}
+
+async function refreshReport(row: FinanceEsgReport) {
+  try {
+    reportDetail.value = await financeApi.carbon.refreshReport(row.id)
+    reportDetailVisible.value = true
+    ElMessage.success('报告快照已刷新')
+    await loadReports()
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  }
+}
+
 function changeTab(name: string | number) {
   if (name === 'activities') loadActivities()
   else if (name === 'factors') loadFactors()
   else if (name === 'targets') loadTargets()
-  else if (name === 'esg') {
+  else if (name === 'analysis') {
+    loadTrend()
+    loadSources()
+  } else if (name === 'esg') {
     loadIndicators()
     loadReports()
   }
@@ -443,6 +499,48 @@ onMounted(async () => {
           </el-descriptions>
         </el-tab-pane>
 
+        <el-tab-pane label="分析" name="analysis">
+          <div class="fl-toolbar">
+            <el-input v-model="trendQuery.fromPeriod" placeholder="起始期间，如 2026-01" clearable style="width: 190px" />
+            <el-input v-model="trendQuery.toPeriod" placeholder="截止期间，如 2026-12" clearable style="width: 190px" />
+            <el-select v-model="trendQuery.scope" placeholder="范围" clearable style="width: 120px">
+              <el-option label="范围一" value="SCOPE1" />
+              <el-option label="范围二" value="SCOPE2" />
+              <el-option label="范围三" value="SCOPE3" />
+            </el-select>
+            <el-button type="primary" plain @click="loadTrend">查询趋势</el-button>
+            <span class="fl-muted">合计 {{ money(trend?.total) }}</span>
+          </div>
+          <el-table :data="trend?.points ?? []" border stripe size="small" empty-text="暂无核算结果">
+            <el-table-column prop="period_code" label="期间" width="120" />
+            <el-table-column label="排放总量" width="140" align="right">
+              <template #default="{ row }">{{ money(row.total) }}</template>
+            </el-table-column>
+            <el-table-column label="分范围" min-width="260">
+              <template #default="{ row }">
+                <span v-for="(value, key) in row.by_scope" :key="key" style="margin-right: 12px">
+                  {{ scopeLabel(String(key)) }} {{ money(value) }}
+                </span>
+              </template>
+            </el-table-column>
+          </el-table>
+
+          <div class="fl-toolbar" style="margin-top: 16px">
+            <el-input v-model="sourcePeriod" placeholder="排放源期间，如 2026-11" clearable style="width: 190px" />
+            <el-button type="primary" plain @click="loadSources">查询排放源</el-button>
+            <span class="fl-muted">合计 {{ money(sources?.total) }}</span>
+          </div>
+          <el-table :data="sources?.sources ?? []" border stripe size="small" empty-text="暂无排放源数据">
+            <el-table-column prop="activity_type" label="活动类型" width="160" />
+            <el-table-column label="排放量" width="150" align="right">
+              <template #default="{ row }">{{ money(row.emission_amount) }}</template>
+            </el-table-column>
+            <el-table-column label="占比" width="120" align="right">
+              <template #default="{ row }">{{ row.percentage }}%</template>
+            </el-table-column>
+          </el-table>
+        </el-tab-pane>
+
         <el-tab-pane label="减排目标" name="targets">
           <div class="fl-toolbar">
             <el-button v-perm="'tenant:finance:carbon:target:manage'" type="primary" plain @click="targetVisible = true">新增目标</el-button>
@@ -484,9 +582,11 @@ onMounted(async () => {
             <el-table-column prop="report_type" label="类型" width="100" />
             <el-table-column prop="report_boundary" label="边界" min-width="130" />
             <el-table-column prop="status" label="状态" width="100" />
-            <el-table-column label="操作" width="180" fixed="right">
+            <el-table-column label="操作" width="220" fixed="right">
               <template #default="{ row }">
                 <el-button v-if="row.status !== 'PUBLISHED'" v-perm="'tenant:finance:esg:report:publish'" link type="primary" @click="publishReport(row)">发布</el-button>
+                <el-button link @click="openReport(row)">详情</el-button>
+                <el-button v-perm="'biz:finance:esg:manage'" link type="warning" @click="refreshReport(row)">刷新快照</el-button>
                 <el-button v-perm="'tenant:finance:esg:report:publish'" link @click="exportReport(row)">导出</el-button>
               </template>
             </el-table-column>
@@ -494,6 +594,41 @@ onMounted(async () => {
         </el-tab-pane>
       </el-tabs>
     </el-card>
+
+    <el-dialog v-model="reportDetailVisible" title="ESG 报告快照" width="720px">
+      <div v-loading="reportDetailLoading">
+        <template v-if="reportDetail">
+          <el-descriptions :column="2" border size="small">
+            <el-descriptions-item label="报告编号">{{ reportDetail.report_no }}</el-descriptions-item>
+            <el-descriptions-item label="年度">{{ reportDetail.period_year }}</el-descriptions-item>
+            <el-descriptions-item label="类型">{{ reportDetail.report_type }}</el-descriptions-item>
+            <el-descriptions-item label="边界">{{ reportDetail.report_boundary || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="状态">{{ reportDetail.status }}</el-descriptions-item>
+            <el-descriptions-item label="生成时间">{{ reportDetail.snapshot?.generated_at || '-' }}</el-descriptions-item>
+          </el-descriptions>
+          <template v-for="section in (reportDetail.snapshot?.sections as Array<Record<string, unknown>>) || []" :key="String(section.code)">
+            <h4 style="margin: 16px 0 8px">{{ section.title }}</h4>
+            <el-descriptions v-if="section.metrics" :column="3" border size="small">
+              <el-descriptions-item v-for="(value, key) in (section.metrics as Record<string, unknown>)" :key="String(key)" :label="String(key)">
+                {{ value }}
+              </el-descriptions-item>
+            </el-descriptions>
+            <el-table v-if="section.items" :data="(section.items as Array<Record<string, unknown>>)" border size="small" empty-text="暂无指标">
+              <el-table-column prop="code" label="指标编码" width="140" />
+              <el-table-column prop="name" label="指标名称" min-width="170" />
+              <el-table-column prop="category" label="类别" width="100" />
+              <el-table-column prop="unit" label="单位" width="90" />
+              <el-table-column prop="target" label="目标值" width="110" align="right" />
+              <el-table-column prop="actual" label="实际值" width="110" align="right" />
+            </el-table>
+          </template>
+        </template>
+        <el-empty v-else-if="!reportDetailLoading" description="暂无报告快照" />
+      </div>
+      <template #footer>
+        <el-button @click="reportDetailVisible = false">关闭</el-button>
+      </template>
+    </el-dialog>
 
     <el-dialog v-model="factorVisible" title="新增排放因子" width="540px">
       <el-alert v-if="factorError" type="error" :closable="false" show-icon :title="factorError" style="margin-bottom: 12px" />

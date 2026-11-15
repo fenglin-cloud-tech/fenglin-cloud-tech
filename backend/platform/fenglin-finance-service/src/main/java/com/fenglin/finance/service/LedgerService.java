@@ -140,6 +140,68 @@ public class LedgerService {
         return ledgerMapper.listLedgers(tenantId).stream().map(LedgerService::toView).toList();
     }
 
+    /** 停用账套：唯一启用账套不允许停用，避免整个租户失去可用账套。 */
+    @Transactional
+    public LedgerView disable(long ledgerId) {
+        long tenantId = FinanceContext.tenantId();
+        Map<String, Object> ledger = requireLedger(tenantId, ledgerId);
+        if ("ENABLED".equals(Rows.str(ledger, "status")) && ledgerMapper.countEnabledLedgers(tenantId) <= 1) {
+            throw new BizException(FinanceErrorCode.STATE_CONFLICT);
+        }
+        if (ledgerMapper.disableLedger(tenantId, ledgerId, FinanceContext.userId()) == 0) {
+            throw new BizException(FinanceErrorCode.STATE_CONFLICT);
+        }
+        audit.publish("finance.ledger.disabled", "DISABLE", "fin_ledger", ledgerId, "MEDIUM");
+        return toView(ledgerMapper.findLedger(tenantId, ledgerId));
+    }
+
+    @Transactional
+    public LedgerView enable(long ledgerId) {
+        long tenantId = FinanceContext.tenantId();
+        requireLedger(tenantId, ledgerId);
+        if (ledgerMapper.enableLedger(tenantId, ledgerId, FinanceContext.userId()) == 0) {
+            throw new BizException(FinanceErrorCode.STATE_CONFLICT);
+        }
+        audit.publish("finance.ledger.enabled", "ENABLE", "fin_ledger", ledgerId, "MEDIUM");
+        return toView(ledgerMapper.findLedger(tenantId, ledgerId));
+    }
+
+    /** 删除账套：仅允许无凭证、非唯一启用账套；软删除，历史数据保留。 */
+    @Transactional
+    public void delete(long ledgerId) {
+        long tenantId = FinanceContext.tenantId();
+        Map<String, Object> ledger = requireLedger(tenantId, ledgerId);
+        if (ledgerMapper.countVouchersByLedger(tenantId, ledgerId) > 0) {
+            throw new BizException(FinanceErrorCode.STATE_CONFLICT);
+        }
+        if ("ENABLED".equals(Rows.str(ledger, "status")) && ledgerMapper.countEnabledLedgers(tenantId) <= 1) {
+            throw new BizException(FinanceErrorCode.STATE_CONFLICT);
+        }
+        if (ledgerMapper.deleteLedger(tenantId, ledgerId, FinanceContext.userId()) == 0) {
+            throw new BizException(FinanceErrorCode.STATE_CONFLICT);
+        }
+        audit.publish("finance.ledger.deleted", "DELETE", "fin_ledger", ledgerId, "HIGH");
+    }
+
+    /** 独立新增会计期间：期间编码按自然月生成，重复期间拒绝。 */
+    @Transactional
+    public PeriodView createPeriod(long ledgerId, int periodYear, int periodMonth) {
+        long tenantId = FinanceContext.tenantId();
+        requireLedger(tenantId, ledgerId);
+        if (periodYear < 1900 || periodYear > 2999 || periodMonth < 1 || periodMonth > 12) {
+            throw new BizException(FinanceErrorCode.PARAM_INVALID);
+        }
+        String periodCode = String.format("%d-%02d", periodYear, periodMonth);
+        if (ledgerMapper.findPeriod(tenantId, ledgerId, periodCode) != null) {
+            throw new BizException(FinanceErrorCode.STATE_CONFLICT);
+        }
+        LocalDate start = LocalDate.of(periodYear, periodMonth, 1);
+        ledgerMapper.insertPeriod(IdWorker.getId(), tenantId, ledgerId, periodYear, periodMonth, periodCode,
+                start, start.plusMonths(1).minusDays(1), "OPEN", FinanceContext.userId());
+        audit.publish("finance.period.created", "CREATE", "fin_accounting_period", periodCode, "LOW");
+        return toPeriod(ledgerMapper.findPeriod(tenantId, ledgerId, periodCode));
+    }
+
     @Transactional
     public SubjectView createSubject(long ledgerId, SubjectCreateRequest request) {
         long tenantId = FinanceContext.tenantId();
@@ -409,6 +471,12 @@ public class LedgerService {
         return new LedgerView(Rows.lngVal(row, "id"), Rows.str(row, "ledgerCode"),
                 Rows.str(row, "ledgerName"), Rows.str(row, "companyName"),
                 Rows.str(row, "baseCurrency"), Rows.str(row, "accountingStandard"), Rows.str(row, "status"));
+    }
+
+    private static PeriodView toPeriod(Map<String, Object> row) {
+        return new PeriodView(Rows.lngVal(row, "id"), Rows.str(row, "periodCode"),
+                Rows.intVal(row, "periodYear"), Rows.intVal(row, "periodMonth"),
+                Rows.str(row, "startDate"), Rows.str(row, "endDate"), Rows.str(row, "status"));
     }
 
     private static SubjectView toSubject(Map<String, Object> row) {

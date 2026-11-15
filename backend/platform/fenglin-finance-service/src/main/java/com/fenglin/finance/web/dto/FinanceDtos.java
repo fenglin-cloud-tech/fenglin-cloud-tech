@@ -39,6 +39,9 @@ public final class FinanceDtos {
                              String startDate, String endDate, String status) {
     }
 
+    public record PeriodCreateRequest(Integer periodYear, Integer periodMonth) {
+    }
+
     public record PeriodCloseResult(String periodCode, String status, BigDecimal trialDebit,
                                     BigDecimal trialCredit, String recordHash, Instant closedAt) {
     }
@@ -188,6 +191,20 @@ public final class FinanceDtos {
     }
 
     public record WriteOffRequest(BigDecimal amount, LocalDate writeOffDate) {
+    }
+
+    public record CollectionTaskCreateRequest(Long receivableId, Long assigneeId, LocalDate dueDate,
+                                              String taskType, String remark) {
+    }
+
+    public record CollectionTaskCompleteRequest(String remark) {
+    }
+
+    public record CollectionTaskView(long id, String taskNo, long receivableId, String arNo, Long customerId,
+                                     String customerName, BigDecimal outstandingAmount, int overdueDays,
+                                     String taskType, Long assigneeId, String dueDate, String status,
+                                     String remark, Instant completedAt, Long completedBy,
+                                     Instant createdAt) {
     }
 
     public record AgingLine(String partyName, String bucket, BigDecimal amount) {
@@ -524,6 +541,19 @@ public final class FinanceDtos {
                                         BigDecimal totalEmission, Map<String, BigDecimal> byScope) {
     }
 
+    public record CarbonTrendPoint(String periodCode, BigDecimal total, Map<String, BigDecimal> byScope) {
+    }
+
+    public record CarbonTrendView(String fromPeriod, String toPeriod, BigDecimal total,
+                                  List<CarbonTrendPoint> points) {
+    }
+
+    public record CarbonSourceItem(String activityType, BigDecimal emissionAmount, BigDecimal percentage) {
+    }
+
+    public record CarbonSourceView(String periodCode, BigDecimal total, List<CarbonSourceItem> sources) {
+    }
+
     public record TargetCreateRequest(String targetName, Integer targetYear, Integer baseYear,
                                       BigDecimal baseEmission, BigDecimal targetEmission, Long ownerId) {
     }
@@ -550,6 +580,11 @@ public final class FinanceDtos {
     public record EsgReportView(long id, String reportNo, String reportName, int periodYear,
                                 String reportType, String reportBoundary, String status, String summary,
                                 Instant publishedAt) {
+    }
+
+    public record EsgReportDetailView(long id, String reportNo, String reportName, int periodYear,
+                                      String reportType, String reportBoundary, String status,
+                                      Map<String, Object> snapshot, Instant publishedAt) {
     }
 
     public record EsgReportExport(String fileName, String contentType, String content) {

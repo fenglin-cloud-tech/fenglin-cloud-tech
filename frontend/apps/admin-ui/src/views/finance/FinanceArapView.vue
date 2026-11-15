@@ -6,6 +6,7 @@ import {
   financeApi,
   type FinanceId,
   type FinanceAgingReport,
+  type FinanceCollectionTask,
   type FinancePayable,
   type FinancePaymentDoc,
   type FinancePaymentPlanLine,
@@ -71,8 +72,103 @@ const settlementStatusOptions = [
 
 const gapItems = [
   '收付款单按单号/日期/状态查询，客户与供应商主数据不在云财服务内，只能显示关联 ID。',
-  '坏账核销、催收任务联动接口缺失；账龄报表按后端返回的分桶原样展示。',
+  '账龄报表按后端返回的分桶原样展示。',
 ]
+
+const collectionTasks = ref<FinanceCollectionTask[]>([])
+const collectionStatus = ref('')
+const collectionVisible = ref(false)
+const collectionError = ref('')
+const collectionSaving = ref(false)
+const collectionForm = reactive({
+  receivable_id: '',
+  task_type: 'REMINDER',
+  due_date: '',
+  assignee_id: '',
+  remark: '',
+})
+
+const collectionStatusLabels: Record<string, string> = {
+  OPEN: '待处理',
+  IN_PROGRESS: '跟进中',
+  DONE: '已完成',
+  CANCELLED: '已取消',
+}
+const collectionTypeLabels: Record<string, string> = {
+  REMINDER: '提醒',
+  LETTER: '催款函',
+  PHONE: '电话',
+  VISIT: '上门',
+  LEGAL: '法务',
+}
+
+function changeTab(name: string | number) {
+  if (name === 'collection') loadCollections()
+}
+async function loadCollections() {
+  try {
+    collectionTasks.value = await financeApi.arap.collectionTasks({
+      status: collectionStatus.value || undefined,
+    })
+  } catch (err) {
+    error.value = describeError(err)
+  }
+}
+
+function openCollection(row?: FinanceReceivable) {
+  collectionForm.receivable_id = row?.id ?? ''
+  collectionForm.task_type = 'REMINDER'
+  collectionForm.due_date = row?.due_date ?? ''
+  collectionForm.assignee_id = ''
+  collectionForm.remark = ''
+  collectionError.value = ''
+  collectionVisible.value = true
+}
+
+async function submitCollection() {
+  if (!collectionForm.receivable_id) {
+    collectionError.value = '请选择应收单'
+    return
+  }
+  collectionSaving.value = true
+  collectionError.value = ''
+  try {
+    await financeApi.arap.createCollectionTask({
+      receivable_id: collectionForm.receivable_id,
+      task_type: collectionForm.task_type,
+      due_date: collectionForm.due_date || undefined,
+      assignee_id: collectionForm.assignee_id || null,
+      remark: collectionForm.remark.trim() || undefined,
+    })
+    ElMessage.success('催收任务已创建')
+    collectionVisible.value = false
+    await loadCollections()
+  } catch (err) {
+    collectionError.value = describeError(err)
+  } finally {
+    collectionSaving.value = false
+  }
+}
+
+async function completeCollection(row: FinanceCollectionTask) {
+  try {
+    await financeApi.arap.completeCollectionTask(row.id)
+    ElMessage.success(`催收任务 ${row.task_no} 已完成`)
+    await loadCollections()
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  }
+}
+
+async function cancelCollection(row: FinanceCollectionTask) {
+  try {
+    await financeApi.arap.cancelCollectionTask(row.id)
+    ElMessage.success(`催收任务 ${row.task_no} 已取消`)
+    await loadCollections()
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  }
+}
 
 async function loadSettlements() {
   settlementLoading.value = true
@@ -253,7 +349,7 @@ onMounted(async () => {
     <GapNotice :items="gapItems" />
 
     <el-card shadow="never">
-      <el-tabs v-model="activeTab">
+      <el-tabs v-model="activeTab" @tab-change="changeTab">
         <el-tab-pane label="应收账款" name="ar">
           <el-table :data="receivables" v-loading="loading" border stripe>
             <el-table-column prop="ar_no" label="应收单号" width="150" show-overflow-tooltip />
@@ -268,10 +364,11 @@ onMounted(async () => {
             <el-table-column label="状态" width="90">
               <template #default="{ row }"><el-tag size="small">{{ statusLabel(row.status) }}</el-tag></template>
             </el-table-column>
-            <el-table-column label="操作" width="160" fixed="right">
+            <el-table-column label="操作" width="230" fixed="right">
               <template #default="{ row }">
                 <el-button v-perm="'biz:finance:receipt:create'" link type="primary" @click="openReceipt(row)">收款</el-button>
                 <el-button v-perm="'biz:finance:arap:writeoff'" link type="warning" @click="openWriteOff(row, 'AR')">核销</el-button>
+                <el-button v-perm="'biz:finance:arap:writeoff'" link @click="openCollection(row)">催收</el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -294,6 +391,35 @@ onMounted(async () => {
               <template #default="{ row }">
                 <el-button v-perm="'biz:finance:payment:create'" link type="primary" @click="openPayment(row)">付款</el-button>
                 <el-button v-perm="'biz:finance:arap:writeoff'" link type="warning" @click="openWriteOff(row, 'AP')">核销</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-tab-pane>
+
+        <el-tab-pane label="催收任务" name="collection">
+          <div class="fl-toolbar">
+            <el-select v-model="collectionStatus" placeholder="状态" clearable style="width: 140px" @change="loadCollections">
+              <el-option v-for="(label, value) in collectionStatusLabels" :key="value" :label="label" :value="value" />
+            </el-select>
+            <el-button v-perm="'biz:finance:arap:writeoff'" type="primary" plain @click="openCollection()">新建催收任务</el-button>
+            <span class="fl-muted">共 {{ collectionTasks.length }} 条</span>
+          </div>
+          <el-table :data="collectionTasks" border stripe>
+            <el-table-column prop="task_no" label="任务号" width="200" show-overflow-tooltip />
+            <el-table-column prop="ar_no" label="应收单号" width="150" show-overflow-tooltip />
+            <el-table-column prop="customer_name" label="客户" min-width="140" show-overflow-tooltip />
+            <el-table-column label="未收金额" width="130" align="right"><template #default="{ row }">{{ money(row.outstanding_amount) }}</template></el-table-column>
+            <el-table-column prop="overdue_days" label="逾期天数" width="100" align="right" />
+            <el-table-column label="类型" width="100"><template #default="{ row }">{{ collectionTypeLabels[row.task_type] ?? row.task_type }}</template></el-table-column>
+            <el-table-column prop="due_date" label="跟进日期" width="110" />
+            <el-table-column label="状态" width="100">
+              <template #default="{ row }"><el-tag size="small">{{ collectionStatusLabels[row.status] ?? row.status }}</el-tag></template>
+            </el-table-column>
+            <el-table-column prop="remark" label="备注" min-width="160" show-overflow-tooltip />
+            <el-table-column label="操作" width="140" fixed="right">
+              <template #default="{ row }">
+                <el-button v-if="row.status === 'OPEN' || row.status === 'IN_PROGRESS'" v-perm="'biz:finance:arap:writeoff'" link type="success" @click="completeCollection(row)">完成</el-button>
+                <el-button v-if="row.status === 'OPEN' || row.status === 'IN_PROGRESS'" v-perm="'biz:finance:arap:writeoff'" link type="danger" @click="cancelCollection(row)">取消</el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -437,6 +563,33 @@ onMounted(async () => {
       <template #footer>
         <el-button @click="paymentVisible = false">取消</el-button>
         <el-button type="primary" @click="submitPayment">提交</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="collectionVisible" title="新建催收任务" width="500px">
+      <el-alert v-if="collectionError" type="error" :closable="false" show-icon :title="collectionError" style="margin-bottom: 12px" />
+      <el-form label-width="100px">
+        <el-form-item label="应收单" required>
+          <el-select v-model="collectionForm.receivable_id" filterable style="width: 100%" placeholder="选择应收单">
+            <el-option v-for="ar in receivables" :key="ar.id" :label="`${ar.ar_no} / 未收 ${money(ar.outstanding)}`" :value="ar.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="催收方式">
+          <el-select v-model="collectionForm.task_type" style="width: 100%">
+            <el-option v-for="(label, value) in collectionTypeLabels" :key="value" :label="label" :value="value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="跟进日期">
+          <el-date-picker v-model="collectionForm.due_date" type="date" value-format="YYYY-MM-DD" style="width: 100%" />
+        </el-form-item>
+        <el-form-item label="负责人 ID">
+          <el-input v-model="collectionForm.assignee_id" placeholder="可选，19 位用户 ID 以字符串提交" maxlength="20" />
+        </el-form-item>
+        <el-form-item label="备注"><el-input v-model="collectionForm.remark" type="textarea" maxlength="512" /></el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="collectionVisible = false">取消</el-button>
+        <el-button type="primary" :loading="collectionSaving" @click="submitCollection">创建</el-button>
       </template>
     </el-dialog>
 

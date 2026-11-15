@@ -142,10 +142,23 @@ public interface OpsMapper {
     Map<String, Object> findInvoice(@Param("tenantId") long tenantId, @Param("id") long id);
 
     @Update("""
-            UPDATE fin_invoice SET verify_status = 'VERIFIED', status = 'VERIFIED', version = version + 1
+            UPDATE fin_invoice SET verify_status = #{status}, status = #{status},
+                updated_by = #{userId}, updated_at = now(), version = version + 1
             WHERE tenant_id = #{tenantId} AND id = #{id} AND deleted = 0
             """)
-    int markInvoiceVerified(@Param("tenantId") long tenantId, @Param("id") long id);
+    int updateInvoiceVerifyStatus(@Param("tenantId") long tenantId, @Param("id") long id,
+                                  @Param("status") String status, @Param("userId") long userId);
+
+    /** 同一租户内发票代码 + 号码重复的张数（排除自身）。 */
+    @Select("""
+            SELECT count(1) FROM fin_invoice
+            WHERE tenant_id = #{tenantId} AND id <> #{id} AND deleted = 0
+              AND invoice_number = #{invoiceNumber}
+              AND COALESCE(invoice_code, '') = COALESCE(#{invoiceCode,jdbcType=VARCHAR}, '')
+            """)
+    long countDuplicateInvoice(@Param("tenantId") long tenantId, @Param("id") long id,
+                               @Param("invoiceCode") String invoiceCode,
+                               @Param("invoiceNumber") String invoiceNumber);
 
     // ---------- 币种与汇率 ----------
 

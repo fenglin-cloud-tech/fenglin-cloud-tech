@@ -82,7 +82,6 @@ const entryTotals = computed(() => {
 })
 
 const gapItems = [
-  '后端没有凭证反审核接口（只有 audit），审核后只能通过 reverse 冲销；页面按真实状态机收敛按钮。',
   '批量导入接口要求后端内部 JSON 结构，前端不臆造格式，暂不提供导入表单。',
 ]
 
@@ -235,8 +234,8 @@ async function downloadAttachment(row: FinanceVoucherAttachment) {
   }
 }
 
-async function runAction(row: FinanceVoucher, action: 'submit' | 'audit' | 'post' | 'reverse') {
-  const labels = { submit: '提交', audit: '审核', post: '记账', reverse: '冲销' }
+async function runAction(row: FinanceVoucher, action: 'submit' | 'audit' | 'unaudit' | 'post' | 'reverse') {
+  const labels = { submit: '提交', audit: '审核', unaudit: '反审核', post: '记账', reverse: '冲销' }
   try {
     await ElMessageBox.confirm(`确认对凭证 ${row.voucher_no} 执行「${labels[action]}」？`, '凭证操作', {
       type: 'warning',
@@ -408,6 +407,7 @@ onMounted(async () => {
                 <el-button link @click="openDetail(row)">详情</el-button>
                 <el-button v-if="row.status === 'DRAFT'" v-perm="'biz:finance:voucher:submit'" link type="primary" @click="runAction(row, 'submit')">提交</el-button>
                 <el-button v-if="row.status === 'SUBMITTED'" v-perm="'biz:finance:voucher:audit'" link type="primary" @click="runAction(row, 'audit')">审核</el-button>
+                <el-button v-if="row.status === 'AUDITED'" v-perm="'biz:finance:voucher:audit'" link type="warning" @click="runAction(row, 'unaudit')">反审核</el-button>
                 <el-button v-if="row.status === 'AUDITED'" v-perm="'biz:finance:voucher:post'" link type="success" @click="runAction(row, 'post')">记账</el-button>
                 <el-button v-if="row.status === 'POSTED'" v-perm="'biz:finance:voucher:reverse'" link type="danger" @click="runAction(row, 'reverse')">冲销</el-button>
               </template>

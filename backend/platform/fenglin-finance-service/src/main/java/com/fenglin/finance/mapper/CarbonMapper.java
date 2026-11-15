@@ -242,6 +242,56 @@ public interface CarbonMapper {
     BigDecimal sumLatestEmission(@Param("tenantId") long tenantId,
                                  @Param("periodPattern") String periodPattern);
 
+    @Select("""
+            SELECT scope AS "scope", COALESCE(SUM(emission_amount), 0) AS "emission"
+            FROM fin_carbon_emission
+            WHERE tenant_id = #{tenantId} AND period_code LIKE #{periodPattern} AND is_latest = true
+              AND deleted = 0
+            GROUP BY scope
+            ORDER BY scope
+            """)
+    List<Map<String, Object>> sumLatestEmissionByScope(@Param("tenantId") long tenantId,
+                                                        @Param("periodPattern") String periodPattern);
+
+    /** 排放趋势：按期间 + 范围汇总最新核算结果。 */
+    @Select("""
+            SELECT period_code AS "periodCode", scope AS "scope",
+                   COALESCE(SUM(emission_amount), 0) AS "emission"
+            FROM fin_carbon_emission
+            WHERE tenant_id = #{tenantId} AND is_latest = true AND deleted = 0
+              AND (CAST(#{fromPeriod,jdbcType=VARCHAR} AS text) IS NULL OR period_code >= #{fromPeriod})
+              AND (CAST(#{toPeriod,jdbcType=VARCHAR} AS text) IS NULL OR period_code <= #{toPeriod})
+              AND (CAST(#{scope,jdbcType=VARCHAR} AS text) IS NULL OR scope = #{scope})
+            GROUP BY period_code, scope
+            ORDER BY period_code, scope
+            """)
+    List<Map<String, Object>> emissionTrend(@Param("tenantId") long tenantId,
+                                            @Param("fromPeriod") String fromPeriod,
+                                            @Param("toPeriod") String toPeriod,
+                                            @Param("scope") String scope);
+
+    /** 排放源分析：按碳活动类型汇总最新核算结果。 */
+    @Select("""
+            SELECT a.activity_type AS "activityType", COALESCE(SUM(e.emission_amount), 0) AS "emission"
+            FROM fin_carbon_emission e
+            JOIN fin_carbon_activity a ON a.id = e.activity_id AND a.tenant_id = e.tenant_id
+                AND a.deleted = 0
+            WHERE e.tenant_id = #{tenantId} AND e.is_latest = true AND e.deleted = 0
+              AND (CAST(#{periodCode,jdbcType=VARCHAR} AS text) IS NULL OR e.period_code = #{periodCode})
+            GROUP BY a.activity_type
+            ORDER BY "emission" DESC
+            """)
+    List<Map<String, Object>> emissionByActivityType(@Param("tenantId") long tenantId,
+                                                     @Param("periodCode") String periodCode);
+
+    @Update("""
+            UPDATE fin_esg_report SET summary = CAST(#{summary} AS jsonb), updated_by = #{userId},
+                updated_at = now(), version = version + 1
+            WHERE tenant_id = #{tenantId} AND id = #{id} AND deleted = 0
+            """)
+    int updateEsgReportSummary(@Param("tenantId") long tenantId, @Param("id") long id,
+                               @Param("summary") String summary, @Param("userId") long userId);
+
     @Insert("""
             INSERT INTO fin_carbon_target
                 (id, tenant_id, target_no, target_name, target_year, base_year, base_emission,

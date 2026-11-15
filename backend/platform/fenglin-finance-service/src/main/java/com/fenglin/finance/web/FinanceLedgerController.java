@@ -1,18 +1,22 @@
 package com.fenglin.finance.web;
 
 import com.fenglin.common.core.ApiResponse;
+import com.fenglin.common.core.BizException;
 import com.fenglin.common.security.PermissionGuard;
+import com.fenglin.finance.FinanceErrorCode;
 import com.fenglin.finance.service.LedgerService;
 import com.fenglin.finance.support.FinanceContext;
 import com.fenglin.finance.web.dto.FinanceDtos.LedgerCreateRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.LedgerView;
 import com.fenglin.finance.web.dto.FinanceDtos.PeriodCloseResult;
+import com.fenglin.finance.web.dto.FinanceDtos.PeriodCreateRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.PeriodView;
 import com.fenglin.finance.web.dto.FinanceDtos.SubjectCreateRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.SubjectUpdateRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.SubjectView;
 import com.fenglin.finance.web.dto.FinanceDtos.TrialBalanceLine;
 import com.fenglin.finance.web.dto.FinanceDtos.TrialBalanceView;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -62,8 +66,44 @@ public class FinanceLedgerController {
         return ApiResponse.success(ledgerService.list());
     }
 
-    @PostMapping("/{ledgerId}/subjects")
-    public ApiResponse<SubjectView> createSubject(
+    @PostMapping("/{ledgerId}/disable")
+    public ApiResponse<LedgerView> disable(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("ledgerId") long ledgerId) {
+        PermissionGuard.require(permissions, LEDGER_MANAGE);
+        return ApiResponse.success(ledgerService.disable(ledgerId));
+    }
+
+    @PostMapping("/{ledgerId}/enable")
+    public ApiResponse<LedgerView> enable(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("ledgerId") long ledgerId) {
+        PermissionGuard.require(permissions, LEDGER_MANAGE);
+        return ApiResponse.success(ledgerService.enable(ledgerId));
+    }
+
+    @DeleteMapping("/{ledgerId}")
+    public ApiResponse<Void> delete(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("ledgerId") long ledgerId) {
+        PermissionGuard.require(permissions, LEDGER_MANAGE);
+        ledgerService.delete(ledgerId);
+        return ApiResponse.success();
+    }
+
+    @PostMapping("/{ledgerId}/periods")
+    public ApiResponse<PeriodView> createPeriod(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("ledgerId") long ledgerId, @RequestBody PeriodCreateRequest request) {
+        PermissionGuard.require(permissions, PERIOD_MANAGE);
+        if (request == null || request.periodYear() == null || request.periodMonth() == null) {
+            throw new BizException(FinanceErrorCode.PARAM_INVALID);
+        }
+        return ApiResponse.success(ledgerService.createPeriod(ledgerId, request.periodYear(),
+                request.periodMonth()));
+    }
+
+    @PostMapping("/{ledgerId}/subjects")    public ApiResponse<SubjectView> createSubject(
             @RequestHeader(value = "X-Permissions", required = false) String permissions,
             @PathVariable("ledgerId") long ledgerId, @RequestBody SubjectCreateRequest request) {
         PermissionGuard.require(permissions, SUBJECT_MANAGE);

@@ -7,6 +7,7 @@ import com.fenglin.finance.client.WorkflowClient;
 import com.fenglin.finance.mapper.CommonsMapper;
 import com.fenglin.finance.mapper.ExpenseMapper;
 import com.fenglin.finance.mapper.LedgerMapper;
+import com.fenglin.finance.mapper.VoucherMapper;
 import com.fenglin.finance.support.FinanceAudit;
 import com.fenglin.finance.support.FinanceContext;
 import com.fenglin.finance.support.Rows;
@@ -25,6 +26,7 @@ import com.fenglin.finance.web.dto.FinanceDtos.ExpensePayRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.ExpenseView;
 import com.fenglin.finance.web.dto.FinanceDtos.InvoiceCreateRequest;
 import com.fenglin.finance.web.dto.FinanceDtos.InvoiceView;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -49,17 +51,19 @@ public class ExpenseService {
     private final ExpenseMapper expenseMapper;
     private final CommonsMapper commonsMapper;
     private final LedgerMapper ledgerMapper;
+    private final VoucherMapper voucherMapper;
     private final VoucherService voucherService;
     private final ArapService arapService;
     private final WorkflowClient workflowClient;
     private final FinanceAudit audit;
 
     public ExpenseService(ExpenseMapper expenseMapper, CommonsMapper commonsMapper, LedgerMapper ledgerMapper,
-                          VoucherService voucherService, ArapService arapService,
+                          VoucherMapper voucherMapper, VoucherService voucherService, ArapService arapService,
                           WorkflowClient workflowClient, FinanceAudit audit) {
         this.expenseMapper = expenseMapper;
         this.commonsMapper = commonsMapper;
         this.ledgerMapper = ledgerMapper;
+        this.voucherMapper = voucherMapper;
         this.voucherService = voucherService;
         this.arapService = arapService;
         this.workflowClient = workflowClient;
@@ -447,14 +451,22 @@ public class ExpenseService {
         BigDecimal tax = request.amount().multiply(rate).divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP);
         BigDecimal total = request.amount().add(tax);
         long id = IdWorker.getId();
-        expenseMapper.insertInvoice(id, tenantId, request.invoiceCode(), request.invoiceNumber(),
-                request.invoiceType() == null || request.invoiceType().isBlank()
-                        ? "VAT_SPECIAL" : request.invoiceType(),
-                request.buyerName(), request.sellerName(), FinanceContext.amount(request.amount()), rate,
-                FinanceContext.amount(tax), FinanceContext.amount(total),
-                request.invoiceDate() == null ? LocalDate.now() : request.invoiceDate(), "VALID",
-                request.sourceBizId(), request.fileId(), FinanceContext.userId());
+        try {
+            expenseMapper.insertInvoice(id, tenantId, request.invoiceCode(), request.invoiceNumber(),
+                    request.invoiceType() == null || request.invoiceType().isBlank()
+                            ? "VAT_SPECIAL" : request.invoiceType(),
+                    request.buyerName(), request.sellerName(), FinanceContext.amount(request.amount()), rate,
+                    FinanceContext.amount(tax), FinanceContext.amount(total),
+                    request.invoiceDate() == null ? LocalDate.now() : request.invoiceDate(), "VALID",
+                    request.sourceBizId(), request.fileId(), FinanceContext.userId());
+        } catch (DuplicateKeyException e) {
+            throw new BizException(FinanceErrorCode.INVOICE_DUPLICATED);
+        }
         audit.publish("fin_invoice.created", "CREATE", "fin_invoice", id, "LOW");
+        if (request.fileId() != null) {
+            voucherMapper.insertAttachment(IdWorker.getId(), tenantId, "INVOICE", id, request.fileId(),
+                    null, null, FinanceContext.userId());
+        }
         return invoiceView(expenseMapper.findInvoice(tenantId, id));
     }
 

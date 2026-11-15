@@ -131,6 +131,13 @@ public interface VoucherMapper {
     int markAudited(@Param("tenantId") long tenantId, @Param("id") long id, @Param("userId") long userId);
 
     @Update("""
+            UPDATE fin_voucher SET status = 'SUBMITTED', audited_by = NULL, audited_at = NULL,
+                version = version + 1
+            WHERE tenant_id = #{tenantId} AND id = #{id} AND status = 'AUDITED' AND deleted = 0
+            """)
+    int markUnaudited(@Param("tenantId") long tenantId, @Param("id") long id);
+
+    @Update("""
             UPDATE fin_voucher SET status = 'POSTED', posted_by = #{userId}, posted_at = now(),
                 chain_hash = #{chainHash,jdbcType=VARCHAR}, version = version + 1
             WHERE tenant_id = #{tenantId} AND id = #{id} AND status = 'AUDITED' AND deleted = 0
