@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { GapNotice, PageHeader } from '@fenglin/ui-admin'
 import { serviceApi, type ServiceRecord } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
@@ -34,10 +34,59 @@ const articleForm = reactive({
 })
 
 const gapItems = [
-  '知识库文章列表为 PageResult，支持状态/分类/关键字过滤。',
-  '没有文章删除接口，只能通过状态（ARCHIVED）下架。',
-  '反馈统计只在文章详情内累加 helpful_count，缺少独立反馈明细接口。',
+  '文章支持新建、原地编辑与删除（软删）；编辑不再新增副本。',
+  '列表与推荐按标题/摘要/正文做关键字匹配（ILIKE），不是全文索引，长文检索以关键字为准。',
+  '反馈明细可在「反馈」弹窗查看，含是否有用、原因、提交人与时间。',
 ]
+
+const feedbackVisible = ref(false)
+const feedbackLoading = ref(false)
+const feedbackArticle = ref<ServiceRecord | null>(null)
+const feedbackRows = ref<ServiceRecord[]>([])
+const feedbackTotal = ref(0)
+const feedbackPage = ref(1)
+const feedbackSize = 10
+
+async function openFeedback(row: ServiceRecord) {
+  feedbackArticle.value = row
+  feedbackVisible.value = true
+  feedbackPage.value = 1
+  await loadFeedback()
+}
+
+async function loadFeedback() {
+  if (!feedbackArticle.value) return
+  feedbackLoading.value = true
+  try {
+    const result = await serviceApi.kb.feedbackList(feedbackArticle.value.id, {
+      page: feedbackPage.value,
+      size: feedbackSize,
+    })
+    feedbackRows.value = result.records
+    feedbackTotal.value = result.total
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  } finally {
+    feedbackLoading.value = false
+  }
+}
+
+async function removeArticle(row: ServiceRecord) {
+  try {
+    await ElMessageBox.confirm(`确认删除文章「${row.title}」？删除后列表与门户都不再展示。`, '删除文章', {
+      type: 'warning',
+    })
+  } catch {
+    return
+  }
+  try {
+    await serviceApi.kb.deleteArticle(row.id)
+    ElMessage.success('文章已删除')
+    await load()
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  }
+}
 
 async function load() {
   loading.value = true
@@ -116,8 +165,7 @@ async function submitArticle() {
   articleSaving.value = true
   articleError.value = ''
   try {
-    await serviceApi.kb.saveArticle({
-      id: articleForm.id ? articleForm.id : undefined,
+    const payload = {
       category_id: articleForm.category_id ? articleForm.category_id : undefined,
       title: articleForm.title.trim(),
       summary: articleForm.summary.trim() || undefined,
@@ -125,7 +173,12 @@ async function submitArticle() {
       status: articleForm.status,
       visibility: articleForm.visibility,
       keywords: articleForm.keywords ? articleForm.keywords.split(',').map((k) => k.trim()).filter(Boolean) : undefined,
-    })
+    }
+    if (articleForm.id) {
+      await serviceApi.kb.updateArticle(articleForm.id, payload)
+    } else {
+      await serviceApi.kb.saveArticle(payload)
+    }
     ElMessage.success('文章已保存')
     articleVisible.value = false
     await load()
@@ -180,9 +233,11 @@ onMounted(load)
         <el-table-column prop="helpful_count" label="有用" width="90" />
         <el-table-column prop="author_id" label="作者" width="90" />
         <el-table-column prop="published_at" label="发布时间" width="170" />
-        <el-table-column label="操作" width="100">
+        <el-table-column label="操作" width="190">
           <template #default="{ row }">
             <el-button v-perm="'service:kb:edit'" link type="primary" @click="openArticle(row)">编辑</el-button>
+            <el-button v-perm="'service:kb:view'" link @click="openFeedback(row)">反馈</el-button>
+            <el-button v-perm="'service:kb:edit'" link type="danger" @click="removeArticle(row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -206,6 +261,28 @@ onMounted(load)
       <template #footer>
         <el-button @click="categoryVisible = false">取消</el-button>
         <el-button type="primary" :loading="categorySaving" @click="submitCategory">创建</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="feedbackVisible" :title="`反馈明细：${feedbackArticle?.title ?? ''}`" width="640px">
+      <el-table :data="feedbackRows" v-loading="feedbackLoading" border size="small" max-height="380">
+        <el-table-column label="有用" width="80">
+          <template #default="{ row }">{{ row.helpful ? '是' : '否' }}</template>
+        </el-table-column>
+        <el-table-column prop="reason" label="原因" min-width="220" show-overflow-tooltip />
+        <el-table-column prop="user_id" label="提交人" width="150" show-overflow-tooltip />
+        <el-table-column prop="created_at" label="提交时间" width="170" />
+      </el-table>
+      <el-pagination
+        style="margin-top: 12px; justify-content: flex-end"
+        layout="total, prev, pager, next"
+        :total="feedbackTotal"
+        :page-size="feedbackSize"
+        :current-page="feedbackPage"
+        @current-change="(next: number) => { feedbackPage = next; loadFeedback() }"
+      />
+      <template #footer>
+        <el-button @click="feedbackVisible = false">关闭</el-button>
       </template>
     </el-dialog>
 

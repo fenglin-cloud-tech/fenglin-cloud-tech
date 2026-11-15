@@ -21,10 +21,22 @@ const canCsat = computed(() => auth.can('service:csat:view'))
 const canRpa = computed(() => auth.can('service:rpa:report:view'))
 
 const gapItems = [
-  '报表接口均为租户级聚合值，没有时间区间参数，本页不能按日期筛选。',
-  '满意度只提供汇总（总分/均分/好评/差评），没有明细列表接口。',
+  '报表支持按创建日期区间筛选（from/to，含首尾两天），不传则统计全部。',
+  '满意度提供汇总 + 逐单明细（工单号、评分、评论、渠道、提交时间），明细同样支持日期区间。',
   '坐席负荷按 assignee_id 聚合，前端不解析姓名，避免伪造人员数据。',
 ]
+
+const dateRange = ref<[string, string] | null>(null)
+const detail = ref<ServiceRecord[]>([])
+const detailTotal = ref(0)
+const detailPage = ref(1)
+const detailSize = ref(10)
+const detailLoading = ref(false)
+
+const rangeParams = computed(() => {
+  if (!dateRange.value || dateRange.value.length !== 2) return {}
+  return { from: dateRange.value[0], to: dateRange.value[1] }
+})
 
 const slaRate = computed(() => {
   if (!slaReport.value) return '-'
@@ -39,17 +51,21 @@ async function load() {
   loading.value = true
   error.value = ''
   try {
+    const params = rangeParams.value
     if (canServiceReport.value) {
       const [tickets, sla, load] = await Promise.all([
-        serviceApi.reports.tickets(),
-        serviceApi.reports.sla(),
-        serviceApi.reports.workload(),
+        serviceApi.reports.tickets(params),
+        serviceApi.reports.sla(params),
+        serviceApi.reports.workload(params),
       ])
       ticketReport.value = tickets
       slaReport.value = sla
       workload.value = load
     }
-    if (canCsat.value) csatReport.value = await serviceApi.reports.csat()
+    if (canCsat.value) {
+      csatReport.value = await serviceApi.reports.csat(params)
+      await loadDetail()
+    }
     if (canRpa.value) {
       const [summary, robotLoad] = await Promise.all([
         serviceApi.reports.rpa(),
@@ -65,6 +81,35 @@ async function load() {
   }
 }
 
+async function loadDetail() {
+  detailLoading.value = true
+  try {
+    const result = await serviceApi.reports.csatDetail({
+      ...rangeParams.value,
+      page: detailPage.value,
+      size: detailSize.value,
+    })
+    detail.value = result.records
+    detailTotal.value = result.total
+  } catch {
+    detail.value = []
+    detailTotal.value = 0
+  } finally {
+    detailLoading.value = false
+  }
+}
+
+function changeDetailPage(next: number) {
+  detailPage.value = next
+  loadDetail()
+}
+
+function resetRange() {
+  dateRange.value = null
+  detailPage.value = 1
+  load()
+}
+
 onMounted(load)
 </script>
 
@@ -76,6 +121,17 @@ onMounted(load)
       description="工单、SLA、坐席负荷、满意度与 RPA 汇总；数据来自 /api/service/v1/reports。"
     >
       <template #actions>
+        <el-date-picker
+          v-model="dateRange"
+          type="daterange"
+          value-format="YYYY-MM-DD"
+          range-separator="至"
+          start-placeholder="开始日期"
+          end-placeholder="结束日期"
+          style="width: 240px"
+          @change="changeDetailPage(1)"
+        />
+        <el-button v-if="dateRange" @click="resetRange">清空区间</el-button>
         <el-button :loading="loading" @click="load">刷新</el-button>
       </template>
     </PageHeader>
@@ -143,10 +199,10 @@ onMounted(load)
         <el-card shadow="never">
           <template #header><span>满意度汇总</span></template>
           <el-descriptions :column="2" border size="small">
-            <el-descriptions-item label="回收数">{{ csatReport?.total ?? '-' }}</el-descriptions-item>
-            <el-descriptions-item label="平均分">{{ csatReport?.avg_score ?? '-' }}</el-descriptions-item>
-            <el-descriptions-item label="好评(≥4)">{{ csatReport?.positive ?? '-' }}</el-descriptions-item>
-            <el-descriptions-item label="差评(≤2)">{{ csatReport?.negative ?? '-' }}</el-descriptions-item>
+            <el-descriptions-item label="回收数">{{ csatReport?.summary?.total ?? '-' }}</el-descriptions-item>
+            <el-descriptions-item label="平均分">{{ csatReport?.summary?.avg_score ?? '-' }}</el-descriptions-item>
+            <el-descriptions-item label="好评(≥4)">{{ csatReport?.summary?.positive ?? '-' }}</el-descriptions-item>
+            <el-descriptions-item label="差评(≤2)">{{ csatReport?.summary?.negative ?? '-' }}</el-descriptions-item>
           </el-descriptions>
         </el-card>
       </el-col>
@@ -175,6 +231,27 @@ onMounted(load)
         <el-table-column prop="succeeded" label="成功数" width="100" />
         <el-table-column prop="busy_seconds" label="占用秒数" width="110" />
       </el-table>
+    </el-card>
+
+    <el-card v-if="canCsat" shadow="never" style="margin-top: 12px">
+      <template #header><span>满意度逐单明细</span></template>
+      <el-table :data="detail" v-loading="detailLoading" border size="small" max-height="420">
+        <el-table-column prop="ticket_no" label="工单号" width="170" show-overflow-tooltip />
+        <el-table-column prop="ticket_title" label="工单标题" min-width="220" show-overflow-tooltip />
+        <el-table-column prop="score" label="评分" width="80" />
+        <el-table-column prop="comment" label="评论" min-width="200" show-overflow-tooltip />
+        <el-table-column prop="channel" label="渠道" width="100" />
+        <el-table-column prop="respondent_id" label="评价人" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
+        <el-table-column prop="submitted_at" label="提交时间" width="180" />
+      </el-table>
+      <el-pagination
+        style="margin-top: 12px; justify-content: flex-end"
+        layout="total, prev, pager, next"
+        :total="detailTotal"
+        :page-size="detailSize"
+        :current-page="detailPage"
+        @current-change="changeDetailPage"
+      />
     </el-card>
   </div>
 </template>

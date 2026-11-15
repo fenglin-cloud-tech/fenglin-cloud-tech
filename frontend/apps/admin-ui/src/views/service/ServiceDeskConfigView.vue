@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { GapNotice, PageHeader } from '@fenglin/ui-admin'
 import { serviceApi, type ServiceRecord } from '@fenglin/api-client'
 import { useAuthStore } from '@/stores/auth'
@@ -29,9 +29,9 @@ const error = ref('')
 const formError = ref('')
 
 const gapItems = [
-  '配置接口以 config_json 整段存储，没有强类型字段校验；本页以 JSON 编辑并原样提交。',
-  'GET /admin/config/{type} 仅要求 tenant:service:config:view，各 PUT 分别要求 desk/asset/rpa/report 配置权限。',
-  '没有配置删除接口，只能覆盖写 default 键。',
+  '配置以 config_json 整段存储，支持对象或数组；字段级强类型校验需先定义各配置项 schema，尚未做。',
+  'GET /admin/config/{type} 仅要求 tenant:service:config:view，PUT/DELETE 分别要求 desk/asset/rpa/report 配置权限。',
+  '支持删除单个配置键（默认 default），删除后该类型回落到内置默认值。',
 ]
 
 function currentTab() {
@@ -79,6 +79,25 @@ function switchTab(key: ConfigKey) {
   load()
 }
 
+async function removeConfig() {
+  const kind = active.value
+  const key = rows.value.length && rows.value[0].config_key ? String(rows.value[0].config_key) : 'default'
+  try {
+    await ElMessageBox.confirm(`确认删除配置「${currentTab().label} / ${key}」？删除后回落到内置默认值。`, '删除配置', {
+      type: 'warning',
+    })
+  } catch {
+    return
+  }
+  try {
+    await serviceApi.admin.deleteConfig(kind, key)
+    ElMessage.success('配置已删除')
+    await load()
+  } catch (err) {
+    formError.value = describeError(err)
+  }
+}
+
 onMounted(load)
 </script>
 
@@ -91,6 +110,7 @@ onMounted(load)
     >
       <template #actions>
         <el-button :loading="loading" @click="load">重新加载</el-button>
+        <el-button :disabled="!auth.can(currentTab().perm) || !rows.length" plain type="danger" @click="removeConfig">删除</el-button>
         <el-button :disabled="!auth.can(currentTab().perm)" type="primary" :loading="saving" @click="save">保存</el-button>
       </template>
     </PageHeader>

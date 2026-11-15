@@ -348,7 +348,8 @@ public class LowcodeService {
         int limit = ServiceContext.size(size);
         int offset = ServiceContext.offset(page, size);
         List<Map<String, Object>> rows = lowcodeMapper.listReleases(tenantId, appId, limit, offset);
-        return PageResult.of(rows, rows.size(), ServiceContext.page(page), limit);
+        long total = lowcodeMapper.countReleases(tenantId, appId);
+        return PageResult.of(rows, total, ServiceContext.page(page), limit);
     }
 
     @Transactional

@@ -122,6 +122,18 @@ public interface ConfigMapper {
                       @Param("escalationMatrix") String escalationMatrix, @Param("status") String status,
                       @Param("userId") long userId);
 
+    @Select("""
+            SELECT count(1) FROM svc_catalog_item
+            WHERE sla_policy_id = #{policyId} AND deleted = 0 AND status = 'ACTIVE'
+            """)
+    long countActiveItemsByPolicy(@Param("policyId") long policyId);
+
+    @Update("""
+            UPDATE svc_sla_policy SET deleted = 1, updated_by = #{userId}, version = version + 1
+            WHERE id = #{id} AND tenant_id = #{tenantId} AND deleted = 0
+            """)
+    int deletePolicy(@Param("tenantId") long tenantId, @Param("id") long id, @Param("userId") long userId);
+
     // ---------- 知识库 ----------
     @Select("""
             SELECT id, name, parent_id, sort_no FROM svc_kb_category
@@ -197,6 +209,44 @@ public interface ConfigMapper {
             """)
     void increaseView(@Param("tenantId") long tenantId, @Param("id") long id);
 
+    @Update("""
+            UPDATE svc_kb_article SET category_id = #{categoryId}, title = #{title}, summary = #{summary},
+                   content = #{content}, keywords = #{keywords}::jsonb, visibility = #{visibility},
+                   status = #{status}, version_no = version_no + 1,
+                   published_at = CASE WHEN #{status} = 'PUBLISHED' THEN COALESCE(published_at, now())
+                                       ELSE published_at END,
+                   updated_by = #{userId}, version = version + 1
+            WHERE id = #{id} AND tenant_id = #{tenantId} AND deleted = 0
+            """)
+    int updateArticle(@Param("id") long id, @Param("tenantId") long tenantId,
+                      @Param("categoryId") Long categoryId, @Param("title") String title,
+                      @Param("summary") String summary, @Param("content") String content,
+                      @Param("keywords") String keywords, @Param("visibility") String visibility,
+                      @Param("status") String status, @Param("userId") long userId);
+
+    @Update("""
+            UPDATE svc_kb_article SET deleted = 1, updated_by = #{userId}, version = version + 1
+            WHERE id = #{id} AND tenant_id = #{tenantId} AND deleted = 0
+            """)
+    int deleteArticle(@Param("tenantId") long tenantId, @Param("id") long id, @Param("userId") long userId);
+
+    @Select("""
+            SELECT id, article_id, user_id, helpful, reason, ticket_id, created_at
+            FROM svc_kb_feedback
+            WHERE tenant_id = #{tenantId} AND article_id = #{articleId} AND deleted = 0
+            ORDER BY created_at DESC
+            LIMIT #{limit} OFFSET #{offset}
+            """)
+    List<Map<String, Object>> listKbFeedback(@Param("tenantId") long tenantId,
+                                             @Param("articleId") long articleId,
+                                             @Param("limit") int limit, @Param("offset") int offset);
+
+    @Select("""
+            SELECT count(1) FROM svc_kb_feedback
+            WHERE tenant_id = #{tenantId} AND article_id = #{articleId} AND deleted = 0
+            """)
+    long countKbFeedback(@Param("tenantId") long tenantId, @Param("articleId") long articleId);
+
     @Insert("""
             INSERT INTO svc_kb_feedback (id, tenant_id, article_id, user_id, helpful, reason, ticket_id, created_by)
             VALUES (#{id}, #{tenantId}, #{articleId}, #{userId}, #{helpful}, #{reason}, #{ticketId}, #{userId})
@@ -240,18 +290,60 @@ public interface ConfigMapper {
                     @Param("respondentId") long respondentId, @Param("channel") String channel);
 
     @Select("""
+            <script>
             SELECT count(1) AS total, COALESCE(avg(score), 0) AS avg_score,
                    count(1) FILTER (WHERE score >= 4) AS positive,
-                   count(1) FILTER (WHERE score <= 2) AS negative
+                   count(1) FILTER (WHERE score &lt;= 2) AS negative
             FROM svc_csat_survey WHERE tenant_id = #{tenantId} AND deleted = 0
+            <if test="from != null">AND submitted_at &gt;= #{from}</if>
+            <if test="to != null">AND submitted_at &lt; #{to}</if>
+            </script>
             """)
-    Map<String, Object> csatReport(@Param("tenantId") long tenantId);
+    Map<String, Object> csatReport(@Param("tenantId") long tenantId,
+                                   @Param("from") java.sql.Timestamp from,
+                                   @Param("to") java.sql.Timestamp to);
 
     @Select("""
+            <script>
             SELECT score, count(1) AS cnt FROM svc_csat_survey
-            WHERE tenant_id = #{tenantId} AND deleted = 0 GROUP BY score ORDER BY score
+            WHERE tenant_id = #{tenantId} AND deleted = 0
+            <if test="from != null">AND submitted_at &gt;= #{from}</if>
+            <if test="to != null">AND submitted_at &lt; #{to}</if>
+            GROUP BY score ORDER BY score
+            </script>
             """)
-    List<Map<String, Object>> csatDistribution(@Param("tenantId") long tenantId);
+    List<Map<String, Object>> csatDistribution(@Param("tenantId") long tenantId,
+                                               @Param("from") java.sql.Timestamp from,
+                                               @Param("to") java.sql.Timestamp to);
+
+    @Select("""
+            <script>
+            SELECT s.id, s.ticket_id, t.ticket_no, t.title AS ticket_title, s.score, s.tags::text AS tags,
+                   s.comment, s.respondent_id, s.channel, s.submitted_at
+            FROM svc_csat_survey s LEFT JOIN svc_ticket t ON t.id = s.ticket_id
+            WHERE s.tenant_id = #{tenantId} AND s.deleted = 0
+            <if test="from != null">AND s.submitted_at &gt;= #{from}</if>
+            <if test="to != null">AND s.submitted_at &lt; #{to}</if>
+            ORDER BY s.submitted_at DESC
+            LIMIT #{limit} OFFSET #{offset}
+            </script>
+            """)
+    List<Map<String, Object>> listCsatDetail(@Param("tenantId") long tenantId,
+                                             @Param("from") java.sql.Timestamp from,
+                                             @Param("to") java.sql.Timestamp to,
+                                             @Param("limit") int limit, @Param("offset") int offset);
+
+    @Select("""
+            <script>
+            SELECT count(1) FROM svc_csat_survey
+            WHERE tenant_id = #{tenantId} AND deleted = 0
+            <if test="from != null">AND submitted_at &gt;= #{from}</if>
+            <if test="to != null">AND submitted_at &lt; #{to}</if>
+            </script>
+            """)
+    long countCsatDetail(@Param("tenantId") long tenantId,
+                         @Param("from") java.sql.Timestamp from,
+                         @Param("to") java.sql.Timestamp to);
 
     // ---------- IT 资产 ----------
     @Select("""
@@ -309,6 +401,12 @@ public interface ConfigMapper {
     int updateAsset(@Param("tenantId") long tenantId, @Param("id") long id, @Param("status") String status,
                     @Param("ownerId") Long ownerId, @Param("borrowDueAt") java.sql.Timestamp borrowDueAt,
                     @Param("userId") long userId);
+
+    @Update("""
+            UPDATE svc_it_asset SET deleted = 1, updated_by = #{userId}, version = version + 1
+            WHERE id = #{id} AND tenant_id = #{tenantId} AND deleted = 0
+            """)
+    int deleteAsset(@Param("tenantId") long tenantId, @Param("id") long id, @Param("userId") long userId);
 
     @Select("""
             <script>
@@ -460,4 +558,12 @@ public interface ConfigMapper {
             """)
     List<Map<String, Object>> listConfigs(@Param("tenantId") long tenantId,
                                           @Param("configType") String configType);
+
+    @Update("""
+            UPDATE svc_tenant_config SET deleted = 1, updated_by = #{userId}, version = version + 1
+            WHERE tenant_id = #{tenantId} AND config_type = #{configType} AND config_key = #{configKey}
+              AND deleted = 0
+            """)
+    int deleteConfig(@Param("tenantId") long tenantId, @Param("configType") String configType,
+                     @Param("configKey") String configKey, @Param("userId") long userId);
 }

@@ -262,40 +262,79 @@ public interface TicketMapper {
     List<Map<String, Object>> listRunningSla(@Param("tenantId") long tenantId, @Param("limit") int limit);
 
     @Select("""
+            <script>
+            SELECT count(1) FROM svc_ticket
+            WHERE tenant_id = #{tenantId} AND deleted = 0
+            <if test="from != null">AND created_at &gt;= #{from}</if>
+            <if test="to != null">AND created_at &lt; #{to}</if>
+            </script>
+            """)
+    long countCreated(@Param("tenantId") long tenantId,
+                      @Param("from") Timestamp from, @Param("to") Timestamp to);
+
+    @Select("""
+            <script>
             SELECT status, count(1) AS cnt FROM svc_ticket
-            WHERE tenant_id = #{tenantId} AND deleted = 0 GROUP BY status ORDER BY status
+            WHERE tenant_id = #{tenantId} AND deleted = 0
+            <if test="from != null">AND created_at &gt;= #{from}</if>
+            <if test="to != null">AND created_at &lt; #{to}</if>
+            GROUP BY status ORDER BY status
+            </script>
             """)
-    List<Map<String, Object>> countByStatus(@Param("tenantId") long tenantId);
+    List<Map<String, Object>> countByStatus(@Param("tenantId") long tenantId,
+                                            @Param("from") Timestamp from, @Param("to") Timestamp to);
 
     @Select("""
+            <script>
             SELECT priority, count(1) AS cnt FROM svc_ticket
-            WHERE tenant_id = #{tenantId} AND deleted = 0 GROUP BY priority ORDER BY priority
+            WHERE tenant_id = #{tenantId} AND deleted = 0
+            <if test="from != null">AND created_at &gt;= #{from}</if>
+            <if test="to != null">AND created_at &lt; #{to}</if>
+            GROUP BY priority ORDER BY priority
+            </script>
             """)
-    List<Map<String, Object>> countByPriority(@Param("tenantId") long tenantId);
+    List<Map<String, Object>> countByPriority(@Param("tenantId") long tenantId,
+                                              @Param("from") Timestamp from, @Param("to") Timestamp to);
 
     @Select("""
+            <script>
             SELECT ticket_type, count(1) AS cnt FROM svc_ticket
-            WHERE tenant_id = #{tenantId} AND deleted = 0 GROUP BY ticket_type ORDER BY ticket_type
+            WHERE tenant_id = #{tenantId} AND deleted = 0
+            <if test="from != null">AND created_at &gt;= #{from}</if>
+            <if test="to != null">AND created_at &lt; #{to}</if>
+            GROUP BY ticket_type ORDER BY ticket_type
+            </script>
             """)
-    List<Map<String, Object>> countByType(@Param("tenantId") long tenantId);
+    List<Map<String, Object>> countByType(@Param("tenantId") long tenantId,
+                                          @Param("from") Timestamp from, @Param("to") Timestamp to);
 
     @Select("""
+            <script>
             SELECT assignee_id, count(1) AS total,
                    count(1) FILTER (WHERE status IN ('RESOLVED','CLOSED')) AS resolved,
                    count(1) FILTER (WHERE sla_resolve_due_at IS NOT NULL AND resolved_at > sla_resolve_due_at) AS breached
             FROM svc_ticket
             WHERE tenant_id = #{tenantId} AND deleted = 0 AND assignee_id IS NOT NULL
+            <if test="from != null">AND created_at &gt;= #{from}</if>
+            <if test="to != null">AND created_at &lt; #{to}</if>
             GROUP BY assignee_id ORDER BY total DESC
+            </script>
             """)
-    List<Map<String, Object>> workload(@Param("tenantId") long tenantId);
+    List<Map<String, Object>> workload(@Param("tenantId") long tenantId,
+                                       @Param("from") Timestamp from, @Param("to") Timestamp to);
 
     @Select("""
+            <script>
             SELECT count(1) AS total,
                    count(1) FILTER (WHERE resolved_at IS NOT NULL AND sla_resolve_due_at IS NOT NULL
-                                    AND resolved_at <= sla_resolve_due_at) AS met,
+                                    AND resolved_at &lt;= sla_resolve_due_at) AS met,
                    count(1) FILTER (WHERE resolved_at IS NOT NULL AND sla_resolve_due_at IS NOT NULL
                                     AND resolved_at > sla_resolve_due_at) AS breached
             FROM svc_ticket WHERE tenant_id = #{tenantId} AND deleted = 0
+            <if test="from != null">AND created_at &gt;= #{from}</if>
+            <if test="to != null">AND created_at &lt; #{to}</if>
+            </script>
             """)
-    Map<String, Object> slaReport(@Param("tenantId") long tenantId);
+    Map<String, Object> slaReport(@Param("tenantId") long tenantId,
+                                  @Param("from") Timestamp from, @Param("to") Timestamp to);
 }

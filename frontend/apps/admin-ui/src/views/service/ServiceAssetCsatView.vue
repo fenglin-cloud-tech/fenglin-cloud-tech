@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { GapNotice, PageHeader, ID_COLUMN_WIDTH, formatDateTime } from '@fenglin/ui-admin'
 import { serviceApi, type ServiceRecord } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
@@ -23,9 +23,9 @@ const form = reactive({ asset_no: '', name: '', asset_type: 'LAPTOP', owner_id: 
 const actionForm = reactive({ id: '', owner_id: '', days: 30 })
 
 const gapItems = [
-  '资产没有删除接口，只能通过状态（SCRAPPED）停用。',
-  '借用/归还都要求 service:asset:manage，普通员工无法自助归还，需 IT 处理。',
-  'CSAT 报表来自 /reports/csat，按周期汇总；没有按工单逐条反馈明细查询。',
+  '资产支持软删除：借用中的资产需先归还（服务端返回 4204004），删除后列表与详情都不再出现。',
+  '借用/归还仍要求 service:asset:manage；员工自助归还走 /assets/{id}/return-self 与门户「我的资产」。',
+  'CSAT 汇总与逐单明细在「服务运营报表」页，可按日期区间筛选。',
 ]
 
 async function load() {
@@ -113,6 +113,23 @@ async function returnAsset() {
   }
 }
 
+async function removeAsset(row: ServiceRecord) {
+  try {
+    await ElMessageBox.confirm(`确认删除资产「${row.name}」？删除后不可在列表中恢复。`, '删除资产', {
+      type: 'warning',
+    })
+  } catch {
+    return
+  }
+  try {
+    await serviceApi.assets.remove(row.id)
+    ElMessage.success('资产已删除')
+    await load()
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  }
+}
+
 function changePage(next: number) {
   page.value = next
   load()
@@ -163,8 +180,8 @@ onMounted(load)
         <el-card shadow="never">
           <template #header><span>满意度与提醒</span></template>
           <el-descriptions :column="2" border size="small">
-            <el-descriptions-item label="平均分">{{ csat?.avg_score ?? csat?.score ?? '-' }}</el-descriptions-item>
-            <el-descriptions-item label="样本数">{{ csat?.sample_count ?? csat?.total ?? '-' }}</el-descriptions-item>
+            <el-descriptions-item label="平均分">{{ csat?.summary?.avg_score ?? '-' }}</el-descriptions-item>
+            <el-descriptions-item label="样本数">{{ csat?.summary?.total ?? '-' }}</el-descriptions-item>
             <el-descriptions-item label="借用到期提醒">{{ reminders?.due_soon ?? reminders?.count ?? '-' }}</el-descriptions-item>
             <el-descriptions-item label="已逾期">{{ reminders?.overdue ?? '-' }}</el-descriptions-item>
           </el-descriptions>
@@ -185,6 +202,11 @@ onMounted(load)
         </el-table-column>
         <el-table-column label="外部引用" min-width="150" show-overflow-tooltip>
           <template #default="{ row }">{{ formatDateTime(row.ext_ref) }}</template>
+        </el-table-column>
+        <el-table-column label="操作" width="90" fixed="right">
+          <template #default="{ row }">
+            <el-button v-perm="'service:asset:manage'" link type="danger" @click="removeAsset(row)">删除</el-button>
+          </template>
         </el-table-column>
       </el-table>
       <el-pagination

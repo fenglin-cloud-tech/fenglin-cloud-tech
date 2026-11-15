@@ -66,10 +66,27 @@ public class CsatAssetService {
         return ServiceMaps.of("id", id, "ticket_id", ticketId, "score", score);
     }
 
-    public Map<String, Object> csatReport() {
+    public Map<String, Object> csatReport(String from, String to) {
         long tenantId = ServiceContext.tenantId();
-        Map<String, Object> summary = configMapper.csatReport(tenantId);
-        return ServiceMaps.of("summary", summary, "distribution", configMapper.csatDistribution(tenantId));
+        Timestamp fromAt = ServiceContext.fromDate(from);
+        Timestamp toAt = ServiceContext.toExclusive(to);
+        Map<String, Object> summary = configMapper.csatReport(tenantId, fromAt, toAt);
+        return ServiceMaps.of("summary", summary,
+                "distribution", configMapper.csatDistribution(tenantId, fromAt, toAt),
+                "from", from == null ? null : ServiceContext.text(from),
+                "to", to == null ? null : ServiceContext.text(to));
+    }
+
+    /** 满意度逐单明细（分页），可按提交时间区间过滤。 */
+    public PageResult<Map<String, Object>> csatDetail(String from, String to, Integer page, Integer size) {
+        long tenantId = ServiceContext.tenantId();
+        Timestamp fromAt = ServiceContext.fromDate(from);
+        Timestamp toAt = ServiceContext.toExclusive(to);
+        int limit = ServiceContext.size(size);
+        int offset = ServiceContext.offset(page, size);
+        List<Map<String, Object>> rows = configMapper.listCsatDetail(tenantId, fromAt, toAt, limit, offset);
+        long total = configMapper.countCsatDetail(tenantId, fromAt, toAt);
+        return PageResult.of(rows, total, ServiceContext.page(page), limit);
     }
 
     public PageResult<Map<String, Object>> listAssets(String status, Long ownerId, String assetType,
@@ -206,6 +223,24 @@ public class CsatAssetService {
 
     public Map<String, Object> now() {
         return ServiceMaps.of("now", commonsMapper.now());
+    }
+
+    /**
+     * 删除资产（软删）。借用中的资产需先归还，避免出现"已删除但仍在他人手上"的悬挂记录。
+     */
+    @Transactional
+    public Map<String, Object> deleteAsset(long id) {
+        long tenantId = ServiceContext.tenantId();
+        Map<String, Object> asset = configMapper.findAsset(tenantId, id);
+        if (asset == null) {
+            throw new BizException(ServiceErrorCode.RESOURCE_NOT_FOUND);
+        }
+        if ("BORROWED".equals(Rows.str(asset, "status"))) {
+            throw new BizException(ServiceErrorCode.ASSET_BORROWED);
+        }
+        configMapper.deleteAsset(tenantId, id, ServiceContext.userId());
+        audit.high("asset.delete", "asset", id);
+        return ServiceMaps.of("id", id, "deleted", true);
     }
 
     private String blank(String value) {

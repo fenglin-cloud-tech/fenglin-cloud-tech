@@ -94,6 +94,51 @@ public class KbService {
         return ServiceMaps.of("id", id, "status", status);
     }
 
+    /**
+     * 编辑已有文章：原地更新，不再新增一条记录（此前 POST 带 id 会被当成新建，导致改名后出现两条）。
+     */
+    @Transactional
+    public Map<String, Object> update(long id, Map<String, Object> body) {
+        long tenantId = ServiceContext.tenantId();
+        String status = body.get("status") == null ? "DRAFT" : ServiceContext.string(body.get("status")).toUpperCase();
+        int updated = configMapper.updateArticle(id, tenantId,
+                body.get("category_id") == null ? null : ServiceContext.requireLong(body.get("category_id")),
+                ServiceContext.requireText(ServiceContext.string(body.get("title"))),
+                ServiceContext.string(body.get("summary")),
+                ServiceContext.requireText(ServiceContext.string(body.get("content"))),
+                ServiceMaps.json(body.get("keywords")),
+                body.get("visibility") == null ? "PUBLIC" : ServiceContext.string(body.get("visibility")),
+                status, ServiceContext.userId());
+        if (updated == 0) {
+            throw new BizException(ServiceErrorCode.RESOURCE_NOT_FOUND);
+        }
+        audit.low("kb.update", "kb_article", id);
+        return ServiceMaps.of("id", id, "status", status);
+    }
+
+    @Transactional
+    public Map<String, Object> delete(long id) {
+        int removed = configMapper.deleteArticle(ServiceContext.tenantId(), id, ServiceContext.userId());
+        if (removed == 0) {
+            throw new BizException(ServiceErrorCode.RESOURCE_NOT_FOUND);
+        }
+        audit.high("kb.delete", "kb_article", id);
+        return ServiceMaps.of("id", id, "deleted", true);
+    }
+
+    public PageResult<Map<String, Object>> feedbackList(long id, Integer page, Integer size) {
+        long tenantId = ServiceContext.tenantId();
+        Map<String, Object> article = configMapper.findArticle(tenantId, id);
+        if (article == null) {
+            throw new BizException(ServiceErrorCode.RESOURCE_NOT_FOUND);
+        }
+        int limit = ServiceContext.size(size);
+        int offset = ServiceContext.offset(page, size);
+        List<Map<String, Object>> rows = configMapper.listKbFeedback(tenantId, id, limit, offset);
+        long total = configMapper.countKbFeedback(tenantId, id);
+        return PageResult.of(rows, total, ServiceContext.page(page), limit);
+    }
+
     @Transactional
     public Map<String, Object> feedback(long id, Map<String, Object> body) {
         long tenantId = ServiceContext.tenantId();

@@ -169,6 +169,23 @@ public class CatalogService {
                 "escalation_matrix");
     }
 
+    /**
+     * 删除 SLA 策略（软删）。策略被启用中的目录项引用时拒绝，避免目录项指向不存在的策略。
+     */
+    @Transactional
+    public Map<String, Object> deletePolicy(long id) {
+        long tenantId = ServiceContext.tenantId();
+        if (configMapper.countActiveItemsByPolicy(id) > 0) {
+            throw new BizException(ServiceErrorCode.SLA_POLICY_IN_USE);
+        }
+        int removed = configMapper.deletePolicy(tenantId, id, ServiceContext.userId());
+        if (removed == 0) {
+            throw new BizException(ServiceErrorCode.RESOURCE_NOT_FOUND);
+        }
+        audit.high("sla.delete", "sla_policy", id);
+        return ServiceMaps.of("id", id, "deleted", true);
+    }
+
     @Transactional
     public Map<String, Object> savePolicy(Map<String, Object> body) {
         long tenantId = ServiceContext.tenantId();

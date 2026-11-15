@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { GapNotice, PageHeader } from '@fenglin/ui-admin'
 import { serviceApi, type ServiceRecord } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
@@ -47,7 +47,7 @@ const policyForm = reactive({
 
 const gapItems = [
   '目录与目录项统一走 /admin/catalog：目录按单条保存，目录项按 items 数组创建/编辑/停用；新增后立即出现在目录树与员工端提交入口。',
-  'SLA 策略保存接口 /admin/sla-policies 未提供删除接口，只能新增或覆盖。',
+  'SLA 策略支持删除；仍被启用中的目录项引用时会拒绝（4202003），需先把目录项改为停用或换策略。',
   '目录项申请接口 /catalog/items/{id}/apply 会创建工单，员工端使用。',
 ]
 
@@ -200,6 +200,25 @@ async function submitPolicy() {
   }
 }
 
+async function removePolicy(row: ServiceRecord) {
+  try {
+    await ElMessageBox.confirm(
+      `确认删除 SLA 策略「${row.name}」？被启用中的目录项引用时会被拒绝。`,
+      '删除 SLA 策略',
+      { type: 'warning' },
+    )
+  } catch {
+    return
+  }
+  try {
+    await serviceApi.admin.deleteSlaPolicy(row.id)
+    ElMessage.success('SLA 策略已删除')
+    policies.value = await serviceApi.admin.slaPolicies()
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  }
+}
+
 onMounted(load)
 </script>
 
@@ -277,6 +296,11 @@ onMounted(load)
             <el-table-column prop="response_minutes" label="响应(分钟)" width="110" />
             <el-table-column prop="resolve_minutes" label="解决(分钟)" width="110" />
             <el-table-column prop="status" label="状态" width="100" />
+            <el-table-column label="操作" width="90">
+              <template #default="{ row }">
+                <el-button v-perm="'tenant:service:sla:config'" link type="danger" @click="removePolicy(row)">删除</el-button>
+              </template>
+            </el-table-column>
           </el-table>
         </el-card>
       </el-col>

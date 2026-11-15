@@ -52,6 +52,40 @@ public final class ServiceContext {
         return UUID.randomUUID().toString().replace("-", "");
     }
 
+    /**
+     * 报表起始时间：支持 {@code yyyy-MM-dd} 与 ISO-8601 日期时间，按当天 00:00:00 取整。
+     */
+    public static java.sql.Timestamp fromDate(String value) {
+        String text = text(value);
+        if (text == null) {
+            return null;
+        }
+        return java.sql.Timestamp.valueOf(normalizeDate(text) + " 00:00:00");
+    }
+
+    /**
+     * 报表结束时间（含当天）：{@code yyyy-MM-dd} 取次日 00:00:00 作为开区间上界，避免漏掉当天数据。
+     */
+    public static java.sql.Timestamp toExclusive(String value) {
+        String text = text(value);
+        if (text == null) {
+            return null;
+        }
+        String date = normalizeDate(text);
+        return java.sql.Timestamp.valueOf(java.time.LocalDate.parse(date).plusDays(1).toString() + " 00:00:00");
+    }
+
+    private static String normalizeDate(String text) {
+        int space = text.indexOf(' ');
+        int t = text.indexOf('T');
+        int cut = space > 0 ? space : t;
+        String date = cut > 0 ? text.substring(0, cut) : text;
+        if (!date.matches("\\d{4}-\\d{2}-\\d{2}")) {
+            throw new BizException(com.fenglin.service.ServiceErrorCode.PARAM_INVALID);
+        }
+        return date;
+    }
+
     public static String requireText(String value) {
         if (value == null || value.isBlank()) {
             throw new BizException(com.fenglin.service.ServiceErrorCode.PARAM_INVALID);

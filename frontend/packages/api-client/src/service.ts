@@ -1,4 +1,4 @@
-import { get, post, put } from './http'
+import { del, get, post, put } from './http'
 import type { PageResult } from '@fenglin/shared'
 
 /** 云服后端返回动态 Map（SNAKE_CASE），此处统一用宽松记录类型承接。 */
@@ -8,6 +8,16 @@ export type ServicePage = PageResult<ServiceRecord>
 export type ServiceId = string | number
 
 const BASE = '/api/service/v1'
+
+/** 管理端配置页的 7 类配置（与后端 /admin/config/{kind} 一一对应）。 */
+export type ConfigKind =
+  | 'ticket-types'
+  | 'groups'
+  | 'duty'
+  | 'dispatch-rule'
+  | 'asset-reminder'
+  | 'retry-policy'
+  | 'service-report'
 
 export const serviceApi = {
   tickets: {
@@ -133,6 +143,23 @@ export const serviceApi = {
     }) {
       return post<ServiceRecord>(`${BASE}/kb/articles`, body)
     },
+    updateArticle(id: ServiceId, body: {
+      category_id?: ServiceId | null
+      title: string
+      summary?: string
+      content: string
+      status?: string
+      visibility?: string
+      keywords?: string[]
+    }) {
+      return put<ServiceRecord>(`${BASE}/kb/articles/${id}`, body)
+    },
+    deleteArticle(id: ServiceId) {
+      return del<ServiceRecord>(`${BASE}/kb/articles/${id}`)
+    },
+    feedbackList(id: ServiceId, params: { page?: number; size?: number } = {}) {
+      return get<ServicePage>(`${BASE}/kb/articles/${id}/feedback`, params)
+    },
     feedback(id: ServiceId, body: { helpful: boolean; reason?: string; ticket_id?: ServiceId | null }) {
       return post<ServiceRecord>(`${BASE}/kb/articles/${id}/feedback`, body)
     },
@@ -216,6 +243,9 @@ export const serviceApi = {
     returnAsset(id: ServiceId, body?: ServiceRecord) {
       return post<ServiceRecord>(`${BASE}/assets/${id}/return`, body ?? {})
     },
+    remove(id: ServiceId) {
+      return del<ServiceRecord>(`${BASE}/assets/${id}`)
+    },
     returnSelf(id: ServiceId) {
       return post<ServiceRecord>(`${BASE}/assets/${id}/return-self`)
     },
@@ -234,15 +264,8 @@ export const serviceApi = {
       return get<ServiceRecord[]>(`${BASE}/admin/config/${configType}`)
     },
     saveConfig(
-      kind:
-        | 'ticket-types'
-        | 'groups'
-        | 'duty'
-        | 'dispatch-rule'
-        | 'asset-reminder'
-        | 'retry-policy'
-        | 'service-report',
-      body: ServiceRecord,
+      kind: ConfigKind,
+      body: ServiceRecord | ServiceRecord[],
     ) {
       return put<ServiceRecord>(`${BASE}/admin/config/${kind}`, body)
     },
@@ -284,6 +307,12 @@ export const serviceApi = {
       status?: string
     }) {
       return post<ServiceRecord>(`${BASE}/admin/sla-policies`, body)
+    },
+    deleteSlaPolicy(id: ServiceId) {
+      return del<ServiceRecord>(`${BASE}/admin/sla-policies/${id}`)
+    },
+    deleteConfig(kind: ConfigKind, configKey = 'default') {
+      return del<ServiceRecord>(`${BASE}/admin/config/${kind}/${configKey}`)
     },
   },
   mining: {
@@ -462,17 +491,20 @@ export const serviceApi = {
     },
   },
   reports: {
-    tickets() {
-      return get<ServiceRecord>(`${BASE}/reports/tickets`)
+    tickets(params: { from?: string; to?: string } = {}) {
+      return get<ServiceRecord>(`${BASE}/reports/tickets`, params)
     },
-    sla() {
-      return get<ServiceRecord>(`${BASE}/reports/sla`)
+    sla(params: { from?: string; to?: string } = {}) {
+      return get<ServiceRecord>(`${BASE}/reports/sla`, params)
     },
-    workload() {
-      return get<ServiceRecord[]>(`${BASE}/reports/workload`)
+    workload(params: { from?: string; to?: string } = {}) {
+      return get<ServiceRecord[]>(`${BASE}/reports/workload`, params)
     },
-    csat() {
-      return get<ServiceRecord>(`${BASE}/reports/csat`)
+    csat(params: { from?: string; to?: string } = {}) {
+      return get<ServiceRecord>(`${BASE}/reports/csat`, params)
+    },
+    csatDetail(params: { from?: string; to?: string; page?: number; size?: number } = {}) {
+      return get<ServicePage>(`${BASE}/reports/csat/detail`, params)
     },
     rpa() {
       return get<ServiceRecord>(`${BASE}/reports/rpa`)

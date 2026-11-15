@@ -120,6 +120,13 @@ export function put<T>(path: string, body?: unknown): Promise<T> {
   })
 }
 
+export function del<T>(path: string, body?: unknown): Promise<T> {
+  return request<T>(path, {
+    method: 'DELETE',
+    body: body === undefined ? undefined : JSON.stringify(body),
+  })
+}
+
 export function postForm<T>(path: string, form: FormData): Promise<T> {
   return request<T>(path, { method: 'POST', body: form })
 }

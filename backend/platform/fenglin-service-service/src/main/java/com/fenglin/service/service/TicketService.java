@@ -375,21 +375,27 @@ public class TicketService {
         throw new BizException(ServiceErrorCode.PARAM_INVALID);
     }
 
-    public Map<String, Object> ticketReport() {
+    public Map<String, Object> ticketReport(String from, String to) {
         long tenantId = ServiceContext.tenantId();
+        Timestamp fromAt = ServiceContext.fromDate(from);
+        Timestamp toAt = ServiceContext.toExclusive(to);
         return ServiceMaps.of(
-                "total", ticketMapper.count(tenantId, null, null, null, null, null, null, null, null),
-                "by_status", ticketMapper.countByStatus(tenantId),
-                "by_priority", ticketMapper.countByPriority(tenantId),
-                "by_type", ticketMapper.countByType(tenantId));
+                "total", ticketMapper.countCreated(tenantId, fromAt, toAt),
+                "by_status", ticketMapper.countByStatus(tenantId, fromAt, toAt),
+                "by_priority", ticketMapper.countByPriority(tenantId, fromAt, toAt),
+                "by_type", ticketMapper.countByType(tenantId, fromAt, toAt),
+                "from", from == null ? null : ServiceContext.text(from),
+                "to", to == null ? null : ServiceContext.text(to));
     }
 
-    public Map<String, Object> slaReport() {
-        return ticketMapper.slaReport(ServiceContext.tenantId());
+    public Map<String, Object> slaReport(String from, String to) {
+        return ticketMapper.slaReport(ServiceContext.tenantId(),
+                ServiceContext.fromDate(from), ServiceContext.toExclusive(to));
     }
 
-    public List<Map<String, Object>> workload() {
-        return ticketMapper.workload(ServiceContext.tenantId());
+    public List<Map<String, Object>> workload(String from, String to) {
+        return ticketMapper.workload(ServiceContext.tenantId(),
+                ServiceContext.fromDate(from), ServiceContext.toExclusive(to));
     }
 
     @Transactional

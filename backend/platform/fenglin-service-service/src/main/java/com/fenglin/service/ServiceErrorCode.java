@@ -18,11 +18,13 @@ public enum ServiceErrorCode implements ErrorCode {
 
     CATALOG_ITEM_DISABLED("4202001", "目录项已停用", 409),
     CATALOG_SCOPE_DENIED("4202002", "不在目录项可见范围", 403),
+    SLA_POLICY_IN_USE("4202003", "SLA 策略仍被启用中的目录项引用，不能删除", 409),
 
     KB_NOT_PUBLISHED("4203001", "知识文章未发布", 409),
     CSAT_SCORE_INVALID("4203002", "满意度评分需在 1-5 之间", 400),
 
     ASSET_STATE_INVALID("4204001", "资产状态不允许该操作", 409),
+    ASSET_BORROWED("4204004", "资产处于借用中，需先归还再删除", 409),
     CHANGE_STATE_INVALID("4204002", "变更状态不允许该操作", 409),
     PROBLEM_STATE_INVALID("4204003", "问题状态不允许该操作", 409),
 

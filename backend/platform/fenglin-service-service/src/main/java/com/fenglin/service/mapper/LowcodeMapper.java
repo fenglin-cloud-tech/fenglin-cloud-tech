@@ -193,11 +193,13 @@ public interface LowcodeMapper {
     Map<String, Object> findFlowInstance(@Param("tenantId") long tenantId, @Param("id") long id);
 
     @Select("""
+            <script>
             SELECT id, flow_key, business_key, title, initiator_id, status, current_node, started_at, created_at
             FROM svc_flow_instance
             WHERE tenant_id = #{tenantId} AND deleted = 0
             <if test="status != null">AND status = #{status}</if>
             ORDER BY created_at DESC LIMIT #{limit} OFFSET #{offset}
+            </script>
             """)
     List<Map<String, Object>> listFlowInstances(@Param("tenantId") long tenantId, @Param("status") String status,
                                                 @Param("limit") int limit, @Param("offset") int offset);
@@ -371,14 +373,25 @@ public interface LowcodeMapper {
     Map<String, Object> findRelease(@Param("tenantId") long tenantId, @Param("id") long id);
 
     @Select("""
+            <script>
             SELECT r.id, r.app_id, a.name AS app_name, r.release_no, r.from_env, r.to_env, r.approval_status,
                    r.status, r.created_at FROM svc_app_release r LEFT JOIN svc_app_definition a ON a.id = r.app_id
             WHERE r.tenant_id = #{tenantId} AND r.deleted = 0
             <if test="appId != null">AND r.app_id = #{appId}</if>
             ORDER BY r.created_at DESC LIMIT #{limit} OFFSET #{offset}
+            </script>
             """)
     List<Map<String, Object>> listReleases(@Param("tenantId") long tenantId, @Param("appId") Long appId,
                                            @Param("limit") int limit, @Param("offset") int offset);
+
+    @Select("""
+            <script>
+            SELECT count(1) FROM svc_app_release r
+            WHERE r.tenant_id = #{tenantId} AND r.deleted = 0
+            <if test="appId != null">AND r.app_id = #{appId}</if>
+            </script>
+            """)
+    long countReleases(@Param("tenantId") long tenantId, @Param("appId") Long appId);
 
     @Update("""
             UPDATE svc_app_release SET approval_status = #{approvalStatus}, approver_id = #{userId},

@@ -4,6 +4,7 @@ import com.fenglin.common.core.ApiResponse;
 import com.fenglin.common.security.PermissionGuard;
 import com.fenglin.service.service.AdminConfigService;
 import com.fenglin.service.service.CatalogService;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -42,7 +43,7 @@ public class AdminConfigController {
     @PutMapping("/config/ticket-types")
     public ApiResponse<Map<String, Object>> ticketTypes(
             @RequestHeader(value = "X-Permissions", required = false) String permissions,
-            @RequestBody Map<String, Object> body) {
+            @RequestBody Object body) {
         PermissionGuard.require(permissions, DESK_CONFIG);
         return ApiResponse.success(adminConfigService.save("TICKET_TYPE", "default", body));
     }
@@ -50,7 +51,7 @@ public class AdminConfigController {
     @PutMapping("/config/groups")
     public ApiResponse<Map<String, Object>> groups(
             @RequestHeader(value = "X-Permissions", required = false) String permissions,
-            @RequestBody Map<String, Object> body) {
+            @RequestBody Object body) {
         PermissionGuard.require(permissions, DESK_CONFIG);
         return ApiResponse.success(adminConfigService.save("HANDLE_GROUP", "default", body));
     }
@@ -58,7 +59,7 @@ public class AdminConfigController {
     @PutMapping("/config/duty")
     public ApiResponse<Map<String, Object>> duty(
             @RequestHeader(value = "X-Permissions", required = false) String permissions,
-            @RequestBody Map<String, Object> body) {
+            @RequestBody Object body) {
         PermissionGuard.require(permissions, DESK_CONFIG);
         return ApiResponse.success(adminConfigService.save("DUTY_ROSTER", "default", body));
     }
@@ -66,7 +67,7 @@ public class AdminConfigController {
     @PutMapping("/config/dispatch-rule")
     public ApiResponse<Map<String, Object>> dispatchRule(
             @RequestHeader(value = "X-Permissions", required = false) String permissions,
-            @RequestBody Map<String, Object> body) {
+            @RequestBody Object body) {
         PermissionGuard.require(permissions, DESK_CONFIG);
         return ApiResponse.success(adminConfigService.save("DISPATCH_RULE", "default", body));
     }
@@ -74,7 +75,7 @@ public class AdminConfigController {
     @PutMapping("/config/asset-reminder")
     public ApiResponse<Map<String, Object>> assetReminder(
             @RequestHeader(value = "X-Permissions", required = false) String permissions,
-            @RequestBody Map<String, Object> body) {
+            @RequestBody Object body) {
         PermissionGuard.require(permissions, ASSET_CONFIG);
         return ApiResponse.success(adminConfigService.save("ASSET_REMINDER", "default", body));
     }
@@ -82,7 +83,7 @@ public class AdminConfigController {
     @PutMapping("/config/retry-policy")
     public ApiResponse<Map<String, Object>> retryPolicy(
             @RequestHeader(value = "X-Permissions", required = false) String permissions,
-            @RequestBody Map<String, Object> body) {
+            @RequestBody Object body) {
         PermissionGuard.require(permissions, RPA_CONFIG);
         return ApiResponse.success(adminConfigService.save("RPA_RETRY_POLICY", "default", body));
     }
@@ -90,7 +91,7 @@ public class AdminConfigController {
     @PutMapping("/config/service-report")
     public ApiResponse<Map<String, Object>> serviceReport(
             @RequestHeader(value = "X-Permissions", required = false) String permissions,
-            @RequestBody Map<String, Object> body) {
+            @RequestBody Object body) {
         PermissionGuard.require(permissions, REPORT_CONFIG);
         return ApiResponse.success(adminConfigService.save("SERVICE_REPORT", "default", body));
     }
@@ -125,4 +126,35 @@ public class AdminConfigController {
         PermissionGuard.require(permissions, SLA_CONFIG);
         return ApiResponse.success(catalogService.savePolicy(body));
     }
+
+    @DeleteMapping("/sla-policies/{id}")
+    public ApiResponse<Map<String, Object>> deletePolicy(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id) {
+        PermissionGuard.require(permissions, SLA_CONFIG);
+        return ApiResponse.success(catalogService.deletePolicy(id));
+    }
+
+    /**
+     * 删除租户配置项（软删）。各配置类型沿用对应的写权限，与 PUT 保持一致。
+     */
+    @DeleteMapping("/config/{configType}/{configKey}")
+    public ApiResponse<Map<String, Object>> deleteConfig(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("configType") String configType,
+            @PathVariable("configKey") String configKey) {
+        String type = configType.toUpperCase();
+        PermissionGuard.require(permissions, writePermission(type));
+        return ApiResponse.success(adminConfigService.delete(type, configKey));
+    }
+
+    private String writePermission(String configType) {
+        return switch (configType) {
+            case "ASSET_REMINDER" -> ASSET_CONFIG;
+            case "RPA_RETRY_POLICY" -> RPA_CONFIG;
+            case "SERVICE_REPORT" -> REPORT_CONFIG;
+            default -> DESK_CONFIG;
+        };
+    }
 }
+

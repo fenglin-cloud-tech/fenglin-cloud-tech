@@ -18,7 +18,7 @@ const tabs = [
 const visibleTabs = computed(() => tabs.filter((item) => auth.can(item.perm)))
 
 const gapItems = [
-  '发布记录列表的 total 由后端按当前页行数返回（不是总数），分页只能逐页翻，无法显示准确总数。',
+  '发布记录列表已返回准确总数（修前因 SQL 缺少动态标签包裹直接 500，现分页总数与记录数一致）。',
   '表单/流程/模型/页面设计器未纳入本页，只做应用治理与发布审批；设计器接口需按 appId 单独调用。',
   '发布审批通过后应用状态改为 PUBLISHED，若审批流实例失败需在审批中心处理。',
 ]

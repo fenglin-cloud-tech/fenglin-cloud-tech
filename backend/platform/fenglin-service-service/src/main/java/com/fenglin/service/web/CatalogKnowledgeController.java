@@ -10,9 +10,11 @@ import com.fenglin.service.service.ProblemChangeService;
 import com.fenglin.service.service.TicketService;
 import com.fenglin.service.support.ServiceContext;
 import com.fenglin.service.support.ServiceMaps;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -136,6 +138,33 @@ public class CatalogKnowledgeController {
         boolean publishing = "PUBLISHED".equalsIgnoreCase(String.valueOf(body.get("status")));
         PermissionGuard.require(permissions, publishing ? KB_PUBLISH : KB_EDIT);
         return ApiResponse.success(kbService.save(body));
+    }
+
+    @PutMapping("/kb/articles/{id}")
+    public ApiResponse<Map<String, Object>> updateArticle(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id, @RequestBody Map<String, Object> body) {
+        boolean publishing = "PUBLISHED".equalsIgnoreCase(String.valueOf(body.get("status")));
+        PermissionGuard.require(permissions, publishing ? KB_PUBLISH : KB_EDIT);
+        return ApiResponse.success(kbService.update(id, body));
+    }
+
+    @DeleteMapping("/kb/articles/{id}")
+    public ApiResponse<Map<String, Object>> deleteArticle(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id) {
+        PermissionGuard.require(permissions, KB_EDIT);
+        return ApiResponse.success(kbService.delete(id));
+    }
+
+    @GetMapping("/kb/articles/{id}/feedback")
+    public ApiResponse<PageResult<Map<String, Object>>> articleFeedback(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id,
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false) Integer size) {
+        PermissionGuard.require(permissions, KB_VIEW);
+        return ApiResponse.success(kbService.feedbackList(id, page, size));
     }
 
     @PostMapping("/kb/articles/{id}/feedback")
@@ -277,6 +306,14 @@ public class CatalogKnowledgeController {
             @RequestBody Map<String, Object> body) {
         PermissionGuard.require(permissions, ASSET_MANAGE);
         return ApiResponse.success(csatAssetService.createAsset(body));
+    }
+
+    @DeleteMapping("/assets/{id}")
+    public ApiResponse<Map<String, Object>> deleteAsset(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id) {
+        PermissionGuard.require(permissions, ASSET_MANAGE);
+        return ApiResponse.success(csatAssetService.deleteAsset(id));
     }
 
     @PostMapping("/assets/{id}/borrow")
