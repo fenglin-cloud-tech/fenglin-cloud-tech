@@ -58,8 +58,11 @@ public class AuditController {
     }
 
     @PostMapping("/internal/v1/audit/logs")
-    public ApiResponse<Map<String, Object>> record(@Valid @RequestBody RecordAuditRequest request) {
-        return ApiResponse.success(auditService.record(request));
+    public ApiResponse<Map<String, Object>> record(
+            @RequestHeader(value = "X-Audit-Scope", required = false) String auditScope,
+            @Valid @RequestBody RecordAuditRequest request) {
+        boolean platformScope = "PLATFORM".equalsIgnoreCase(auditScope);
+        return ApiResponse.success(auditService.record(request, platformScope));
     }
 
     @GetMapping("/api/hub/v1/admin/audits")
@@ -92,6 +95,59 @@ public class AuditController {
     }
 
     /**
+     * 平台级审计（tenant_id = -1）只读查询：仅平台运维白名单成员可访问。
+     * 查询期间把租户上下文切到保留租户 -1，RLS 只放行 tenant_id = -1 的行。
+     */
+    @GetMapping("/api/hub/v1/admin/audits:platform")
+    public ApiResponse<PageResult<AuditLogView>> listPlatform(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestHeader(value = "X-User-Id", required = false) Long userId,
+            @RequestParam(required = false) String eventType,
+            @RequestParam(required = false) Long operatorId,
+            @RequestParam(required = false) String targetType,
+            @RequestParam(required = false) String targetId,
+            @RequestParam(required = false) String requestId,
+            @RequestParam(required = false) String result,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        PermissionGuard.require(permissions, EXPORT_PERMISSION);
+        auditService.requirePlatformOperator(userId);
+        TenantContext.Snapshot previous = TenantContext.get();
+        TenantContext.setPlatform(previous == null ? null : previous.requestId());
+        try {
+            List<AuditLogView> records = auditService.list(eventType, operatorId, targetType, targetId,
+                    requestId, result, from, to, page, size);
+            return ApiResponse.success(PageResult.of(records,
+                    auditService.count(eventType, operatorId, targetType, targetId, requestId, result, from, to),
+                    Math.max(page, 1), Math.min(Math.max(size, 1), 200)));
+        } finally {
+            TenantContext.restore(previous);
+        }
+    }
+
+    /**
+     * 平台级审计链校验：同样仅平台运维白名单成员可访问。
+     */
+    @GetMapping("/api/hub/v1/admin/audits:platform/chain/verify")
+    public ApiResponse<ChainVerifyResult> verifyPlatformChain(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestHeader(value = "X-User-Id", required = false) Long userId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to) {
+        PermissionGuard.require(permissions, EXPORT_PERMISSION);
+        auditService.requirePlatformOperator(userId);
+        TenantContext.Snapshot previous = TenantContext.get();
+        TenantContext.setPlatform(previous == null ? null : previous.requestId());
+        try {
+            return ApiResponse.success(auditService.verifyChain(TenantContext.PLATFORM_TENANT_ID, from, to));
+        } finally {
+            TenantContext.restore(previous);
+        }
+    }
+
+    /**
      * 哈希链校验：租户缺省取上下文租户，跨租户查询由 RLS 拦截（结果为 checked=0）。
      */
     @GetMapping("/api/hub/v1/admin/audits/chain/verify")
@@ -102,7 +158,17 @@ public class AuditController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to) {
         PermissionGuard.require(permissions, READ_PERMISSION);
         Long contextTenantId = TenantContext.getTenantId();
-        long resolvedTenantId = tenantId != null ? tenantId : (contextTenantId == null ? 0L : contextTenantId);
+        if (tenantId != null && tenantId <= 0) {
+            throw new BizException(CommonErrorCode.BAD_REQUEST, "tenantId 必须为正整数");
+        }
+        long resolvedTenantId;
+        if (tenantId != null) {
+            resolvedTenantId = tenantId;
+        } else if (contextTenantId != null) {
+            resolvedTenantId = contextTenantId;
+        } else {
+            throw new BizException(CommonErrorCode.TENANT_REQUIRED, "缺少有效租户上下文");
+        }
         return ApiResponse.success(auditService.verifyChain(resolvedTenantId, from, to));
     }
 

@@ -1,5 +1,6 @@
 package com.fenglin.common.tenant;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -14,7 +15,8 @@ public class TenantAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public TenantContextFilter tenantContextFilter() {
-        return new TenantContextFilter();
+    public TenantContextFilter tenantContextFilter(
+            @Value("${fenglin.tenant.platform-audit-scope-enabled:false}") boolean platformAuditScopeEnabled) {
+        return new TenantContextFilter(platformAuditScopeEnabled);
     }
 }

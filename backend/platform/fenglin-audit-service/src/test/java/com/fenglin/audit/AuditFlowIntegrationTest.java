@@ -72,7 +72,8 @@ class AuditFlowIntegrationTest {
     void resetData() throws Exception {
         restTemplate.getRestTemplate().setRequestFactory(new JdkClientHttpRequestFactory());
         try (Connection connection = ownerConnection(); Statement statement = connection.createStatement()) {
-            statement.execute("TRUNCATE fenglin_hub.hub_audit_log, fenglin_hub.hub_audit_chain");
+            statement.execute("TRUNCATE fenglin_hub.hub_audit_log, fenglin_hub.hub_audit_chain, "
+                    + "fenglin_hub.hub_platform_operator");
         }
     }
 
@@ -153,19 +154,57 @@ class AuditFlowIntegrationTest {
     }
 
     @Test
-    void platformLevelEventUsesTenantZero() throws Exception {
-        HttpResult recorded = post("/internal/v1/audit/logs", event("TENANT_STATUS_CHANGED", "tenant", "1001"),
+    void platformEventRequiresScopeAndUsesReservedTenant() throws Exception {
+        // 缺租户上下文直接拒绝，不再兜底成 0
+        HttpResult missingTenant = post("/internal/v1/audit/logs", event("TENANT_STATUS_CHANGED", "tenant", "1001"),
                 Map.of());
+        assertThat(missingTenant.status()).isEqualTo(400);
+
+        // 只带 -1 而不带作用域头同样拒绝
+        HttpResult missingScope = post("/internal/v1/audit/logs", event("TENANT_STATUS_CHANGED", "tenant", "1001"),
+                Map.of("X-Tenant-Id", "-1"));
+        assertThat(missingScope.status()).isEqualTo(400);
+
+        HttpResult recorded = post("/internal/v1/audit/logs", event("TENANT_STATUS_CHANGED", "tenant", "1001"),
+                Map.of("X-Tenant-Id", "-1", "X-Audit-Scope", "PLATFORM"));
         assertThat(recorded.status()).isEqualTo(200);
 
         try (Connection connection = ownerConnection(); Statement statement = connection.createStatement()) {
             ResultSet rs = statement.executeQuery("""
                     SELECT count(*) FROM fenglin_hub.hub_audit_log
-                     WHERE tenant_id = 0 AND event_type = 'TENANT_STATUS_CHANGED'
+                     WHERE tenant_id = -1 AND event_type = 'TENANT_STATUS_CHANGED'
                     """);
             assertThat(rs.next()).isTrue();
             assertThat(rs.getInt(1)).isEqualTo(1);
         }
+    }
+
+    @Test
+    void platformEventIsInvisibleToTenantsAndVisibleToPlatformOperator() throws Exception {
+        post("/internal/v1/audit/logs", event("TENANT_STATUS_CHANGED", "tenant", "1001"),
+                Map.of("X-Tenant-Id", "-1", "X-Audit-Scope", "PLATFORM"));
+        post("/internal/v1/audit/logs", event("TENANT_CREATED", "tenant", "1002"),
+                Map.of("X-Tenant-Id", "1002"));
+
+        HttpResult tenantView = get("/api/hub/v1/admin/audits",
+                Map.of("X-Tenant-Id", "1002", "X-Permissions", READ_PERMISSION));
+        assertThat(tenantView.status()).isEqualTo(200);
+        assertThat(tenantView.body().get("data").get("total").asLong()).isEqualTo(1);
+
+        try (Connection connection = ownerConnection(); Statement statement = connection.createStatement()) {
+            statement.execute("INSERT INTO fenglin_hub.hub_platform_operator "
+                    + "(id, user_id, home_tenant_id, status) VALUES (1, 2001, 1002, 'ACTIVE')");
+        }
+
+        HttpResult platformView = get("/api/hub/v1/admin/audits:platform",
+                Map.of("X-Tenant-Id", "1002", "X-User-Id", "2001", "X-Permissions", "platform:audit:export"));
+        assertThat(platformView.status()).isEqualTo(200);
+        assertThat(platformView.body().get("data").get("total").asLong()).isEqualTo(1);
+        assertThat(platformView.body().get("data").get("records").get(0).get("tenant_id").asLong()).isEqualTo(-1);
+
+        HttpResult notOperator = get("/api/hub/v1/admin/audits:platform",
+                Map.of("X-Tenant-Id", "1002", "X-User-Id", "2002", "X-Permissions", "platform:audit:export"));
+        assertThat(notOperator.status()).isEqualTo(403);
     }
 
     @Test
@@ -175,7 +214,7 @@ class AuditFlowIntegrationTest {
             statement.execute("SET ROLE fl_app");
             ResultSet rs = statement.executeQuery("SELECT count(*) FROM fenglin_hub.hub_audit_log");
             assertThat(rs.next()).isTrue();
-            // 未设置租户上下文时仅可见平台级 tenant_id = 0
+            // 未设置租户上下文时不可见任何审计行（平台行也不再对 0 旁路开放）
             assertThat(rs.getInt(1)).isZero();
         }
     }

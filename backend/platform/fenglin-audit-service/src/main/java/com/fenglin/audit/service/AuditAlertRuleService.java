@@ -54,7 +54,7 @@ public class AuditAlertRuleService {
         detail.put("codes", items.stream().map(item -> item.code().trim()).toList());
         auditService.record(new RecordAuditRequest(null, "AUDIT_ALERT_RULE_UPDATED", "audit", "UPDATE",
                 "MEDIUM", operatorId, null, "AUDIT_ALERT_RULE", String.valueOf(tenantId), null, null,
-                "ADMIN", null, "SUCCESS", MAPPER.valueToTree(detail), Instant.now()));
+                "ADMIN", null, "SUCCESS", MAPPER.valueToTree(detail), Instant.now()), false);
         return list();
     }
 

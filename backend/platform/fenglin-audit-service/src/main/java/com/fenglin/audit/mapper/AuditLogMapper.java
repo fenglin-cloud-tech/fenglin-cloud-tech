@@ -192,4 +192,10 @@ public interface AuditLogMapper {
              LIMIT 1
             """)
     Map<String, Object> findById(@Param("tenantId") long tenantId, @Param("id") long id);
+
+    @Select("""
+            SELECT count(*) FROM hub_platform_operator
+             WHERE user_id = #{userId} AND status = 'ACTIVE' AND deleted = 0
+            """)
+    long countActivePlatformOperator(@Param("userId") long userId);
 }

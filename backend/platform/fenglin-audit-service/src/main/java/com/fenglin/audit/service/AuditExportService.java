@@ -98,7 +98,7 @@ public class AuditExportService {
         }
         auditService.record(new RecordAuditRequest(null, "AUDIT_EXPORT_CREATED", "audit", "EXPORT",
                 "MEDIUM", operatorId, null, "AUDIT_EXPORT", taskNo, null, null, "ADMIN", null,
-                "SUCCESS", MAPPER.valueToTree(detail), Instant.now()));
+                "SUCCESS", MAPPER.valueToTree(detail), Instant.now()), false);
         return toView(taskMapper.findById(tenantId, id));
     }
 

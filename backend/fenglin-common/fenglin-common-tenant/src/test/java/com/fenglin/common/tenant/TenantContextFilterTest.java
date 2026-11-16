@@ -63,4 +63,50 @@ class TenantContextFilterTest {
         assertThat(crossTenant.get()).isTrue();
         assertThat(TenantContext.isCrossTenant()).isFalse();
     }
+
+    @Test
+    void platformAuditScopeIsRejectedWhenDisabled() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader(TenantHeaders.TENANT_ID, "-1");
+        request.addHeader(TenantHeaders.AUDIT_SCOPE, "PLATFORM");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        filter.doFilter(request, response, (req, res) -> {
+            throw new AssertionError("chain must not be invoked");
+        });
+
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(TenantContext.get()).isNull();
+    }
+
+    @Test
+    void platformAuditScopeUsesReservedTenantWhenEnabled() throws Exception {
+        TenantContextFilter enabled = new TenantContextFilter(true);
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader(TenantHeaders.TENANT_ID, "-1");
+        request.addHeader(TenantHeaders.AUDIT_SCOPE, "PLATFORM");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        AtomicReference<TenantContext.Snapshot> seen = new AtomicReference<>();
+
+        enabled.doFilter(request, response, (req, res) -> seen.set(TenantContext.get()));
+
+        assertThat(seen.get().tenantId()).isEqualTo(TenantContext.PLATFORM_TENANT_ID);
+        assertThat(TenantContext.get()).isNull();
+    }
+
+    @Test
+    void platformAuditScopeRequiresReservedTenant() throws Exception {
+        TenantContextFilter enabled = new TenantContextFilter(true);
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader(TenantHeaders.TENANT_ID, "42");
+        request.addHeader(TenantHeaders.AUDIT_SCOPE, "PLATFORM");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        enabled.doFilter(request, response, (req, res) -> {
+            throw new AssertionError("chain must not be invoked");
+        });
+
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(TenantContext.get()).isNull();
+    }
 }

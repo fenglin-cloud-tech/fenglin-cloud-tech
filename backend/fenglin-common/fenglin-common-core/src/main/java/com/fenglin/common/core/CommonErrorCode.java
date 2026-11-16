@@ -13,6 +13,7 @@ public enum CommonErrorCode implements ErrorCode {
     UNSUPPORTED_MEDIA_TYPE("FL-COMMON-0415", "不支持的请求内容类型", 415),
     TENANT_REQUIRED("FL-COMMON-0421", "缺少有效的租户上下文", 400),
     TENANT_TRANSACTION_REQUIRED("FL-COMMON-0422", "租户查询必须在事务内执行", 500),
+    AUDIT_UNAVAILABLE("FL-COMMON-0503", "审计服务不可用，操作已阻断", 503),
     INTERNAL_ERROR("FL-COMMON-0500", "系统内部错误", 500);
 
     private final String code;

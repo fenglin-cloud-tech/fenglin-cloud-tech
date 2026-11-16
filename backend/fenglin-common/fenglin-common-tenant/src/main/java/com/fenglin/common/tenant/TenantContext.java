@@ -8,6 +8,12 @@ import com.fenglin.common.core.CommonErrorCode;
  */
 public final class TenantContext {
 
+    /**
+     * 平台级审计保留租户：只承载“无租户归属”的平台事件，不对任何真实租户可见。
+     * 取值必须为负数，避免与雪花 ID / 业务租户号冲突。
+     */
+    public static final long PLATFORM_TENANT_ID = -1L;
+
     private static final ThreadLocal<Snapshot> HOLDER = new ThreadLocal<>();
 
     private TenantContext() {
@@ -18,6 +24,21 @@ public final class TenantContext {
             throw new IllegalArgumentException("tenantId must be positive");
         }
         HOLDER.set(new Snapshot(tenantId, userId, clientType, requestId, crossTenant));
+    }
+
+    /**
+     * 平台审计作用域：仅由审计服务内部写入/平台运维只读入口设置，业务代码不得调用。
+     */
+    public static void setPlatform(String requestId) {
+        HOLDER.set(new Snapshot(PLATFORM_TENANT_ID, null, "SYSTEM", requestId, false));
+    }
+
+    public static void restore(Snapshot snapshot) {
+        if (snapshot == null) {
+            HOLDER.remove();
+        } else {
+            HOLDER.set(snapshot);
+        }
     }
 
     public static Snapshot get() {

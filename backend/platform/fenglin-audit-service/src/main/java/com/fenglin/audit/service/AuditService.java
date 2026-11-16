@@ -42,9 +42,17 @@ public class AuditService {
     }
 
     @Transactional
-    public Map<String, Object> record(RecordAuditRequest request) {
+    public Map<String, Object> record(RecordAuditRequest request, boolean platformScope) {
         Long contextTenantId = TenantContext.getTenantId();
-        long tenantId = contextTenantId == null ? 0L : contextTenantId;
+        if (contextTenantId == null) {
+            // 不再把缺失租户上下文兜底成 0：0 对所有租户可见，且无法区分“平台事件”和“调用方漏传”
+            throw new BizException(CommonErrorCode.TENANT_REQUIRED, "审计写入缺少租户上下文");
+        }
+        boolean platform = contextTenantId == TenantContext.PLATFORM_TENANT_ID;
+        if (platform != platformScope) {
+            throw new BizException(CommonErrorCode.BAD_REQUEST, "平台审计作用域与租户上下文不一致");
+        }
+        long tenantId = contextTenantId;
         long id = IdWorker.getId();
         String logNo = "AUD" + LOG_NO_TIME.format(java.time.LocalDateTime.now())
                 + String.format("%06d", ThreadLocalRandom.current().nextInt(1_000_000));
@@ -103,6 +111,19 @@ public class AuditService {
     @Transactional(readOnly = true)
     public ChainVerifyResult verifyChain(long tenantId, Instant from, Instant to) {
         return auditChainService.verify(tenantId, from, to);
+    }
+
+    /**
+     * 平台级审计只读：仅 OPEN-06 平台运维白名单成员可访问，避免任意租户的 PLATFORM_ADMIN 读到平台事件。
+     */
+    @Transactional(readOnly = true)
+    public void requirePlatformOperator(Long userId) {
+        if (userId == null) {
+            throw new BizException(CommonErrorCode.FORBIDDEN, "缺少平台运维身份");
+        }
+        if (auditLogMapper.countActivePlatformOperator(userId) == 0) {
+            throw new BizException(CommonErrorCode.FORBIDDEN, "仅平台运维可访问平台级审计");
+        }
     }
 
     private AuditLogView toView(Map<String, Object> row) {

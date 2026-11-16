@@ -263,6 +263,8 @@ public class AuthGlobalFilter implements GlobalFilter, Ordered {
             headers.set(HEADER_CLIENT_TYPE, principal.clientType());
             headers.set(HEADER_PERMISSIONS, String.join(",", principal.permissions()));
             headers.set("X-Request-Id", requestId);
+            // 平台审计作用域只允许内部审计链路使用，外部请求一律剥离
+            headers.remove("X-Audit-Scope");
             if (platformOps) {
                 headers.set("X-Platform-Ops", "on");
                 headers.set("X-Platform-Operator-Id", String.valueOf(principal.userId()));

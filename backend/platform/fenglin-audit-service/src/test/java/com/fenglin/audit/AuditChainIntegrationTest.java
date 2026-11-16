@@ -164,7 +164,7 @@ class AuditChainIntegrationTest {
 
         String partitionKey = YearMonth.now(ZoneOffset.UTC).format(SUFFIX);
         assertThat(chainList(1001L, partitionKey)).hasSize(1);
-        List<Map<String, Object>> platform = chainList(0L, partitionKey);
+        List<Map<String, Object>> platform = chainList(-1L, partitionKey);
         assertThat(platform).hasSize(2);
         assertThat(platform.get(0).get("seq_no")).isEqualTo(1L);
         assertThat(platform.get(0).get("prev_hash")).isEqualTo("0".repeat(64));
@@ -206,6 +206,9 @@ class AuditChainIntegrationTest {
         headers.setContentType(MediaType.APPLICATION_JSON);
         if (tenantHeader != null) {
             headers.set("X-Tenant-Id", tenantHeader);
+        } else {
+            headers.set("X-Tenant-Id", "-1");
+            headers.set("X-Audit-Scope", "PLATFORM");
         }
         ResponseEntity<String> response = restTemplate.exchange(
                 "http://localhost:" + port + "/internal/v1/audit/logs", HttpMethod.POST,

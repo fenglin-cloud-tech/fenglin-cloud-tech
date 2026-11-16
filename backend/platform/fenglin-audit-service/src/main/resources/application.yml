@@ -25,6 +25,9 @@ mybatis-plus:
     map-underscore-to-camel-case: true
 
 fenglin:
+  tenant:
+    # 只允许本服务接收 X-Audit-Scope=PLATFORM + X-Tenant-Id=-1 的内部平台审计写入
+    platform-audit-scope-enabled: true
   db:
     ddl:
       # 分区 DDL 独立连接：fl_login_ddl + SET ROLE fl_ddl_owner，口令只从用户级环境变量注入，不落仓库

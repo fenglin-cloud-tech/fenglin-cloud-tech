@@ -89,7 +89,11 @@ public class AuditChainVerifyJob {
     }
 
     private ChainVerifyResult verifyTenant(long tenantId, Instant from, Instant to) {
-        TenantContext.set(tenantId, null, "SYSTEM", null, false);
+        if (tenantId == TenantContext.PLATFORM_TENANT_ID) {
+            TenantContext.setPlatform(null);
+        } else {
+            TenantContext.set(tenantId, null, "SYSTEM", null, false);
+        }
         try {
             ChainVerifyResult result = transactionTemplate.execute(status ->
                     auditChainService.verify(tenantId, from, to));
