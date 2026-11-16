@@ -2,6 +2,7 @@ package com.fenglin.tenant;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fenglin.common.audit.AuditSink;
 import com.fenglin.common.test.EmbeddedPostgresSupport;
 import com.fenglin.tenant.service.FinanceProvisioner;
 import org.flywaydb.core.Flyway;
@@ -79,6 +80,13 @@ class TenantFlowIntegrationTest {
                     FINANCE_PROVISIONED.add(tenantId);
                 }
             };
+        }
+
+        /** 测试内不启动审计服务；HIGH 风险事件 fail-closed，必须用本地 Sink 替身隔离。 */
+        @Bean
+        @Primary
+        AuditSink recordingAuditSink() {
+            return event -> { };
         }
     }
 
