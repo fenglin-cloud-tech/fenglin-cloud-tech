@@ -1,0 +1,28 @@
+# 丰麟云枢 Ingress Header 容量配置（PLAT-11 / PLAT-14 交付件）
+#
+# 背景：X-Permissions 当前约 456 条 / 11,182 字节（约 12.3KB），ingress-nginx 默认 8KB 会 400/431。
+# 交付状态：仅配置片段，需在部署环境应用并 reload；本仓未在真实生产入口验证。
+# 应用方式：合入实际 Ingress 的 annotations 后 kubectl apply，等待 controller 热加载；
+#          用至少 20KB 的 X-Permissions 请求回归（预期 200）。
+#
+# 注意：host / TLS secret / backend service 均为占位，请按实际部署替换，不要直接套用。
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: fenglin-entry-headers
+  annotations:
+    nginx.ingress.kubernetes.io/large-client-header-buffers: "4 64k"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: fenglin.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: fenglin-gateway
+                port:
+                  number: 18080
