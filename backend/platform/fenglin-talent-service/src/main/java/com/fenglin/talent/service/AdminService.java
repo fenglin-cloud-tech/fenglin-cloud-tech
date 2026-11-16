@@ -8,6 +8,8 @@ import com.fenglin.talent.mapper.AdminMapper;
 import com.fenglin.talent.support.Rows;
 import com.fenglin.talent.support.TalentAudit;
 import com.fenglin.talent.support.TalentContext;
+import com.fenglin.talent.web.dto.TalentDtos.GradeResult;
+import com.fenglin.talent.web.dto.TalentDtos.GradeUpsertRequest;
 import com.fenglin.talent.web.dto.TalentDtos.GradeView;
 import com.fenglin.talent.web.dto.TalentDtos.HeadcountPlanCreateRequest;
 import com.fenglin.talent.web.dto.TalentDtos.HeadcountPlanCreateResult;
@@ -36,16 +38,20 @@ public class AdminService {
     }
 
     @Transactional(readOnly = true)
-    public PageResult<PositionView> listPositions(Integer page, Integer size) {
+    public PageResult<PositionView> listPositions(String status, String keyword, Integer page, Integer size) {
         long tenantId = TalentContext.tenantId();
         int pageNo = TalentContext.page(page);
         int pageSize = TalentContext.size(size);
-        List<PositionView> records = adminMapper.listPositions(tenantId, pageSize, (pageNo - 1) * pageSize).stream()
+        String statusFilter = status == null || status.isBlank() ? null : status.trim().toUpperCase();
+        String keywordFilter = keyword == null || keyword.isBlank() ? null : keyword.trim();
+        List<PositionView> records = adminMapper.listPositions(tenantId, statusFilter, keywordFilter,
+                        pageSize, (pageNo - 1) * pageSize).stream()
                 .map(row -> new PositionView(Rows.lngVal(row, "id"), Rows.str(row, "positionCode"),
                         Rows.str(row, "positionName"), Rows.str(row, "jobFamily"), Rows.str(row, "jobSequence"),
                         Rows.intVal(row, "headcount"), Rows.lng(row, "orgId"), Rows.str(row, "status")))
                 .toList();
-        return PageResult.of(records, adminMapper.countPositions(tenantId), pageNo, pageSize);
+        return PageResult.of(records, adminMapper.countPositions(tenantId, statusFilter, keywordFilter),
+                pageNo, pageSize);
     }
 
     @Transactional
@@ -72,6 +78,56 @@ public class AdminService {
                         Rows.str(row, "gradeName"), Rows.str(row, "sequence"), Rows.intVal(row, "gradeLevel"),
                         Rows.dec(row, "bandMin"), Rows.dec(row, "bandMax")))
                 .toList();
+    }
+
+    @Transactional
+    public GradeResult createGrade(GradeUpsertRequest request) {
+        long tenantId = TalentContext.tenantId();
+        long userId = TalentContext.userId();
+        validateGrade(request, true);
+        if (adminMapper.findGradeByCode(tenantId, request.gradeCode().trim()) != null) {
+            throw new BizException(TalentErrorCode.STATE_CONFLICT, "职级编码已存在");
+        }
+        long id = IdWorker.getId();
+        adminMapper.insertGrade(id, tenantId, request.gradeCode().trim(), request.gradeName().trim(),
+                request.sequence().trim(), request.gradeLevel(), request.bandMin(), request.bandMax(), userId);
+        audit.publish("TALENT_GRADE_CREATED", "CREATE", "talent_grade", id, "LOW");
+        return new GradeResult(id, request.gradeCode().trim());
+    }
+
+    @Transactional
+    public GradeResult updateGrade(long id, GradeUpsertRequest request) {
+        long tenantId = TalentContext.tenantId();
+        long userId = TalentContext.userId();
+        validateGrade(request, false);
+        if (adminMapper.findGrade(tenantId, id) == null) {
+            throw new BizException(TalentErrorCode.RESOURCE_NOT_FOUND, "职级不存在");
+        }
+        adminMapper.updateGrade(tenantId, id, request.gradeName().trim(), request.sequence().trim(),
+                request.gradeLevel(), request.bandMin(), request.bandMax(), userId);
+        audit.publish("TALENT_GRADE_UPDATED", "UPDATE", "talent_grade", id, "LOW");
+        Map<String, Object> grade = adminMapper.findGrade(tenantId, id);
+        return new GradeResult(id, Rows.str(grade, "gradeCode"));
+    }
+
+    private void validateGrade(GradeUpsertRequest request, boolean requireCode) {
+        if (request == null) {
+            throw new BizException(TalentErrorCode.PARAM_INVALID, "职级信息不能为空");
+        }
+        if (requireCode && (request.gradeCode() == null || request.gradeCode().isBlank())) {
+            throw new BizException(TalentErrorCode.PARAM_INVALID, "职级编码不能为空");
+        }
+        if (request.gradeName() == null || request.gradeName().isBlank()
+                || request.sequence() == null || request.sequence().isBlank()) {
+            throw new BizException(TalentErrorCode.PARAM_INVALID, "职级名称与序列不能为空");
+        }
+        if (request.gradeLevel() == null || request.gradeLevel() < 1 || request.gradeLevel() > 99) {
+            throw new BizException(TalentErrorCode.PARAM_INVALID, "职级等级需在 1-99 之间");
+        }
+        if (request.bandMin() != null && request.bandMax() != null
+                && request.bandMin().compareTo(request.bandMax()) > 0) {
+            throw new BizException(TalentErrorCode.PARAM_INVALID, "薪酬带宽下限不能大于上限");
+        }
     }
 
     @Transactional

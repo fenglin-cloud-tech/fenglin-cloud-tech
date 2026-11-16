@@ -20,6 +20,7 @@ import com.fenglin.talent.web.dto.TalentDtos.OnboardingCreateResult;
 import com.fenglin.talent.web.dto.TalentDtos.OnboardingView;
 import com.fenglin.talent.web.dto.TalentDtos.ProbationEvaluateRequest;
 import com.fenglin.talent.web.dto.TalentDtos.ProbationEvaluateResult;
+import com.fenglin.talent.web.dto.TalentDtos.ProbationView;
 import com.fenglin.talent.web.dto.TalentDtos.ResignationApproveRequest;
 import com.fenglin.talent.web.dto.TalentDtos.ResignationCreateRequest;
 import com.fenglin.talent.web.dto.TalentDtos.ResignationStatusResult;
@@ -354,6 +355,24 @@ public class LifecycleService {
                         Rows.str(row, "handoverStatus"), Rows.str(row, "rsStatus"), Rows.instant(row, "createdAt")))
                 .toList();
         return PageResult.of(records, lifecycleMapper.countResignations(tenantId, status), pageNo, pageSize);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResult<ProbationView> probations(String probStatus, String keyword, Integer page, Integer size) {
+        long tenantId = TalentContext.tenantId();
+        int pageNo = TalentContext.page(page);
+        int pageSize = TalentContext.size(size);
+        String status = blank(probStatus) ? null : probStatus.trim().toUpperCase();
+        String kw = blank(keyword) ? null : keyword.trim();
+        List<ProbationView> records = lifecycleMapper
+                .listProbations(tenantId, status, kw, pageSize, (pageNo - 1) * pageSize)
+                .stream()
+                .map(row -> new ProbationView(Rows.lngVal(row, "id"), Rows.lngVal(row, "employeeId"),
+                        Rows.str(row, "employeeName"), Rows.str(row, "empNo"), Rows.date(row, "endDate"),
+                        Rows.str(row, "probStatus"), Rows.str(row, "evaluation"),
+                        Rows.intVal(row, "version")))
+                .toList();
+        return PageResult.of(records, lifecycleMapper.countProbations(tenantId, status, kw), pageNo, pageSize);
     }
 
     private Map<String, Object> requireEmployee(long tenantId, long employeeId) {

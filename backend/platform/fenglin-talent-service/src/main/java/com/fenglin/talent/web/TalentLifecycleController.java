@@ -11,6 +11,7 @@ import com.fenglin.talent.web.dto.TalentDtos.OnboardingCreateResult;
 import com.fenglin.talent.web.dto.TalentDtos.OnboardingView;
 import com.fenglin.talent.web.dto.TalentDtos.ProbationEvaluateRequest;
 import com.fenglin.talent.web.dto.TalentDtos.ProbationEvaluateResult;
+import com.fenglin.talent.web.dto.TalentDtos.ProbationView;
 import com.fenglin.talent.web.dto.TalentDtos.ResignationApproveRequest;
 import com.fenglin.talent.web.dto.TalentDtos.ResignationCreateRequest;
 import com.fenglin.talent.web.dto.TalentDtos.ResignationStatusResult;
@@ -41,6 +42,7 @@ public class TalentLifecycleController {
     private static final String ONBOARDING_COMPLETE = "talent:admin:onboarding:complete";
     private static final String ONBOARDING_LIST = "talent:admin:onboarding:list";
     private static final String PROBATION_EVALUATE = "talent:admin:probation:evaluate";
+    private static final String PROBATION_LIST = "talent:admin:probation:list";
     private static final String TRANSFER_CREATE = "talent:admin:transfer:create";
     private static final String TRANSFER_APPROVE = "talent:admin:transfer:approve";
     private static final String TRANSFER_EFFECTIVE = "talent:admin:transfer:effective";
@@ -99,6 +101,17 @@ public class TalentLifecycleController {
             @PathVariable("id") long id) {
         PermissionGuard.require(permissions, ONBOARDING_COMPLETE);
         return ApiResponse.success(lifecycleService.completeOnboarding(id));
+    }
+
+    @GetMapping("/probations")
+    public ApiResponse<PageResult<ProbationView>> probations(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "keyword", required = false) String keyword,
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false) Integer size) {
+        PermissionGuard.require(permissions, PROBATION_LIST);
+        return ApiResponse.success(lifecycleService.probations(status, keyword, page, size));
     }
 
     @PostMapping("/probation/{id}/evaluate")

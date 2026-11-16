@@ -14,8 +14,8 @@ import { describeError } from '@/utils/error'
 
 const gapItems = [
   '组织树默认只返回启用节点；停用组织需显式传 include_disabled，本页暂未提供开关。',
-  '岗位列表没有状态与关键字过滤参数，只支持分页。',
-  '职级只提供列表查询，没有新建/调整接口。',
+  '岗位列表支持按状态与关键字过滤；关键字匹配岗位编码/名称。',
+  '职级支持新建与调整（编码创建后不可改），薪酬带宽为选填；等级限定 1–99。',
 ]
 
 const employees = ref<TalentEmployeeListItem[]>([])
@@ -66,11 +66,23 @@ const positions = ref<TalentPosition[]>([])
 const positionTotal = ref(0)
 const positionLoading = ref(false)
 const positionError = ref('')
-const positionQuery = reactive({ page: 1, size: 10 })
+const positionQuery = reactive({ status: '', keyword: '', page: 1, size: 10 })
 
 const grades = ref<TalentGrade[]>([])
 const gradeLoading = ref(false)
 const gradeError = ref('')
+const gradeDialogVisible = ref(false)
+const gradeSaving = ref(false)
+const gradeFormError = ref('')
+const gradeEditingId = ref<string | number | null>(null)
+const gradeForm = reactive({
+  grade_code: '',
+  grade_name: '',
+  sequence: '',
+  grade_level: 1,
+  band_min: undefined as number | undefined,
+  band_max: undefined as number | undefined,
+})
 
 const positionDialogVisible = ref(false)
 const positionSaving = ref(false)
@@ -163,7 +175,12 @@ async function loadPositions() {
   positionLoading.value = true
   positionError.value = ''
   try {
-    const result = await talentApi.positions.list({ page: positionQuery.page, size: positionQuery.size })
+    const result = await talentApi.positions.list({
+      status: positionQuery.status || undefined,
+      keyword: positionQuery.keyword.trim() || undefined,
+      page: positionQuery.page,
+      size: positionQuery.size,
+    })
     positions.value = result.records
     positionTotal.value = result.total
   } catch (err) {
@@ -226,6 +243,67 @@ async function loadGrades() {
   }
 }
 
+function openCreateGrade() {
+  gradeEditingId.value = null
+  gradeFormError.value = ''
+  Object.assign(gradeForm, {
+    grade_code: '',
+    grade_name: '',
+    sequence: '',
+    grade_level: 1,
+    band_min: undefined,
+    band_max: undefined,
+  })
+  gradeDialogVisible.value = true
+}
+
+function openEditGrade(row: TalentGrade) {
+  gradeEditingId.value = row.id
+  gradeFormError.value = ''
+  Object.assign(gradeForm, {
+    grade_code: row.grade_code,
+    grade_name: row.grade_name,
+    sequence: row.sequence,
+    grade_level: row.grade_level,
+    band_min: row.band_min ?? undefined,
+    band_max: row.band_max ?? undefined,
+  })
+  gradeDialogVisible.value = true
+}
+
+async function submitGrade() {
+  gradeSaving.value = true
+  gradeFormError.value = ''
+  try {
+    if (gradeEditingId.value === null) {
+      await talentApi.grades.create({
+        grade_code: gradeForm.grade_code.trim(),
+        grade_name: gradeForm.grade_name.trim(),
+        sequence: gradeForm.sequence.trim(),
+        grade_level: gradeForm.grade_level,
+        band_min: gradeForm.band_min,
+        band_max: gradeForm.band_max,
+      })
+      ElMessage.success('职级已新建')
+    } else {
+      await talentApi.grades.update(gradeEditingId.value, {
+        grade_name: gradeForm.grade_name.trim(),
+        sequence: gradeForm.sequence.trim(),
+        grade_level: gradeForm.grade_level,
+        band_min: gradeForm.band_min,
+        band_max: gradeForm.band_max,
+      })
+      ElMessage.success('职级已更新')
+    }
+    gradeDialogVisible.value = false
+    await loadGrades()
+  } catch (err) {
+    gradeFormError.value = describeError(err)
+  } finally {
+    gradeSaving.value = false
+  }
+}
+
 onMounted(async () => {
   await Promise.all([loadTree(), loadPositions(), loadGrades(), loadEmployees()])
 })
@@ -283,7 +361,19 @@ onMounted(async () => {
       <el-tab-pane label="岗位与职级" name="position">
         <div class="fl-toolbar" style="margin-bottom: 12px">
           <el-button v-perm="'talent:admin:position:create'" type="primary" @click="openCreatePosition">新建岗位</el-button>
-          <el-button :loading="positionLoading" @click="loadPositions">刷新岗位</el-button>
+          <el-select v-model="positionQuery.status" size="default" style="width: 140px" @change="positionQuery.page = 1; loadPositions()">
+            <el-option label="全部状态" value="" />
+            <el-option label="启用" value="ENABLED" />
+            <el-option label="停用" value="DISABLED" />
+          </el-select>
+          <el-input
+            v-model="positionQuery.keyword"
+            placeholder="岗位编码/名称"
+            clearable
+            style="width: 200px"
+            @keyup.enter="positionQuery.page = 1; loadPositions()"
+          />
+          <el-button :loading="positionLoading" @click="positionQuery.page = 1; loadPositions()">查询</el-button>
         </div>
         <el-alert v-if="positionError" type="error" :closable="false" show-icon :title="positionError" style="margin-bottom: 12px" />
         <el-table :data="positions" v-loading="positionLoading" border stripe>
@@ -306,6 +396,10 @@ onMounted(async () => {
         />
 
         <el-divider content-position="left">职级</el-divider>
+        <div class="fl-toolbar" style="margin-bottom: 12px">
+          <el-button v-perm="'talent:admin:grade:create'" type="primary" @click="openCreateGrade">新建职级</el-button>
+          <el-button :loading="gradeLoading" @click="loadGrades">刷新职级</el-button>
+        </div>
         <el-alert v-if="gradeError" type="error" :closable="false" show-icon :title="gradeError" style="margin-bottom: 12px" />
         <el-table :data="grades" v-loading="gradeLoading" border stripe>
           <el-table-column prop="grade_code" label="职级编码" width="140" />
@@ -314,6 +408,11 @@ onMounted(async () => {
           <el-table-column prop="grade_level" label="级别" width="90" />
           <el-table-column prop="band_min" label="带宽下限" width="120" />
           <el-table-column prop="band_max" label="带宽上限" width="120" />
+          <el-table-column label="操作" width="90">
+            <template #default="{ row }">
+              <el-button v-perm="'talent:admin:grade:update'" link type="primary" @click="openEditGrade(row)">编辑</el-button>
+            </template>
+          </el-table-column>
         </el-table>
       </el-tab-pane>
     </el-tabs>
@@ -387,6 +486,36 @@ onMounted(async () => {
       <template #footer>
         <el-button @click="positionDialogVisible = false">取消</el-button>
         <el-button type="primary" :loading="positionSaving" @click="submitPosition">创建</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="gradeDialogVisible" :title="gradeEditingId === null ? '新建职级' : '调整职级'" width="520px">
+      <el-alert v-if="gradeFormError" type="error" :closable="false" show-icon :title="gradeFormError" style="margin-bottom: 12px" />
+      <el-form label-width="110px">
+        <el-form-item label="职级编码" required>
+          <el-input v-model="gradeForm.grade_code" maxlength="32" :disabled="gradeEditingId !== null" placeholder="创建后不可修改" />
+        </el-form-item>
+        <el-form-item label="职级名称" required>
+          <el-input v-model="gradeForm.grade_name" maxlength="64" />
+        </el-form-item>
+        <el-form-item label="序列" required>
+          <el-input v-model="gradeForm.sequence" maxlength="32" placeholder="如 TECH / MGT" />
+        </el-form-item>
+        <el-form-item label="级别" required>
+          <el-input-number v-model="gradeForm.grade_level" :min="1" :max="99" />
+        </el-form-item>
+        <el-form-item label="带宽下限">
+          <el-input-number v-model="gradeForm.band_min" :min="0" :controls="false" placeholder="选填" />
+        </el-form-item>
+        <el-form-item label="带宽上限">
+          <el-input-number v-model="gradeForm.band_max" :min="0" :controls="false" placeholder="选填" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="gradeDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="gradeSaving" @click="submitGrade">
+          {{ gradeEditingId === null ? '创建' : '保存' }}
+        </el-button>
       </template>
     </el-dialog>
   </div>

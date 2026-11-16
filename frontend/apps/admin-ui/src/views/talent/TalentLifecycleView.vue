@@ -8,6 +8,7 @@ import {
   type TalentOnboardingView,
   type TalentOrgNode,
   type TalentPosition,
+  type TalentProbation,
   type TalentResignationView,
   type TalentTransferView,
 } from '@fenglin/api-client'
@@ -16,7 +17,7 @@ import { describeError } from '@/utils/error'
 const gapItems = [
   '入职办理可只选员工；offer_id 仍为手工输入（后端无 Offer 列表接口）。',
   '调动生效与审批是两个独立动作，前端按顺序调用，不保证后端幂等。',
-  '试用期评估接口只按试用记录 ID 操作，没有试用期列表可查。',
+  '试用期列表已可查询并按状态/关键字过滤，点击“评估”自动回填试用记录 ID。',
 ]
 
 const employees = ref<TalentEmployeeListItem[]>([])
@@ -67,6 +68,43 @@ const completeSaving = ref(false)
 const probationForm = reactive({ id: '', evaluation: '', result: 'PASSED', extend_months: 0 })
 const probationSaving = ref(false)
 const probationResult = ref('')
+
+const probationStatus = ref('')
+const probationKeyword = ref('')
+const probationLoading = ref(false)
+const probations = ref<TalentProbation[]>([])
+const probationTotal = ref(0)
+
+const probationStatusOptions = [
+  { value: '', label: '全部状态' },
+  { value: 'PENDING', label: '待评估' },
+  { value: 'PASSED', label: '已通过' },
+  { value: 'EXTENDED', label: '已延长' },
+  { value: 'FAILED', label: '未通过' },
+]
+
+async function loadProbations() {
+  probationLoading.value = true
+  try {
+    const page = await talentApi.lifecycle.probations({
+      status: probationStatus.value || undefined,
+      keyword: probationKeyword.value.trim() || undefined,
+      page: 1,
+      size: 20,
+    })
+    probations.value = page.records
+    probationTotal.value = page.total
+  } catch (err) {
+    probationResult.value = describeError(err)
+  } finally {
+    probationLoading.value = false
+  }
+}
+
+function pickProbation(row: TalentProbation) {
+  probationForm.id = String(row.id)
+  probationResult.value = `已选择 ${row.employee_name ?? row.employee_id} 的试用记录 ${row.id}`
+}
 
 const transferForm = reactive({
   employee_id: '',
@@ -200,7 +238,7 @@ function useResignationRow(row: TalentResignationView) {
 }
 
 onMounted(async () => {
-  await Promise.all([loadHistory(), loadSelectors()])
+  await Promise.all([loadHistory(), loadSelectors(), loadProbations()])
 })
 
 function statusTag(value?: string) {
@@ -266,6 +304,7 @@ async function submitProbation() {
       extend_months: probationForm.result === 'EXTENDED' ? probationForm.extend_months : undefined,
     })
     probationResult.value = `评估已提交，状态 ${result.prob_status}`
+    await loadProbations()
   } catch (err) {
     probationResult.value = describeError(err)
   } finally {
@@ -417,6 +456,27 @@ async function approveResign() {
         </el-card>
 
         <el-card shadow="never" header="试用期评估">
+          <div style="display: flex; gap: 8px; margin-bottom: 8px">
+            <el-select v-model="probationStatus" size="small" style="width: 130px" @change="loadProbations">
+              <el-option v-for="opt in probationStatusOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
+            </el-select>
+            <el-input v-model="probationKeyword" size="small" placeholder="姓名/工号" clearable style="width: 150px" @keyup.enter="loadProbations" />
+            <el-button size="small" :loading="probationLoading" @click="loadProbations">查询</el-button>
+          </div>
+          <el-table :data="probations" size="small" max-height="240" v-loading="probationLoading">
+            <el-table-column prop="employee_name" label="员工" min-width="90" />
+            <el-table-column prop="emp_no" label="工号" width="90" />
+            <el-table-column prop="end_date" label="试用到期" width="105" />
+            <el-table-column prop="prob_status" label="状态" width="90" />
+            <el-table-column label="操作" width="70">
+              <template #default="{ row }">
+                <el-button link type="primary" @click="pickProbation(row)">评估</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+          <div v-if="probationTotal > probations.length" style="font-size: 12px; color: #909399; margin: 6px 0">
+            共 {{ probationTotal }} 条，仅展示前 {{ probations.length }} 条
+          </div>
           <el-form label-width="110px">
             <el-form-item label="试用记录 ID">
               <el-input v-model="probationForm.id" />

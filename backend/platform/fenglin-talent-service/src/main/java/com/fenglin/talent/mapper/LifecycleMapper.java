@@ -176,6 +176,39 @@ public interface LifecycleMapper {
 
     @Select("""
             <script>
+            SELECT p.id AS "id", p.employee_id AS "employeeId", e.name AS "employeeName",
+                   e.emp_no AS "empNo", to_char(p.end_date, 'YYYY-MM-DD') AS "endDate",
+                   p.prob_status AS "probStatus", p.evaluation AS "evaluation", p.version AS "version"
+            FROM talent_probation p
+            JOIN talent_employee e ON e.id = p.employee_id AND e.tenant_id = p.tenant_id
+            WHERE p.tenant_id = #{tenantId} AND p.deleted = 0
+              AND (CAST(#{probStatus,jdbcType=VARCHAR} AS text) IS NULL OR p.prob_status = #{probStatus})
+              AND (CAST(#{keyword,jdbcType=VARCHAR} AS text) IS NULL
+                   OR e.name LIKE '%' || #{keyword} || '%' OR e.emp_no LIKE '%' || #{keyword} || '%')
+            ORDER BY p.end_date, p.id
+            LIMIT #{limit} OFFSET #{offset}
+            </script>
+            """)
+    List<Map<String, Object>> listProbations(@Param("tenantId") long tenantId,
+                                             @Param("probStatus") String probStatus,
+                                             @Param("keyword") String keyword,
+                                             @Param("limit") int limit, @Param("offset") int offset);
+
+    @Select("""
+            <script>
+            SELECT count(1) FROM talent_probation p
+            JOIN talent_employee e ON e.id = p.employee_id AND e.tenant_id = p.tenant_id
+            WHERE p.tenant_id = #{tenantId} AND p.deleted = 0
+              AND (CAST(#{probStatus,jdbcType=VARCHAR} AS text) IS NULL OR p.prob_status = #{probStatus})
+              AND (CAST(#{keyword,jdbcType=VARCHAR} AS text) IS NULL
+                   OR e.name LIKE '%' || #{keyword} || '%' OR e.emp_no LIKE '%' || #{keyword} || '%')
+            </script>
+            """)
+    long countProbations(@Param("tenantId") long tenantId, @Param("probStatus") String probStatus,
+                         @Param("keyword") String keyword);
+
+    @Select("""
+            <script>
             SELECT t.id AS "id", t.employee_id AS "employeeId", e.name AS "employeeName",
                    t.transfer_type AS "transferType", t.before_json::text AS "beforeJson",
                    t.after_json::text AS "afterJson", to_char(t.effective_date, 'YYYY-MM-DD') AS "effectiveDate",

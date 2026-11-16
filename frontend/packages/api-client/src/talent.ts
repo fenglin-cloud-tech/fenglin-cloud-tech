@@ -54,6 +54,17 @@ export interface TalentGrade {
   band_max?: number
 }
 
+export interface TalentProbation {
+  id: TalentId
+  employee_id: TalentId
+  employee_name: string
+  emp_no: string
+  end_date?: string
+  prob_status: string
+  evaluation?: string
+  version: number
+}
+
 export interface TalentEmployeeListItem {
   id: TalentId
   emp_no: string
@@ -548,7 +559,7 @@ export const talentApi = {
   },
 
   positions: {
-    list(params: { page?: number; size?: number } = {}) {
+    list(params: { status?: string; keyword?: string; page?: number; size?: number } = {}) {
       return get<PageResult<TalentPosition>>('/api/talent/v1/positions', params)
     },
     create(body: {
@@ -567,6 +578,25 @@ export const talentApi = {
   grades: {
     list() {
       return get<TalentGrade[]>('/api/talent/v1/grades')
+    },
+    create(body: {
+      grade_code: string
+      grade_name: string
+      sequence: string
+      grade_level: number
+      band_min?: number
+      band_max?: number
+    }) {
+      return post<{ id: TalentId; grade_code: string }>('/api/talent/v1/grades', body)
+    },
+    update(id: TalentId, body: {
+      grade_name: string
+      sequence: string
+      grade_level: number
+      band_min?: number
+      band_max?: number
+    }) {
+      return put<{ id: TalentId; grade_code: string }>(`/api/talent/v1/grades/${id}`, body)
     },
   },
 
@@ -730,6 +760,9 @@ export const talentApi = {
   },
 
   lifecycle: {
+    probations(params: { status?: string; keyword?: string; page?: number; size?: number } = {}) {
+      return get<PageResult<TalentProbation>>('/api/talent/v1/probations', params)
+    },
     onboardings(params: { status?: string; page?: number; size?: number } = {}) {
       return get<PageResult<TalentOnboardingView>>('/api/talent/v1/onboarding', params)
     },

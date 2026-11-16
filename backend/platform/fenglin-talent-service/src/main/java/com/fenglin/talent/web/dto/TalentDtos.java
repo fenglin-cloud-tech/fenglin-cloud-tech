@@ -372,6 +372,17 @@ public final class TalentDtos {
                                   String handoverStatus, String rsStatus, Instant createdAt) {
     }
 
+    public record ProbationView(Long id, Long employeeId, String employeeName, String empNo,
+                                LocalDate endDate, String probStatus, String evaluation, int version) {
+    }
+
+    public record GradeUpsertRequest(String gradeCode, String gradeName, String sequence, Integer gradeLevel,
+                                     BigDecimal bandMin, BigDecimal bandMax) {
+    }
+
+    public record GradeResult(Long id, String gradeCode) {
+    }
+
     // ---------- 收口补充 ----------
 
     public record EmployeeImportRow(String empNo, String name, String gender, LocalDate birthDate, String phone,

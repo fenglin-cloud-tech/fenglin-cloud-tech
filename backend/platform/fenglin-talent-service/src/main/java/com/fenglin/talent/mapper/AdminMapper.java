@@ -4,6 +4,7 @@ import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
 
 import java.util.List;
 import java.util.Map;
@@ -29,21 +30,37 @@ public interface AdminMapper {
                         @Param("description") String description, @Param("userId") long userId);
 
     @Select("""
+            <script>
             SELECT id AS "id", position_code AS "positionCode", position_name AS "positionName",
                    job_family AS "jobFamily", job_sequence AS "jobSequence", headcount AS "headcount",
                    org_id AS "orgId", status AS "status"
             FROM talent_position
             WHERE tenant_id = #{tenantId} AND deleted = 0
+              AND (CAST(#{status,jdbcType=VARCHAR} AS text) IS NULL OR status = #{status})
+              AND (CAST(#{keyword,jdbcType=VARCHAR} AS text) IS NULL
+                   OR position_name LIKE '%' || #{keyword} || '%'
+                   OR position_code LIKE '%' || #{keyword} || '%')
             ORDER BY created_at DESC
             LIMIT #{limit} OFFSET #{offset}
+            </script>
             """)
     List<Map<String, Object>> listPositions(@Param("tenantId") long tenantId,
+                                            @Param("status") String status,
+                                            @Param("keyword") String keyword,
                                             @Param("limit") int limit, @Param("offset") int offset);
 
     @Select("""
-            SELECT count(1) FROM talent_position WHERE tenant_id = #{tenantId} AND deleted = 0
+            <script>
+            SELECT count(1) FROM talent_position
+            WHERE tenant_id = #{tenantId} AND deleted = 0
+              AND (CAST(#{status,jdbcType=VARCHAR} AS text) IS NULL OR status = #{status})
+              AND (CAST(#{keyword,jdbcType=VARCHAR} AS text) IS NULL
+                   OR position_name LIKE '%' || #{keyword} || '%'
+                   OR position_code LIKE '%' || #{keyword} || '%')
+            </script>
             """)
-    long countPositions(@Param("tenantId") long tenantId);
+    long countPositions(@Param("tenantId") long tenantId, @Param("status") String status,
+                        @Param("keyword") String keyword);
 
     @Select("""
             SELECT id AS "id", grade_code AS "gradeCode", grade_name AS "gradeName", sequence AS "sequence",
@@ -61,6 +78,37 @@ public interface AdminMapper {
             WHERE tenant_id = #{tenantId} AND id = #{gradeId} AND deleted = 0
             """)
     Map<String, Object> findGrade(@Param("tenantId") long tenantId, @Param("gradeId") long gradeId);
+
+    @Select("""
+            SELECT id AS "id", grade_code AS "gradeCode", grade_name AS "gradeName"
+            FROM talent_grade
+            WHERE tenant_id = #{tenantId} AND grade_code = #{gradeCode} AND deleted = 0
+            """)
+    Map<String, Object> findGradeByCode(@Param("tenantId") long tenantId,
+                                        @Param("gradeCode") String gradeCode);
+
+    @Insert("""
+            INSERT INTO talent_grade (id, tenant_id, grade_code, grade_name, sequence, grade_level,
+                band_min, band_max, created_by, updated_by)
+            VALUES (#{id}, #{tenantId}, #{gradeCode}, #{gradeName}, #{sequence}, #{gradeLevel},
+                #{bandMin}, #{bandMax}, #{userId}, #{userId})
+            """)
+    int insertGrade(@Param("id") long id, @Param("tenantId") long tenantId,
+                    @Param("gradeCode") String gradeCode, @Param("gradeName") String gradeName,
+                    @Param("sequence") String sequence, @Param("gradeLevel") int gradeLevel,
+                    @Param("bandMin") java.math.BigDecimal bandMin,
+                    @Param("bandMax") java.math.BigDecimal bandMax, @Param("userId") long userId);
+
+    @Update("""
+            UPDATE talent_grade SET grade_name = #{gradeName}, sequence = #{sequence},
+                grade_level = #{gradeLevel}, band_min = #{bandMin}, band_max = #{bandMax},
+                updated_by = #{userId}, version = version + 1
+            WHERE tenant_id = #{tenantId} AND id = #{id} AND deleted = 0
+            """)
+    int updateGrade(@Param("tenantId") long tenantId, @Param("id") long id,
+                    @Param("gradeName") String gradeName, @Param("sequence") String sequence,
+                    @Param("gradeLevel") int gradeLevel, @Param("bandMin") java.math.BigDecimal bandMin,
+                    @Param("bandMax") java.math.BigDecimal bandMax, @Param("userId") long userId);
 
     @Insert("""
             INSERT INTO talent_headcount_plan
