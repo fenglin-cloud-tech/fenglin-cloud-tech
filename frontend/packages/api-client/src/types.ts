@@ -391,6 +391,12 @@ export interface IndexTaskView {
 export interface AnalyticsResponse {
   type: string
   items: Array<{ keyword: string; count: number }>
+  /** 检索总次数（口径：hub_search_query_log 同区间全量） */
+  total: number
+  /** 零结果次数（hit_count = 0） */
+  zero_count: number
+  /** 零结果占比（百分比，保留 1 位小数） */
+  zero_rate: number
 }
 
 export interface OpenAppCreateResponse {

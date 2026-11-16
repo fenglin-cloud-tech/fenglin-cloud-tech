@@ -45,6 +45,10 @@ public class SearchAnalyticsService {
         List<AnalyticsItem> items = rows.stream()
                 .map(row -> new AnalyticsItem((String) row.get("keyword"), ((Number) row.get("cnt")).longValue()))
                 .toList();
-        return new AnalyticsResponse(normalized, items);
+        Map<String, Object> summary = queryLogMapper.summary(start, end);
+        long total = summary == null ? 0 : ((Number) summary.get("total")).longValue();
+        long zeroCount = summary == null ? 0 : ((Number) summary.get("zero_result")).longValue();
+        double zeroRate = total == 0 ? 0.0 : Math.round(zeroCount * 1000.0 / total) / 10.0;
+        return new AnalyticsResponse(normalized, items, total, zeroCount, zeroRate);
     }
 }

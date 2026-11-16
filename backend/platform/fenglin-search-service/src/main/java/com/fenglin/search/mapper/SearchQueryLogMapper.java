@@ -29,6 +29,18 @@ public interface SearchQueryLogMapper {
 
     @Select("""
             <script>
+            SELECT count(*) AS total,
+                   count(*) FILTER (WHERE hit_count = 0) AS zero_result
+              FROM hub_search_query_log
+             WHERE deleted = 0
+             <if test="from != null">AND created_at &gt;= #{from,jdbcType=TIMESTAMP}</if>
+             <if test="to != null">AND created_at &lt; #{to,jdbcType=TIMESTAMP}</if>
+            </script>
+            """)
+    Map<String, Object> summary(@Param("from") Instant from, @Param("to") Instant to);
+
+    @Select("""
+            <script>
             SELECT keyword, count(*) AS cnt
               FROM hub_search_query_log
              WHERE deleted = 0

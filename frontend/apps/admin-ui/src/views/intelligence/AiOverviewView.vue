@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { GapNotice, PageHeader } from '@fenglin/ui-admin'
-import { intelligenceApi, type AiRecord } from '@fenglin/api-client'
+import { intelligenceApi, searchApi, type AiRecord } from '@fenglin/api-client'
 import { useAuthStore } from '@/stores/auth'
 import { describeError } from '@/utils/error'
 
@@ -13,10 +13,11 @@ const overview = ref<AiRecord | null>(null)
 const overviewLoading = ref(false)
 const error = ref('')
 
-const analytics = ref<AiRecord | null>(null)
+const analytics = ref<Awaited<ReturnType<typeof searchApi.analytics>> | null>(null)
 const analyticsLoading = ref(false)
 const analyticsError = ref('')
-const limit = ref(10)
+const windowFrom = ref('')
+const windowTo = ref('')
 
 const stats: Array<{ key: string; label: string }> = [
   { key: 'knowledge_bases', label: '知识库' },
@@ -27,20 +28,14 @@ const stats: Array<{ key: string; label: string }> = [
   { key: 'insight_tasks', label: '洞察任务' },
 ]
 
-const topQueries = computed<AiRecord[]>(() => {
-  const list = analytics.value?.top_queries
+const topQueries = computed(() => {
+  const list = analytics.value?.items
   return Array.isArray(list) ? list : []
 })
 
-const zeroRate = computed(() => {
-  const totalCount = Number(analytics.value?.total ?? 0)
-  const zeroCount = Number(analytics.value?.zero_result ?? 0)
-  if (totalCount <= 0) return 0
-  return Math.round((zeroCount / totalCount) * 1000) / 10
-})
+const zeroRate = computed(() => Number(analytics.value?.zero_rate ?? 0))
 
 const gapItems = [
-  '概览与检索分析均为租户级聚合，接口没有时间区间参数，本页无法按日期筛选。',
   '提示词、模型供应商、监控告警等页面在 intelligence-service 无对应接口，由平台 AI 中台托管，本页不提供入口。',
   '检索分析需要 tenant:ai:search:analytics；无权限时该区块不发起请求，仅展示提示。',
 ]
@@ -68,7 +63,11 @@ async function loadAnalytics() {
   analyticsLoading.value = true
   analyticsError.value = ''
   try {
-    analytics.value = await intelligenceApi.searchAnalytics(limit.value)
+    const to = new Date()
+    const from = new Date(to.getTime() - 7 * 24 * 60 * 60 * 1000)
+    windowTo.value = to.toISOString()
+    windowFrom.value = from.toISOString()
+    analytics.value = await searchApi.analytics({ type: 'HOT', from: windowFrom.value, to: windowTo.value })
   } catch (err) {
     analytics.value = null
     analyticsError.value = describeError(err)
@@ -89,7 +88,7 @@ onMounted(refresh)
     <PageHeader
       module="云智 Intelligence"
       title="智能运营概览"
-      description="知识库、数据源、数据集、看板与洞察任务规模，以及检索质量分析；数据来自 /api/intelligence/v1。"
+      description="知识库、数据源、数据集、看板与洞察任务规模，以及检索质量分析；知识资产来自 /api/intelligence/v1，检索分析来自搜索中心 /api/hub/v1。"
     >
       <template #actions>
         <el-button :loading="overviewLoading || analyticsLoading" @click="refresh">刷新</el-button>
@@ -133,11 +132,6 @@ onMounted(refresh)
         <div class="fl-toolbar">
           <span>检索分析</span>
           <div class="fl-toolbar">
-            <el-select v-model="limit" style="width: 110px" @change="loadAnalytics">
-              <el-option :value="10" label="Top 10" />
-              <el-option :value="20" label="Top 20" />
-              <el-option :value="50" label="Top 50" />
-            </el-select>
             <el-button :loading="analyticsLoading" @click="loadAnalytics">查询</el-button>
           </div>
         </div>
@@ -146,10 +140,10 @@ onMounted(refresh)
       <el-alert v-if="analyticsError" type="error" :closable="false" show-icon :title="analyticsError" style="margin-bottom: 12px" />
 
       <el-descriptions :column="2" border size="small" style="margin-bottom: 12px">
-        <el-descriptions-item label="接口">GET /api/intelligence/v1/admin/search/analytics</el-descriptions-item>
-        <el-descriptions-item label="权限">tenant:ai:search:analytics</el-descriptions-item>
-        <el-descriptions-item label="统计口径">租户级 ai_search_log 聚合，无时间区间</el-descriptions-item>
-        <el-descriptions-item label="Top N">{{ limit }}</el-descriptions-item>
+        <el-descriptions-item label="接口">GET /api/hub/v1/admin/search/analytics</el-descriptions-item>
+        <el-descriptions-item label="权限">tenant:ai:search:analytics（平台管理员：platform:search:index:manage）</el-descriptions-item>
+        <el-descriptions-item label="统计口径">租户级 hub_search_query_log 聚合（搜索中心口径）</el-descriptions-item>
+        <el-descriptions-item label="时间区间">近 7 天：{{ windowFrom }} ~ {{ windowTo }}</el-descriptions-item>
       </el-descriptions>
 
       <el-row :gutter="16">
@@ -157,10 +151,10 @@ onMounted(refresh)
           <el-statistic title="检索总次数" :value="Number(analytics?.total ?? 0)" />
         </el-col>
         <el-col :xs="24" :sm="8">
-          <el-statistic title="平均延迟 (ms)" :value="Number(analytics?.avg_latency_ms ?? 0)" />
+          <el-statistic title="零结果次数" :value="Number(analytics?.zero_count ?? 0)" />
         </el-col>
         <el-col :xs="24" :sm="8">
-          <el-statistic title="零结果次数" :value="Number(analytics?.zero_result ?? 0)" />
+          <el-statistic title="零结果占比 (%)" :value="zeroRate" :precision="1" />
         </el-col>
       </el-row>
 
@@ -173,20 +167,20 @@ onMounted(refresh)
         <span>零结果占比 {{ zeroRate }}%</span>
       </el-progress>
 
-      <el-divider content-position="left">高频查询</el-divider>
+      <el-divider content-position="left">高频查询 Top 20</el-divider>
       <el-table :data="topQueries" border stripe size="small" max-height="420">
         <el-table-column label="查询词" min-width="260">
-          <template #default="{ row }">{{ row?.query ?? '-' }}</template>
+          <template #default="{ row }">{{ row?.keyword ?? '-' }}</template>
         </el-table-column>
         <el-table-column label="次数" width="120">
-          <template #default="{ row }">{{ row?.total ?? 0 }}</template>
+          <template #default="{ row }">{{ row?.count ?? 0 }}</template>
         </el-table-column>
         <template #empty>
           <el-empty description="暂无检索记录" :image-size="60" />
         </template>
       </el-table>
       <div class="fl-muted" style="margin-top: 8px">
-        top_queries 取后端返回的 query 与 total 字段；缺失字段按空值展示，不做本地补数。
+        数据来自搜索中心检索行为日志 hub_search_query_log；AI 检索旧的 ai_search_log 口径不再用于本页展示。
       </div>
     </el-card>
 

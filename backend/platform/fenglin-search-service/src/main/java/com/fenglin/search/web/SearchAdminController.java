@@ -23,6 +23,8 @@ import java.time.Instant;
 public class SearchAdminController {
 
     private static final String MANAGE_PERMISSION = "platform:search:index:manage";
+    /** 租户管理员视角的检索行为分析（与云智智能概览同一口径）；平台管理员仍走 MANAGE_PERMISSION。 */
+    private static final String TENANT_ANALYTICS_PERMISSION = "tenant:ai:search:analytics";
 
     private final SearchIndexTaskService indexTaskService;
     private final SearchAnalyticsService analyticsService;
@@ -67,7 +69,7 @@ public class SearchAdminController {
             @RequestParam(defaultValue = "HOT") String type,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to) {
-        PermissionGuard.require(permissions, MANAGE_PERMISSION);
+        PermissionGuard.requireAny(permissions, MANAGE_PERMISSION, TENANT_ANALYTICS_PERMISSION);
         return ApiResponse.success(analyticsService.report(type, from, to));
     }
 }
