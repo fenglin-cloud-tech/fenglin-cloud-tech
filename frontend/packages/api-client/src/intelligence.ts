@@ -1,4 +1,4 @@
-import { get, post, put } from './http'
+import { del, download, get, post, put, postForm, streamSse } from './http'
 import type { PageResult } from './http'
 
 export type AiRecord = Record<string, any>
@@ -15,11 +15,11 @@ export type AiPageQuery = {
 
 export const intelligenceApi = {
   // ---------- 运营概览 ----------
-  overview() {
-    return get<AiRecord>(`${BASE}/report/overview`)
+  overview(params?: { from?: string; to?: string }) {
+    return get<AiRecord>(`${BASE}/report/overview`, params)
   },
-  searchAnalytics(limit?: number) {
-    return get<AiRecord>(`${BASE}/admin/search/analytics`, { limit })
+  searchAnalytics(limit?: number, params?: { from?: string; to?: string }) {
+    return get<AiRecord>(`${BASE}/admin/search/analytics`, { limit, ...params })
   },
 
   // ---------- 运营：能力授权 / 计量 / 双模式 ----------
@@ -46,6 +46,18 @@ export const intelligenceApi = {
     create(body: AiRecord) {
       return post<AiRecord>(`${BASE}/admin/knowledge-bases`, body)
     },
+    acl(kbId: IntelligenceId) {
+      return get<AiRecord[]>(`${BASE}/admin/knowledge-bases/${kbId}/acl`)
+    },
+    saveAcl(kbId: IntelligenceId, items: AiRecord[]) {
+      return put<AiRecord>(`${BASE}/admin/knowledge-bases/${kbId}/acl`, { items })
+    },
+    personal() {
+      return get<AiRecord[]>(`${BASE}/copilot/private-kb`)
+    },
+    createPersonal(body?: AiRecord) {
+      return post<AiRecord>(`${BASE}/copilot/private-kb`, body ?? {})
+    },
   },
 
   // ---------- 数据源（知识） ----------
@@ -55,6 +67,12 @@ export const intelligenceApi = {
     },
     create(body: AiRecord) {
       return post<AiRecord>(`${BASE}/admin/data-sources`, body)
+    },
+    test(id: IntelligenceId) {
+      return post<AiRecord>(`${BASE}/admin/data-sources/${id}/test`)
+    },
+    sync(id: IntelligenceId) {
+      return post<AiRecord>(`${BASE}/admin/data-sources/${id}/sync`)
     },
   },
 
@@ -78,6 +96,12 @@ export const intelligenceApi = {
     index(id: IntelligenceId) {
       return post<AiRecord>(`${BASE}/admin/documents/${id}/index`)
     },
+    parse(id: IntelligenceId, content: string) {
+      return post<AiRecord>(`${BASE}/admin/documents/${id}/parse`, { content })
+    },
+    upload(form: FormData) {
+      return postForm<AiRecord>(`${BASE}/admin/documents/upload`, form)
+    },
   },
 
   // ---------- 检索 ----------
@@ -90,6 +114,9 @@ export const intelligenceApi = {
     },
     preview(docId: IntelligenceId, secLevel?: number) {
       return get<AiRecord>(`${BASE}/documents/${docId}/preview`, { sec_level: secLevel })
+    },
+    suggest(q: string, limit?: number) {
+      return get<string[]>(`${BASE}/search/suggest`, { q, limit })
     },
   },
 
@@ -107,6 +134,15 @@ export const intelligenceApi = {
     createRelation(body: AiRecord) {
       return post<AiRecord>(`${BASE}/admin/kg/relations`, body)
     },
+    graph(params?: { kbId?: IntelligenceId; entityId?: IntelligenceId; depth?: number }) {
+      return get<AiRecord>(`${BASE}/kg/graph`, params)
+    },
+    entity(id: IntelligenceId) {
+      return get<AiRecord>(`${BASE}/kg/entities/${id}`)
+    },
+    deleteEntity(id: IntelligenceId) {
+      return del<AiRecord>(`${BASE}/admin/kg/entities/${id}`)
+    },
   },
 
   // ---------- Copilot ----------
@@ -122,6 +158,16 @@ export const intelligenceApi = {
     },
     send(id: IntelligenceId, body: AiRecord) {
       return post<AiRecord>(`${BASE}/copilot/conversations/${id}/messages`, body)
+    },
+    stream(
+      id: IntelligenceId,
+      body: AiRecord,
+      onEvent: (event: string, data: AiRecord) => void,
+    ) {
+      return streamSse(`${BASE}/copilot/conversations/${id}/messages:stream`, body, { onEvent })
+    },
+    citations(messageId: IntelligenceId) {
+      return get<AiRecord[]>(`${BASE}/copilot/messages/${messageId}/citations`)
     },
     feedback(messageId: IntelligenceId, body: AiRecord) {
       return post<AiRecord>(`${BASE}/copilot/messages/${messageId}/feedback`, body)
@@ -147,6 +193,12 @@ export const intelligenceApi = {
     },
     run(code: string, body?: AiRecord) {
       return post<AiRecord>(`${BASE}/agents/${encodeURIComponent(code)}/run`, body ?? {})
+    },
+    executions(params?: AiPageQuery & { agent_id?: IntelligenceId; scope?: string }) {
+      return get<AiPage>(`${BASE}/agents/executions`, params)
+    },
+    execution(id: IntelligenceId) {
+      return get<AiRecord>(`${BASE}/agents/executions/${id}`)
     },
   },
 
@@ -180,6 +232,15 @@ export const intelligenceApi = {
     addField(datasetId: IntelligenceId, body: AiRecord) {
       return post<AiRecord>(`${BASE}/admin/datasets/${datasetId}/fields`, body)
     },
+    deleteField(datasetId: IntelligenceId, fieldId: IntelligenceId) {
+      return del<AiRecord>(`${BASE}/admin/datasets/${datasetId}/fields/${fieldId}`)
+    },
+    preview(datasetId: IntelligenceId, limit = 20) {
+      return post<AiRecord>(`${BASE}/datasets/${datasetId}/preview`, { limit })
+    },
+    query(datasetId: IntelligenceId, body: AiRecord) {
+      return post<AiRecord>(`${BASE}/datasets/${datasetId}/query`, body)
+    },
   },
 
   // ---------- BI 看板 / 图表 ----------
@@ -195,6 +256,24 @@ export const intelligenceApi = {
     },
     createChart(id: IntelligenceId, body: AiRecord) {
       return post<AiRecord>(`${BASE}/admin/dashboards/${id}/charts`, body)
+    },
+    deleteChart(id: IntelligenceId, chartId: IntelligenceId) {
+      return del<AiRecord>(`${BASE}/admin/dashboards/${id}/charts/${chartId}`)
+    },
+    reorderCharts(id: IntelligenceId, chartIds: IntelligenceId[]) {
+      return put<AiRecord>(`${BASE}/admin/dashboards/${id}/charts/order`, { chart_ids: chartIds })
+    },
+    chartData(id: IntelligenceId, chartId: IntelligenceId, body?: AiRecord) {
+      return post<AiRecord>(`${BASE}/dashboards/${id}/charts/${chartId}/data`, body ?? {})
+    },
+    chartAlert(id: IntelligenceId, chartId: IntelligenceId) {
+      return get<AiRecord>(`${BASE}/admin/dashboards/${id}/charts/${chartId}/alert`)
+    },
+    saveChartAlert(id: IntelligenceId, chartId: IntelligenceId, body: AiRecord) {
+      return put<AiRecord>(`${BASE}/admin/dashboards/${id}/charts/${chartId}/alert`, body)
+    },
+    alerts(limit?: number) {
+      return get<AiRecord[]>(`${BASE}/admin/ai/alerts`, { limit })
     },
   },
 
@@ -224,6 +303,9 @@ export const intelligenceApi = {
     exportReport(body: AiRecord) {
       return post<AiRecord>(`${BASE}/analytics/export`, body)
     },
+    exportCsv(taskId: IntelligenceId) {
+      return download(`${BASE}/insight-tasks/${taskId}/results/export`, `insight-result-${taskId}.csv`)
+    },
     subscriptions(limit?: number) {
       return get<AiRecord[]>(`${BASE}/subscriptions`, { limit })
     },
@@ -236,6 +318,9 @@ export const intelligenceApi = {
   dataPermissions: {
     config(body: AiRecord) {
       return put<AiRecord>(`${BASE}/admin/data-permissions`, body)
+    },
+    list(limit?: number) {
+      return get<AiRecord[]>(`${BASE}/admin/data-permissions`, { limit })
     },
   },
 }

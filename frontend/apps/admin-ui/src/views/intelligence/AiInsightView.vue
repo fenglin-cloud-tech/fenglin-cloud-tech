@@ -45,9 +45,23 @@ const exportResult = ref<AiRecord | null>(null)
 
 const gapItems = [
   '洞察结果为同步计算，接口没有异步任务状态轮询，运行完成后直接读取结果。',
-  '导出只返回后端结果对象（export_id/status/delegate），没有文件下载接口。',
+  '洞察结果支持 CSV 文件下载（GET /insight-tasks/{id}/results/export，Content-Disposition 附件）；通用报表导出仍返回任务对象。',
   '任务列表与结果要求 ai:bi:view；创建与运行要求 ai:bi:insight:run；归因计算要求 ai:bi:attribution:run；导出要求 ai:bi:export。',
 ]
+
+const exportingCsv = ref(false)
+
+async function downloadCsv(row: AiRecord) {
+  exportingCsv.value = true
+  try {
+    await intelligenceApi.insight.exportCsv(row.id)
+    ElMessage.success('CSV 已开始下载')
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  } finally {
+    exportingCsv.value = false
+  }
+}
 
 const attrRows = computed<AiRecord[]>(() => attributions.value)
 
@@ -231,10 +245,11 @@ onMounted(loadTasks)
         <el-table-column prop="status" label="状态" width="100" />
         <el-table-column prop="last_run_at" label="最近运行" width="140" :formatter="(row: AiRecord) => formatDateTime(row.last_run_at)" />
         <el-table-column prop="created_at" label="创建时间" width="140" :formatter="(row: AiRecord) => formatDateTime(row.created_at)" />
-        <el-table-column label="操作" width="120" fixed="right">
+        <el-table-column label="操作" width="200" fixed="right">
           <template #default="{ row }">
             <el-button v-perm="'ai:bi:insight:run'" link type="primary" @click="runTask(row)">运行</el-button>
             <el-button link type="primary" @click="openResults(row)">结果</el-button>
+            <el-button v-perm="'ai:bi:export'" link type="primary" :loading="exportingCsv" @click="downloadCsv(row)">导出CSV</el-button>
           </template>
         </el-table-column>
         <template #empty>

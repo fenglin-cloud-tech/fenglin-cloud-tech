@@ -32,13 +32,16 @@ public class CopilotService {
     private final KnowledgeMapper knowledgeMapper;
     private final AiGatewayClient gatewayClient;
     private final IntelligenceAudit audit;
+    private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
 
     public CopilotService(CopilotMapper copilotMapper, KnowledgeMapper knowledgeMapper,
-                          AiGatewayClient gatewayClient, IntelligenceAudit audit) {
+                          AiGatewayClient gatewayClient, IntelligenceAudit audit,
+                          org.springframework.transaction.PlatformTransactionManager transactionManager) {
         this.copilotMapper = copilotMapper;
         this.knowledgeMapper = knowledgeMapper;
         this.gatewayClient = gatewayClient;
         this.audit = audit;
+        this.transactionTemplate = new org.springframework.transaction.support.TransactionTemplate(transactionManager);
     }
 
     @Transactional
@@ -90,37 +93,119 @@ public class CopilotService {
         String question = IntelligenceContext.requireText(
                 IntelligenceContext.string(IntelligenceContext.first(body, "content", "question")));
         String kbCsv = copilotMapper.findConversationKbCsv(tenantId, conversationId);
-        List<Map<String, Object>> hits = knowledgeMapper.searchChunks(tenantId, kbCsv, question,
+        List<Map<String, Object>> hits = knowledgeMapper.searchChunks(tenantId, userId, kbCsv, question,
                 IntelligenceContext.clamp(IntelligenceContext.intValue(
                         IntelligenceContext.first(body, "sec_level", "secLevel"), 2), 1, 4), 5);
         String prompt = buildPrompt(question, hits);
         long start = System.nanoTime();
         AiGatewayClient.ChatResult chat = gatewayClient.chat(prompt, 0.2, 2);
         int latency = (int) ((System.nanoTime() - start) / 1_000_000);
+        Map<String, Object> result = recordExchange(tenantId, userId, conversationId, question, chat, hits,
+                IntelligenceContext.string(IntelligenceContext.first(body, "model_code", "modelCode")), latency);
+        result.put("conversation", Map.of("id", conversationId, "title", Rows.str(conversation, "title")));
+        return result;
+    }
+
+    /**
+     * SSE 流式问答：检索 ->（citation 帧）->（delta 帧）-> done 帧，结束后统一落库留痕。
+     * 流式期间不占用请求线程，落库在独立事务内完成。
+     */
+    public org.springframework.web.servlet.mvc.method.annotation.SseEmitter streamMessage(
+            long conversationId, Map<String, Object> body) {
+        long tenantId = IntelligenceContext.tenantId();
+        long userId = IntelligenceContext.userId();
+        requireConversation(tenantId, conversationId);
+        String question = IntelligenceContext.requireText(
+                IntelligenceContext.string(IntelligenceContext.first(body, "content", "question")));
+        String kbCsv = copilotMapper.findConversationKbCsv(tenantId, conversationId);
+        int secLevel = IntelligenceContext.clamp(IntelligenceContext.intValue(
+                IntelligenceContext.first(body, "sec_level", "secLevel"), 2), 1, 4);
+        List<Map<String, Object>> hits = knowledgeMapper.searchChunks(tenantId, userId, kbCsv, question,
+                secLevel, 5);
+        String prompt = buildPrompt(question, hits);
+        String modelCode = IntelligenceContext.string(IntelligenceContext.first(body, "model_code", "modelCode"));
+        String clientType = IntelligenceContext.clientType();
+        com.fenglin.common.tenant.TenantContext.Snapshot snapshot =
+                com.fenglin.common.tenant.TenantContext.get();
+        String requestId = snapshot == null ? null : snapshot.requestId();
+        org.springframework.web.servlet.mvc.method.annotation.SseEmitter emitter =
+                new org.springframework.web.servlet.mvc.method.annotation.SseEmitter(180_000L);
+        java.util.concurrent.CompletableFuture.runAsync(() -> {
+            com.fenglin.common.tenant.TenantContext.set(tenantId, userId, clientType, requestId, false);
+            try {
+                List<Map<String, Object>> citations = new ArrayList<>();
+                int limit = Math.min(hits.size(), 3);
+                for (int i = 0; i < limit; i++) {
+                    Map<String, Object> citation = citationOf(hits.get(i));
+                    citations.add(citation);
+                    emitter.send(org.springframework.web.servlet.mvc.method.annotation.SseEmitter.event()
+                            .name("citation").data(citation));
+                }
+                long start = System.nanoTime();
+                long[] firstDelta = new long[]{0};
+                AiGatewayClient.ChatResult chat = gatewayClient.stream(prompt, 0.2, secLevel, delta -> {
+                    if (firstDelta[0] == 0) {
+                        firstDelta[0] = System.nanoTime();
+                    }
+                    try {
+                        emitter.send(org.springframework.web.servlet.mvc.method.annotation.SseEmitter.event()
+                                .name("delta").data(Map.of("content", delta)));
+                    } catch (Exception ex) {
+                        throw new IllegalStateException("客户端连接已中断", ex);
+                    }
+                });
+                int latency = (int) ((System.nanoTime() - start) / 1_000_000);
+                final long[] ttft = new long[]{firstDelta[0] == 0 ? chat.ttftMs()
+                        : (firstDelta[0] - start) / 1_000_000};
+                final Map<String, Object>[] persisted = new Map[]{null};
+                transactionTemplate.executeWithoutResult(status -> persisted[0] = recordExchange(
+                        tenantId, userId, conversationId, question, chat, hits, modelCode, latency));
+                Map<String, Object> done = new LinkedHashMap<>();
+                done.put("conversation_id", conversationId);
+                done.put("assistant_message_id", persisted[0].get("assistant_message_id"));
+                done.put("token_in", chat.tokenIn());
+                done.put("token_out", chat.tokenOut());
+                done.put("ttft_ms", ttft[0]);
+                done.put("degraded", chat.degraded());
+                done.put("latency_ms", latency);
+                done.put("citations", citations);
+                emitter.send(org.springframework.web.servlet.mvc.method.annotation.SseEmitter.event()
+                        .name("done").data(done));
+                emitter.complete();
+            } catch (Exception ex) {
+                try {
+                    emitter.send(org.springframework.web.servlet.mvc.method.annotation.SseEmitter.event()
+                            .name("error").data(Map.of("message",
+                                    ex.getMessage() == null ? "流式生成失败" : ex.getMessage())));
+                } catch (Exception ignored) {
+                    // 连接已断开
+                }
+                emitter.complete();
+            } finally {
+                com.fenglin.common.tenant.TenantContext.clear();
+            }
+        });
+        return emitter;
+    }
+
+    private Map<String, Object> recordExchange(long tenantId, long userId, long conversationId, String question,
+                                               AiGatewayClient.ChatResult chat, List<Map<String, Object>> hits,
+                                               String modelCode, int latency) {
         long userMessageId = IdWorker.getId();
         long assistantMessageId = IdWorker.getId();
         copilotMapper.insertMessage(userMessageId, tenantId, conversationId, "USER", question, "TEXT",
                 null, null, null, null, null, "[]", userId);
         copilotMapper.insertMessage(assistantMessageId, tenantId, conversationId, "ASSISTANT", chat.answer(),
-                "MARKDOWN", chat.tokenIn(), chat.tokenOut(),
-                IntelligenceContext.string(IntelligenceContext.first(body, "model_code", "modelCode")),
-                latency, (int) chat.ttftMs(), "[]", userId);
+                "MARKDOWN", chat.tokenIn(), chat.tokenOut(), modelCode, latency, (int) chat.ttftMs(), "[]", userId);
         List<Map<String, Object>> citations = new ArrayList<>();
         int limit = Math.min(hits.size(), 3);
         for (int i = 0; i < limit; i++) {
             Map<String, Object> hit = hits.get(i);
-            Map<String, Object> citation = new LinkedHashMap<>();
-            citation.put("document_id", Rows.lngVal(hit, "document_id"));
-            citation.put("chunk_id", Rows.lngVal(hit, "chunk_id"));
-            citation.put("document_title", Rows.str(hit, "document_title"));
-            citation.put("score", Rows.dec(hit, "score"));
-            citation.put("snippet", truncate(Rows.str(hit, "content"), 160));
-            citation.put("page_no", Rows.intg(hit, "page_no"));
+            citations.add(citationOf(hit));
             copilotMapper.insertCitation(IdWorker.getId(), tenantId, assistantMessageId,
                     Rows.lngVal(hit, "document_id"), Rows.lngVal(hit, "chunk_id"),
                     Rows.dec(hit, "score") == null ? BigDecimal.ZERO : Rows.dec(hit, "score"),
                     truncate(Rows.str(hit, "content"), 200), Rows.intg(hit, "page_no"), userId);
-            citations.add(citation);
         }
         copilotMapper.increaseMessageCount(tenantId, conversationId, userId);
         audit.low("copilot.message", "conversation", conversationId);
@@ -132,8 +217,54 @@ public class CopilotService {
         result.put("model_degraded", chat.degraded());
         result.put("latency_ms", latency);
         result.put("citations", citations);
-        result.put("conversation", Map.of("id", conversationId, "title", Rows.str(conversation, "title")));
         return result;
+    }
+
+    private Map<String, Object> citationOf(Map<String, Object> hit) {
+        Map<String, Object> citation = new LinkedHashMap<>();
+        citation.put("document_id", Rows.lngVal(hit, "document_id"));
+        citation.put("chunk_id", Rows.lngVal(hit, "chunk_id"));
+        citation.put("document_title", Rows.str(hit, "document_title"));
+        citation.put("score", Rows.dec(hit, "score"));
+        citation.put("snippet", truncate(Rows.str(hit, "content"), 160));
+        citation.put("page_no", Rows.intg(hit, "page_no"));
+        return citation;
+    }
+
+    public List<Map<String, Object>> listExecutions(Integer page, Integer size, Long agentId, boolean all) {
+        long tenantId = IntelligenceContext.tenantId();
+        Long userId = all ? null : IntelligenceContext.userId();
+        return copilotMapper.listExecutions(tenantId, agentId, userId,
+                IntelligenceContext.size(size), IntelligenceContext.offset(page, size));
+    }
+
+    public long countExecutions(Long agentId, boolean all) {
+        return copilotMapper.countExecutions(IntelligenceContext.tenantId(), agentId,
+                all ? null : IntelligenceContext.userId());
+    }
+
+    public Map<String, Object> executionDetail(long id) {
+        long tenantId = IntelligenceContext.tenantId();
+        Map<String, Object> execution = copilotMapper.findExecution(tenantId, id);
+        if (execution == null) {
+            throw new BizException(IntelligenceErrorCode.PARAM_INVALID, "执行记录不存在");
+        }
+        Map<String, Object> result = new LinkedHashMap<>(execution);
+        result.put("input", IntelligenceMaps.node(execution.get("input_text")));
+        result.put("output", IntelligenceMaps.node(execution.get("output_text")));
+        result.put("steps", IntelligenceMaps.node(execution.get("steps_text")));
+        result.remove("input_text");
+        result.remove("output_text");
+        result.remove("steps_text");
+        return result;
+    }
+
+    public List<Map<String, Object>> messageCitations(long messageId) {
+        long tenantId = IntelligenceContext.tenantId();
+        if (copilotMapper.findMessage(tenantId, messageId) == null) {
+            throw new BizException(IntelligenceErrorCode.CONVERSATION_NOT_FOUND);
+        }
+        return copilotMapper.listCitations(tenantId, messageId);
     }
 
     private String buildPrompt(String question, List<Map<String, Object>> hits) {

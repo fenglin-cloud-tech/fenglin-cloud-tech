@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import { computed, onMounted, reactive, ref } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { GapNotice, PageHeader, ID_COLUMN_WIDTH, formatDateTime } from '@fenglin/ui-admin'
 import { intelligenceApi, type AiRecord } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
@@ -56,10 +56,63 @@ const fieldForm = reactive({
   is_sensitive: false,
 })
 const gapItems = [
-  '数据集没有预览、行级采样接口，字段列表只返回元数据，不能查看真实数据。',
-  '字段没有删除接口，只能追加；新增字段需先选中数据集。',
+  '数据集预览按 sqlText 只读执行（SELECT/WITH，行数 ≤200、超时 3 秒），外部直连数据源需部署期连接器。',
+  '字段支持删除（软删）；新增字段需先选中数据集。',
   '指标列表与数据集列表要求 ai:bi:view；指标创建要求 tenant:ai:bi:metric:manage，数据集与字段要求 ai:bi:dataset:manage。',
 ]
+
+const previewVisible = ref(false)
+const previewLoading = ref(false)
+const previewError = ref('')
+const previewResult = ref<AiRecord | null>(null)
+
+const previewColumns = computed<string[]>(() => {
+  const columns = previewResult.value?.columns
+  return Array.isArray(columns) ? columns : []
+})
+
+const previewRows = computed<AiRecord[]>(() => {
+  const rows = previewResult.value?.rows
+  if (!Array.isArray(rows)) return []
+  return rows.map((row: unknown[]) => {
+    const item: AiRecord = {}
+    previewColumns.value.forEach((column, index) => {
+      item[column] = row[index]
+    })
+    return item
+  })
+})
+
+async function previewDataset(row: AiRecord) {
+  selectedDataset.value = row
+  previewVisible.value = true
+  previewLoading.value = true
+  previewError.value = ''
+  previewResult.value = null
+  try {
+    previewResult.value = await intelligenceApi.datasets.preview(row.id, 20)
+  } catch (err) {
+    previewError.value = describeError(err)
+  } finally {
+    previewLoading.value = false
+  }
+}
+
+async function removeField(row: AiRecord) {
+  if (!selectedDataset.value) return
+  try {
+    await ElMessageBox.confirm(`确认删除字段「${row.field_name}」？`, '删除字段', { type: 'warning' })
+  } catch {
+    return
+  }
+  try {
+    await intelligenceApi.datasets.deleteField(selectedDataset.value.id, row.id)
+    ElMessage.success('字段已删除')
+    await selectDataset(selectedDataset.value)
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  }
+}
 async function loadMetrics() {
   metricLoading.value = true
   metricError.value = ''
@@ -281,6 +334,11 @@ onMounted(() => {
             <el-table-column prop="mode" label="模式" width="100" />
             <el-table-column prop="status" label="状态" width="100" />
             <el-table-column prop="created_at" label="创建时间" width="150" :formatter="(row: AiRecord) => formatDateTime(row.created_at)" />
+            <el-table-column label="操作" width="100" fixed="right">
+              <template #default="{ row }">
+                <el-button link type="primary" @click.stop="previewDataset(row)">预览</el-button>
+              </template>
+            </el-table-column>
             <template #empty><el-empty description="暂无数据集" :image-size="60" /></template>
           </el-table>
           <el-pagination
@@ -306,6 +364,11 @@ onMounted(() => {
               <el-table-column prop="expression" label="表达式" min-width="180" show-overflow-tooltip />
               <el-table-column prop="is_sensitive" label="敏感" width="90" />
               <el-table-column prop="sort_no" label="排序" width="80" />
+              <el-table-column label="操作" width="110" fixed="right">
+                <template #default="{ row }">
+                  <el-button v-perm="'ai:bi:dataset:manage'" link type="danger" @click="removeField(row)">删除</el-button>
+                </template>
+              </el-table-column>
               <template #empty><el-empty description="暂无字段" :image-size="60" /></template>
             </el-table>
           </template>
@@ -386,6 +449,34 @@ onMounted(() => {
         <el-button @click="fieldVisible = false">取消</el-button>
         <el-button type="primary" :loading="fieldSaving" @click="submitField">添加</el-button>
       </template>
+    </el-dialog>
+
+    <el-dialog v-model="previewVisible" title="数据集预览" width="760px">
+      <el-alert v-if="previewError" type="error" :closable="false" show-icon :title="previewError" style="margin-bottom: 12px" />
+      <div v-loading="previewLoading">
+        <template v-if="previewResult">
+          <el-descriptions :column="2" border size="small" style="margin-bottom: 12px">
+            <el-descriptions-item label="数据集">{{ selectedDataset?.name ?? selectedDataset?.id }}</el-descriptions-item>
+            <el-descriptions-item label="行数">{{ previewResult.row_count ?? 0 }}</el-descriptions-item>
+            <el-descriptions-item label="执行目标" :span="2">{{ previewResult.execution_target }}</el-descriptions-item>
+            <el-descriptions-item label="SQL" :span="2">
+              <span class="fl-mono">{{ previewResult.sql }}</span>
+            </el-descriptions-item>
+          </el-descriptions>
+          <el-table :data="previewRows" border size="small" max-height="340">
+            <el-table-column
+              v-for="column in previewColumns"
+              :key="column"
+              :prop="column"
+              :label="column"
+              min-width="120"
+              show-overflow-tooltip
+            />
+            <template #empty><el-empty description="查询无数据行" :image-size="60" /></template>
+          </el-table>
+        </template>
+        <el-empty v-else-if="!previewLoading" description="暂无预览结果" :image-size="60" />
+      </div>
     </el-dialog>
   </div>
 </template>

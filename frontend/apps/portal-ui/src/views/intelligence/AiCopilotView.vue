@@ -10,6 +10,7 @@ const auth = useAuthStore()
 const canChat = auth.can('ai:chat:use')
 const canSend = auth.can('ai:chat:rag')
 const canFeedback = auth.can('ai:chat:feedback')
+const canPrivateKb = auth.can('ai:chat:private-kb')
 
 const conversations = ref<AiRecord[]>([])
 const conversationTotal = ref(0)
@@ -39,10 +40,57 @@ const feedbackSaving = ref(false)
 const feedbackForm = reactive({ messageId: '' as string, feedback_type: 'LIKE', rating: 0, comment: '' })
 
 const gapItems = [
-  '后端未提供流式输出（SSE）接口，发送消息后需同步等待完整回答返回。',
-  '引用只返回文档标题、片段与相似度分数，点击引用无独立详情接口；预览能力见知识搜索页。',
+  '流式回答依赖平台 AI 中台的模型配置；未配置可用模型时，流式请求会返回明确错误而不是静默失败。',
+  '引用返回文档标题、片段与相似度分数，可经 GET /copilot/messages/{id}/citations 单独回读。',
   '反馈接口 POST /copilot/messages/{id}/feedback 需要 ai:chat:feedback，无权限时不显示反馈按钮。',
 ]
+
+const streaming = ref(false)
+const streamAnswer = ref('')
+const streamCitations = ref<AiRecord[]>([])
+const streamConversationId = ref<string | number | null>(null)
+
+const privateKbs = ref<AiRecord[]>([])
+const privateKbLoading = ref(false)
+
+const citationsVisible = ref(false)
+const citationsLoading = ref(false)
+const citations = ref<AiRecord[]>([])
+
+async function openCitations(message: AiRecord) {
+  citationsVisible.value = true
+  citationsLoading.value = true
+  citations.value = []
+  try {
+    citations.value = await intelligenceApi.copilot.citations(message.id)
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  } finally {
+    citationsLoading.value = false
+  }
+}
+
+async function loadPrivateKbs() {
+  if (!canPrivateKb) return
+  privateKbLoading.value = true
+  try {
+    privateKbs.value = await intelligenceApi.kb.personal()
+  } catch {
+    privateKbs.value = []
+  } finally {
+    privateKbLoading.value = false
+  }
+}
+
+async function createPrivateKb() {
+  try {
+    const created = await intelligenceApi.kb.createPersonal({ name: '个人知识库' })
+    ElMessage.success(`个人知识库已就绪：${created?.name ?? created?.code ?? ''}`)
+    await loadPrivateKbs()
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  }
+}
 
 const activeConversation = computed(() => conversations.value.find((item) => item.id === activeId.value))
 
@@ -134,12 +182,24 @@ async function send() {
     return
   }
   sending.value = true
+  streaming.value = true
+  streamAnswer.value = ''
+  streamCitations.value = []
+  streamConversationId.value = activeId.value
   error.value = ''
   try {
-    await intelligenceApi.copilot.send(activeId.value, {
+    await intelligenceApi.copilot.stream(activeId.value, {
       content: sendForm.content.trim(),
       sec_level: sendForm.sec_level,
       model_code: sendForm.model_code || undefined,
+    }, (event, data) => {
+      if (event === 'citation') {
+        streamCitations.value.push(data)
+      } else if (event === 'delta') {
+        streamAnswer.value += String(data?.content ?? '')
+      } else if (event === 'error') {
+        error.value = String(data?.message ?? '流式生成失败')
+      }
     })
     sendForm.content = ''
     msgPage.value = Math.max(1, Math.ceil((messageTotal.value + 2) / msgSize.value))
@@ -148,6 +208,8 @@ async function send() {
     error.value = describeError(err)
   } finally {
     sending.value = false
+    streaming.value = false
+    streamConversationId.value = null
   }
 }
 
@@ -179,7 +241,7 @@ async function submitFeedback() {
 
 onMounted(async () => {
   loading.value = true
-  await Promise.all([loadConversations(), loadKbs()])
+  await Promise.all([loadConversations(), loadKbs(), loadPrivateKbs()])
   loading.value = false
 })
 
@@ -224,6 +286,25 @@ onMounted(async () => {
             :total="conversationTotal" :page-size="convSize" :current-page="convPage"
             @current-change="(next: number) => { convPage = next; loadConversations() }" />
         </el-card>
+
+        <el-card v-if="canPrivateKb" shadow="never" class="copilot-panel" style="margin-top: 12px">
+          <template #header>
+            <div class="panel-head">
+              <span>个人知识库</span>
+              <el-button size="small" :loading="privateKbLoading" @click="createPrivateKb">创建/刷新</el-button>
+            </div>
+          </template>
+          <div v-loading="privateKbLoading">
+            <div v-for="kb in privateKbs" :key="String(kb.id)" class="conversation-item">
+              <div class="conversation-item__main">
+                <span class="conversation-item__title">{{ kb.name }}</span>
+                <span class="fl-muted">{{ kb.code }} · {{ kb.scope_type }}</span>
+              </div>
+            </div>
+            <el-empty v-if="privateKbs.length === 0" description="暂无个人知识库，点击“创建/刷新”初始化" :image-size="50" />
+            <div class="fl-muted" style="margin-top: 6px">个人知识库仅本人可见，检索与 Copilot 召回均按创建人隔离。</div>
+          </div>
+        </el-card>
       </el-col>
 
       <el-col :span="17">
@@ -244,6 +325,7 @@ onMounted(async () => {
                   <el-button link type="primary" @click="openFeedback(message, 'LIKE')">点赞</el-button>
                   <el-button link type="danger" @click="openFeedback(message, 'DISLIKE')">点踩</el-button>
                 </template>
+                <el-button v-if="message.role === 'ASSISTANT'" link type="primary" @click="openCitations(message)">引用明细</el-button>
               </div>
               <div class="message-item__content">{{ message.content }}</div>
               <div v-if="message.citations?.length" class="citation-list">
@@ -254,7 +336,21 @@ onMounted(async () => {
                 </div>
               </div>
             </div>
-            <el-empty v-if="messages.length === 0" description="暂无消息，选择会话后可提问" :image-size="70" />
+            <div v-if="streaming && streamConversationId === activeId" class="message-item">
+              <div class="message-item__head">
+                <el-tag size="small" type="success">ASSISTANT · 流式</el-tag>
+                <span class="fl-muted">SSE messages:stream</span>
+              </div>
+              <div class="message-item__content">{{ streamAnswer || '正在检索知识库并生成回答…' }}</div>
+              <div v-if="streamCitations.length" class="citation-list">
+                <div class="fl-muted">引用来源：</div>
+                <div v-for="citation in streamCitations" :key="String(citation.chunk_id)" class="citation-item">
+                  <span>{{ citation.document_title || '未命名文档' }}</span>
+                  <span class="fl-muted">分数 {{ citation.score ?? '-' }}</span>
+                </div>
+              </div>
+            </div>
+            <el-empty v-if="messages.length === 0 && !streaming" description="暂无消息，选择会话后可提问" :image-size="70" />
           </div>
 
           <el-pagination v-if="messageTotal > msgSize" style="margin-top: 8px; justify-content: flex-end" layout="prev, pager, next"
@@ -314,6 +410,19 @@ onMounted(async () => {
         <el-button @click="feedbackVisible = false">取消</el-button>
         <el-button type="primary" :loading="feedbackSaving" @click="submitFeedback">提交</el-button>
       </template>
+    </el-dialog>
+
+    <el-dialog v-model="citationsVisible" title="引用明细" width="640px">
+      <div v-loading="citationsLoading">
+        <el-table :data="citations" border size="small" max-height="360">
+          <el-table-column prop="document_title" label="文档" min-width="160" show-overflow-tooltip />
+          <el-table-column prop="chunk_id" label="分块ID" min-width="160" show-overflow-tooltip />
+          <el-table-column prop="page_no" label="页码" width="70" />
+          <el-table-column prop="score" label="分数" width="90" />
+          <el-table-column prop="snippet" label="片段" min-width="220" show-overflow-tooltip />
+          <template #empty><el-empty description="该消息暂无引用" :image-size="60" /></template>
+        </el-table>
+      </div>
     </el-dialog>
   </div>
 </template>

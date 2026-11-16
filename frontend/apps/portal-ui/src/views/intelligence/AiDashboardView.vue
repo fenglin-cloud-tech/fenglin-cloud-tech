@@ -21,10 +21,47 @@ const detailLoading = ref(false)
 const detailError = ref('')
 
 const gapItems = [
-  '平台未提供图表渲染数据 / 查询执行接口，本页只能展示图表元数据（名称、类型、数据集与查询配置）。',
-  '图表类型仅为字符串（如 TABLE、LINE），没有枚举约束与样式预览接口。',
-  '页面只读：新建或编辑看板需要 ai:bi:dashboard:manage 等管理权限，员工端不提供入口。',
+  '图表支持查询真实数据（GET/POST /dashboards/{id}/charts/{chartId}/data），按数据集 sqlText 只读执行，行数上限 200、超时 3 秒。',
+  '图表类型仅为字符串（如 TABLE、LINE），前端按表格展示查询结果，不做图形渲染。',
+  '页面只读：新建或编辑看板、删除与排序需要 ai:bi:chart:manage 等管理权限，员工端不提供入口。',
 ]
+
+const dataVisible = ref(false)
+const dataLoading = ref(false)
+const dataError = ref('')
+const dataResult = ref<AiRecord | null>(null)
+
+const dataColumns = computed<string[]>(() => {
+  const columns = dataResult.value?.columns
+  return Array.isArray(columns) ? columns : []
+})
+
+const dataRows = computed<AiRecord[]>(() => {
+  const rows = dataResult.value?.rows
+  if (!Array.isArray(rows)) return []
+  return rows.map((row: unknown[]) => {
+    const item: AiRecord = {}
+    dataColumns.value.forEach((column, index) => {
+      item[column] = row[index]
+    })
+    return item
+  })
+})
+
+async function loadChartData(row: AiRecord) {
+  if (!detail.value) return
+  dataVisible.value = true
+  dataLoading.value = true
+  dataError.value = ''
+  dataResult.value = null
+  try {
+    dataResult.value = await intelligenceApi.dashboards.chartData(detail.value.id, row.id)
+  } catch (err) {
+    dataError.value = describeError(err)
+  } finally {
+    dataLoading.value = false
+  }
+}
 
 const charts = computed<AiRecord[]>(() => {
   const value = detail.value?.charts
@@ -168,9 +205,14 @@ onMounted(load)
                 <el-table-column prop="name" label="图表名称" min-width="160" />
                 <el-table-column prop="chart_type" label="类型" width="110" />
                 <el-table-column prop="dataset_id" label="数据集ID" width="120" />
-                <el-table-column label="查询配置" min-width="200">
+                <el-table-column label="查询配置" min-width="180">
                   <template #default="{ row }">
                     <span class="query-text">{{ queryText(row.query) }}</span>
+                  </template>
+                </el-table-column>
+                <el-table-column label="操作" width="90" fixed="right">
+                  <template #default="{ row }">
+                    <el-button link type="primary" @click="loadChartData(row)">查看数据</el-button>
                   </template>
                 </el-table-column>
               </el-table>
@@ -179,7 +221,7 @@ onMounted(load)
                 type="info"
                 :closable="false"
                 show-icon
-                title="图表仅展示元数据，平台未提供图表数据查询与渲染接口。"
+                title="点击“查看数据”按图表查询配置执行只读查询；无 sqlText 或查询失败会给出明确错误。"
                 style="margin-top: 8px"
               />
             </template>
@@ -188,6 +230,33 @@ onMounted(load)
         </el-card>
       </el-col>
     </el-row>
+
+    <el-dialog v-model="dataVisible" title="图表数据" width="760px">
+      <el-alert v-if="dataError" type="error" :closable="false" show-icon :title="dataError" style="margin-bottom: 12px" />
+      <div v-loading="dataLoading">
+        <template v-if="dataResult">
+          <el-descriptions :column="2" border size="small" style="margin-bottom: 12px">
+            <el-descriptions-item label="行数">{{ dataResult.row_count ?? 0 }}</el-descriptions-item>
+            <el-descriptions-item label="执行目标">{{ dataResult.execution_target || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="SQL" :span="2">
+              <span class="query-text">{{ dataResult.sql }}</span>
+            </el-descriptions-item>
+          </el-descriptions>
+          <el-table :data="dataRows" border size="small" max-height="360">
+            <el-table-column
+              v-for="column in dataColumns"
+              :key="column"
+              :prop="column"
+              :label="column"
+              min-width="120"
+              show-overflow-tooltip
+            />
+            <template #empty><el-empty description="查询无数据行" :image-size="60" /></template>
+          </el-table>
+        </template>
+        <el-empty v-else-if="!dataLoading" description="暂无查询结果" :image-size="60" />
+      </div>
+    </el-dialog>
   </div>
 </template>
 

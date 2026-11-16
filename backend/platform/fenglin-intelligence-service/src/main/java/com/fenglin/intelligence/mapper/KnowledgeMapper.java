@@ -28,12 +28,16 @@ public interface KnowledgeMapper {
 
     @Select("SELECT id, uuid, code, name, description, scope_type, default_sec_level, embedding_model, "
             + "vector_collection, es_index, status, created_at, updated_at FROM ai_knowledge_base "
-            + "WHERE tenant_id = #{tenantId} AND deleted = 0 ORDER BY id DESC LIMIT #{limit} OFFSET #{offset}")
+            + "WHERE tenant_id = #{tenantId} AND deleted = 0 "
+            + "AND (scope_type <> 'PRIVATE' OR created_by = #{userId}) "
+            + "ORDER BY id DESC LIMIT #{limit} OFFSET #{offset}")
     List<Map<String, Object>> listKnowledgeBases(@Param("tenantId") long tenantId,
+                                                 @Param("userId") long userId,
                                                  @Param("limit") int limit, @Param("offset") int offset);
 
-    @Select("SELECT count(1) FROM ai_knowledge_base WHERE tenant_id = #{tenantId} AND deleted = 0")
-    long countKnowledgeBases(@Param("tenantId") long tenantId);
+    @Select("SELECT count(1) FROM ai_knowledge_base WHERE tenant_id = #{tenantId} AND deleted = 0 "
+            + "AND (scope_type <> 'PRIVATE' OR created_by = #{userId})")
+    long countKnowledgeBases(@Param("tenantId") long tenantId, @Param("userId") long userId);
 
     @Select("SELECT id, uuid, code, name, description, scope_type, default_sec_level, embedding_model, "
             + "vector_collection, es_index, status, created_at FROM ai_knowledge_base "
@@ -162,13 +166,16 @@ public interface KnowledgeMapper {
             + "c.section_path, c.sec_level, d.title AS document_title, d.doc_type, "
             + "public.similarity(c.content, CAST(#{query} AS text)) AS score FROM ai_document_chunk c "
             + "JOIN ai_document d ON d.id = c.document_id AND d.deleted = 0 "
+            + "LEFT JOIN ai_knowledge_base kb ON kb.id = c.knowledge_base_id AND kb.deleted = 0 "
             + "WHERE c.tenant_id = #{tenantId} AND c.deleted = 0 AND d.index_status = 'INDEXED' "
             + "AND c.sec_level <= #{secLevel} "
+            + "AND (kb.scope_type IS NULL OR kb.scope_type <> 'PRIVATE' OR kb.created_by = #{userId}) "
             + "AND (CAST(#{kbCsv} AS varchar) IS NULL "
             + "     OR c.knowledge_base_id = ANY(string_to_array(#{kbCsv}, ',')::bigint[])) "
             + "AND (c.content ILIKE '%' || #{query} || '%' OR d.title ILIKE '%' || #{query} || '%') "
             + "ORDER BY score DESC, c.id LIMIT #{limit}")
-    List<Map<String, Object>> searchChunks(@Param("tenantId") long tenantId, @Param("kbCsv") String kbCsv,
+    List<Map<String, Object>> searchChunks(@Param("tenantId") long tenantId, @Param("userId") long userId,
+                                           @Param("kbCsv") String kbCsv,
                                            @Param("query") String query, @Param("secLevel") int secLevel,
                                            @Param("limit") int limit);
 
@@ -190,13 +197,20 @@ public interface KnowledgeMapper {
     @Select("SELECT query_text AS query, count(1) AS total, "
             + "count(1) FILTER (WHERE result_count = 0) AS zero_result, "
             + "COALESCE(avg(latency_ms), 0)::int AS avg_latency FROM ai_search_log "
-            + "WHERE tenant_id = #{tenantId} GROUP BY query_text ORDER BY total DESC LIMIT #{limit}")
-    List<Map<String, Object>> topQueries(@Param("tenantId") long tenantId, @Param("limit") int limit);
+            + "WHERE tenant_id = #{tenantId} "
+            + "AND (CAST(#{from} AS timestamp) IS NULL OR created_at >= CAST(#{from} AS timestamp)) "
+            + "AND (CAST(#{to} AS timestamp) IS NULL OR created_at <= CAST(#{to} AS timestamp)) "
+            + "GROUP BY query_text ORDER BY total DESC LIMIT #{limit}")
+    List<Map<String, Object>> topQueries(@Param("tenantId") long tenantId, @Param("from") String from,
+                                         @Param("to") String to, @Param("limit") int limit);
 
     @Select("SELECT count(1) AS total, COALESCE(avg(latency_ms), 0)::int AS avg_latency, "
             + "count(1) FILTER (WHERE result_count = 0) AS zero_result FROM ai_search_log "
-            + "WHERE tenant_id = #{tenantId}")
-    Map<String, Object> searchSummary(@Param("tenantId") long tenantId);
+            + "WHERE tenant_id = #{tenantId} "
+            + "AND (CAST(#{from} AS timestamp) IS NULL OR created_at >= CAST(#{from} AS timestamp)) "
+            + "AND (CAST(#{to} AS timestamp) IS NULL OR created_at <= CAST(#{to} AS timestamp))")
+    Map<String, Object> searchSummary(@Param("tenantId") long tenantId, @Param("from") String from,
+                                      @Param("to") String to);
 
     @Insert("INSERT INTO ai_kg_entity (id, tenant_id, knowledge_base_id, entity_type, name, normalized_name, "
             + "aliases, source_document_id, confidence, created_by) VALUES (#{id}, #{tenantId}, #{kbId}, #{type}, "
@@ -237,4 +251,135 @@ public interface KnowledgeMapper {
             + "ORDER BY depth LIMIT 1")
     Map<String, Object> findKgPath(@Param("tenantId") long tenantId, @Param("fromId") long fromId,
                                    @Param("toId") long toId, @Param("maxDepth") int maxDepth);
+
+    // ---------- 知识库可见性 / ACL ----------
+    @Select("SELECT id, uuid, code, name, description, scope_type, default_sec_level, status, created_at "
+            + "FROM ai_knowledge_base WHERE tenant_id = #{tenantId} AND code = #{code} AND deleted = 0")
+    Map<String, Object> findKnowledgeBaseByCode(@Param("tenantId") long tenantId, @Param("code") String code);
+
+    @Select("SELECT count(1) FROM ai_knowledge_base WHERE tenant_id = #{tenantId} AND deleted = 0")
+    long countKnowledgeBasesAll(@Param("tenantId") long tenantId);
+
+    @Select("SELECT id, knowledge_base_id, subject_type, subject_id, permission, sec_level_max, created_at "
+            + "FROM ai_knowledge_acl WHERE tenant_id = #{tenantId} AND knowledge_base_id = #{kbId} "
+            + "AND deleted = 0 ORDER BY id")
+    List<Map<String, Object>> listAcl(@Param("tenantId") long tenantId, @Param("kbId") long kbId);
+
+    @Update("UPDATE ai_knowledge_acl SET deleted = 1, updated_by = #{userId} "
+            + "WHERE tenant_id = #{tenantId} AND knowledge_base_id = #{kbId} AND deleted = 0")
+    int deleteAclByKb(@Param("tenantId") long tenantId, @Param("kbId") long kbId, @Param("userId") long userId);
+
+    // ---------- 数据源详情 / 手动同步 ----------
+    @Select("SELECT id, code, name, category, connector_type, endpoint, config_json::text AS config_text, "
+            + "sync_mode, sync_cron, status FROM ai_data_source "
+            + "WHERE tenant_id = #{tenantId} AND id = #{id} AND deleted = 0")
+    Map<String, Object> findDataSourceDetail(@Param("tenantId") long tenantId, @Param("id") long id);
+
+    @Select("SELECT id, title FROM ai_document WHERE tenant_id = #{tenantId} AND data_source_id = #{dataSourceId} "
+            + "AND review_status = 'APPROVED' AND deleted = 0 ORDER BY id")
+    List<Map<String, Object>> listApprovedDocumentsBySource(@Param("tenantId") long tenantId,
+                                                            @Param("dataSourceId") long dataSourceId);
+
+    @Update("UPDATE ai_document SET chunk_count = #{chunks}, updated_by = #{userId} "
+            + "WHERE tenant_id = #{tenantId} AND id = #{id} AND deleted = 0")
+    int updateDocumentChunkCount(@Param("tenantId") long tenantId, @Param("id") long id,
+                                 @Param("chunks") int chunks, @Param("userId") long userId);
+
+    // ---------- 检索分面 / 联想 ----------
+    @Select("SELECT 'KNOWLEDGE_BASE' AS facet, CAST(c.knowledge_base_id AS varchar) AS value, count(1) AS total "
+            + "FROM ai_document_chunk c JOIN ai_document d ON d.id = c.document_id AND d.deleted = 0 "
+            + "LEFT JOIN ai_knowledge_base kb ON kb.id = c.knowledge_base_id AND kb.deleted = 0 "
+            + "WHERE c.tenant_id = #{tenantId} AND c.deleted = 0 AND d.index_status = 'INDEXED' "
+            + "AND c.sec_level <= #{secLevel} "
+            + "AND (kb.scope_type IS NULL OR kb.scope_type <> 'PRIVATE' OR kb.created_by = #{userId}) "
+            + "AND (CAST(#{kbCsv} AS varchar) IS NULL "
+            + "     OR c.knowledge_base_id = ANY(string_to_array(#{kbCsv}, ',')::bigint[])) "
+            + "AND (c.content ILIKE '%' || #{query} || '%' OR d.title ILIKE '%' || #{query} || '%') "
+            + "GROUP BY c.knowledge_base_id "
+            + "UNION ALL "
+            + "SELECT 'DOC_TYPE' AS facet, d.doc_type AS value, count(1) AS total "
+            + "FROM ai_document_chunk c JOIN ai_document d ON d.id = c.document_id AND d.deleted = 0 "
+            + "LEFT JOIN ai_knowledge_base kb ON kb.id = c.knowledge_base_id AND kb.deleted = 0 "
+            + "WHERE c.tenant_id = #{tenantId} AND c.deleted = 0 AND d.index_status = 'INDEXED' "
+            + "AND c.sec_level <= #{secLevel} "
+            + "AND (kb.scope_type IS NULL OR kb.scope_type <> 'PRIVATE' OR kb.created_by = #{userId}) "
+            + "AND (CAST(#{kbCsv} AS varchar) IS NULL "
+            + "     OR c.knowledge_base_id = ANY(string_to_array(#{kbCsv}, ',')::bigint[])) "
+            + "AND (c.content ILIKE '%' || #{query} || '%' OR d.title ILIKE '%' || #{query} || '%') "
+            + "GROUP BY d.doc_type")
+    List<Map<String, Object>> searchFacets(@Param("tenantId") long tenantId, @Param("userId") long userId,
+                                           @Param("kbCsv") String kbCsv, @Param("query") String query,
+                                           @Param("secLevel") int secLevel);
+
+    @Select("SELECT DISTINCT query_text AS value FROM ai_search_log WHERE tenant_id = #{tenantId} "
+            + "AND query_text ILIKE '%' || #{keyword} || '%' ORDER BY query_text LIMIT #{limit}")
+    List<String> suggestQueries(@Param("tenantId") long tenantId, @Param("keyword") String keyword,
+                                @Param("limit") int limit);
+
+    @Select("SELECT DISTINCT title AS value FROM ai_document WHERE tenant_id = #{tenantId} AND deleted = 0 "
+            + "AND index_status = 'INDEXED' AND title ILIKE '%' || #{keyword} || '%' ORDER BY title LIMIT #{limit}")
+    List<String> suggestDocuments(@Param("tenantId") long tenantId, @Param("keyword") String keyword,
+                                  @Param("limit") int limit);
+
+    @Select("SELECT DISTINCT name AS value FROM ai_kg_entity WHERE tenant_id = #{tenantId} AND deleted = 0 "
+            + "AND name ILIKE '%' || #{keyword} || '%' ORDER BY name LIMIT #{limit}")
+    List<String> suggestEntities(@Param("tenantId") long tenantId, @Param("keyword") String keyword,
+                                 @Param("limit") int limit);
+
+    // ---------- 图谱图数据 / 详情 / 删除 ----------
+    @Select("SELECT r.id, r.knowledge_base_id, r.source_entity_id, r.target_entity_id, r.relation_type, r.weight "
+            + "FROM ai_kg_relation r WHERE r.tenant_id = #{tenantId} AND r.deleted = 0 "
+            + "AND (CAST(#{kbId} AS bigint) IS NULL OR r.knowledge_base_id = #{kbId}) "
+            + "ORDER BY r.id LIMIT #{limit}")
+    List<Map<String, Object>> listKgRelations(@Param("tenantId") long tenantId, @Param("kbId") Long kbId,
+                                              @Param("limit") int limit);
+
+    @Select("SELECT id, knowledge_base_id, entity_type, name, normalized_name, aliases, confidence, "
+            + "source_document_id, created_at FROM ai_kg_entity WHERE tenant_id = #{tenantId} "
+            + "AND id = #{id} AND deleted = 0")
+    Map<String, Object> findKgEntity(@Param("tenantId") long tenantId, @Param("id") long id);
+
+    @Select("SELECT id, source_entity_id, target_entity_id, relation_type, weight FROM ai_kg_relation "
+            + "WHERE tenant_id = #{tenantId} AND deleted = 0 "
+            + "AND (source_entity_id = #{id} OR target_entity_id = #{id}) ORDER BY id LIMIT 200")
+    List<Map<String, Object>> listKgEntityRelations(@Param("tenantId") long tenantId, @Param("id") long id);
+
+    @Select("WITH RECURSIVE nb(id, depth) AS ("
+            + " SELECT CAST(#{id} AS bigint), 0 "
+            + " UNION "
+            + " SELECT CASE WHEN r.source_entity_id = nb.id THEN r.target_entity_id ELSE r.source_entity_id END, "
+            + "        nb.depth + 1 "
+            + " FROM nb JOIN ai_kg_relation r ON (r.source_entity_id = nb.id OR r.target_entity_id = nb.id) "
+            + " WHERE r.tenant_id = #{tenantId} AND r.deleted = 0 AND nb.depth < #{depth}) "
+            + "SELECT e.id, e.knowledge_base_id, e.entity_type, e.name, e.normalized_name, e.confidence "
+            + "FROM ai_kg_entity e JOIN nb ON e.id = nb.id "
+            + "WHERE e.tenant_id = #{tenantId} AND e.deleted = 0 ORDER BY e.id LIMIT 300")
+    List<Map<String, Object>> listKgNeighborEntities(@Param("tenantId") long tenantId, @Param("id") long id,
+                                                     @Param("depth") int depth);
+
+    @Update("UPDATE ai_kg_entity SET deleted = 1, updated_by = #{userId} "
+            + "WHERE tenant_id = #{tenantId} AND id = #{id} AND deleted = 0")
+    int deleteKgEntity(@Param("tenantId") long tenantId, @Param("id") long id, @Param("userId") long userId);
+
+    @Update("UPDATE ai_kg_relation SET deleted = 1, updated_by = #{userId} "
+            + "WHERE tenant_id = #{tenantId} AND deleted = 0 AND (source_entity_id = #{id} OR target_entity_id = #{id})")
+    int deleteKgEntityRelations(@Param("tenantId") long tenantId, @Param("id") long id, @Param("userId") long userId);
+
+    // ---------- 概览口径（可选时间区间） ----------
+    @Select("SELECT count(1) FROM ai_knowledge_base WHERE tenant_id = #{tenantId} AND deleted = 0 "
+            + "AND (CAST(#{from} AS timestamp) IS NULL OR created_at >= CAST(#{from} AS timestamp)) "
+            + "AND (CAST(#{to} AS timestamp) IS NULL OR created_at <= CAST(#{to} AS timestamp))")
+    long countKnowledgeBasesInRange(@Param("tenantId") long tenantId, @Param("from") String from,
+                                    @Param("to") String to);
+
+    @Select("SELECT count(1) FROM ai_data_source WHERE tenant_id = #{tenantId} AND deleted = 0 "
+            + "AND (CAST(#{from} AS timestamp) IS NULL OR created_at >= CAST(#{from} AS timestamp)) "
+            + "AND (CAST(#{to} AS timestamp) IS NULL OR created_at <= CAST(#{to} AS timestamp))")
+    long countDataSourcesInRange(@Param("tenantId") long tenantId, @Param("from") String from,
+                                 @Param("to") String to);
+
+    @Select("SELECT count(1) FROM ai_document_chunk WHERE tenant_id = #{tenantId} AND deleted = 0 "
+            + "AND (CAST(#{from} AS timestamp) IS NULL OR created_at >= CAST(#{from} AS timestamp)) "
+            + "AND (CAST(#{to} AS timestamp) IS NULL OR created_at <= CAST(#{to} AS timestamp))")
+    long countChunksInRange(@Param("tenantId") long tenantId, @Param("from") String from, @Param("to") String to);
 }

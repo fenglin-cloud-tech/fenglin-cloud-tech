@@ -12,6 +12,7 @@ const canQuery = auth.can('ai:search:query')
 const canSecure = auth.can('ai:search:secure')
 const canView = auth.can('ai:search:view')
 const canLoadKb = auth.can('ai:chat:use')
+const canSuggest = auth.can('ai:search:suggest')
 
 const mode = ref<string>('hybrid')
 const form = reactive({
@@ -40,9 +41,25 @@ const previewChunks = ref<AiRecord[]>([])
 
 const gapItems = [
   '向量召回依赖平台 AI 中台的嵌入服务，未配置时后端返回 degraded=true 并降级为词法召回（degrade_reason 会说明原因）。',
-  '检索结果只返回文档标题、分块内容与相似度分数，平台无高亮、分面（facet）与聚合统计接口。',
+  '检索结果已返回高亮片段（highlight）与分面统计（facets：知识库 / 文档类型），展开行按高亮展示命中词。',
+  '输入框联想来自 GET /search/suggest（检索历史、已索引文档标题与图谱实体名），需要 ai:search:suggest。',
   '预览接口 GET /documents/{id}/preview 需要 ai:search:view，且文档密级不得高于请求的 sec_level。',
 ]
+
+const facets = ref<Record<string, Array<{ value: string; count: number }>>>({})
+
+async function fetchSuggestions(keyword: string, callback: (items: Array<{ value: string }>) => void) {
+  if (!canSuggest || !keyword.trim()) {
+    callback([])
+    return
+  }
+  try {
+    const list = await intelligenceApi.search.suggest(keyword.trim(), 8)
+    callback((list ?? []).map((value) => ({ value })))
+  } catch {
+    callback([])
+  }
+}
 
 function hitTitle(hit: AiRecord) {
   return hit.document_title || hit.title || `文档 ${hit.document_id ?? '-'}`
@@ -93,6 +110,7 @@ async function search() {
         ? await intelligenceApi.search.secure({ ...body, query_type: undefined })
         : await intelligenceApi.search.hybrid(body)
     hits.value = Array.isArray(result.hits) ? result.hits : []
+    facets.value = (result.facets as Record<string, Array<{ value: string; count: number }>>) ?? {}
     total.value = Number(result.total ?? hits.value.length)
     latency.value = result.latency_ms === undefined ? null : Number(result.latency_ms)
     degraded.value = Boolean(result.degraded)
@@ -100,6 +118,7 @@ async function search() {
   } catch (err) {
     error.value = describeError(err)
     hits.value = []
+    facets.value = {}
     total.value = 0
     degraded.value = false
     degradeReason.value = ''
@@ -157,13 +176,17 @@ onMounted(loadKbs)
           <span v-if="!canSecure" class="fl-muted" style="margin-left: 12px">缺少权限 ai:search:secure</span>
         </el-form-item>
         <el-form-item label="检索内容">
-          <el-input
+          <el-autocomplete
             v-model="form.query"
+            :fetch-suggestions="fetchSuggestions"
+            :disabled="!canSuggest"
+            style="width: 100%"
             maxlength="200"
             show-word-limit
-            placeholder="输入关键词或问题"
+            placeholder="输入关键词或问题（联想需 ai:search:suggest）"
             @keyup.enter="search"
           />
+          <div v-if="!canSuggest" class="fl-muted">缺少权限 ai:search:suggest，输入联想不可用，可正常检索。</div>
         </el-form-item>
         <el-form-item label="参数">
           <div class="param-row">
@@ -219,10 +242,20 @@ onMounted(loadKbs)
         </div>
       </template>
 
+      <div v-if="Object.keys(facets).length" class="facet-bar">
+        <span class="fl-muted">分面：</span>
+        <template v-for="(buckets, name) in facets" :key="name">
+          <el-tag v-for="bucket in buckets" :key="`${name}-${bucket.value}`" size="small" type="info" effect="plain">
+            {{ name === 'KNOWLEDGE_BASE' ? '知识库' : name }}:{{ bucket.value }}（{{ bucket.count }}）
+          </el-tag>
+        </template>
+      </div>
+
       <el-table v-loading="loading" :data="hits" border stripe size="small">
         <el-table-column type="expand">
           <template #default="{ row }">
-            <div class="hit-detail">{{ hitSnippet(row) }}</div>
+            <div v-if="row.highlight" class="hit-detail" v-html="row.highlight"></div>
+            <div v-else class="hit-detail">{{ hitSnippet(row) }}</div>
           </template>
         </el-table-column>
         <el-table-column label="文档标题" min-width="220">
@@ -295,6 +328,19 @@ onMounted(loadKbs)
   line-height: 1.7;
   white-space: pre-wrap;
   word-break: break-word;
+}
+.hit-detail :deep(em) {
+  font-style: normal;
+  color: #c45656;
+  background: #fef0f0;
+  padding: 0 2px;
+}
+.facet-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
 }
 .chunk-item {
   padding: 8px 0;

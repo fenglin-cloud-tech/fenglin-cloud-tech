@@ -27,10 +27,59 @@ const form = reactive({
 })
 
 const gapItems = [
-  '知识库 ACL 成员配置在 intelligence-service 没有 REST 接口，本页只维护知识库主体信息。',
+  '知识库 ACL 已支持 REST 读写（GET/PUT /admin/knowledge-bases/{id}/acl），保存为整表覆盖式提交。',
+  '个人知识库（scope_type=PRIVATE）仅创建者可见：列表、检索与 Copilot 召回均按 created_by 过滤。',
   '文档、分块与索引需要在「文档与索引」页维护，本页不提供文档入口。',
-  '列表接口要求 ai:chat:use，创建接口要求 tenant:ai:kb:manage；scope_type 后端默认 TENANT。',
+  '列表接口要求 ai:chat:use，创建与 ACL 维护要求 tenant:ai:kb:manage；scope_type 后端默认 TENANT。',
 ]
+
+const aclItems = ref<AiRecord[]>([])
+const aclLoading = ref(false)
+const aclSaving = ref(false)
+const aclError = ref('')
+
+async function loadAcl(row: AiRecord) {
+  aclLoading.value = true
+  aclError.value = ''
+  try {
+    aclItems.value = await intelligenceApi.kb.acl(row.id)
+  } catch (err) {
+    aclItems.value = []
+    aclError.value = describeError(err)
+  } finally {
+    aclLoading.value = false
+  }
+}
+
+function addAclRow() {
+  aclItems.value.push({ subject_type: 'DEPT', subject_id: '', permission: 'READ', sec_level_max: 2 })
+}
+
+function removeAclRow(index: number) {
+  aclItems.value.splice(index, 1)
+}
+
+async function saveAcl() {
+  if (!detailRow.value) return
+  const items = aclItems.value
+    .filter((item) => String(item.subject_id ?? '').trim())
+    .map((item) => ({
+      subjectType: item.subject_type ?? 'DEPT',
+      subjectId: String(item.subject_id).trim(),
+      permission: item.permission ?? 'READ',
+      secLevelMax: item.sec_level_max ?? 2,
+    }))
+  aclSaving.value = true
+  try {
+    const result = await intelligenceApi.kb.saveAcl(detailRow.value.id, items)
+    aclItems.value = result?.items ?? []
+    ElMessage.success(`ACL 已保存，共 ${result?.saved ?? items.length} 条`)
+  } catch (err) {
+    aclError.value = describeError(err)
+  } finally {
+    aclSaving.value = false
+  }
+}
 
 async function load() {
   loading.value = true
@@ -56,6 +105,7 @@ function openCreate() {
 function openDetail(row: AiRecord) {
   detailRow.value = row
   detailVisible.value = true
+  loadAcl(row)
 }
 
 async function submitCreate() {
@@ -166,13 +216,51 @@ onMounted(load)
         <el-descriptions-item label="更新时间">{{ formatDateTime(detailRow.updated_at) }}</el-descriptions-item>
       </el-descriptions>
       <el-empty v-else description="暂无详情" :image-size="60" />
-      <el-alert
-        type="info"
-        :closable="false"
-        show-icon
-        title="ACL 成员没有查询接口，详情仅展示列表返回字段。"
-        style="margin-top: 12px"
-      />
+      <el-divider content-position="left">ACL 成员（{{ aclItems.length }}）</el-divider>
+      <el-alert v-if="aclError" type="error" :closable="false" show-icon :title="aclError" style="margin-bottom: 8px" />
+      <div v-loading="aclLoading">
+        <el-table :data="aclItems" border size="small" max-height="260">
+          <el-table-column label="主体类型" width="120">
+            <template #default="{ row }">
+              <el-select v-model="row.subject_type" size="small">
+                <el-option label="部门" value="DEPT" />
+                <el-option label="用户" value="USER" />
+                <el-option label="角色" value="ROLE" />
+              </el-select>
+            </template>
+          </el-table-column>
+          <el-table-column label="主体 ID" min-width="150">
+            <template #default="{ row }">
+              <el-input v-model="row.subject_id" size="small" placeholder="雪花 ID" />
+            </template>
+          </el-table-column>
+          <el-table-column label="权限" width="110">
+            <template #default="{ row }">
+              <el-select v-model="row.permission" size="small">
+                <el-option label="只读" value="READ" />
+                <el-option label="读写" value="WRITE" />
+                <el-option label="管理" value="MANAGE" />
+              </el-select>
+            </template>
+          </el-table-column>
+          <el-table-column label="最大密级" width="100">
+            <template #default="{ row }">
+              <el-select v-model="row.sec_level_max" size="small">
+                <el-option v-for="level in [1, 2, 3, 4]" :key="level" :label="`L${level}`" :value="level" />
+              </el-select>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="70">
+            <template #default="{ $index }">
+              <el-button v-perm="'tenant:ai:kb:manage'" link type="danger" @click="removeAclRow($index)">移除</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+        <div class="fl-toolbar" style="margin-top: 8px">
+          <el-button v-perm="'tenant:ai:kb:manage'" size="small" @click="addAclRow">新增成员</el-button>
+          <el-button v-perm="'tenant:ai:kb:manage'" size="small" type="primary" :loading="aclSaving" @click="saveAcl">保存 ACL</el-button>
+        </div>
+      </div>
     </el-drawer>
 
     <el-dialog v-model="createVisible" title="新建知识库" width="560px">

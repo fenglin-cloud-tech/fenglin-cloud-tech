@@ -4,6 +4,7 @@ import com.fenglin.common.core.ApiResponse;
 import com.fenglin.common.core.PageResult;
 import com.fenglin.common.security.PermissionGuard;
 import com.fenglin.intelligence.service.BiService;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -208,8 +209,114 @@ public class BiController {
 
     @GetMapping("/report/overview")
     public ApiResponse<Map<String, Object>> overview(
-            @RequestHeader(value = "X-Permissions", required = false) String permissions) {
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(required = false) String from,
+            @RequestParam(required = false) String to) {
         PermissionGuard.require(permissions, "ai:bi:view");
-        return ApiResponse.success(service.overview());
+        return ApiResponse.success(service.overview(from, to));
+    }
+
+    @PostMapping("/datasets/{id}/preview")
+    public ApiResponse<Map<String, Object>> previewDataset(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable long id,
+            @RequestBody(required = false) Map<String, Object> body) {
+        PermissionGuard.require(permissions, "ai:bi:view");
+        return ApiResponse.success(service.previewDataset(id, body == null ? Map.of() : body));
+    }
+
+    @PostMapping("/datasets/{id}/query")
+    public ApiResponse<Map<String, Object>> queryDataset(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable long id,
+            @RequestBody(required = false) Map<String, Object> body) {
+        PermissionGuard.require(permissions, "ai:bi:view");
+        return ApiResponse.success(service.queryDataset(id, body == null ? Map.of() : body));
+    }
+
+    @DeleteMapping("/admin/datasets/{id}/fields/{fieldId}")
+    public ApiResponse<Map<String, Object>> deleteDatasetField(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable long id,
+            @PathVariable long fieldId) {
+        PermissionGuard.require(permissions, "ai:bi:dataset:manage");
+        return ApiResponse.success(service.deleteDatasetField(id, fieldId));
+    }
+
+    @PostMapping("/dashboards/{id}/charts/{chartId}/data")
+    public ApiResponse<Map<String, Object>> chartData(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable long id,
+            @PathVariable long chartId,
+            @RequestBody(required = false) Map<String, Object> body) {
+        PermissionGuard.require(permissions, "ai:bi:view");
+        return ApiResponse.success(service.chartData(id, chartId, body == null ? Map.of() : body));
+    }
+
+    @DeleteMapping("/admin/dashboards/{id}/charts/{chartId}")
+    public ApiResponse<Map<String, Object>> deleteChart(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable long id,
+            @PathVariable long chartId) {
+        PermissionGuard.require(permissions, "ai:bi:chart:manage");
+        return ApiResponse.success(service.deleteChart(id, chartId));
+    }
+
+    @PutMapping("/admin/dashboards/{id}/charts/order")
+    public ApiResponse<Map<String, Object>> reorderCharts(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable long id,
+            @RequestBody Map<String, Object> body) {
+        PermissionGuard.require(permissions, "ai:bi:chart:manage");
+        return ApiResponse.success(service.reorderCharts(id, body));
+    }
+
+    @PutMapping("/admin/dashboards/{id}/charts/{chartId}/alert")
+    public ApiResponse<Map<String, Object>> saveChartAlert(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable long id,
+            @PathVariable long chartId,
+            @RequestBody Map<String, Object> body) {
+        PermissionGuard.require(permissions, "ai:bi:chart:manage");
+        return ApiResponse.success(service.saveChartAlert(id, chartId, body));
+    }
+
+    @GetMapping("/admin/dashboards/{id}/charts/{chartId}/alert")
+    public ApiResponse<Map<String, Object>> chartAlert(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable long id,
+            @PathVariable long chartId) {
+        PermissionGuard.require(permissions, "ai:bi:view");
+        return ApiResponse.success(service.chartAlert(id, chartId));
+    }
+
+    @GetMapping("/admin/ai/alerts")
+    public ApiResponse<List<Map<String, Object>>> listAlerts(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(required = false) Integer limit) {
+        PermissionGuard.require(permissions, "tenant:ai:bi:dataperm:config");
+        return ApiResponse.success(service.listAlerts(limit));
+    }
+
+    @GetMapping("/admin/data-permissions")
+    public ApiResponse<List<Map<String, Object>>> listDataPermissions(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(required = false) Integer limit) {
+        PermissionGuard.require(permissions, "tenant:ai:bi:dataperm:config");
+        return ApiResponse.success(service.listDataPermissions(limit));
+    }
+
+    @GetMapping("/insight-tasks/{id}/results/export")
+    public org.springframework.http.ResponseEntity<byte[]> exportInsightResults(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable long id) {
+        PermissionGuard.require(permissions, "ai:bi:export");
+        Map<String, Object> export = service.insightResultsCsv(id);
+        byte[] bytes = String.valueOf(export.get("content")).getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        return org.springframework.http.ResponseEntity.ok()
+                .header("Content-Disposition", "attachment; filename=\"" + export.get("file_name") + "\"")
+                .contentType(new org.springframework.http.MediaType("text", "csv",
+                        java.nio.charset.StandardCharsets.UTF_8))
+                .body(bytes);
     }
 }

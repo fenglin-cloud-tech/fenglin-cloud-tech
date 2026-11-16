@@ -28,10 +28,40 @@ const form = reactive({
 })
 
 const gapItems = [
-  '数据源没有连通性测试与手动触发同步接口，本页只能登记配置，不能验证可用性或立即同步。',
+  '连通性测试按连接器类型实测：LOCAL_FILE 校验路径存在与可读，HTTP 发 HEAD（3 秒），DB 用 JDBC 直连（3 秒）；其余连接器需部署期专用探针。',
+  '手动同步会重建该数据源下 APPROVED 文档的索引任务并刷新分块计数，不改变审核状态。',
   '凭据只写不读：列表仅返回 has_credential，接口不会回显 credential_secret。',
-  '列表与创建均要求 tenant:ai:source:manage；config 按 JSON 对象原样提交。',
 ]
+
+const testingId = ref<string | number | null>(null)
+const syncingId = ref<string | number | null>(null)
+const probeVisible = ref(false)
+const probeResult = ref<AiRecord | null>(null)
+
+async function testSource(row: AiRecord) {
+  testingId.value = row.id
+  probeResult.value = null
+  try {
+    probeResult.value = await intelligenceApi.dataSources.test(row.id)
+    probeVisible.value = true
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  } finally {
+    testingId.value = null
+  }
+}
+
+async function syncSource(row: AiRecord) {
+  syncingId.value = row.id
+  try {
+    const result = await intelligenceApi.dataSources.sync(row.id)
+    ElMessage.success(`同步完成：文档 ${result.document_count ?? 0} 篇，重建索引 ${result.indexed ?? 0} 篇`)
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  } finally {
+    syncingId.value = null
+  }
+}
 
 async function load() {
   loading.value = true
@@ -155,6 +185,12 @@ onMounted(load)
         </el-table-column>
         <el-table-column prop="status" label="状态" width="90" />
         <el-table-column prop="created_at" label="创建时间" width="150" :formatter="(row: AiRecord) => formatDateTime(row.created_at)" />
+        <el-table-column label="操作" width="170" fixed="right">
+          <template #default="{ row }">
+            <el-button link type="primary" :loading="testingId === row.id" @click="testSource(row)">测试</el-button>
+            <el-button link type="primary" :loading="syncingId === row.id" @click="syncSource(row)">同步</el-button>
+          </template>
+        </el-table-column>
         <template #empty>
           <el-empty description="暂无数据源" :image-size="60" />
         </template>
@@ -216,6 +252,24 @@ onMounted(load)
       <template #footer>
         <el-button @click="createVisible = false">取消</el-button>
         <el-button type="primary" :loading="createSaving" @click="submitCreate">创建</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="probeVisible" title="连通性测试结果" width="560px">
+      <template v-if="probeResult">
+        <el-descriptions :column="1" border size="small">
+          <el-descriptions-item label="数据源ID">{{ probeResult.data_source_id }}</el-descriptions-item>
+          <el-descriptions-item label="连接器">{{ probeResult.connector_type }}</el-descriptions-item>
+          <el-descriptions-item label="Endpoint">{{ probeResult.endpoint || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="可达">
+            <el-tag size="small" :type="probeResult.reachable ? 'success' : 'danger'">
+              {{ probeResult.reachable ? '可达' : '不可达' }}
+            </el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="耗时">{{ probeResult.latency_ms ?? '-' }} ms</el-descriptions-item>
+          <el-descriptions-item label="详情">{{ probeResult.detail || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="测试时间">{{ formatDateTime(probeResult.tested_at) }}</el-descriptions-item>
+        </el-descriptions>
       </template>
     </el-dialog>
   </div>

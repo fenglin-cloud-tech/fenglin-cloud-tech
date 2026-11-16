@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { GapNotice, PageHeader, ID_COLUMN_WIDTH, formatDateTime } from '@fenglin/ui-admin'
 import { intelligenceApi, type AiRecord } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
@@ -39,10 +39,121 @@ const charts = computed<AiRecord[]>(() => {
 })
 
 const gapItems = [
-  '没有图表删除、排序接口，本页只能追加图表并查看详情。',
-  'layout 由后端透传 JSON 存储，前端不做结构化编排。',
-  '看板与详情要求 ai:bi:view；新建看板要求 ai:bi:dashboard:manage，新建图表要求 ai:bi:chart:manage。',
+  '图表支持查询数据（按数据集 sqlText 只读执行，行数上限 200、超时 3 秒）、删除与上下移排序（顺序写入 layout.chart_order）。',
+  '告警为图表级配置（alert_json），支持启停、条件、阈值与通知渠道；平台级告警引擎由 AI 中台负责。',
+  '看板与详情要求 ai:bi:view；新建看板要求 ai:bi:dashboard:manage，图表增删排序与告警要求 ai:bi:chart:manage。',
 ]
+
+const dataVisible = ref(false)
+const dataLoading = ref(false)
+const dataError = ref('')
+const dataResult = ref<AiRecord | null>(null)
+
+const dataColumns = computed<string[]>(() => {
+  const columns = dataResult.value?.columns
+  return Array.isArray(columns) ? columns : []
+})
+
+const dataRows = computed<AiRecord[]>(() => {
+  const rows = dataResult.value?.rows
+  if (!Array.isArray(rows)) return []
+  return rows.map((row: unknown[]) => {
+    const item: AiRecord = {}
+    dataColumns.value.forEach((column, index) => {
+      item[column] = row[index]
+    })
+    return item
+  })
+})
+
+const alertVisible = ref(false)
+const alertSaving = ref(false)
+const alertChartId = ref<string | number | null>(null)
+const alertForm = reactive({ enabled: false, condition: '', threshold: '', channels: '' })
+
+async function loadChartData(row: AiRecord) {
+  if (!detail.value) return
+  dataVisible.value = true
+  dataLoading.value = true
+  dataError.value = ''
+  dataResult.value = null
+  try {
+    dataResult.value = await intelligenceApi.dashboards.chartData(detail.value.id, row.id)
+  } catch (err) {
+    dataError.value = describeError(err)
+  } finally {
+    dataLoading.value = false
+  }
+}
+
+async function removeChart(row: AiRecord) {
+  if (!detail.value) return
+  try {
+    await ElMessageBox.confirm(`确认删除图表「${row.name}」？`, '删除图表', { type: 'warning' })
+  } catch {
+    return
+  }
+  try {
+    await intelligenceApi.dashboards.deleteChart(detail.value.id, row.id)
+    ElMessage.success('图表已删除')
+    detail.value = await intelligenceApi.dashboards.detail(detail.value.id)
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  }
+}
+
+async function moveChart(index: number, offset: number) {
+  if (!detail.value) return
+  const ids = charts.value.map((item) => item.id)
+  const target = index + offset
+  if (target < 0 || target >= ids.length) return
+  ;[ids[index], ids[target]] = [ids[target], ids[index]]
+  try {
+    await intelligenceApi.dashboards.reorderCharts(detail.value.id, ids)
+    detail.value = await intelligenceApi.dashboards.detail(detail.value.id)
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  }
+}
+
+async function openAlert(row: AiRecord) {
+  if (!detail.value) return
+  alertChartId.value = row.id
+  alertForm.enabled = false
+  alertForm.condition = ''
+  alertForm.threshold = ''
+  alertForm.channels = ''
+  try {
+    const current = await intelligenceApi.dashboards.chartAlert(detail.value.id, row.id)
+    const alert = current?.alert ?? {}
+    alertForm.enabled = Boolean(alert.enabled)
+    alertForm.condition = alert.condition ?? ''
+    alertForm.threshold = alert.threshold ?? ''
+    alertForm.channels = alert.channels ?? ''
+  } catch {
+    // 未配置告警时按空表单打开
+  }
+  alertVisible.value = true
+}
+
+async function submitAlert() {
+  if (!detail.value || !alertChartId.value) return
+  alertSaving.value = true
+  try {
+    await intelligenceApi.dashboards.saveChartAlert(detail.value.id, alertChartId.value, {
+      enabled: alertForm.enabled,
+      condition: alertForm.condition || undefined,
+      threshold: alertForm.threshold || undefined,
+      channels: alertForm.channels || undefined,
+    })
+    ElMessage.success('告警配置已保存')
+    alertVisible.value = false
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  } finally {
+    alertSaving.value = false
+  }
+}
 
 async function load() {
   loading.value = true
@@ -250,6 +361,15 @@ onMounted(load)
             <el-table-column prop="chart_type" label="类型" width="90" />
             <el-table-column prop="dataset_id" label="数据集" :width="ID_COLUMN_WIDTH" show-overflow-tooltip />
             <el-table-column prop="created_at" label="创建时间" width="140" :formatter="(row: AiRecord) => formatDateTime(row.created_at)" />
+            <el-table-column label="操作" width="230" fixed="right">
+              <template #default="{ row, $index }">
+                <el-button link type="primary" @click="loadChartData(row)">数据</el-button>
+                <el-button v-perm="'ai:bi:chart:manage'" link type="primary" @click="openAlert(row)">告警</el-button>
+                <el-button v-perm="'ai:bi:chart:manage'" link type="primary" :disabled="$index === 0" @click="moveChart($index, -1)">上移</el-button>
+                <el-button v-perm="'ai:bi:chart:manage'" link type="primary" :disabled="$index === charts.length - 1" @click="moveChart($index, 1)">下移</el-button>
+                <el-button v-perm="'ai:bi:chart:manage'" link type="danger" @click="removeChart(row)">删除</el-button>
+              </template>
+            </el-table-column>
             <template #empty>
               <el-empty description="暂无图表" :image-size="60" />
             </template>
@@ -314,6 +434,56 @@ onMounted(load)
       <template #footer>
         <el-button @click="chartVisible = false">取消</el-button>
         <el-button type="primary" :loading="chartSaving" @click="submitChart">创建</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="dataVisible" title="图表数据" width="760px">
+      <el-alert v-if="dataError" type="error" :closable="false" show-icon :title="dataError" style="margin-bottom: 12px" />
+      <div v-loading="dataLoading">
+        <template v-if="dataResult">
+          <el-descriptions :column="2" border size="small" style="margin-bottom: 12px">
+            <el-descriptions-item label="执行目标">{{ dataResult.execution_target || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="行数">{{ dataResult.row_count ?? 0 }}</el-descriptions-item>
+            <el-descriptions-item label="生成的 SQL" :span="2">
+              <span class="fl-mono">{{ dataResult.sql }}</span>
+            </el-descriptions-item>
+          </el-descriptions>
+          <el-table :data="dataRows" border size="small" max-height="360">
+            <el-table-column
+              v-for="column in dataColumns"
+              :key="column"
+              :prop="column"
+              :label="column"
+              min-width="120"
+              show-overflow-tooltip
+            />
+            <template #empty>
+              <el-empty description="查询无数据行" :image-size="60" />
+            </template>
+          </el-table>
+        </template>
+        <el-empty v-else-if="!dataLoading" description="暂无查询结果" :image-size="60" />
+      </div>
+    </el-dialog>
+
+    <el-dialog v-model="alertVisible" title="图表告警配置" width="520px">
+      <el-form label-width="100px">
+        <el-form-item label="启用">
+          <el-switch v-model="alertForm.enabled" />
+        </el-form-item>
+        <el-form-item label="触发条件">
+          <el-input v-model="alertForm.condition" placeholder="如 GREATER_THAN / LESS_THAN / ZERO_RESULT" />
+        </el-form-item>
+        <el-form-item label="阈值">
+          <el-input v-model="alertForm.threshold" placeholder="如 1000" />
+        </el-form-item>
+        <el-form-item label="通知渠道">
+          <el-input v-model="alertForm.channels" placeholder="如 IM,EMAIL" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="alertVisible = false">取消</el-button>
+        <el-button type="primary" :loading="alertSaving" @click="submitAlert">保存</el-button>
       </template>
     </el-dialog>
   </div>

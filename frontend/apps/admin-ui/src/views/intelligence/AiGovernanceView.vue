@@ -44,9 +44,38 @@ const permResult = ref<AiRecord | null>(null)
 
 const gapItems = [
   '能力授权与计量是平台 AI 中台（hub_ai_*）的只读代理，本服务不落库、不计费。',
-  '双模式只有读取与一致性校验接口，没有写入接口。',
-  '数据权限没有查询接口，本页只能提交配置，提交后不回显历史记录。',
+  '双模式为部署期配置（deploy_mode / model_access_mode），按设计不提供运行时写入；本页提供读取与一致性校验。',
+  '数据权限与图表告警均已提供回读接口，提交/保存后可在此查看历史记录。',
 ]
+
+const permList = ref<AiRecord[]>([])
+const permListLoading = ref(false)
+const alerts = ref<AiRecord[]>([])
+const alertsLoading = ref(false)
+
+async function loadDataPermissions() {
+  if (!canDataPerm.value) return
+  permListLoading.value = true
+  try {
+    permList.value = await intelligenceApi.dataPermissions.list(50)
+  } catch {
+    permList.value = []
+  } finally {
+    permListLoading.value = false
+  }
+}
+
+async function loadAlerts() {
+  if (!canDataPerm.value) return
+  alertsLoading.value = true
+  try {
+    alerts.value = await intelligenceApi.dashboards.alerts(50)
+  } catch {
+    alerts.value = []
+  } finally {
+    alertsLoading.value = false
+  }
+}
 
 async function loadMode() {
   if (!canUsage.value) return
@@ -127,6 +156,7 @@ async function submitDataPermission() {
       row_filter_expr: permForm.row_filter_expr.trim() || undefined,
     })
     ElMessage.success('数据权限已提交')
+    await loadDataPermissions()
   } catch (err) {
     permError.value = describeError(err)
   } finally {
@@ -134,7 +164,9 @@ async function submitDataPermission() {
   }
 }
 
-onMounted(loadMode)
+onMounted(async () => {
+  await Promise.all([loadMode(), loadDataPermissions(), loadAlerts()])
+})
 </script>
 
 <template>
@@ -308,6 +340,43 @@ onMounted(loadMode)
         </el-card>
       </el-col>
     </el-row>
+
+    <el-card shadow="never">
+      <template #header>
+        <div class="fl-toolbar" style="justify-content: space-between">
+          <span>治理回读</span>
+          <el-button size="small" :loading="permListLoading || alertsLoading" @click="loadDataPermissions(); loadAlerts()">刷新</el-button>
+        </div>
+      </template>
+      <el-tabs>
+        <el-tab-pane label="数据权限">
+          <el-table v-loading="permListLoading" :data="permList" border size="small" max-height="300">
+            <el-table-column prop="subject_type" label="主体类型" width="100" />
+            <el-table-column prop="subject_id" label="主体 ID" min-width="170" show-overflow-tooltip />
+            <el-table-column prop="resource_type" label="资源类型" width="110" />
+            <el-table-column prop="resource_id" label="资源 ID" min-width="150" show-overflow-tooltip />
+            <el-table-column prop="data_scope" label="范围" width="90" />
+            <el-table-column prop="column_hidden" label="隐藏列" min-width="120" show-overflow-tooltip />
+            <el-table-column prop="row_filter_expr" label="行过滤" min-width="150" show-overflow-tooltip />
+            <el-table-column prop="created_at" label="创建时间" width="160" />
+            <template #empty><el-empty description="暂无数据权限配置" :image-size="60" /></template>
+          </el-table>
+        </el-tab-pane>
+        <el-tab-pane label="图表告警">
+          <el-table v-loading="alertsLoading" :data="alerts" border size="small" max-height="300">
+            <el-table-column prop="dashboard_name" label="看板" min-width="140" show-overflow-tooltip />
+            <el-table-column prop="name" label="图表" min-width="140" show-overflow-tooltip />
+            <el-table-column prop="chart_type" label="类型" width="90" />
+            <el-table-column label="告警配置" min-width="260">
+              <template #default="{ row }">
+                <span class="fl-mono">{{ JSON.stringify(row.alert ?? {}) }}</span>
+              </template>
+            </el-table-column>
+            <template #empty><el-empty description="暂无图表告警配置" :image-size="60" /></template>
+          </el-table>
+        </el-tab-pane>
+      </el-tabs>
+    </el-card>
   </div>
 </template>
 

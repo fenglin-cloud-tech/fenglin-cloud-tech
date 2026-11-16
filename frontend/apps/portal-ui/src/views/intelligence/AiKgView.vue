@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { GapNotice, PageHeader, ID_COLUMN_WIDTH_COMFORT, formatDateTime } from '@fenglin/ui-admin'
 import { intelligenceApi, type AiRecord } from '@fenglin/api-client'
@@ -32,10 +32,62 @@ const pathResult = ref<AiRecord | null>(null)
 const kbOptions = ref<AiRecord[]>([])
 
 const gapItems = [
-  '平台未提供图形化图谱渲染接口，本页只能展示实体列表与路径 JSON 结果。',
-  '没有实体详情接口，实体记录仅包含名称、类型、别名、置信度等列表字段。',
-  '页面只读：新建实体 / 关系需 tenant:ai:kg:manage，员工端不提供入口。',
+  '图谱视图来自 GET /kg/graph（nodes + edges），按环形布局渲染，点击节点查看实体详情与关联关系。',
+  '实体详情来自 GET /kg/entities/{id}，包含实体字段与双向关系；员工端只读。',
+  '页面只读：新建实体 / 关系与删除需 tenant:ai:kg:manage，员工端不提供入口。',
 ]
+
+const graphLoading = ref(false)
+const graphError = ref('')
+const graph = ref<AiRecord | null>(null)
+
+const graphNodes = computed<AiRecord[]>(() => (Array.isArray(graph.value?.nodes) ? graph.value!.nodes : []))
+const graphEdges = computed<AiRecord[]>(() => (Array.isArray(graph.value?.edges) ? graph.value!.edges : []))
+
+const nodePositions = computed<Record<string, { x: number; y: number }>>(() => {
+  const positions: Record<string, { x: number; y: number }> = {}
+  const total = graphNodes.value.length
+  const radius = total <= 1 ? 0 : Math.min(170, 90 + total * 12)
+  graphNodes.value.forEach((node, index) => {
+    const angle = (2 * Math.PI * index) / Math.max(total, 1) - Math.PI / 2
+    positions[String(node.id)] = {
+      x: 360 + radius * Math.cos(angle),
+      y: 210 + radius * Math.sin(angle),
+    }
+  })
+  return positions
+})
+
+const detailVisible = ref(false)
+const detailLoading = ref(false)
+const detail = ref<AiRecord | null>(null)
+
+async function loadGraph() {
+  if (!canQuery) return
+  graphLoading.value = true
+  graphError.value = ''
+  try {
+    graph.value = await intelligenceApi.kg.graph({ kbId: form.kb_id, depth: 2 })
+  } catch (err) {
+    graph.value = null
+    graphError.value = describeError(err)
+  } finally {
+    graphLoading.value = false
+  }
+}
+
+async function openEntity(entity: AiRecord) {
+  detailVisible.value = true
+  detailLoading.value = true
+  detail.value = null
+  try {
+    detail.value = await intelligenceApi.kg.entity(entity.id)
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  } finally {
+    detailLoading.value = false
+  }
+}
 
 function confidenceText(value: unknown) {
   if (value === null || value === undefined || value === '') return '-'
@@ -106,7 +158,9 @@ function resetPath() {
   pathError.value = ''
 }
 
-onMounted(loadKbs)
+onMounted(async () => {
+  await Promise.all([loadKbs(), loadGraph()])
+})
 </script>
 
 <template>
@@ -118,6 +172,7 @@ onMounted(loadKbs)
     >
       <template #actions>
         <el-button :loading="loading" @click="loadEntities">刷新</el-button>
+        <el-button :loading="graphLoading" @click="loadGraph">刷新图谱</el-button>
       </template>
     </PageHeader>
 
@@ -153,6 +208,46 @@ onMounted(loadKbs)
       </el-form>
     </el-card>
 
+    <el-card v-loading="graphLoading" shadow="never" style="margin-bottom: 12px">
+      <template #header>
+        <div class="card-head">
+          <span>图谱视图</span>
+          <span class="fl-muted">节点 {{ graphNodes.length }} · 关系 {{ graphEdges.length }}</span>
+        </div>
+      </template>
+      <el-alert v-if="graphError" type="error" :closable="false" show-icon :title="graphError" style="margin-bottom: 12px" />
+      <svg v-if="graphNodes.length" class="kg-graph" viewBox="0 0 720 420" role="img" aria-label="知识图谱">
+        <line
+          v-for="edge in graphEdges"
+          :key="`e-${edge.id}`"
+          :x1="nodePositions[String(edge.source)]?.x ?? 0"
+          :y1="nodePositions[String(edge.source)]?.y ?? 0"
+          :x2="nodePositions[String(edge.target)]?.x ?? 0"
+          :y2="nodePositions[String(edge.target)]?.y ?? 0"
+          stroke="#c0c4cc"
+          stroke-width="1.5"
+        />
+        <g v-for="node in graphNodes" :key="String(node.id)" class="kg-node" @click="openEntity(node)">
+          <circle
+            :cx="nodePositions[String(node.id)]?.x ?? 0"
+            :cy="nodePositions[String(node.id)]?.y ?? 0"
+            r="18"
+            fill="#409eff"
+            fill-opacity="0.85"
+          >
+            <title>{{ node.name }}（{{ node.entity_type }}）</title>
+          </circle>
+          <text
+            :x="(nodePositions[String(node.id)]?.x ?? 0) + 22"
+            :y="(nodePositions[String(node.id)]?.y ?? 0) + 4"
+            font-size="11"
+            fill="#303133"
+          >{{ node.name }}</text>
+        </g>
+      </svg>
+      <el-empty v-else description="暂无图谱数据" :image-size="60" />
+    </el-card>
+
     <el-card shadow="never" style="margin-bottom: 12px">
       <template #header>
         <div class="card-head">
@@ -172,6 +267,11 @@ onMounted(loadKbs)
         <el-table-column prop="knowledge_base_id" label="知识库ID" :width="ID_COLUMN_WIDTH_COMFORT" show-overflow-tooltip />
         <el-table-column prop="created_at" label="创建时间" width="150">
           <template #default="{ row }">{{ formatDateTime(row.created_at) }}</template>
+        </el-table-column>
+        <el-table-column label="操作" width="80" fixed="right">
+          <template #default="{ row }">
+            <el-button link type="primary" @click="openEntity(row)">详情</el-button>
+          </template>
         </el-table-column>
         <template #empty>
           <el-empty
@@ -219,6 +319,32 @@ onMounted(loadKbs)
       </template>
       <el-empty v-else description="填写起止实体后查询关系路径" :image-size="70" />
     </el-card>
+
+    <el-drawer v-model="detailVisible" title="实体详情" size="520px">
+      <div v-loading="detailLoading">
+        <template v-if="detail">
+          <el-descriptions :column="1" border size="small">
+            <el-descriptions-item label="名称">{{ detail.name || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="类型">{{ detail.entity_type || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="归一名称">{{ detail.normalized_name || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="别名">{{ aliasesText(detail.aliases) }}</el-descriptions-item>
+            <el-descriptions-item label="置信度">{{ confidenceText(detail.confidence) }}</el-descriptions-item>
+            <el-descriptions-item label="知识库">{{ detail.knowledge_base_id || '-' }}</el-descriptions-item>
+          </el-descriptions>
+          <el-divider content-position="left">关联关系（{{ detail.relations?.length ?? 0 }}）</el-divider>
+          <el-table :data="detail.relations ?? []" border size="small" max-height="300">
+            <el-table-column label="关系" min-width="150">
+              <template #default="{ row }">
+                {{ row.source_name || row.source_entity_id }} → {{ row.target_name || row.target_entity_id }}
+              </template>
+            </el-table-column>
+            <el-table-column prop="relation_type" label="类型" width="110" />
+            <el-table-column prop="weight" label="权重" width="70" />
+          </el-table>
+        </template>
+        <el-empty v-else-if="!detailLoading" description="暂无详情" :image-size="60" />
+      </div>
+    </el-drawer>
   </div>
 </template>
 
@@ -237,6 +363,15 @@ onMounted(loadKbs)
   line-height: 1.6;
   max-height: 320px;
   overflow: auto;
+}
+.kg-graph {
+  width: 100%;
+  height: 420px;
+  background: var(--el-fill-color-lighter);
+  border-radius: 4px;
+}
+.kg-node {
+  cursor: pointer;
 }
 .fl-muted {
   color: var(--fl-color-text-secondary);

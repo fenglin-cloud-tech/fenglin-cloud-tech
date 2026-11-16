@@ -24,9 +24,12 @@ import java.util.Map;
 public class CopilotController {
 
     private final CopilotService service;
+    private final com.fenglin.intelligence.service.KnowledgeService knowledgeService;
 
-    public CopilotController(CopilotService service) {
+    public CopilotController(CopilotService service,
+                             com.fenglin.intelligence.service.KnowledgeService knowledgeService) {
         this.service = service;
+        this.knowledgeService = knowledgeService;
     }
 
     @PostMapping("/copilot/conversations")
@@ -63,6 +66,63 @@ public class CopilotController {
             @RequestBody Map<String, Object> body) {
         PermissionGuard.require(permissions, "ai:chat:rag");
         return ApiResponse.success(service.sendMessage(id, body));
+    }
+
+    @PostMapping(value = "/copilot/conversations/{id}/messages:stream",
+            produces = org.springframework.http.MediaType.TEXT_EVENT_STREAM_VALUE)
+    public org.springframework.web.servlet.mvc.method.annotation.SseEmitter streamMessage(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable long id,
+            @RequestBody Map<String, Object> body) {
+        PermissionGuard.require(permissions, "ai:chat:rag");
+        return service.streamMessage(id, body);
+    }
+
+    @GetMapping("/copilot/messages/{id}/citations")
+    public ApiResponse<java.util.List<Map<String, Object>>> citations(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable long id) {
+        PermissionGuard.require(permissions, "ai:chat:cite");
+        return ApiResponse.success(service.messageCitations(id));
+    }
+
+    @GetMapping("/copilot/private-kb")
+    public ApiResponse<java.util.List<Map<String, Object>>> privateKnowledgeBases(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions) {
+        PermissionGuard.require(permissions, "ai:chat:private-kb");
+        return ApiResponse.success(knowledgeService.listPersonalKnowledgeBases());
+    }
+
+    @PostMapping("/copilot/private-kb")
+    public ApiResponse<Map<String, Object>> createPrivateKnowledgeBase(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestBody(required = false) Map<String, Object> body) {
+        PermissionGuard.require(permissions, "ai:chat:private-kb");
+        return ApiResponse.success(knowledgeService.createPersonalKnowledgeBase(
+                body == null ? Map.of() : body));
+    }
+
+    @GetMapping("/agents/executions")
+    public ApiResponse<PageResult<Map<String, Object>>> listExecutions(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size,
+            @RequestParam(name = "agent_id", required = false) Long agentId,
+            @RequestParam(required = false) String scope) {
+        PermissionGuard.require(permissions, "ai:chat:use");
+        boolean all = "ALL".equalsIgnoreCase(scope)
+                && PermissionGuard.has(permissions, "tenant:ai:agent:manage");
+        java.util.List<Map<String, Object>> rows = service.listExecutions(page, size, agentId, all);
+        return ApiResponse.success(PageResult.of(rows, service.countExecutions(agentId, all),
+                page == null ? 1 : page, size == null ? 20 : size));
+    }
+
+    @GetMapping("/agents/executions/{id}")
+    public ApiResponse<Map<String, Object>> executionDetail(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable long id) {
+        PermissionGuard.require(permissions, "ai:chat:use");
+        return ApiResponse.success(service.executionDetail(id));
     }
 
     @PostMapping("/copilot/messages/{id}/feedback")

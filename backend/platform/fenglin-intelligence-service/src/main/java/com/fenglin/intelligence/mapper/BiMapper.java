@@ -202,4 +202,61 @@ public interface BiMapper {
                               @Param("dataScope") String dataScope, @Param("deptCsv") String deptCsv,
                               @Param("columnHidden") String columnHidden, @Param("rowFilter") String rowFilter,
                               @Param("userId") long userId);
+
+    @Select("SELECT id, subject_type, subject_id, resource_type, resource_id, data_scope, "
+            + "array_to_string(scope_dept_ids, ',') AS scope_dept_ids, column_hidden, row_filter_expr, created_at "
+            + "FROM ai_data_permission WHERE tenant_id = #{tenantId} AND deleted = 0 "
+            + "ORDER BY id DESC LIMIT #{limit}")
+    List<Map<String, Object>> listDataPermissions(@Param("tenantId") long tenantId, @Param("limit") int limit);
+
+    @Update("UPDATE ai_dataset_field SET deleted = 1, updated_by = #{userId} "
+            + "WHERE tenant_id = #{tenantId} AND dataset_id = #{datasetId} AND id = #{id} AND deleted = 0")
+    int deleteDatasetField(@Param("tenantId") long tenantId, @Param("datasetId") long datasetId,
+                           @Param("id") long id, @Param("userId") long userId);
+
+    @Select("SELECT id, dashboard_id, name, chart_type, dataset_id, query_json::text AS query_text, "
+            + "alert_json::text AS alert_text FROM ai_chart WHERE tenant_id = #{tenantId} "
+            + "AND dashboard_id = #{dashboardId} AND id = #{id} AND deleted = 0")
+    Map<String, Object> findChart(@Param("tenantId") long tenantId, @Param("dashboardId") long dashboardId,
+                                  @Param("id") long id);
+
+    @Update("UPDATE ai_chart SET deleted = 1, updated_by = #{userId} "
+            + "WHERE tenant_id = #{tenantId} AND dashboard_id = #{dashboardId} AND id = #{id} AND deleted = 0")
+    int deleteChart(@Param("tenantId") long tenantId, @Param("dashboardId") long dashboardId,
+                    @Param("id") long id, @Param("userId") long userId);
+
+    @Update("UPDATE ai_chart SET alert_json = CAST(#{alert} AS jsonb), updated_by = #{userId} "
+            + "WHERE tenant_id = #{tenantId} AND dashboard_id = #{dashboardId} AND id = #{id} AND deleted = 0")
+    int updateChartAlert(@Param("tenantId") long tenantId, @Param("dashboardId") long dashboardId,
+                         @Param("id") long id, @Param("alert") String alert, @Param("userId") long userId);
+
+    @Select("SELECT c.id, c.dashboard_id, d.name AS dashboard_name, c.name, c.chart_type, "
+            + "c.alert_json::text AS alert_text FROM ai_chart c "
+            + "JOIN ai_dashboard d ON d.id = c.dashboard_id AND d.deleted = 0 "
+            + "WHERE c.tenant_id = #{tenantId} AND c.deleted = 0 AND c.alert_json IS NOT NULL "
+            + "ORDER BY c.id DESC LIMIT #{limit}")
+    List<Map<String, Object>> listAlerts(@Param("tenantId") long tenantId, @Param("limit") int limit);
+
+    @Update("UPDATE ai_dashboard SET layout_json = CAST(#{layout} AS jsonb), updated_by = #{userId} "
+            + "WHERE tenant_id = #{tenantId} AND id = #{id} AND deleted = 0")
+    int updateDashboardLayout(@Param("tenantId") long tenantId, @Param("id") long id,
+                              @Param("layout") String layout, @Param("userId") long userId);
+
+    @Select("SELECT count(1) FROM ai_dataset WHERE tenant_id = #{tenantId} AND deleted = 0 "
+            + "AND (CAST(#{from} AS timestamp) IS NULL OR created_at >= CAST(#{from} AS timestamp)) "
+            + "AND (CAST(#{to} AS timestamp) IS NULL OR created_at <= CAST(#{to} AS timestamp))")
+    long countDatasetsInRange(@Param("tenantId") long tenantId, @Param("from") String from,
+                              @Param("to") String to);
+
+    @Select("SELECT count(1) FROM ai_dashboard WHERE tenant_id = #{tenantId} AND deleted = 0 "
+            + "AND (CAST(#{from} AS timestamp) IS NULL OR created_at >= CAST(#{from} AS timestamp)) "
+            + "AND (CAST(#{to} AS timestamp) IS NULL OR created_at <= CAST(#{to} AS timestamp))")
+    long countDashboardsInRange(@Param("tenantId") long tenantId, @Param("from") String from,
+                                @Param("to") String to);
+
+    @Select("SELECT count(1) FROM ai_insight_task WHERE tenant_id = #{tenantId} AND deleted = 0 "
+            + "AND (CAST(#{from} AS timestamp) IS NULL OR created_at >= CAST(#{from} AS timestamp)) "
+            + "AND (CAST(#{to} AS timestamp) IS NULL OR created_at <= CAST(#{to} AS timestamp))")
+    long countInsightTasksInRange(@Param("tenantId") long tenantId, @Param("from") String from,
+                                  @Param("to") String to);
 }

@@ -105,6 +105,14 @@ class IntelligenceIntegrationTest {
                 }
 
                 @Override
+                public ChatResult stream(String content, Double temperature, Integer secretLevel,
+                                         java.util.function.Consumer<String> onDelta) {
+                    ChatResult result = chat(content, temperature, secretLevel);
+                    onDelta.accept(result.answer());
+                    return result;
+                }
+
+                @Override
                 public Map<String, Object> grants(String hostProduct) {
                     return Map.of("source", "hub_ai_capability_grant",
                             "host_product", hostProduct == null ? "ALL" : hostProduct,

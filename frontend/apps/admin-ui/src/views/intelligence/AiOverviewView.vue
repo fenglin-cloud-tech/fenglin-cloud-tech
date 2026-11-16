@@ -18,6 +18,16 @@ const analyticsLoading = ref(false)
 const analyticsError = ref('')
 const windowFrom = ref('')
 const windowTo = ref('')
+const rangeDays = ref(0)
+
+function timeWindow(): { from?: string; to?: string } {
+  if (!rangeDays.value) return {}
+  const to = new Date()
+  const from = new Date(to.getTime() - rangeDays.value * 24 * 60 * 60 * 1000)
+  windowFrom.value = from.toISOString()
+  windowTo.value = to.toISOString()
+  return { from: windowFrom.value, to: windowTo.value }
+}
 
 const stats: Array<{ key: string; label: string }> = [
   { key: 'knowledge_bases', label: '知识库' },
@@ -49,7 +59,7 @@ async function loadOverview() {
   overviewLoading.value = true
   error.value = ''
   try {
-    overview.value = await intelligenceApi.overview()
+    overview.value = await intelligenceApi.overview(timeWindow())
   } catch (err) {
     overview.value = null
     error.value = describeError(err)
@@ -63,10 +73,13 @@ async function loadAnalytics() {
   analyticsLoading.value = true
   analyticsError.value = ''
   try {
-    const to = new Date()
-    const from = new Date(to.getTime() - 7 * 24 * 60 * 60 * 1000)
-    windowTo.value = to.toISOString()
-    windowFrom.value = from.toISOString()
+    const window = timeWindow()
+    if (!window.from) {
+      const to = new Date()
+      const from = new Date(to.getTime() - 7 * 24 * 60 * 60 * 1000)
+      windowFrom.value = from.toISOString()
+      windowTo.value = to.toISOString()
+    }
     analytics.value = await searchApi.analytics({ type: 'HOT', from: windowFrom.value, to: windowTo.value })
   } catch (err) {
     analytics.value = null
@@ -91,6 +104,11 @@ onMounted(refresh)
       description="知识库、数据源、数据集、看板与洞察任务规模，以及检索质量分析；知识资产来自 /api/intelligence/v1，检索分析来自搜索中心 /api/hub/v1。"
     >
       <template #actions>
+        <el-radio-group v-model="rangeDays" size="small" @change="refresh" style="margin-right: 8px">
+          <el-radio-button :value="0">全部</el-radio-button>
+          <el-radio-button :value="7">近 7 天</el-radio-button>
+          <el-radio-button :value="30">近 30 天</el-radio-button>
+        </el-radio-group>
         <el-button :loading="overviewLoading || analyticsLoading" @click="refresh">刷新</el-button>
       </template>
     </PageHeader>
@@ -108,7 +126,7 @@ onMounted(refresh)
       </el-row>
       <el-empty v-if="!overview && !overviewLoading" description="暂无概览数据" :image-size="60" />
       <div class="fl-muted" style="margin-top: 8px">
-        数据来源：/api/intelligence/v1/report/overview；返回 0 表示租户内暂无对应资产。
+        数据来源：/api/intelligence/v1/report/overview（支持 from/to 时间区间，按 created_at 过滤）；返回 0 表示所选区间内暂无对应资产。
       </div>
     </el-card>
 

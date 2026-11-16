@@ -24,10 +24,42 @@ const runError = ref('')
 const runResult = ref<AiRecord | null>(null)
 
 const gapItems = [
-  '后端未提供智能体执行历史查询接口，运行结果为同步返回，刷新后不在页面留存。',
-  '运行接口 POST /agents/{code}/run 同步等待模型返回，没有流式或异步任务进度。',
+  '运行接口 POST /agents/{code}/run 同步等待模型返回，没有异步任务进度推送。',
+  '执行历史来自 /agents/executions（默认仅本人，tenant:ai:agent:manage 可用 scope=ALL 查看本租户），刷新后仍可回看。',
   '仅 PUBLISHED 状态的智能体可运行；未发布时后端返回“智能体未发布”，页面原样提示。',
 ]
+
+const executions = ref<AiRecord[]>([])
+const execTotal = ref(0)
+const execPage = ref(1)
+const execSize = ref(10)
+const execLoading = ref(false)
+const execDetailVisible = ref(false)
+const execDetail = ref<AiRecord | null>(null)
+
+async function loadExecutions() {
+  if (!canUse) return
+  execLoading.value = true
+  try {
+    const result = await intelligenceApi.agents.executions({ page: execPage.value, size: execSize.value })
+    executions.value = result.records
+    execTotal.value = result.total
+  } catch {
+    executions.value = []
+    execTotal.value = 0
+  } finally {
+    execLoading.value = false
+  }
+}
+
+async function openExecution(row: AiRecord) {
+  try {
+    execDetail.value = await intelligenceApi.agents.execution(row.id)
+    execDetailVisible.value = true
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  }
+}
 
 const selectedAgent = computed(() => agents.value.find((item) => String(item.code) === selectedCode.value))
 
@@ -87,6 +119,7 @@ async function run() {
     runResult.value = await intelligenceApi.agents.run(selectedCode.value, {
       input: { text: input.value.trim() },
     })
+    await loadExecutions()
   } catch (err) {
     runError.value = describeError(err)
   } finally {
@@ -100,7 +133,9 @@ function clearResult() {
   input.value = ''
 }
 
-onMounted(load)
+onMounted(async () => {
+  await Promise.all([load(), loadExecutions()])
+})
 </script>
 
 <template>
@@ -231,6 +266,62 @@ onMounted(load)
       </template>
       <el-empty v-else-if="!runError" description="运行后在此查看结果" :image-size="70" />
     </el-card>
+
+    <el-card shadow="never" style="margin-top: 12px">
+      <template #header>
+        <div class="card-head">
+          <span>执行历史</span>
+          <span class="fl-muted">共 {{ execTotal }} 条</span>
+        </div>
+      </template>
+      <el-table v-loading="execLoading" :data="executions" border stripe size="small">
+        <el-table-column prop="id" label="执行ID" min-width="170" show-overflow-tooltip />
+        <el-table-column label="智能体" min-width="150" show-overflow-tooltip>
+          <template #default="{ row }">{{ row.agent_name || row.agent_id || '-' }}</template>
+        </el-table-column>
+        <el-table-column prop="status" label="状态" width="100" />
+        <el-table-column prop="step_count" label="步骤" width="70" />
+        <el-table-column prop="token_total" label="Token" width="90" />
+        <el-table-column label="执行时间" width="170">
+          <template #default="{ row }">{{ formatDateTime(row.created_at) }}</template>
+        </el-table-column>
+        <el-table-column label="操作" width="90">
+          <template #default="{ row }">
+            <el-button link type="primary" @click="openExecution(row)">回放</el-button>
+          </template>
+        </el-table-column>
+        <template #empty>
+          <el-empty description="暂无执行记录" :image-size="60" />
+        </template>
+      </el-table>
+      <el-pagination
+        style="margin-top: 8px; justify-content: flex-end"
+        layout="prev, pager, next"
+        :total="execTotal"
+        :page-size="execSize"
+        :current-page="execPage"
+        @current-change="(next: number) => { execPage = next; loadExecutions() }"
+      />
+    </el-card>
+
+    <el-dialog v-model="execDetailVisible" title="执行回放" width="760px">
+      <template v-if="execDetail">
+        <el-descriptions :column="2" border size="small" style="margin-bottom: 8px">
+          <el-descriptions-item label="执行ID">{{ execDetail.id }}</el-descriptions-item>
+          <el-descriptions-item label="状态">{{ execDetail.status || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="智能体ID">{{ execDetail.agent_id || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="会话ID">{{ execDetail.conversation_id || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="Token">{{ execDetail.token_total ?? '-' }}</el-descriptions-item>
+          <el-descriptions-item label="执行时间">{{ formatDateTime(execDetail.created_at) }}</el-descriptions-item>
+        </el-descriptions>
+        <el-divider content-position="left">输入</el-divider>
+        <pre class="result-json">{{ JSON.stringify(execDetail.input ?? {}, null, 2) }}</pre>
+        <el-divider content-position="left">输出</el-divider>
+        <pre class="result-json">{{ JSON.stringify(execDetail.output ?? {}, null, 2) }}</pre>
+        <el-divider content-position="left">步骤</el-divider>
+        <pre class="result-json">{{ JSON.stringify(execDetail.steps ?? [], null, 2) }}</pre>
+      </template>
+    </el-dialog>
   </div>
 </template>
 

@@ -42,7 +42,8 @@ public class HttpAiGatewayClient implements AiGatewayClient {
         body.put("use_kb", false);
         body.put("temperature", temperature);
         try {
-            String sse = restClient.post()
+            // text/event-stream 未声明 charset 时按 ISO-8859-1 解码会破坏中文，统一按 UTF-8 还原
+            byte[] raw = restClient.post()
                     .uri(baseUrl + "/api/hub/v1/ai/copilot/messages:stream")
                     .contentType(MediaType.APPLICATION_JSON)
                     .accept(MediaType.TEXT_EVENT_STREAM)
@@ -54,8 +55,89 @@ public class HttpAiGatewayClient implements AiGatewayClient {
                     .header("X-Secret-Level", String.valueOf(secretLevel == null ? 1 : secretLevel))
                     .body(body)
                     .retrieve()
-                    .body(String.class);
+                    .body(byte[].class);
+            String sse = raw == null ? null : new String(raw, java.nio.charset.StandardCharsets.UTF_8);
             return parseSse(sse);
+        } catch (Exception ex) {
+            throw new BizException(IntelligenceErrorCode.DEPENDENCY_DEGRADED);
+        }
+    }
+
+    @Override
+    public ChatResult stream(String content, Double temperature, Integer secretLevel,
+                             java.util.function.Consumer<String> onDelta) {
+        TenantContext.Snapshot snapshot = requireSnapshot();
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("content", content);
+        body.put("use_kb", false);
+        body.put("temperature", temperature);
+        java.net.http.HttpClient client = java.net.http.HttpClient.newBuilder()
+                .connectTimeout(java.time.Duration.ofSeconds(10)).build();
+        try {
+            java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder(
+                            java.net.URI.create(baseUrl + "/api/hub/v1/ai/copilot/messages:stream"))
+                    .timeout(java.time.Duration.ofSeconds(180))
+                    .header("Content-Type", "application/json; charset=utf-8")
+                    .header("Accept", "text/event-stream")
+                    .header("X-Tenant-Id", String.valueOf(snapshot.tenantId()))
+                    .header("X-User-Id", String.valueOf(snapshot.userId()))
+                    .header("X-Client-Type", snapshot.clientType() == null ? "PORTAL" : snapshot.clientType())
+                    .header("X-Permissions", RAG_PERMISSION)
+                    .header("X-Caller-Product", "intelligence")
+                    .header("X-Secret-Level", String.valueOf(secretLevel == null ? 1 : secretLevel))
+                    .POST(java.net.http.HttpRequest.BodyPublishers.ofString(
+                            objectMapper.writeValueAsString(body), java.nio.charset.StandardCharsets.UTF_8))
+                    .build();
+            java.net.http.HttpResponse<java.io.InputStream> response =
+                    client.send(request, java.net.http.HttpResponse.BodyHandlers.ofInputStream());
+            if (response.statusCode() >= 400) {
+                throw new BizException(IntelligenceErrorCode.DEPENDENCY_DEGRADED);
+            }
+            StringBuilder answer = new StringBuilder();
+            int[] tokens = new int[3];
+            boolean[] degraded = new boolean[1];
+            String[] event = new String[1];
+            try (java.io.BufferedReader reader = new java.io.BufferedReader(
+                    new java.io.InputStreamReader(response.body(), java.nio.charset.StandardCharsets.UTF_8))) {
+                String raw;
+                while ((raw = reader.readLine()) != null) {
+                    String line = raw.strip();
+                    if (line.startsWith("event:")) {
+                        event[0] = line.substring(6).strip();
+                    } else if (line.startsWith("data:")) {
+                        String data = line.substring(5).strip();
+                        if (data.isEmpty()) {
+                            continue;
+                        }
+                        try {
+                            Map<?, ?> payload = objectMapper.readValue(data, Map.class);
+                            if ("delta".equals(event[0])) {
+                                Object delta = payload.get("content");
+                                if (delta != null) {
+                                    answer.append(delta);
+                                    if (onDelta != null) {
+                                        onDelta.accept(String.valueOf(delta));
+                                    }
+                                }
+                            } else if ("done".equals(event[0])) {
+                                tokens[0] = intOf(payload.get("tokenIn"));
+                                tokens[1] = intOf(payload.get("tokenOut"));
+                                tokens[2] = intOf(payload.get("ttftMs"));
+                                degraded[0] = Boolean.TRUE.equals(payload.get("degraded"));
+                            }
+                        } catch (Exception ignored) {
+                            // 非 JSON 事件帧忽略
+                        }
+                    }
+                }
+            }
+            if (answer.isEmpty()) {
+                throw new BizException(IntelligenceErrorCode.DEPENDENCY_DEGRADED);
+            }
+            return new ChatResult(answer.toString(), tokens[0], tokens[1], tokens[2], degraded[0],
+                    new ArrayList<>());
+        } catch (BizException ex) {
+            throw ex;
         } catch (Exception ex) {
             throw new BizException(IntelligenceErrorCode.DEPENDENCY_DEGRADED);
         }

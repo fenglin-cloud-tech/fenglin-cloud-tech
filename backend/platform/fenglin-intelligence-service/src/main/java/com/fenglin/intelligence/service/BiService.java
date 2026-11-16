@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -30,11 +31,14 @@ public class BiService {
     private final BiMapper biMapper;
     private final KnowledgeMapper knowledgeMapper;
     private final IntelligenceAudit audit;
+    private final BiQueryService queryService;
 
-    public BiService(BiMapper biMapper, KnowledgeMapper knowledgeMapper, IntelligenceAudit audit) {
+    public BiService(BiMapper biMapper, KnowledgeMapper knowledgeMapper, IntelligenceAudit audit,
+                     BiQueryService queryService) {
         this.biMapper = biMapper;
         this.knowledgeMapper = knowledgeMapper;
         this.audit = audit;
+        this.queryService = queryService;
     }
 
     @Transactional
@@ -199,8 +203,20 @@ public class BiService {
         Map<String, Object> result = new LinkedHashMap<>(dashboard);
         result.put("layout", IntelligenceMaps.node(dashboard.get("layout_json")));
         result.remove("layout_json");
-        result.put("charts", IntelligenceMaps.parseAll(biMapper.listCharts(tenantId, dashboardId), "query_json",
-                "style_json"));
+        List<Map<String, Object>> charts = new ArrayList<>(IntelligenceMaps.parseAll(
+                biMapper.listCharts(tenantId, dashboardId), "query_json", "style_json"));
+        com.fasterxml.jackson.databind.JsonNode order =
+                IntelligenceMaps.node(dashboard.get("layout_json")).get("chart_order");
+        if (order != null && order.isArray()) {
+            Map<Long, Integer> positions = new LinkedHashMap<>();
+            for (int i = 0; i < order.size(); i++) {
+                positions.put(order.get(i).asLong(), i);
+            }
+            charts.sort((left, right) -> Integer.compare(
+                    positions.getOrDefault(Rows.lngVal(left, "id"), Integer.MAX_VALUE),
+                    positions.getOrDefault(Rows.lngVal(right, "id"), Integer.MAX_VALUE)));
+        }
+        result.put("charts", charts);
         return result;
     }
 
@@ -395,16 +411,219 @@ public class BiService {
         return Map.of("id", id);
     }
 
-    public Map<String, Object> overview() {
+    public Map<String, Object> overview(String from, String to) {
         long tenantId = IntelligenceContext.tenantId();
+        String fromText = IntelligenceContext.text(from);
+        String toText = IntelligenceContext.text(to);
         Map<String, Object> result = new LinkedHashMap<>();
-        result.put("knowledge_bases", knowledgeMapper.countKnowledgeBases(tenantId));
-        result.put("data_sources", knowledgeMapper.countDataSources(tenantId));
-        result.put("chunks", knowledgeMapper.countChunks(tenantId));
-        result.put("datasets", biMapper.countDatasets(tenantId));
-        result.put("dashboards", biMapper.countDashboards(tenantId));
-        result.put("insight_tasks", biMapper.countInsightTasks(tenantId));
+        result.put("knowledge_bases", knowledgeMapper.countKnowledgeBasesInRange(tenantId, fromText, toText));
+        result.put("data_sources", knowledgeMapper.countDataSourcesInRange(tenantId, fromText, toText));
+        result.put("chunks", knowledgeMapper.countChunksInRange(tenantId, fromText, toText));
+        result.put("datasets", biMapper.countDatasetsInRange(tenantId, fromText, toText));
+        result.put("dashboards", biMapper.countDashboardsInRange(tenantId, fromText, toText));
+        result.put("insight_tasks", biMapper.countInsightTasksInRange(tenantId, fromText, toText));
+        result.put("from", fromText);
+        result.put("to", toText);
         return result;
+    }
+
+    // ---------- 数据集预览 / 字段删除 ----------
+
+    public Map<String, Object> previewDataset(long datasetId, Map<String, Object> body) {
+        long tenantId = IntelligenceContext.tenantId();
+        Map<String, Object> dataset = biMapper.findDataset(tenantId, datasetId);
+        if (dataset == null) {
+            throw new BizException(IntelligenceErrorCode.DATASET_INVALID);
+        }
+        return queryService.preview(dataset,
+                IntelligenceContext.intValue(IntelligenceContext.first(body, "limit"), 20));
+    }
+
+    public Map<String, Object> queryDataset(long datasetId, Map<String, Object> body) {
+        long tenantId = IntelligenceContext.tenantId();
+        Map<String, Object> dataset = biMapper.findDataset(tenantId, datasetId);
+        if (dataset == null) {
+            throw new BizException(IntelligenceErrorCode.DATASET_INVALID);
+        }
+        return queryService.query(dataset, body == null ? Map.of() : body);
+    }
+
+    @Transactional
+    public Map<String, Object> deleteDatasetField(long datasetId, long fieldId) {
+        long tenantId = IntelligenceContext.tenantId();
+        long userId = IntelligenceContext.userId();
+        if (biMapper.findDataset(tenantId, datasetId) == null) {
+            throw new BizException(IntelligenceErrorCode.DATASET_INVALID);
+        }
+        int affected = biMapper.deleteDatasetField(tenantId, datasetId, fieldId, userId);
+        if (affected == 0) {
+            throw new BizException(IntelligenceErrorCode.PARAM_INVALID, "字段不存在");
+        }
+        audit.low("bi.dataset.field.delete", "dataset_field", fieldId);
+        return Map.of("dataset_id", datasetId, "field_id", fieldId, "deleted", true);
+    }
+
+    // ---------- 图表数据 / 删除 / 排序 / 告警 ----------
+
+    public Map<String, Object> chartData(long dashboardId, long chartId, Map<String, Object> body) {
+        long tenantId = IntelligenceContext.tenantId();
+        Map<String, Object> chart = biMapper.findChart(tenantId, dashboardId, chartId);
+        if (chart == null) {
+            throw new BizException(IntelligenceErrorCode.PARAM_INVALID, "图表不存在");
+        }
+        Map<String, Object> dataset = biMapper.findDataset(tenantId, Rows.lngVal(chart, "dataset_id"));
+        if (dataset == null) {
+            throw new BizException(IntelligenceErrorCode.DATASET_INVALID);
+        }
+        Map<String, Object> request = body == null ? new LinkedHashMap<>() : new LinkedHashMap<>(body);
+        if (!request.containsKey("dimensions") && !request.containsKey("measures")
+                && !request.containsKey("query")) {
+            String queryText = Rows.str(chart, "query_text");
+            if (queryText != null && !queryText.isBlank()) {
+                request.put("query", IntelligenceMaps.node(queryText));
+            }
+        }
+        Map<String, Object> result = queryService.query(dataset, request);
+        result.put("chart_id", chartId);
+        result.put("chart_type", Rows.str(chart, "chart_type"));
+        return result;
+    }
+
+    @Transactional
+    public Map<String, Object> deleteChart(long dashboardId, long chartId) {
+        long tenantId = IntelligenceContext.tenantId();
+        long userId = IntelligenceContext.userId();
+        if (biMapper.findChart(tenantId, dashboardId, chartId) == null) {
+            throw new BizException(IntelligenceErrorCode.PARAM_INVALID, "图表不存在");
+        }
+        biMapper.deleteChart(tenantId, dashboardId, chartId, userId);
+        audit.low("bi.chart.delete", "chart", chartId);
+        return Map.of("dashboard_id", dashboardId, "chart_id", chartId, "deleted", true);
+    }
+
+    @Transactional
+    public Map<String, Object> reorderCharts(long dashboardId, Map<String, Object> body) {
+        long tenantId = IntelligenceContext.tenantId();
+        long userId = IntelligenceContext.userId();
+        Map<String, Object> dashboard = biMapper.findDashboard(tenantId, dashboardId);
+        if (dashboard == null) {
+            throw new BizException(IntelligenceErrorCode.PARAM_INVALID, "看板不存在");
+        }
+        Object raw = IntelligenceContext.first(body, "chart_ids", "chartIds");
+        if (!(raw instanceof List<?> ids) || ids.isEmpty()) {
+            throw new BizException(IntelligenceErrorCode.PARAM_INVALID, "chart_ids 必须为非空数组");
+        }
+        com.fasterxml.jackson.databind.JsonNode parsedLayout =
+                IntelligenceMaps.node(dashboard.get("layout_json"));
+        com.fasterxml.jackson.databind.node.ObjectNode layout =
+                parsedLayout instanceof com.fasterxml.jackson.databind.node.ObjectNode objectNode
+                        ? objectNode
+                        : com.fasterxml.jackson.databind.node.JsonNodeFactory.instance.objectNode();
+        com.fasterxml.jackson.databind.node.ArrayNode order = layout.putArray("chart_order");
+        List<Long> normalized = new ArrayList<>();
+        for (Object id : ids) {
+            long value = IntelligenceContext.requireLong(id);
+            if (biMapper.findChart(tenantId, dashboardId, value) == null) {
+                throw new BizException(IntelligenceErrorCode.PARAM_INVALID, "图表不属于该看板：" + value);
+            }
+            normalized.add(value);
+            order.add(value);
+        }
+        biMapper.updateDashboardLayout(tenantId, dashboardId, layout.toString(), userId);
+        audit.low("bi.dashboard.chart.reorder", "dashboard", dashboardId);
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("dashboard_id", dashboardId);
+        result.put("chart_order", normalized);
+        return result;
+    }
+
+    @Transactional
+    public Map<String, Object> saveChartAlert(long dashboardId, long chartId, Map<String, Object> body) {
+        long tenantId = IntelligenceContext.tenantId();
+        long userId = IntelligenceContext.userId();
+        if (biMapper.findChart(tenantId, dashboardId, chartId) == null) {
+            throw new BizException(IntelligenceErrorCode.PARAM_INVALID, "图表不存在");
+        }
+        boolean enabled = Boolean.parseBoolean(String.valueOf(
+                IntelligenceContext.first(body, "enabled")));
+        String condition = IntelligenceContext.string(IntelligenceContext.first(body, "condition"));
+        String threshold = IntelligenceContext.string(IntelligenceContext.first(body, "threshold"));
+        String channels = IntelligenceContext.string(IntelligenceContext.first(body, "channels"));
+        String alert = IntelligenceMaps.json(IntelligenceMaps.of(
+                "enabled", enabled, "condition", condition, "threshold", threshold, "channels", channels));
+        biMapper.updateChartAlert(tenantId, dashboardId, chartId, alert, userId);
+        audit.high("bi.chart.alert.save", "chart", chartId);
+        return chartAlert(dashboardId, chartId);
+    }
+
+    public Map<String, Object> chartAlert(long dashboardId, long chartId) {
+        long tenantId = IntelligenceContext.tenantId();
+        Map<String, Object> chart = biMapper.findChart(tenantId, dashboardId, chartId);
+        if (chart == null) {
+            throw new BizException(IntelligenceErrorCode.PARAM_INVALID, "图表不存在");
+        }
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("dashboard_id", dashboardId);
+        result.put("chart_id", chartId);
+        result.put("chart_name", Rows.str(chart, "name"));
+        result.put("alert", IntelligenceMaps.node(chart.get("alert_text")));
+        return result;
+    }
+
+    public List<Map<String, Object>> listAlerts(Integer limit) {
+        long tenantId = IntelligenceContext.tenantId();
+        List<Map<String, Object>> rows = biMapper.listAlerts(tenantId,
+                IntelligenceContext.clamp(limit == null ? 50 : limit, 1, 200));
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (Map<String, Object> row : rows) {
+            Map<String, Object> item = new LinkedHashMap<>(row);
+            item.put("alert", IntelligenceMaps.node(row.get("alert_text")));
+            item.remove("alert_text");
+            result.add(item);
+        }
+        return result;
+    }
+
+    public List<Map<String, Object>> listDataPermissions(Integer limit) {
+        return biMapper.listDataPermissions(IntelligenceContext.tenantId(),
+                IntelligenceContext.clamp(limit == null ? 50 : limit, 1, 200));
+    }
+
+    // ---------- 洞察结果 CSV 导出 ----------
+
+    public Map<String, Object> insightResultsCsv(long taskId) {
+        long tenantId = IntelligenceContext.tenantId();
+        Map<String, Object> task = biMapper.findInsightTask(tenantId, taskId);
+        if (task == null) {
+            throw new BizException(IntelligenceErrorCode.PARAM_INVALID, "洞察任务不存在");
+        }
+        List<Map<String, Object>> results = biMapper.listInsightResults(tenantId, taskId);
+        StringBuilder csv = new StringBuilder("\uFEFF");
+        csv.append("result_id,anomaly_type,magnitude,confidence,conclusion,suggestion,created_at\n");
+        for (Map<String, Object> row : results) {
+            csv.append(csvCell(String.valueOf(Rows.lngVal(row, "id")))).append(',')
+                    .append(csvCell(Rows.str(row, "anomaly_type"))).append(',')
+                    .append(csvCell(Rows.str(row, "magnitude"))).append(',')
+                    .append(csvCell(Rows.str(row, "confidence"))).append(',')
+                    .append(csvCell(Rows.str(row, "conclusion"))).append(',')
+                    .append(csvCell(Rows.str(row, "suggestion"))).append(',')
+                    .append(csvCell(Rows.str(row, "created_at"))).append('\n');
+        }
+        audit.high("bi.insight.export", "insight_task", taskId);
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("task_id", taskId);
+        result.put("file_name", "insight-result-" + taskId + ".csv");
+        result.put("record_count", results.size());
+        result.put("content", csv.toString());
+        return result;
+    }
+
+    private String csvCell(String value) {
+        if (value == null) {
+            return "";
+        }
+        String escaped = value.replace("\"", "\"\"");
+        return "\"" + escaped + "\"";
     }
 
     private String defaultValue(String value, String fallback) {

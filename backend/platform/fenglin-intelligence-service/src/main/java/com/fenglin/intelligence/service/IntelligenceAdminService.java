@@ -52,7 +52,7 @@ public class IntelligenceAdminService {
     }
 
     public Map<String, Object> reportOverview() {
-        Map<String, Object> overview = biService.overview();
+        Map<String, Object> overview = biService.overview(null, null);
         Map<String, Object> result = new LinkedHashMap<>(overview);
         result.put("deploy_mode", deployMode);
         return result;

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { GapNotice, PageHeader, ID_COLUMN_WIDTH, formatDateTime } from '@fenglin/ui-admin'
 import { intelligenceApi, type AiRecord } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
@@ -34,10 +34,71 @@ const form = reactive({
 })
 
 const gapItems = [
-  '没有文件上传接口，只能提交文本 content 或 source_uri 引用；content 会按段落切分为分块。',
+  '文件上传支持 txt/md/csv 文本文件（≤10MB），服务端解析入库；PDF/Word/PPT 需部署期解析器，上传会返回明确 400。',
   '审核通过与建索引是两步：APPROVE 会自动生成索引任务，也可在列表单独触发建索引。',
-  '文档列表要求 ai:chat:use；详情、新建、提交审核与审核操作要求 tenant:ai:kb:review；建索引要求 ai:index:build。',
+  '重新解析需提交正文（本地上传仅保存分块，不保留原始文件），解析后索引状态回到 PENDING。',
+  '文档列表要求 ai:chat:use；详情、新建、提交审核与审核操作要求 tenant:ai:kb:review；解析要求 ai:document:parse；建索引要求 ai:index:build。',
 ]
+
+const uploadVisible = ref(false)
+const uploading = ref(false)
+const uploadFile = ref<File | null>(null)
+const uploadTitle = ref('')
+const uploadSecLevel = ref(2)
+
+function onFileChange(file: any) {
+  uploadFile.value = (file?.raw as File) ?? null
+}
+
+function openUpload() {
+  uploadFile.value = null
+  uploadTitle.value = ''
+  uploadSecLevel.value = 2
+  uploadVisible.value = true
+}
+
+async function submitUpload() {
+  if (!selectedKb.value) {
+    ElMessage.warning('请先选择知识库')
+    return
+  }
+  if (!uploadFile.value) {
+    ElMessage.warning('请选择文件')
+    return
+  }
+  uploading.value = true
+  try {
+    const data = new FormData()
+    data.append('file', uploadFile.value)
+    data.append('knowledge_base_id', String(selectedKb.value))
+    data.append('sec_level', String(uploadSecLevel.value))
+    if (uploadTitle.value.trim()) data.append('title', uploadTitle.value.trim())
+    const created = await intelligenceApi.documents.upload(data)
+    ElMessage.success(`上传成功：${created?.title ?? created?.id ?? ''}，分块 ${created?.parsed_chunks ?? 0}`)
+    uploadVisible.value = false
+    page.value = 1
+    await loadDocuments()
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  } finally {
+    uploading.value = false
+  }
+}
+
+async function parseDocument(row: AiRecord) {
+  try {
+    const { value } = await ElMessageBox.prompt('粘贴需要重新解析的正文（将重建分块并把索引状态置为 PENDING）', '重新解析', {
+      inputType: 'textarea',
+      inputPlaceholder: '正文内容',
+      inputValidator: (input: string) => (input && input.trim() ? true : '正文不能为空'),
+    })
+    const result = await intelligenceApi.documents.parse(row.id, value)
+    ElMessage.success(`解析完成，分块 ${result?.parsed_chunks ?? 0}`)
+    await loadDocuments()
+  } catch (err) {
+    if (err !== 'cancel' && err !== 'close') ElMessage.error(describeError(err))
+  }
+}
 
 async function loadKb() {
   kbLoading.value = true
@@ -205,6 +266,7 @@ onMounted(loadKb)
           />
         </el-select>
         <el-button v-perm="'tenant:ai:kb:review'" type="primary" :disabled="!selectedKb" @click="openCreate">新建文档</el-button>
+        <el-button v-perm="'ai:document:parse'" :disabled="!selectedKb" @click="openUpload">上传文件</el-button>
         <el-button :loading="loading" @click="loadDocuments">刷新</el-button>
       </template>
     </PageHeader>
@@ -223,12 +285,13 @@ onMounted(loadKb)
         <el-table-column prop="index_status" label="索引状态" width="120" />
         <el-table-column prop="chunk_count" label="分块数" width="90" />
         <el-table-column prop="created_at" label="创建时间" width="150" :formatter="(row: AiRecord) => formatDateTime(row.created_at)" />
-        <el-table-column label="操作" width="280" fixed="right">
+        <el-table-column label="操作" width="320" fixed="right">
           <template #default="{ row }">
             <el-button v-perm="'tenant:ai:kb:review'" link type="primary" @click="openDetail(row)">详情</el-button>
             <el-button v-perm="'tenant:ai:kb:review'" link type="primary" @click="submitReview(row)">提交审核</el-button>
             <el-button v-perm="'tenant:ai:kb:review'" link type="success" @click="review(row, 'APPROVE')">通过</el-button>
             <el-button v-perm="'tenant:ai:kb:review'" link type="danger" @click="review(row, 'REJECT')">驳回</el-button>
+            <el-button v-perm="'ai:document:parse'" link type="primary" @click="parseDocument(row)">解析</el-button>
             <el-button v-perm="'ai:index:build'" link type="warning" @click="buildIndex(row)">建索引</el-button>
           </template>
         </el-table-column>
@@ -303,6 +366,34 @@ onMounted(loadKb)
       <template #footer>
         <el-button @click="createVisible = false">取消</el-button>
         <el-button type="primary" :loading="createSaving" @click="submitCreate">创建</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="uploadVisible" title="上传文档文件" width="560px">
+      <el-form label-width="100px">
+        <el-form-item label="知识库">
+          <el-input :model-value="selectedKb" disabled />
+        </el-form-item>
+        <el-form-item label="文件">
+          <el-upload :auto-upload="false" :limit="1" :on-change="onFileChange" :on-exceed="() => ElMessage.warning('一次只能上传一个文件')">
+            <el-button>选择文件</el-button>
+            <template #tip>
+              <div class="fl-muted">支持 txt / md / csv，单文件 ≤10MB；PDF/Word/PPT 需部署期解析器。</div>
+            </template>
+          </el-upload>
+        </el-form-item>
+        <el-form-item label="标题">
+          <el-input v-model="uploadTitle" maxlength="200" placeholder="选填，默认取文件名" />
+        </el-form-item>
+        <el-form-item label="密级">
+          <el-select v-model="uploadSecLevel" style="width: 100%">
+            <el-option v-for="level in [1, 2, 3, 4]" :key="level" :label="`L${level}`" :value="level" />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="uploadVisible = false">取消</el-button>
+        <el-button type="primary" :loading="uploading" @click="submitUpload">上传并解析</el-button>
       </template>
     </el-dialog>
   </div>

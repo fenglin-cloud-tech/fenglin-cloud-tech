@@ -4,15 +4,19 @@ import com.fenglin.common.core.ApiResponse;
 import com.fenglin.common.core.PageResult;
 import com.fenglin.common.security.PermissionGuard;
 import com.fenglin.intelligence.service.KnowledgeService;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -180,8 +184,97 @@ public class KnowledgeController {
     @GetMapping("/admin/search/analytics")
     public ApiResponse<Map<String, Object>> searchAnalytics(
             @RequestHeader(value = "X-Permissions", required = false) String permissions,
-            @RequestParam(required = false) Integer limit) {
+            @RequestParam(required = false) Integer limit,
+            @RequestParam(required = false) String from,
+            @RequestParam(required = false) String to) {
         PermissionGuard.require(permissions, "tenant:ai:search:analytics");
-        return ApiResponse.success(service.searchAnalytics(limit));
+        return ApiResponse.success(service.searchAnalytics(limit, from, to));
+    }
+
+    @GetMapping("/search/suggest")
+    public ApiResponse<List<String>> suggest(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam String q,
+            @RequestParam(required = false) Integer limit) {
+        PermissionGuard.require(permissions, "ai:search:suggest");
+        return ApiResponse.success(service.suggest(q, limit));
+    }
+
+    @GetMapping("/kg/graph")
+    public ApiResponse<Map<String, Object>> kgGraph(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(name = "kbId", required = false) Long kbId,
+            @RequestParam(name = "entityId", required = false) Long entityId,
+            @RequestParam(name = "depth", required = false) Integer depth) {
+        PermissionGuard.require(permissions, "ai:kg:query");
+        return ApiResponse.success(service.kgGraph(kbId, entityId, depth));
+    }
+
+    @GetMapping("/kg/entities/{id}")
+    public ApiResponse<Map<String, Object>> kgEntityDetail(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable long id) {
+        PermissionGuard.require(permissions, "ai:kg:query");
+        return ApiResponse.success(service.kgEntityDetail(id));
+    }
+
+    @DeleteMapping("/admin/kg/entities/{id}")
+    public ApiResponse<Map<String, Object>> deleteKgEntity(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable long id) {
+        PermissionGuard.require(permissions, "tenant:ai:kg:manage");
+        return ApiResponse.success(service.deleteKgEntity(id));
+    }
+
+    @GetMapping("/admin/knowledge-bases/{id}/acl")
+    public ApiResponse<List<Map<String, Object>>> listAcl(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable long id) {
+        PermissionGuard.require(permissions, "tenant:ai:kb:manage");
+        return ApiResponse.success(service.listAcl(id));
+    }
+
+    @PutMapping("/admin/knowledge-bases/{id}/acl")
+    public ApiResponse<Map<String, Object>> saveAcl(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable long id,
+            @RequestBody Map<String, Object> body) {
+        PermissionGuard.require(permissions, "tenant:ai:kb:manage");
+        return ApiResponse.success(service.saveAcl(id, body));
+    }
+
+    @PostMapping("/admin/documents/{id}/parse")
+    public ApiResponse<Map<String, Object>> parseDocument(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable long id,
+            @RequestBody(required = false) Map<String, Object> body) {
+        PermissionGuard.require(permissions, "ai:document:parse");
+        return ApiResponse.success(service.parseDocument(id, body == null ? Map.of() : body));
+    }
+
+    @PostMapping("/admin/documents/upload")
+    public ApiResponse<Map<String, Object>> uploadDocument(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam("file") MultipartFile file,
+            @RequestParam Map<String, String> form) throws java.io.IOException {
+        PermissionGuard.require(permissions, "ai:document:parse");
+        Map<String, Object> params = new LinkedHashMap<>(form);
+        return ApiResponse.success(service.uploadDocument(file.getOriginalFilename(), file.getBytes(), params));
+    }
+
+    @PostMapping("/admin/data-sources/{id}/test")
+    public ApiResponse<Map<String, Object>> testDataSource(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable long id) {
+        PermissionGuard.require(permissions, "tenant:ai:source:manage");
+        return ApiResponse.success(service.testDataSource(id));
+    }
+
+    @PostMapping("/admin/data-sources/{id}/sync")
+    public ApiResponse<Map<String, Object>> syncDataSource(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable long id) {
+        PermissionGuard.require(permissions, "tenant:ai:source:manage");
+        return ApiResponse.success(service.syncDataSource(id));
     }
 }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { PageHeader, GapNotice } from '@fenglin/ui-admin'
 import { aiApi, type AiModeValidateResult, type AiMeteringResult, type AiModelView, type AiPromptView } from '@/api'
@@ -26,6 +26,20 @@ const modelForm = reactive({
 const modelSaving = ref(false)
 const modelError = ref('')
 const createdModels = ref<AiModelView[]>([])
+const modelLoading = ref(false)
+
+async function loadModels() {
+  if (!canModel()) return
+  modelLoading.value = true
+  try {
+    const result = await aiApi.listModels({ page: 1, size: 50 })
+    createdModels.value = result.records ?? []
+  } catch {
+    createdModels.value = []
+  } finally {
+    modelLoading.value = false
+  }
+}
 
 async function submitModel() {
   modelError.value = ''
@@ -39,6 +53,7 @@ async function submitModel() {
     createdModels.value = [result, ...createdModels.value]
     modelForm.api_key = ''
     ElMessage.success(`模型 ${result.code} 已创建（密钥仅回显指纹）`)
+    await loadModels()
   } catch (err) {
     modelError.value = describeError(err)
   } finally {
@@ -58,6 +73,20 @@ const promptForm = reactive({
 const promptSaving = ref(false)
 const promptError = ref('')
 const createdPrompts = ref<AiPromptView[]>([])
+const promptLoading = ref(false)
+
+async function loadPrompts() {
+  if (!canPrompt()) return
+  promptLoading.value = true
+  try {
+    const result = await aiApi.listPrompts({ page: 1, size: 50 })
+    createdPrompts.value = result.records ?? []
+  } catch {
+    createdPrompts.value = []
+  } finally {
+    promptLoading.value = false
+  }
+}
 
 async function submitPrompt() {
   promptError.value = ''
@@ -79,6 +108,7 @@ async function submitPrompt() {
     })
     createdPrompts.value = [result, ...createdPrompts.value.filter((item) => item.code !== result.code)]
     ElMessage.success(`提示词 ${result.code} 当前版本 v${result.prompt_version}`)
+    await loadPrompts()
   } catch (err) {
     promptError.value = describeError(err)
   } finally {
@@ -97,7 +127,21 @@ const grantForm = reactive({
 })
 const grantSaving = ref(false)
 const grantError = ref('')
-const grantResults = ref<Array<{ host_product: string; capability: string; enabled: boolean; quota_qps: number; quota_token_month: number; billing_mode: string }>>([])
+const grantResults = ref<Array<Record<string, any>>>([])
+const grantLoading = ref(false)
+
+async function loadGrantsList() {
+  if (!canGrant()) return
+  grantLoading.value = true
+  try {
+    const result = await aiApi.listGrants(grantForm.host_product || undefined)
+    grantResults.value = result?.items ?? []
+  } catch {
+    grantResults.value = []
+  } finally {
+    grantLoading.value = false
+  }
+}
 
 async function submitGrant() {
   grantError.value = ''
@@ -120,7 +164,7 @@ async function submitGrant() {
       ],
     })
     ElMessage.success('能力授权已保存（按 host_product + capability 幂等 upsert）')
-    grantResults.value = [{ ...grantForm }]
+    await loadGrantsList()
   } catch (err) {
     grantError.value = describeError(err)
   } finally {
@@ -167,6 +211,10 @@ async function validateMode() {
     modeLoading.value = false
   }
 }
+
+onMounted(async () => {
+  await Promise.all([loadModels(), loadPrompts(), loadGrantsList()])
+})
 </script>
 
 <template>
@@ -179,7 +227,7 @@ async function validateMode() {
 
     <GapNotice
       :items="[
-        '后端仅提供写入型接口（模型/提示词/授权），无列表、更新、删除接口；本页只展示本次会话内创建成功的记录，不回填历史数据。',
+        '模型、提示词与能力授权均已接入回读接口（GET /admin/ai/models、/prompts、/capability-grants），页面进入即加载历史配置。',
         'API Key 加密存储，接口仅回显 api_key_fingerprint，页面不保存明文。',
         '模型配置需 platform:ai:model:manage，提示词需 tenant:ai:prompt:manage，能力授权需 tenant:ai:grant:manage；当前：模型=' + (canModel() ? '具备' : '缺失') + '，提示词=' + (canPrompt() ? '具备' : '缺失') + '，授权=' + (canGrant() ? '具备' : '缺失') + '。',
         'HUB-API-1307 计量与 HUB-API-1308 双模式校验在接口文档中未定义细粒度权限码，按后端 ADMIN + 租户 RLS 收敛。',
@@ -210,8 +258,11 @@ async function validateMode() {
               <span v-if="!canModel()" class="fl-muted" style="margin-left: 8px">缺少 platform:ai:model:manage</span>
             </el-form-item>
           </el-form>
-          <h4>本次会话已创建</h4>
-          <el-table :data="createdModels" border size="small">
+          <h4>模型列表</h4>
+          <div class="fl-toolbar" style="margin-bottom: 8px">
+            <el-button size="small" :loading="modelLoading" @click="loadModels">刷新列表</el-button>
+          </div>
+          <el-table v-loading="modelLoading" :data="createdModels" border size="small">
             <el-table-column prop="code" label="编码" min-width="150" />
             <el-table-column prop="provider_type" label="供应商" width="160" />
             <el-table-column prop="model_type" label="类型" width="110" />
@@ -219,7 +270,7 @@ async function validateMode() {
             <el-table-column prop="api_key_fingerprint" label="密钥指纹" width="180" />
             <el-table-column prop="routing_weight" label="权重" width="90" />
             <template #empty>
-              <el-empty description="尚无本次会话创建记录（后端无列表接口）" :image-size="60" />
+              <el-empty description="暂无模型配置" :image-size="60" />
             </template>
           </el-table>
         </el-tab-pane>
@@ -240,15 +291,18 @@ async function validateMode() {
               <span v-if="!canPrompt()" class="fl-muted" style="margin-left: 8px">缺少 tenant:ai:prompt:manage</span>
             </el-form-item>
           </el-form>
-          <h4>本次会话已保存</h4>
-          <el-table :data="createdPrompts" border size="small">
+          <h4>提示词列表</h4>
+          <div class="fl-toolbar" style="margin-bottom: 8px">
+            <el-button size="small" :loading="promptLoading" @click="loadPrompts">刷新列表</el-button>
+          </div>
+          <el-table v-loading="promptLoading" :data="createdPrompts" border size="small">
             <el-table-column prop="code" label="编码" min-width="140" />
             <el-table-column prop="name" label="名称" min-width="140" />
             <el-table-column prop="scene" label="场景" width="140" />
             <el-table-column prop="prompt_version" label="版本" width="80" />
             <el-table-column prop="status" label="状态" width="110" />
             <template #empty>
-              <el-empty description="尚无本次会话保存记录（后端无查询接口）" :image-size="60" />
+              <el-empty description="暂无提示词配置" :image-size="60" />
             </template>
           </el-table>
         </el-tab-pane>
@@ -281,14 +335,20 @@ async function validateMode() {
               <span v-if="!canGrant()" class="fl-muted" style="margin-left: 8px">缺少 tenant:ai:grant:manage</span>
             </el-form-item>
           </el-form>
-          <h4>本次会话已提交</h4>
-          <el-table :data="grantResults" border size="small">
+          <h4>授权列表</h4>
+          <div class="fl-toolbar" style="margin-bottom: 8px">
+            <el-button size="small" :loading="grantLoading" @click="loadGrantsList">刷新列表</el-button>
+          </div>
+          <el-table v-loading="grantLoading" :data="grantResults" border size="small">
             <el-table-column prop="host_product" label="宿主产品" width="140" />
             <el-table-column prop="capability" label="能力" width="120" />
             <el-table-column prop="enabled" label="启用" width="90" />
             <el-table-column prop="quota_qps" label="QPS" width="90" />
             <el-table-column prop="quota_token_month" label="月 Token" width="140" />
             <el-table-column prop="billing_mode" label="计费" width="110" />
+            <template #empty>
+              <el-empty description="暂无授权记录" :image-size="60" />
+            </template>
           </el-table>
         </el-tab-pane>
 

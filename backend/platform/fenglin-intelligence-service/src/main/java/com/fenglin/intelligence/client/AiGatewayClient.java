@@ -11,6 +11,12 @@ public interface AiGatewayClient {
 
     ChatResult chat(String content, Double temperature, Integer secretLevel);
 
+    /**
+     * 流式生成：每收到一个 delta 帧回调一次，返回完整结果（用于落库与 done 事件）。
+     */
+    ChatResult stream(String content, Double temperature, Integer secretLevel,
+                      java.util.function.Consumer<String> onDelta);
+
     Map<String, Object> grants(String hostProduct);
 
     Map<String, Object> metering(String mode, String hostProduct, String from, String to);

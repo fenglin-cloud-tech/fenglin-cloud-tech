@@ -131,6 +131,65 @@ export function postForm<T>(path: string, form: FormData): Promise<T> {
   return request<T>(path, { method: 'POST', body: form })
 }
 
+export type SseHandler = {
+  onEvent: (event: string, data: any) => void
+}
+
+/** SSE 流式请求：逐帧解析 event/data，供 Copilot 流式问答使用。 */
+export async function streamSse(path: string, body: unknown, handler: SseHandler): Promise<void> {
+  const headers = new Headers({ 'Content-Type': 'application/json', Accept: 'text/event-stream' })
+  const token = getAccessToken()
+  if (token) headers.set('Authorization', `Bearer ${token}`)
+  let response: Response
+  try {
+    response = await fetch(path, { method: 'POST', headers, body: JSON.stringify(body) })
+  } catch (error) {
+    throw new ApiError(`网络请求失败：${(error as Error).message}`, 'NETWORK_ERROR', 0)
+  }
+  if (!response.ok || !response.body) {
+    let message = `流式请求失败（HTTP ${response.status}）`
+    try {
+      const payload = (await response.json()) as ApiEnvelope<unknown>
+      if (payload?.message) message = payload.message
+    } catch {
+      // 非 JSON 错误体
+    }
+    throw new ApiError(message, 'STREAM_ERROR', response.status)
+  }
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder('utf-8')
+  let buffer = ''
+  const dispatch = (frame: string) => {
+    let event = 'message'
+    const data: string[] = []
+    frame.split(/\r?\n/).forEach(line => {
+      if (line.startsWith('event:')) event = line.slice(6).trim()
+      else if (line.startsWith('data:')) data.push(line.slice(5).trim())
+    })
+    if (!data.length) return
+    let parsed: any = data.join('\n')
+    try {
+      parsed = JSON.parse(parsed)
+    } catch {
+      // 非 JSON 负载原样返回
+    }
+    handler.onEvent(event, parsed)
+  }
+  for (;;) {
+    const { value, done } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    let index = buffer.indexOf('\n\n')
+    while (index >= 0) {
+      const frame = buffer.slice(0, index)
+      buffer = buffer.slice(index + 2)
+      if (frame.trim()) dispatch(frame)
+      index = buffer.indexOf('\n\n')
+    }
+  }
+  if (buffer.trim()) dispatch(buffer)
+}
+
 export async function download(path: string, fallbackName: string): Promise<void> {
   const headers = new Headers()
   const token = getAccessToken()

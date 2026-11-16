@@ -126,7 +126,25 @@ public interface CopilotMapper {
                          @Param("stepCount") int stepCount, @Param("tokens") Integer tokens,
                          @Param("traceId") String traceId);
 
-    @Select("SELECT id, agent_id, conversation_id, status, step_count, token_total, trace_id, created_at "
+    @Select("SELECT id, agent_id, conversation_id, status, step_count, token_total, trace_id, created_at, "
+            + "input_json::text AS input_text, output_json::text AS output_text, steps::text AS steps_text "
             + "FROM ai_agent_execution WHERE tenant_id = #{tenantId} AND id = #{id}")
     Map<String, Object> findExecution(@Param("tenantId") long tenantId, @Param("id") long id);
+
+    @Select("SELECT e.id, e.agent_id, a.name AS agent_name, e.conversation_id, e.status, e.step_count, "
+            + "e.token_total, e.trace_id, e.created_at FROM ai_agent_execution e "
+            + "LEFT JOIN ai_agent_definition a ON a.id = e.agent_id "
+            + "WHERE e.tenant_id = #{tenantId} "
+            + "AND (CAST(#{agentId} AS bigint) IS NULL OR e.agent_id = #{agentId}) "
+            + "AND (CAST(#{userId} AS bigint) IS NULL OR e.trigger_user_id = #{userId}) "
+            + "ORDER BY e.id DESC LIMIT #{limit} OFFSET #{offset}")
+    List<Map<String, Object>> listExecutions(@Param("tenantId") long tenantId, @Param("agentId") Long agentId,
+                                             @Param("userId") Long userId,
+                                             @Param("limit") int limit, @Param("offset") int offset);
+
+    @Select("SELECT count(1) FROM ai_agent_execution e WHERE e.tenant_id = #{tenantId} "
+            + "AND (CAST(#{agentId} AS bigint) IS NULL OR e.agent_id = #{agentId}) "
+            + "AND (CAST(#{userId} AS bigint) IS NULL OR e.trigger_user_id = #{userId})")
+    long countExecutions(@Param("tenantId") long tenantId, @Param("agentId") Long agentId,
+                         @Param("userId") Long userId);
 }

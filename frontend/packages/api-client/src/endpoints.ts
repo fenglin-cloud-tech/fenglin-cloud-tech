@@ -730,6 +730,9 @@ export const lowcodeApi = {
 }
 
 export const aiApi = {
+  listModels(params?: { modelType?: string; providerType?: string; page?: number; size?: number }) {
+    return get<PageResult<AiModelView>>('/api/hub/v1/admin/ai/models', params)
+  },
   createModel(body: {
     code: string
     provider_type: string
@@ -749,6 +752,15 @@ export const aiApi = {
     variables?: string[]
   }) {
     return post<AiPromptView>('/api/hub/v1/admin/ai/prompts', body)
+  },
+  listPrompts(params?: { scene?: string; page?: number; size?: number }) {
+    return get<PageResult<AiPromptView>>('/api/hub/v1/admin/ai/prompts', params)
+  },
+  listGrants(hostProduct?: string) {
+    return get<{ items?: Array<Record<string, unknown>> }>(
+      '/api/hub/v1/admin/ai/capability-grants',
+      { hostProduct },
+    )
   },
   putGrants(body: {
     items: Array<{
