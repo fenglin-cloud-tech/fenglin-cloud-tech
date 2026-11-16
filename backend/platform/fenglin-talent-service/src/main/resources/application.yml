@@ -28,6 +28,8 @@ mybatis-plus:
     map-underscore-to-camel-case: true
 
 fenglin:
+  audit:
+    endpoint: ${FENGLIN_AUDIT_ENDPOINT:http://localhost:18087/internal/v1/audit/logs}
   talent:
     workflow-service-url: ${FENGLIN_WORKFLOW_SERVICE_URL:http://localhost:18084}
     approval-process-key:

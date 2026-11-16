@@ -25,6 +25,8 @@ mybatis-plus:
     map-underscore-to-camel-case: true
 
 fenglin:
+  audit:
+    endpoint: ${FENGLIN_AUDIT_ENDPOINT:http://localhost:18087/internal/v1/audit/logs}
   db:
     ddl:
       # 分区 DDL 独立连接：fl_login_ddl + SET ROLE fl_ddl_owner，口令只从用户级环境变量注入，不落仓库

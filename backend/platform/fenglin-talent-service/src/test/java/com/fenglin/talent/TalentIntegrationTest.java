@@ -550,6 +550,10 @@ class TalentIntegrationTest {
         assertThat(created.get("process_instance_id").asText()).isEqualTo("WF-" + transferId);
         assertThat(WORKFLOW_CALLS).contains("employeeLifecycle:" + transferId);
 
+        JsonNode approved = read(post("/api/talent/v1/transfers/" + transferId + "/approval", USER_HR,
+                ALL_PERMISSIONS, Map.of("approved", true)).getBody()).get("data");
+        assertThat(approved.get("tf_status").asText()).isEqualTo("APPROVED");
+
         JsonNode effective = read(post("/api/talent/v1/transfers/" + transferId + "/effective", USER_HR,
                 ALL_PERMISSIONS, Map.of()).getBody()).get("data");
         assertThat(effective.get("tf_status").asText()).isEqualTo("EFFECTIVE");
@@ -700,8 +704,11 @@ class TalentIntegrationTest {
                 "after", Map.of("org_id", rd, "position_id", positionId, "grade_id", GRADE_ID),
                 "effective_date", LocalDate.now().toString(), "reason", "审批通过转岗")).getBody())
                 .get("data").get("id").asLong();
-        JsonNode transferred = read(post("/api/talent/v1/transfers/" + transferId + "/approval", USER_HR,
+        JsonNode approvedTransfer = read(post("/api/talent/v1/transfers/" + transferId + "/approval", USER_HR,
                 ALL_PERMISSIONS, Map.of("approved", true)).getBody()).get("data");
+        assertThat(approvedTransfer.get("tf_status").asText()).isEqualTo("APPROVED");
+        JsonNode transferred = read(post("/api/talent/v1/transfers/" + transferId + "/effective", USER_HR,
+                ALL_PERMISSIONS, Map.of()).getBody()).get("data");
         assertThat(transferred.get("tf_status").asText()).isEqualTo("EFFECTIVE");
         assertThat(transferred.get("employee").get("org_id").asLong()).isEqualTo(rd);
         assertThat(queryLong("SELECT org_id FROM fenglin_talent.talent_employee WHERE id = " + employeeId))

@@ -41,6 +41,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class TenantFlowIntegrationTest {
 
     private static final String WRITE_PERMISSION = "platform:tenant:manage";
+    private static final String SWITCH_PERMISSION = "platform:tenant:switch";
     private static final String JDBC_URL;
     private static final List<Long> FINANCE_PROVISIONED = new CopyOnWriteArrayList<>();
 
@@ -211,17 +212,26 @@ class TenantFlowIntegrationTest {
     @Test
     void listAndGetTenant() {
         long tenantId = createTenant("列表租户");
+        Map<String, String> guarded = Map.of("X-Permissions", SWITCH_PERMISSION);
 
-        HttpResult detail = get("/api/hub/v1/admin/tenants/" + tenantId, Map.of());
+        HttpResult detail = get("/api/hub/v1/admin/tenants/" + tenantId, guarded);
         assertThat(detail.status()).isEqualTo(200);
         assertThat(detail.body().get("data").get("name").asText()).isEqualTo("列表租户");
 
-        HttpResult page = get("/api/hub/v1/admin/tenants?keyword=" + tenantId, Map.of());
+        HttpResult page = get("/api/hub/v1/admin/tenants?keyword=" + tenantId, guarded);
         assertThat(page.status()).isEqualTo(200);
         assertThat(page.body().get("data").get("total").asLong()).isGreaterThanOrEqualTo(0);
 
-        HttpResult byName = get("/api/hub/v1/admin/tenants?keyword=列表", Map.of());
+        HttpResult byName = get("/api/hub/v1/admin/tenants?keyword=列表", guarded);
         assertThat(byName.body().get("data").get("total").asLong()).isEqualTo(1);
+
+        // OPEN-06：无 platform:tenant:switch 时租户列表/详情必须 403
+        HttpResult detailDenied = get("/api/hub/v1/admin/tenants/" + tenantId, Map.of());
+        assertThat(detailDenied.status()).isEqualTo(403);
+        assertThat(detailDenied.body().get("code").asText()).isEqualTo("FL-COMMON-0403");
+
+        HttpResult listDenied = get("/api/hub/v1/admin/tenants?keyword=" + tenantId, Map.of());
+        assertThat(listDenied.status()).isEqualTo(403);
     }
 
     @Test
