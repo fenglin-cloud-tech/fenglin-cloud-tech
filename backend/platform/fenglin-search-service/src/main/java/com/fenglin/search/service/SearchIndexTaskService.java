@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.web.client.RestClient;
 
 import javax.sql.DataSource;
 import java.io.IOException;
@@ -47,19 +48,25 @@ public class SearchIndexTaskService {
     private final TransactionTemplate transactionTemplate;
     private final DataSource dataSource;
     private final String indexPrefix;
+    /** PLAT-26：各业务域内部导出基址（一期为云服 service-service）。 */
+    private final String serviceExportUrl;
+    private final RestClient restClient = RestClient.create();
 
     public SearchIndexTaskService(ElasticsearchClient client,
                                   SearchIndexTaskMapper taskMapper,
                                   AuditSink auditSink,
                                   PlatformTransactionManager transactionManager,
                                   DataSource dataSource,
-                                  @Value("${fenglin.search.index-prefix:hub}") String indexPrefix) {
+                                  @Value("${fenglin.search.index-prefix:hub}") String indexPrefix,
+                                  @Value("${fenglin.search.service-export-url:http://localhost:18100}") String serviceExportUrl) {
         this.client = client;
         this.taskMapper = taskMapper;
         this.auditSink = auditSink;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
         this.dataSource = dataSource;
         this.indexPrefix = indexPrefix;
+        this.serviceExportUrl = serviceExportUrl.endsWith("/")
+                ? serviceExportUrl.substring(0, serviceExportUrl.length() - 1) : serviceExportUrl;
     }
 
     @Transactional
@@ -163,20 +170,75 @@ public class SearchIndexTaskService {
 
     /**
      * FULL 任务灌数：先清掉该租户旧文档，再按域写入 {@code hub_<domain>}。
-     * 当前仅 hub 域在同库（fenglin_hub）有数据源；service / intelligence 的数据在独立库，无法跨库直读。
+     * hub 域同库直读；service 域改为经内部导出接口拉取（PLAT-26 一期）；
+     * intelligence 域留待二期，当前跳过并打印原因。
      */
     private void ingest(String index, String indexName, long tenantId) throws IOException {
-        if (!"hub".equals(indexName)) {
-            log.info("索引 {} 暂无同库数据源，跳过灌数", index);
+        List<Map<String, Object>> docs;
+        if ("hub".equals(indexName)) {
+            docs = loadHubUsers(tenantId);
+        } else if ("service".equals(indexName)) {
+            docs = loadServiceDocs(tenantId);
+        } else {
+            log.info("索引 {} 暂无接入数据源，跳过灌数", index);
             return;
         }
-        List<Map<String, Object>> docs = loadHubUsers(tenantId);
         client.deleteByQuery(d -> d.index(index)
                 .query(q -> q.term(t -> t.field("tenant_id").value(tenantId))));
         for (Map<String, Object> doc : docs) {
-            client.index(i -> i.index(index).id(String.valueOf(doc.get("doc_id"))).document(doc));
+            Map<String, Object> source = new HashMap<>(doc);
+            source.put("tenant_id", tenantId);
+            source.put("updated_at", Instant.now().toString());
+            source.putIfAbsent("secret_level", 0);
+            client.index(i -> i.index(index).id(String.valueOf(source.get("doc_id"))).document(source));
         }
         log.info("索引 {} 灌入 {} 条文档", index, docs.size());
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> loadServiceDocs(long tenantId) {
+        List<Map<String, Object>> docs = new ArrayList<>();
+        docs.addAll(fetchServiceDocs(tenantId, "catalog"));
+        docs.addAll(fetchServiceDocs(tenantId, "kb"));
+        return docs;
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> fetchServiceDocs(long tenantId, String type) {
+        List<Map<String, Object>> docs = new ArrayList<>();
+        Long cursor = null;
+        for (int page = 0; page < 100; page++) {
+            String uri = serviceExportUrl + "/internal/search-export?type=" + type + "&limit=200"
+                    + (cursor == null ? "" : "&cursor=" + cursor);
+            Map<String, Object> body;
+            try {
+                body = restClient.get().uri(uri)
+                        .header("X-Tenant-Id", String.valueOf(tenantId))
+                        .header("X-Client-Type", "SYSTEM")
+                        .retrieve()
+                        .body(Map.class);
+            } catch (RuntimeException ex) {
+                throw new IllegalStateException("拉取云服检索导出失败: " + type + " - " + ex.getMessage(), ex);
+            }
+            Map<String, Object> data = body == null ? null : (Map<String, Object>) body.get("data");
+            if (data == null) {
+                break;
+            }
+            Object items = data.get("items");
+            if (items instanceof List<?> list) {
+                for (Object item : list) {
+                    if (item instanceof Map<?, ?> map) {
+                        docs.add((Map<String, Object>) map);
+                    }
+                }
+            }
+            if (!Boolean.TRUE.equals(data.get("has_more")) || data.get("next_cursor") == null) {
+                break;
+            }
+            cursor = ((Number) data.get("next_cursor")).longValue();
+        }
+        log.info("云服检索导出 {} 拉取 {} 条", type, docs.size());
+        return docs;
     }
 
     private List<Map<String, Object>> loadHubUsers(long tenantId) {

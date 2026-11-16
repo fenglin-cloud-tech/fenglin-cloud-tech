@@ -30,6 +30,8 @@ fenglin:
     es-uri: ${FENGLIN_ES_URI:http://localhost:9201}
     # 文档索引命名：{index-prefix}_{domain}（检索）与 {index-prefix}_{tenantId}_{indexName}（索引任务）
     index-prefix: hub
+    # PLAT-26 一期：云服域内部检索导出（search-service 拉取，不直连业务库）
+    service-export-url: ${FENGLIN_SERVICE_EXPORT_URL:http://localhost:18100}
     index-task-job-enabled: ${FENGLIN_SEARCH_INDEX_JOB_ENABLED:true}
     index-task-poll-interval-ms: ${FENGLIN_SEARCH_INDEX_POLL_INTERVAL_MS:5000}
 

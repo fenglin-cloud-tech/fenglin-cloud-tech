@@ -46,6 +46,29 @@ public interface ConfigMapper {
             """)
     Map<String, Object> findItem(@Param("tenantId") long tenantId, @Param("id") long id);
 
+    // ---------- PLAT-26 一期：内部检索导出（只读、游标分页） ----------
+    @Select("""
+            SELECT i.id, i.code, i.name, i.description
+            FROM svc_catalog_item i
+            WHERE i.deleted = 0 AND i.status = 'ACTIVE' AND (i.tenant_id = #{tenantId} OR i.tenant_id = 0)
+              AND i.id > #{cursor}
+            ORDER BY i.id LIMIT #{limit}
+            """)
+    List<Map<String, Object>> exportCatalogItems(@Param("tenantId") long tenantId,
+                                                 @Param("cursor") long cursor,
+                                                 @Param("limit") int limit);
+
+    @Select("""
+            SELECT id, title, summary, content
+            FROM svc_kb_article
+            WHERE tenant_id = #{tenantId} AND deleted = 0 AND status = 'PUBLISHED'
+              AND id > #{cursor}
+            ORDER BY id LIMIT #{limit}
+            """)
+    List<Map<String, Object>> exportKbArticles(@Param("tenantId") long tenantId,
+                                               @Param("cursor") long cursor,
+                                               @Param("limit") int limit);
+
     @Insert("""
             INSERT INTO svc_catalog
                 (id, tenant_id, name, parent_id, icon, sort_no, visible_scope, status, created_by, updated_by)
