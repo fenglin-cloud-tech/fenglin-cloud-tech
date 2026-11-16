@@ -178,6 +178,9 @@ export const legalApi = {
     create(body: LegalRecord) {
       return post<LegalRecord>(`${BASE}/contract-signatories`, body)
     },
+    revealPii(id: LegalId, reason: string) {
+      return post<LegalRecord>(`${BASE}/contract-signatories/${id}/pii/reveal`, { reason })
+    },
   },
 
   sign: {
@@ -297,14 +300,14 @@ export const legalApi = {
   },
 
   reports: {
-    contracts(dim?: string) {
-      return get<LegalRecord>(`${BASE}/admin/reports/contracts`, { dim })
+    contracts(dim?: string, from?: string, to?: string) {
+      return get<LegalRecord>(`${BASE}/admin/reports/contracts`, { dim, from, to })
     },
     dlp(dim?: string) {
       return get<LegalRecord>(`${BASE}/admin/reports/dlp`, { dim })
     },
-    signCompliance() {
-      return get<LegalRecord>(`${BASE}/admin/reports/sign-compliance`)
+    signCompliance(from?: string, to?: string) {
+      return get<LegalRecord>(`${BASE}/admin/reports/sign-compliance`, { from, to })
     },
   },
 

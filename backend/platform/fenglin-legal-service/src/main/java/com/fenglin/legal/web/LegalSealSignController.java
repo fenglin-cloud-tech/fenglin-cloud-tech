@@ -3,6 +3,7 @@ package com.fenglin.legal.web;
 import com.fenglin.common.core.ApiResponse;
 import com.fenglin.common.core.PageResult;
 import com.fenglin.legal.service.SealSignService;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -117,6 +118,28 @@ public class LegalSealSignController {
             @RequestHeader(value = "X-Permissions", required = false) String permissions,
             @RequestParam("contract_id") long contractId) {
         return ApiResponse.success(service.listSignatories(permissions, contractId));
+    }
+
+    /** LEG-02：签署人 PII 明文查看，必须填写 reason，服务端写高敏审计。 */
+    @PostMapping("/contract-signatories/{id}/pii/reveal")
+    public ApiResponse<Map<String, Object>> revealSignerPii(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable("id") long id, @RequestBody(required = false) Map<String, Object> body,
+            HttpServletRequest request) {
+        return ApiResponse.success(service.revealSignerPii(permissions, id, body, clientIp(request)));
+    }
+
+    private static String clientIp(HttpServletRequest request) {
+        String forwarded = request.getHeader("X-Forwarded-For");
+        if (forwarded != null && !forwarded.isBlank()) {
+            int comma = forwarded.indexOf(',');
+            return (comma > 0 ? forwarded.substring(0, comma) : forwarded).strip();
+        }
+        String realIp = request.getHeader("X-Real-IP");
+        if (realIp != null && !realIp.isBlank()) {
+            return realIp.strip();
+        }
+        return request.getRemoteAddr();
     }
 
     // ---------- 签署 ----------

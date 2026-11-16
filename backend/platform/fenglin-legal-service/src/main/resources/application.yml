@@ -25,6 +25,9 @@ mybatis-plus:
     map-underscore-to-camel-case: true
 
 fenglin:
+  audit:
+    # LEG-02：高敏操作（signer.pii.view 等）需落 hub_audit_log，不能只写应用日志
+    endpoint: ${FENGLIN_AUDIT_ENDPOINT:http://localhost:18087/internal/v1/audit/logs}
   legal:
     workflow-service-url: ${FENGLIN_WORKFLOW_SERVICE_URL:http://localhost:18084}
     workflow-bootstrap-enabled: true

@@ -30,8 +30,10 @@ public class LegalAdminController {
     @GetMapping("/reports/contracts")
     public ApiResponse<Map<String, Object>> contractReport(
             @RequestHeader(value = "X-Permissions", required = false) String permissions,
-            @RequestParam(value = "dim", required = false) String dim) {
-        return ApiResponse.success(service.contractReport(permissions, dim));
+            @RequestParam(value = "dim", required = false) String dim,
+            @RequestParam(value = "from", required = false) String from,
+            @RequestParam(value = "to", required = false) String to) {
+        return ApiResponse.success(service.contractReport(permissions, dim, from, to));
     }
 
     @GetMapping("/reports/dlp")
@@ -43,8 +45,10 @@ public class LegalAdminController {
 
     @GetMapping("/reports/sign-compliance")
     public ApiResponse<Map<String, Object>> signComplianceReport(
-            @RequestHeader(value = "X-Permissions", required = false) String permissions) {
-        return ApiResponse.success(service.signComplianceReport(permissions));
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(value = "from", required = false) String from,
+            @RequestParam(value = "to", required = false) String to) {
+        return ApiResponse.success(service.signComplianceReport(permissions, from, to));
     }
 
     @GetMapping("/config/reminder")

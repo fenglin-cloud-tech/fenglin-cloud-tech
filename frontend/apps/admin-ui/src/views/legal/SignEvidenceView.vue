@@ -32,9 +32,16 @@ const initiateVisible = ref(false)
 const initiateSaving = ref(false)
 const initiateForm = reactive({ contract_id: undefined as string | undefined, provider_code: 'ESIGN' })
 
+const piiVisible = ref(false)
+const piiSaving = ref(false)
+const piiReason = ref('')
+const piiTarget = ref<LegalRecord | null>(null)
+const piiResult = ref<LegalRecord | null>(null)
+
 const gapItems = [
   '签署发起 /contracts/{id}/sign/initiate 依赖工作流定义 legalContractSign；后端当前报 "Cannot resolve identifier \'signerId\'"，发起会失败，页面如实回显错误。',
   '签署记录查看需 legal:sign:view；存证查看需 legal:evidence:view，核验需 legal:evidence:verify。',
+  '签署人明文查看需 legal:signer:pii:view（高敏，初始仅授 TENANT_ADMIN），必须填写查看理由，后端写 signer.pii.view 高敏审计，不做二次审批。',
   '存证内容哈希与链式校验由后端计算，前端只展示结果，不构造哈希。',
 ]
 
@@ -136,6 +143,31 @@ async function initiateSign() {
   }
 }
 
+function openPii(row: LegalRecord) {
+  piiTarget.value = row
+  piiReason.value = ''
+  piiResult.value = null
+  piiVisible.value = true
+}
+
+async function submitPii() {
+  if (!piiTarget.value) return
+  const reason = piiReason.value.trim()
+  if (!reason) {
+    ElMessage.warning('请填写查看理由')
+    return
+  }
+  piiSaving.value = true
+  try {
+    piiResult.value = await legalApi.signatories.revealPii(piiTarget.value.id, reason)
+    ElMessage.success('已解密，本次查看已写入高敏审计')
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  } finally {
+    piiSaving.value = false
+  }
+}
+
 function switchTab(value: string) {
   tab.value = value
   if (value === 'evidences' && evidences.value.length === 0) loadEvidences()
@@ -217,6 +249,11 @@ onMounted(loadRecords)
             <el-table-column prop="sign_mode" label="签署顺序" width="100" />
             <el-table-column prop="sign_order" label="序号" width="80" />
             <el-table-column prop="status" label="状态" width="100" />
+            <el-table-column label="操作" width="110">
+              <template #default="{ row }">
+                <el-button v-perm="'legal:signer:pii:view'" link type="primary" @click="openPii(row)">查看明文</el-button>
+              </template>
+            </el-table-column>
           </el-table>
         </el-card>
       </el-tab-pane>
@@ -266,6 +303,32 @@ onMounted(loadRecords)
         </el-card>
       </el-tab-pane>
     </el-tabs>
+
+    <el-dialog v-model="piiVisible" title="查看签署人明文" width="520px">
+      <el-alert
+        type="warning"
+        :closable="false"
+        show-icon
+        title="高敏操作：需 legal:signer:pii:view，必须填写理由，后端记录 signer.pii.view 审计（操作人/签署人/理由/时间/来源 IP/租户）。"
+        style="margin-bottom: 12px"
+      />
+      <el-form label-width="90px">
+        <el-form-item label="签署人">
+          <span>{{ piiTarget?.signer_name ?? '-' }}（ID {{ piiTarget?.id ?? '-' }}）</span>
+        </el-form-item>
+        <el-form-item label="查看理由" required>
+          <el-input v-model="piiReason" type="textarea" :rows="3" maxlength="500" show-word-limit placeholder="请说明查看用途，最多 500 字" />
+        </el-form-item>
+      </el-form>
+      <el-descriptions v-if="piiResult" :column="1" border size="small">
+        <el-descriptions-item label="证件号">{{ piiResult.signer_id_no ?? '未登记' }}</el-descriptions-item>
+        <el-descriptions-item label="手机号">{{ piiResult.signer_mobile ?? '未登记' }}</el-descriptions-item>
+      </el-descriptions>
+      <template #footer>
+        <el-button @click="piiVisible = false">关闭</el-button>
+        <el-button type="primary" :loading="piiSaving" @click="submitPii">解密查看</el-button>
+      </template>
+    </el-dialog>
 
     <el-dialog v-model="initiateVisible" title="发起签署" width="480px">
       <el-form label-width="100px">

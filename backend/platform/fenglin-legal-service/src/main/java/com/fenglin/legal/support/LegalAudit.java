@@ -6,6 +6,7 @@ import com.fenglin.common.tenant.TenantContext;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -21,6 +22,11 @@ public class LegalAudit {
     }
 
     public void publish(String eventType, String action, String resourceType, Object resourceId, String riskLevel) {
+        publish(eventType, action, resourceType, resourceId, riskLevel, null);
+    }
+
+    public void publish(String eventType, String action, String resourceType, Object resourceId, String riskLevel,
+                        Map<String, Object> detail) {
         TenantContext.Snapshot snapshot = TenantContext.get();
         auditSink.publish(new AuditEvent(
                 UUID.randomUUID().toString(),
@@ -34,7 +40,8 @@ public class LegalAudit {
                 snapshot == null ? null : snapshot.requestId(),
                 resourceType,
                 resourceId == null ? null : String.valueOf(resourceId),
-                Instant.now()));
+                Instant.now(),
+                detail));
     }
 
     public void low(String action, String resourceType, Object resourceId) {
@@ -43,5 +50,9 @@ public class LegalAudit {
 
     public void high(String action, String resourceType, Object resourceId) {
         publish("legal." + action, action, resourceType, resourceId, "HIGH");
+    }
+
+    public void high(String action, String resourceType, Object resourceId, Map<String, Object> detail) {
+        publish("legal." + action, action, resourceType, resourceId, "HIGH", detail);
     }
 }

@@ -1,0 +1,1 @@
+{"code":"0","message":"OK","data":{"dim":"STATUS","items":[],"summary":{"total":0,"amount":0},"filter":{"from":"2026-11-11","to":"2026-11-30","basis":"legal_contract.created_at","snapshot":false},"notice":"按时间过滤，不是历史时点快照；仅统计所选区间内创建/签署的数据。"},"request_id":"6a85c391-8b35-4ac1-919b-293a3854c9eb","timestamp":"2026-11-16T01:39:20.554384300Z"}

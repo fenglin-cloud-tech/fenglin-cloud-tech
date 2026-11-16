@@ -7,6 +7,7 @@ import { contractStatus, dataLevel, fmtAmount, label } from './labels'
 
 const contractDim = ref('STATUS')
 const dlpDim = ref('CHANNEL')
+const dateRange = ref<[string, string] | null>(null)
 
 const contractReport = ref<LegalRecord | null>(null)
 const contractLoading = ref(false)
@@ -22,9 +23,15 @@ const signError = ref('')
 
 const gapItems = [
   '报表权限点来自 hub_permission 真实值：admin:legal:report:contract、admin:legal:report:dlp、admin:legal:report:sign。',
-  '报表为后端实时聚合（legal_contract / legal_dlp_event / legal_evidence），不落报表快照表，因此不支持历史区间回看。',
+  '合同报表按 legal_contract.created_at、签署合规按 legal_sign_record.signed_at 做时间区间过滤；这是按时间过滤，不是历史时点快照。',
   '图表为表格化呈现，未引入图表库；比例字段由后端返回小数（0.5 表示 50%）。',
 ]
+
+function rangeParams(): { from?: string; to?: string } {
+  const range = dateRange.value
+  if (!range || range.length !== 2) return {}
+  return { from: range[0], to: range[1] }
+}
 
 function pct(value: unknown): string {
   const num = Number(value)
@@ -48,7 +55,8 @@ async function loadContracts() {
   contractLoading.value = true
   contractError.value = ''
   try {
-    contractReport.value = await legalApi.reports.contracts(contractDim.value)
+    const { from, to } = rangeParams()
+    contractReport.value = await legalApi.reports.contracts(contractDim.value, from, to)
   } catch (err) {
     contractReport.value = null
     contractError.value = describeError(err)
@@ -74,7 +82,8 @@ async function loadSign() {
   signLoading.value = true
   signError.value = ''
   try {
-    signReport.value = await legalApi.reports.signCompliance()
+    const { from, to } = rangeParams()
+    signReport.value = await legalApi.reports.signCompliance(from, to)
   } catch (err) {
     signReport.value = null
     signError.value = describeError(err)
@@ -90,13 +99,19 @@ const stats = reactive([
   { key: 'block_rate', label: '阻断率', value: 0 },
 ])
 
-onMounted(async () => {
-  await Promise.all([loadContracts(), loadDlp(), loadSign()])
+function syncStats() {
   stats[0].value = contractReport.value?.summary?.total ?? 0
   stats[1].value = contractReport.value?.summary?.amount ?? 0
   stats[2].value = (dlpReport.value?.items ?? []).reduce((sum: number, item: LegalRecord) => sum + Number(item.events ?? 0), 0)
   stats[3].value = dlpReport.value?.metrics?.block_rate ?? 0
-})
+}
+
+async function reloadAll() {
+  await Promise.all([loadContracts(), loadDlp(), loadSign()])
+  syncStats()
+}
+
+onMounted(reloadAll)
 </script>
 
 <template>
@@ -107,11 +122,31 @@ onMounted(async () => {
       description="合同、DLP 与签署合规实时聚合；数据来自 /api/legal/v1/admin/reports/*。"
     >
       <template #actions>
-        <el-button :loading="contractLoading || dlpLoading || signLoading" @click="loadContracts(); loadDlp(); loadSign()">刷新</el-button>
+        <el-date-picker
+          v-model="dateRange"
+          type="daterange"
+          value-format="YYYY-MM-DD"
+          unlink-panels
+          range-separator="至"
+          start-placeholder="创建/签署起"
+          end-placeholder="创建/签署止"
+          size="small"
+          style="width: 260px; margin-right: 8px"
+          @change="reloadAll"
+        />
+        <el-button :loading="contractLoading || dlpLoading || signLoading" @click="reloadAll">刷新</el-button>
       </template>
     </PageHeader>
 
     <GapNotice :items="gapItems" />
+
+    <el-alert
+      type="info"
+      :closable="false"
+      show-icon
+      title="按时间区间过滤：合同报表按合同创建时间、签署合规按签署时间统计；这不是历史时点快照。"
+      style="margin-bottom: 12px"
+    />
 
     <el-row :gutter="12" style="margin-bottom: 12px">
       <el-col :span="6" v-for="item in stats" :key="item.key">

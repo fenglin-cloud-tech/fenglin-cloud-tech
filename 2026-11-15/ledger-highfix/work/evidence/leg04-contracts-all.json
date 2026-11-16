@@ -1,0 +1,1 @@
+{"code":"0","message":"OK","data":{"dim":"STATUS","items":[{"total":2,"status":"SEALING"}],"summary":{"total":2,"amount":3000.00},"filter":{"basis":"legal_contract.created_at","snapshot":false},"notice":"按时间过滤，不是历史时点快照；仅统计所选区间内创建/签署的数据。"},"request_id":"d5bc81a2-5f0d-4ce5-973e-eab588be18b2","timestamp":"2026-11-16T01:39:20.372650500Z"}

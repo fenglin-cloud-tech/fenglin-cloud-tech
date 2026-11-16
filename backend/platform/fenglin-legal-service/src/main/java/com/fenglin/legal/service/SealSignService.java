@@ -302,6 +302,46 @@ public class SealSignService {
         return mapper.listSignatories(LegalContext.tenantId(), contractId);
     }
 
+    /**
+     * LEG-02：签署人证件号/手机号明文查看。
+     * 必须填写理由，解密后写 HIGH 级审计 signer.pii.view（含操作人、签署人、理由、来源 IP）。
+     */
+    public Map<String, Object> revealSignerPii(String permissions, long signatoryId, Map<String, Object> body,
+                                               String sourceIp) {
+        PermissionGuard.require(permissions, "legal:signer:pii:view");
+        long tenantId = LegalContext.tenantId();
+        long userId = LegalContext.userId();
+        String reason = LegalContext.string(body == null ? null : body.get("reason"));
+        if (reason == null || reason.isBlank()) {
+            throw new BizException(LegalErrorCode.PARAM_INVALID, "查看签署人明文必须填写 reason");
+        }
+        if (reason.length() > 500) {
+            throw new BizException(LegalErrorCode.PARAM_INVALID, "查看理由不能超过 500 字");
+        }
+        Map<String, Object> signatory = mapper.findSignatory(tenantId, signatoryId);
+        if (signatory == null) {
+            throw new BizException(LegalErrorCode.RESOURCE_NOT_FOUND);
+        }
+        String idNo = crypto.decrypt(tenantId, "legal_signatory", "signer_id_no",
+                LegalContext.string(signatory.get("signer_id_no_enc")));
+        String mobile = crypto.decrypt(tenantId, "legal_signatory", "signer_mobile",
+                LegalContext.string(signatory.get("signer_mobile_enc")));
+        Map<String, Object> detail = new LinkedHashMap<>();
+        detail.put("signer_id", signatoryId);
+        detail.put("operator_id", userId);
+        detail.put("tenant_id", tenantId);
+        detail.put("reason", reason);
+        detail.put("source_ip", sourceIp);
+        audit.high("signer.pii.view", "SIGNATORY", signatoryId, detail);
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("id", signatoryId);
+        result.put("contract_id", signatory.get("contract_id"));
+        result.put("signer_name", signatory.get("signer_name"));
+        result.put("signer_id_no", idNo);
+        result.put("signer_mobile", mobile);
+        return result;
+    }
+
     // ---------- 签署 ----------
     public Map<String, Object> initiateSign(String permissions, long contractId, Map<String, Object> body,
                                             String idemHeader, String requestId) {

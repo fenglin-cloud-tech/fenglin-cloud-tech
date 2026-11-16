@@ -34,6 +34,8 @@ public class LegalAdminService {
 
     private static final Set<String> REMINDER_CHANNELS = Set.of("INBOX", "EMAIL", "IM");
     private static final List<String> DEFAULT_CHANNELS = List.of("INBOX", "EMAIL");
+    /** LEG-04 口径：报表按时间过滤，不是历史时点快照。 */
+    private static final String RANGE_NOTICE = "按时间过滤，不是历史时点快照；仅统计所选区间内创建/签署的数据。";
 
     private final ReportMapper reportMapper;
     private final LegalConfigMapper configMapper;
@@ -46,24 +48,29 @@ public class LegalAdminService {
         this.objectMapper = objectMapper;
     }
 
-    public Map<String, Object> contractReport(String permissions, String dim) {
+    public Map<String, Object> contractReport(String permissions, String dim, String from, String to) {
         PermissionGuard.require(permissions, "admin:legal:report:contract");
         long tenantId = LegalContext.tenantId();
+        String fromDate = reportDate(from, "from");
+        String toDate = reportDate(to, "to");
+        requireOrderedRange(fromDate, toDate);
         String dimension = dim == null || dim.isBlank() ? "STATUS" : dim.toUpperCase();
         List<Map<String, Object>> items = switch (dimension) {
-            case "CATEGORY" -> reportMapper.contractByCategory(tenantId);
-            case "ORG" -> reportMapper.contractByOrg(tenantId);
-            case "MONTH" -> reportMapper.contractByMonth(tenantId);
-            case "STATUS" -> reportMapper.contractByStatus(tenantId);
+            case "CATEGORY" -> reportMapper.contractByCategory(tenantId, fromDate, toDate);
+            case "ORG" -> reportMapper.contractByOrg(tenantId, fromDate, toDate);
+            case "MONTH" -> reportMapper.contractByMonth(tenantId, fromDate, toDate);
+            case "STATUS" -> reportMapper.contractByStatus(tenantId, fromDate, toDate);
             default -> throw new BizException(LegalErrorCode.PARAM_INVALID);
         };
         Map<String, Object> summary = new LinkedHashMap<>();
-        summary.put("total", reportMapper.totalContracts(tenantId));
-        summary.put("amount", reportMapper.totalAmount(tenantId));
+        summary.put("total", reportMapper.totalContracts(tenantId, fromDate, toDate));
+        summary.put("amount", reportMapper.totalAmount(tenantId, fromDate, toDate));
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("dim", dimension);
         result.put("items", items);
         result.put("summary", summary);
+        result.put("filter", rangeFilter(fromDate, toDate, "legal_contract.created_at"));
+        result.put("notice", RANGE_NOTICE);
         return result;
     }
 
@@ -94,22 +101,66 @@ public class LegalAdminService {
         return result;
     }
 
-    public Map<String, Object> signComplianceReport(String permissions) {
+    public Map<String, Object> signComplianceReport(String permissions, String from, String to) {
         PermissionGuard.require(permissions, "admin:legal:report:sign");
         long tenantId = LegalContext.tenantId();
-        long signedContracts = reportMapper.signedContracts(tenantId);
-        long signedRecords = reportMapper.signedRecords(tenantId);
-        long withEvidence = reportMapper.contractsWithEvidence(tenantId);
+        String fromDate = reportDate(from, "from");
+        String toDate = reportDate(to, "to");
+        requireOrderedRange(fromDate, toDate);
+        long signedContracts = reportMapper.signedContracts(tenantId, fromDate, toDate);
+        long signedRecords = reportMapper.signedRecords(tenantId, fromDate, toDate);
+        long withEvidence = reportMapper.contractsWithEvidence(tenantId, fromDate, toDate);
         Map<String, Object> result = new LinkedHashMap<>();
-        result.put("period", YearMonth.now().toString());
+        result.put("period", rangeLabel(fromDate, toDate));
         result.put("signed_contracts", signedContracts);
-        result.put("real_name_coverage", rate(reportMapper.realNameVerifiedRecords(tenantId), signedRecords));
-        result.put("will_confirm_coverage", rate(reportMapper.willConfirmedRecords(tenantId), signedRecords));
-        result.put("tsa_coverage", rate(reportMapper.tsaCoveredRecords(tenantId), signedRecords));
+        result.put("real_name_coverage", rate(reportMapper.realNameVerifiedRecords(tenantId, fromDate, toDate),
+                signedRecords));
+        result.put("will_confirm_coverage", rate(reportMapper.willConfirmedRecords(tenantId, fromDate, toDate),
+                signedRecords));
+        result.put("tsa_coverage", rate(reportMapper.tsaCoveredRecords(tenantId, fromDate, toDate), signedRecords));
         result.put("evidence_complete_rate", rate(withEvidence, signedContracts));
-        result.put("verified_evidence", reportMapper.verifiedEvidenceCount(tenantId));
-        result.put("contracts_without_evidence", reportMapper.contractsWithoutEvidence(tenantId));
+        result.put("verified_evidence", reportMapper.verifiedEvidenceCount(tenantId, fromDate, toDate));
+        result.put("contracts_without_evidence", reportMapper.contractsWithoutEvidence(tenantId, fromDate, toDate));
+        result.put("filter", rangeFilter(fromDate, toDate,
+                "legal_sign_record.signed_at（签署时间）；存证类指标按 legal_contract.created_at"));
+        result.put("notice", RANGE_NOTICE);
         return result;
+    }
+
+    /** 报表时间参数：仅接受 yyyy-MM-dd，可空。 */
+    private static String reportDate(String value, String field) {
+        String text = LegalContext.text(value);
+        if (text == null) {
+            return null;
+        }
+        try {
+            java.time.LocalDate.parse(text);
+        } catch (java.time.format.DateTimeParseException ex) {
+            throw new BizException(LegalErrorCode.PARAM_INVALID, field + " 需为 yyyy-MM-dd");
+        }
+        return text;
+    }
+
+    private static void requireOrderedRange(String from, String to) {
+        if (from != null && to != null && from.compareTo(to) > 0) {
+            throw new BizException(LegalErrorCode.PARAM_INVALID, "from 不能晚于 to");
+        }
+    }
+
+    private static Map<String, Object> rangeFilter(String from, String to, String basis) {
+        Map<String, Object> filter = new LinkedHashMap<>();
+        filter.put("from", from);
+        filter.put("to", to);
+        filter.put("basis", basis);
+        filter.put("snapshot", false);
+        return filter;
+    }
+
+    private static String rangeLabel(String from, String to) {
+        if (from == null && to == null) {
+            return YearMonth.now().toString();
+        }
+        return (from == null ? "…" : from) + " ~ " + (to == null ? "…" : to);
     }
 
     // ---------- 配置（持久化） ----------
