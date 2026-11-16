@@ -90,8 +90,7 @@ const currentTitle = computed(() => String(route.meta.title ?? '中台管理台'
 /** 平台专属页面（如租户管理）缺权限时直接隐藏，避免点进去全量 403 */
 const visibleMenu = computed(() => adminMenu.filter((item) => {
   if (!item.hiddenWhenDenied) return true
-  const codes = item.visibleAnyOf ?? (item.requiredPermission ? [item.requiredPermission] : [])
-  return codes.some((code) => auth.can(code))
+  return !item.requiredPermission || auth.can(item.requiredPermission)
 }))
 const restrictedCount = computed(
   () => visibleMenu.value.filter((item) => item.requiredPermission && !auth.can(item.requiredPermission)).length,
