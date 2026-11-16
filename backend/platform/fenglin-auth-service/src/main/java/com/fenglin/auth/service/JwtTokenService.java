@@ -48,9 +48,42 @@ public class JwtTokenService {
         return new IssuedToken(keyProvider.sign(builder.build()), jti, expiresAt);
     }
 
+    /**
+     * OPEN-06：平台跨租户只读切换令牌。
+     * <p>tenant_id 指向目标租户；platform_ops/act_home_tenant_id/switch_id 供网关识别并写审计；
+     * 不签发 refresh token，且网关只放行安全方法 + 平台治理域路径。</p>
+     */
+    public IssuedToken platformSwitchToken(TenantEntity targetTenant, UserEntity operator,
+                                           long homeTenantId, String switchId, Instant now) {
+        Instant expiresAt = now.plus(properties.getPlatformSwitch().getTtl());
+        String jti = UUID.randomUUID().toString().replace("-", "");
+        JWTClaimsSet claims = new JWTClaimsSet.Builder()
+                .issuer(properties.getIssuer())
+                .subject(String.valueOf(operator.getId()))
+                .audience(List.of("ADMIN"))
+                .issueTime(Date.from(now))
+                .expirationTime(Date.from(expiresAt))
+                .jwtID(jti)
+                .claim("token_use", USE_ACCESS)
+                .claim("scope", "openid profile")
+                .claim("tenant_id", targetTenant.getId())
+                .claim("tenant_code", targetTenant.getCode())
+                .claim("client_type", "ADMIN")
+                .claim("employee_no", operator.getEmployeeNo())
+                .claim("roles", List.of("PLATFORM_OPS"))
+                .claim("pv", operator.getPermissionVersion() == null ? 0L : operator.getPermissionVersion())
+                .claim("tv", operator.getTokenVersion() == null ? 0L : operator.getTokenVersion())
+                .claim("platform_ops", true)
+                .claim("act_home_tenant_id", homeTenantId)
+                .claim("switch_id", switchId)
+                .claim("username", operator.getUsername())
+                .claim("name", displayName(operator))
+                .build();
+        return new IssuedToken(keyProvider.sign(claims), jti, expiresAt);
+    }
+
     public IssuedToken refreshToken(TenantEntity tenant, UserEntity user, String clientType,
-                                    String sessionId, Instant now) {
-        Instant expiresAt = now.plus(properties.getRefreshTokenTtl());
+                                    String sessionId, Instant now) {        Instant expiresAt = now.plus(properties.getRefreshTokenTtl());
         String jti = UUID.randomUUID().toString().replace("-", "");
         JWTClaimsSet claims = baseClaims(tenant, user, clientType, sessionId, now, expiresAt)
                 .jwtID(jti)

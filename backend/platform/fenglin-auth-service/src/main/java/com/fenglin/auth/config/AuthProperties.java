@@ -30,6 +30,12 @@ public class AuthProperties {
     private final Key key = new Key();
     /** PLAT-22 忘记密码/一次性重置令牌与邮件通道配置 */
     private final PasswordReset passwordReset = new PasswordReset();
+    /** OPEN-06 平台跨租户只读切换令牌有效期（不换绑 refresh） */
+    private final PlatformSwitch platformSwitch = new PlatformSwitch();
+
+    public PlatformSwitch getPlatformSwitch() {
+        return platformSwitch;
+    }
 
     public PasswordReset getPasswordReset() {
         return passwordReset;
@@ -220,6 +226,22 @@ public class AuthProperties {
 
         public void setMailSsl(boolean mailSsl) {
             this.mailSsl = mailSsl;
+        }
+    }
+
+    /**
+     * OPEN-06：平台切换令牌默认 30 分钟，且不签发 refresh token，
+     * 避免借刷新永久驻留他租户。
+     */
+    public static class PlatformSwitch {
+        private Duration ttl = Duration.ofMinutes(30);
+
+        public Duration getTtl() {
+            return ttl;
+        }
+
+        public void setTtl(Duration ttl) {
+            this.ttl = ttl;
         }
     }
 

@@ -109,7 +109,8 @@ class GatewayRevocationTest {
                 mock(com.fenglin.gateway.security.TokenVersionChecker.class);
         when(tokenVersions.current(org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyLong()))
                 .thenReturn(Mono.just(0L));
-        AuthGlobalFilter filter = new AuthGlobalFilter(verifier, checker, tokenVersions, resolver);
+        AuthGlobalFilter filter = new AuthGlobalFilter(verifier, checker, tokenVersions, resolver,
+                mock(PlatformAccessAuditor.class));
 
         MockServerWebExchange exchange = MockServerWebExchange.from(MockServerHttpRequest
                 .get("/api/hub/v1/admin/users")

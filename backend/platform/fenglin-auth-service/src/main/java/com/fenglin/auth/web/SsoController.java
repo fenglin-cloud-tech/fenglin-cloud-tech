@@ -3,6 +3,7 @@ package com.fenglin.auth.web;
 import com.fenglin.auth.config.AuthErrorCode;
 import com.fenglin.auth.service.AuthService;
 import com.fenglin.auth.service.PasswordResetService;
+import com.fenglin.auth.service.PlatformAccessService;
 import com.fenglin.auth.web.dto.ChangePasswordRequest;
 import com.fenglin.auth.web.dto.ChangePasswordResult;
 import com.fenglin.auth.web.dto.ForgotPasswordRequest;
@@ -12,6 +13,7 @@ import com.fenglin.auth.web.dto.LogoutRequest;
 import com.fenglin.auth.web.dto.RefreshRequest;
 import com.fenglin.auth.web.dto.ResetPasswordRequest;
 import com.fenglin.auth.web.dto.RevokeRequest;
+import com.fenglin.auth.web.dto.TenantSwitchRequest;
 import com.fenglin.auth.web.dto.TokenPayload;
 import com.fenglin.auth.web.dto.TokenRequest;
 import com.fenglin.auth.web.dto.UserInfoPayload;
@@ -36,10 +38,13 @@ public class SsoController {
 
     private final AuthService authService;
     private final PasswordResetService passwordResetService;
+    private final PlatformAccessService platformAccessService;
 
-    public SsoController(AuthService authService, PasswordResetService passwordResetService) {
+    public SsoController(AuthService authService, PasswordResetService passwordResetService,
+                         PlatformAccessService platformAccessService) {
         this.authService = authService;
         this.passwordResetService = passwordResetService;
+        this.platformAccessService = platformAccessService;
     }
 
     /** 首方口令登录（契约缺口，见 LoginRequest 注释） */
@@ -78,6 +83,18 @@ public class SsoController {
     @PostMapping("/logout")
     public ApiResponse<LogoutPayload> logout(@Valid @RequestBody LogoutRequest request) {
         return ApiResponse.success(authService.logout(request.idTokenHint(), request.allSessions()));
+    }
+
+    /** OPEN-06 一期：平台身份显式切换到目标租户，签发 30 分钟只读令牌（不换绑 refresh）。 */
+    @PostMapping("/tenant:switch")
+    public ApiResponse<TokenPayload> switchTenant(
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
+            @Valid @RequestBody TenantSwitchRequest request) {
+        if (request.targetTenantId() == null) {
+            throw new BizException(AuthErrorCode.INVALID_PARAMETER, "target_tenant_id 不能为空");
+        }
+        return ApiResponse.success(platformAccessService.switchTenant(
+                extractBearer(authorization), request.targetTenantId(), request.reason()));
     }
 
     /** HUB-API-108 用户信息 */

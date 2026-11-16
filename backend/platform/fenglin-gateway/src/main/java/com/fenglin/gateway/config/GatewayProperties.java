@@ -18,6 +18,7 @@ public class GatewayProperties {
     private final Gray gray = new Gray();
     private final Revocation revocation = new Revocation();
     private final PermissionCache permissionCache = new PermissionCache();
+    private final PlatformAccess platformAccess = new PlatformAccess();
 
     public String getIssuer() {
         return issuer;
@@ -49,6 +50,35 @@ public class GatewayProperties {
 
     public PermissionCache getPermissionCache() {
         return permissionCache;
+    }
+
+    public PlatformAccess getPlatformAccess() {
+        return platformAccess;
+    }
+
+    /**
+     * OPEN-06：跨租户访问审计直连审计服务，写目标租户。
+     * 超时内未写入成功即阻断跨租户请求（普通请求不受影响）。
+     */
+    public static class PlatformAccess {
+        private String auditInternalUri = "http://localhost:18087";
+        private Duration timeout = Duration.ofSeconds(2);
+
+        public String getAuditInternalUri() {
+            return auditInternalUri;
+        }
+
+        public void setAuditInternalUri(String auditInternalUri) {
+            this.auditInternalUri = auditInternalUri;
+        }
+
+        public Duration getTimeout() {
+            return timeout;
+        }
+
+        public void setTimeout(Duration timeout) {
+            this.timeout = timeout;
+        }
     }
 
     /**

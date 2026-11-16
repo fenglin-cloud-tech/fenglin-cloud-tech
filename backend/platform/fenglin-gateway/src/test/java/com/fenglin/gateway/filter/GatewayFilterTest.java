@@ -4,6 +4,7 @@ import com.fenglin.gateway.config.GatewayProperties;
 import com.fenglin.gateway.security.GatewayPrincipal;
 import com.fenglin.gateway.security.JwtVerifier;
 import com.fenglin.gateway.security.PermissionResolver;
+import com.fenglin.gateway.security.PlatformAccessAuditor;
 import com.fenglin.gateway.security.RevocationChecker;
 import com.fenglin.gateway.security.TokenVersionChecker;
 import com.nimbusds.jwt.JWTClaimsSet;
@@ -44,7 +45,8 @@ class GatewayFilterTest {
         when(permissionResolver.useClaim(any())).thenReturn(true);
         TokenVersionChecker tokenVersionChecker = mock(TokenVersionChecker.class);
         when(tokenVersionChecker.current(anyLong(), anyLong())).thenReturn(Mono.just(0L));
-        authFilter = new AuthGlobalFilter(verifier, revocationChecker, tokenVersionChecker, permissionResolver);
+        authFilter = new AuthGlobalFilter(verifier, revocationChecker, tokenVersionChecker, permissionResolver,
+                mock(PlatformAccessAuditor.class));
     }
 
     @Test

@@ -42,6 +42,7 @@ import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
 import { useTenantStore } from '@/stores/tenant'
 import { adminMenu } from '@/config/menu'
+import { describeError } from '@/utils/error'
 
 const iconMap = {
   Aim,
@@ -89,13 +90,44 @@ const currentTitle = computed(() => String(route.meta.title ?? '中台管理台'
 const restrictedCount = computed(
   () => adminMenu.filter((item) => item.requiredPermission && !auth.can(item.requiredPermission)).length,
 )
+const canSwitchTenant = computed(() => auth.can('platform:tenant:switch'))
+const isSwitched = computed(() => Boolean(auth.switchedTenantId))
+const switchedTenantName = computed(
+  () => tenantStore.tenants.find((item) => String(item.id) === auth.switchedTenantId)?.name
+    ?? tenantStore.current?.name
+    ?? auth.switchedTenantId
+    ?? '-',
+)
 
 async function handleTenantChange(value: string) {
-  tenantStore.selectTenant(value)
-  const target = tenantStore.tenants.find((item) => item.id === value)
-  ElMessage.warning(
-    `已切换管理视角：${target?.name ?? value}。后端未提供租户令牌换发接口，接口数据仍按登录令牌租户隔离。`,
-  )
+  if (!value || value === tenantStore.selectedTenantId) return
+  const previous = tenantStore.selectedTenantId
+  tenantChanging.value = true
+  try {
+    await auth.switchTenant(value, '平台运维跨租户只读查看')
+    tenantStore.selectTenant(value)
+    ElMessage.success(`已切入 ${switchedTenantName.value}（只读，仅平台治理域）`)
+  } catch (error) {
+    tenantStore.selectTenant(previous ?? '')
+    ElMessage.error(describeError(error))
+  } finally {
+    tenantChanging.value = false
+  }
+}
+
+async function handleSwitchBack() {
+  tenantChanging.value = true
+  try {
+    await auth.switchBack()
+    const homeTenantId = auth.user?.tenant_id
+    if (homeTenantId != null) tenantStore.selectTenant(homeTenantId)
+    await Promise.all([tenantStore.loadCurrent(), tenantStore.loadList()])
+    ElMessage.success('已退出跨租户只读视角')
+  } catch (error) {
+    ElMessage.error(describeError(error))
+  } finally {
+    tenantChanging.value = false
+  }
 }
 
 async function handleLogout() {
@@ -106,8 +138,14 @@ async function handleLogout() {
 
 async function refreshTenantContext() {
   tenantChanging.value = true
-  await Promise.all([tenantStore.loadCurrent(), tenantStore.loadList()])
-  tenantChanging.value = false
+  try {
+    await tenantStore.loadCurrent()
+    if (canSwitchTenant.value) {
+      await tenantStore.loadList()
+    }
+  } finally {
+    tenantChanging.value = false
+  }
 }
 
 onMounted(() => {
@@ -187,6 +225,7 @@ watch(
             菜单源：{{ auth.menuSource === 'api' ? '后端菜单 + 静态路由' : '静态路由（后端菜单不可用）' }}
           </el-tag>
           <el-select
+            v-if="canSwitchTenant && !isSwitched"
             :model-value="tenantStore.selectedTenantId ?? ''"
             :loading="tenantChanging"
             class="tenant-select"
@@ -205,6 +244,18 @@ watch(
               :value="String(tenantStore.current.id)"
             />
           </el-select>
+          <el-tag v-if="isSwitched" size="small" type="warning" effect="dark">
+            跨租户只读：{{ switchedTenantName }}
+          </el-tag>
+          <el-button
+            v-if="isSwitched"
+            text
+            type="primary"
+            :loading="tenantChanging"
+            @click="handleSwitchBack"
+          >
+            退出切换
+          </el-button>
           <el-tooltip content="查看当前令牌权限码" placement="bottom">
             <el-button text :icon="Key" @click="appStore.permissionDrawerVisible = true">
               权限 {{ auth.permissions.length }}
@@ -226,6 +277,15 @@ watch(
       </el-header>
 
       <el-main class="admin-main">
+        <el-alert
+          v-if="isSwitched"
+          type="warning"
+          :closable="false"
+          show-icon
+          style="margin-bottom: 12px"
+        >
+          当前为跨租户只读视角（{{ switchedTenantName }}）。仅允许查看平台治理域：租户、组织、用户、角色、审计、配置、订阅；八个业务域数据与所有写操作已在网关拒绝。
+        </el-alert>
         <div v-if="tenantStore.error" class="fl-muted" style="margin-bottom: 12px">
           租户上下文加载失败：{{ tenantStore.error }}
         </div>

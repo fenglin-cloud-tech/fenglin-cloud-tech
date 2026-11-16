@@ -60,6 +60,9 @@ fenglin:
       mail-password: ${FENGLIN_SMTP_PASSWORD:}
       mail-from: ${FENGLIN_SMTP_FROM:no-reply@fenglincloud.com}
       mail-ssl: ${FENGLIN_SMTP_SSL:true}
+    # OPEN-06：平台跨租户只读切换令牌有效期（不签发 refresh）
+    platform-switch:
+      ttl: ${FENGLIN_PLATFORM_SWITCH_TTL:PT30M}
   crypto:
     # 与 IAM 使用同一数据密钥，仅用于解密 hub_user.email_enc（生产由 KMS 注入）
     data-key-base64: ${FENGLIN_CRYPTO_DATA_KEY:MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=}

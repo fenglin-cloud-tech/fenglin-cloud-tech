@@ -116,6 +116,18 @@ export const authApi = {
   userinfo() {
     return get<UserInfo>('/api/hub/v1/sso/userinfo')
   },
+  /** OPEN-06：平台身份切换到目标租户，返回 30 分钟只读 access token（不返回 refresh） */
+  switchTenant(body: { target_tenant_id: string | number; reason?: string }) {
+    return post<TokenPayload>('/api/hub/v1/sso/tenant:switch', body)
+  },
+  /** 显式切回 home 租户：用 home refresh token 换回正常令牌 */
+  refresh(refreshToken: string) {
+    return request<TokenPayload>('/api/hub/v1/sso/token:refresh', {
+      method: 'POST',
+      body: JSON.stringify({ refresh_token: refreshToken }),
+      skipAuth: true,
+    })
+  },
   changePassword(body: { old_password: string; new_password: string }) {
     return post<{ changed: boolean; revoked_sessions: number }>('/api/hub/v1/sso/password/change', body)
   },

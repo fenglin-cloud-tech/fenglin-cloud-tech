@@ -122,7 +122,8 @@ class PermissionResolverTest {
         when(revocation.isRevoked(any(), anyLong())).thenReturn(Mono.just(false));
         TokenVersionChecker tokenVersions = mock(TokenVersionChecker.class);
         when(tokenVersions.current(anyLong(), anyLong())).thenReturn(Mono.just(0L));
-        AuthGlobalFilter filter = new AuthGlobalFilter(verifier, revocation, tokenVersions, resolver);
+        AuthGlobalFilter filter = new AuthGlobalFilter(verifier, revocation, tokenVersions, resolver,
+                mock(PlatformAccessAuditor.class));
 
         MockServerWebExchange exchange = MockServerWebExchange.from(MockServerHttpRequest
                 .get("/api/hub/v1/admin/users")
@@ -154,7 +155,8 @@ class PermissionResolverTest {
         when(revocation.isRevoked(any(), anyLong())).thenReturn(Mono.just(false));
         TokenVersionChecker tokenVersions = mock(TokenVersionChecker.class);
         when(tokenVersions.current(anyLong(), anyLong())).thenReturn(Mono.just(0L));
-        AuthGlobalFilter filter = new AuthGlobalFilter(verifier, revocation, tokenVersions, resolver);
+        AuthGlobalFilter filter = new AuthGlobalFilter(verifier, revocation, tokenVersions, resolver,
+                mock(PlatformAccessAuditor.class));
 
         MockServerWebExchange exchange = MockServerWebExchange.from(MockServerHttpRequest
                 .get("/api/hub/v1/admin/users")

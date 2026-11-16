@@ -28,6 +28,8 @@ import java.util.List;
 public class TenantController {
 
     private static final String WRITE_PERMISSION = "platform:tenant:manage";
+    /** OPEN-06：租户列表/详情属于平台治理域，仅平台运维白名单（含切换令牌）可见。 */
+    private static final String SWITCH_PERMISSION = "platform:tenant:switch";
 
     private final TenantService tenantService;
 
@@ -54,15 +56,21 @@ public class TenantController {
     }
 
     @GetMapping("/{id}")
-    public ApiResponse<TenantView> get(@PathVariable long id) {
+    public ApiResponse<TenantView> get(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable long id) {
+        PermissionGuard.require(permissions, SWITCH_PERMISSION);
         return ApiResponse.success(tenantService.get(id));
     }
 
     @GetMapping
-    public ApiResponse<PageResult<TenantView>> list(@RequestParam(required = false) String status,
-                                                    @RequestParam(required = false) String keyword,
-                                                    @RequestParam(defaultValue = "1") int page,
-                                                    @RequestParam(defaultValue = "20") int size) {
+    public ApiResponse<PageResult<TenantView>> list(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        PermissionGuard.require(permissions, SWITCH_PERMISSION);
         List<TenantView> records = tenantService.list(status, keyword, page, size);
         return ApiResponse.success(PageResult.of(records, tenantService.count(status, keyword),
                 Math.max(page, 1), Math.min(Math.max(size, 1), 200)));

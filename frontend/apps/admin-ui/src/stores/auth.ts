@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import type { MenuNode, TokenPayload, UserInfo } from '@fenglin/shared'
-import { clearTokens, getAccessToken, getCachedUserInfo, getIdToken, hasPermission, saveUserInfo, saveTokens } from '@fenglin/auth'
+import { clearTokens, getAccessToken, getCachedUserInfo, getIdToken, getRefreshToken, getSwitchedTenant, hasPermission, saveSwitchedTenant, saveTokens, saveUserInfo } from '@fenglin/auth'
 import { authApi, iamApi } from '@fenglin/api-client'
 
 export const useAuthStore = defineStore('auth', {
@@ -10,6 +10,7 @@ export const useAuthStore = defineStore('auth', {
     menuLoading: false,
     menuError: '',
     menuSource: 'none' as 'none' | 'api',
+    switchedTenantId: getSwitchedTenant(),
   }),
   getters: {
     isLoggedIn: () => Boolean(getAccessToken()),
@@ -20,6 +21,30 @@ export const useAuthStore = defineStore('auth', {
     async login(payload: { tenant_code: string; username: string; password: string; client_type: string }) {
       const token: TokenPayload = await authApi.login(payload)
       saveTokens(token)
+      this.switchedTenantId = null
+      saveSwitchedTenant(null)
+      await this.loadUserInfo()
+      await this.loadMenus()
+    },
+    /** OPEN-06：平台身份切到目标租户，拿到 30 分钟只读令牌（refresh 仍属 home 租户）。 */
+    async switchTenant(targetTenantId: string | number, reason?: string) {
+      const token = await authApi.switchTenant({ target_tenant_id: targetTenantId, reason })
+      saveTokens(token)
+      this.switchedTenantId = String(targetTenantId)
+      saveSwitchedTenant(targetTenantId)
+      await this.loadUserInfo()
+      await this.loadMenus()
+    },
+    /** 显式切回 home 租户：用 home refresh token 换回正常令牌。 */
+    async switchBack() {
+      const refreshToken = getRefreshToken()
+      if (!refreshToken) {
+        throw new Error('登录状态已失效，请重新登录')
+      }
+      const token = await authApi.refresh(refreshToken)
+      saveTokens(token)
+      this.switchedTenantId = null
+      saveSwitchedTenant(null)
       await this.loadUserInfo()
       await this.loadMenus()
     },
@@ -51,6 +76,7 @@ export const useAuthStore = defineStore('auth', {
       this.menus = []
       this.menuError = ''
       this.menuSource = 'none'
+      this.switchedTenantId = null
     },
     async logout() {
       await authApi.logout(getIdToken() ?? undefined)

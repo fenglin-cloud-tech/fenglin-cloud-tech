@@ -129,6 +129,10 @@ fenglin:
       login-qps: 50
       read-qps: 500
       write-qps: 100
+    # OPEN-06：跨租户访问审计（写目标租户；失败则跨租户请求 503）
+    platform-access:
+      audit-internal-uri: ${FENGLIN_AUDIT_INTERNAL_URI:http://localhost:18087}
+      timeout: ${FENGLIN_PLATFORM_AUDIT_TIMEOUT:2s}
     gray:
       enabled: true
       rules:

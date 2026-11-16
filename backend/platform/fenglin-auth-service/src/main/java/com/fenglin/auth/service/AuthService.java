@@ -66,12 +66,14 @@ public class AuthService {
     private final JwtTokenService jwtTokenService;
     private final AuthProperties properties;
     private final AuditSink auditSink;
+    private final PlatformAccessService platformAccessService;
 
     public AuthService(TenantMapper tenantMapper, UserMapper userMapper, AccountMapper accountMapper,
                        LoginSessionMapper loginSessionMapper, RefreshTokenMapper refreshTokenMapper,
                        RevocationMapper revocationMapper, PermissionQueryMapper permissionQueryMapper,
                        JwtKeyProvider keyProvider,
-                       JwtTokenService jwtTokenService, AuthProperties properties, AuditSink auditSink) {
+                       JwtTokenService jwtTokenService, AuthProperties properties, AuditSink auditSink,
+                       PlatformAccessService platformAccessService) {
         this.tenantMapper = tenantMapper;
         this.userMapper = userMapper;
         this.accountMapper = accountMapper;
@@ -83,6 +85,7 @@ public class AuthService {
         this.jwtTokenService = jwtTokenService;
         this.properties = properties;
         this.auditSink = auditSink;
+        this.platformAccessService = platformAccessService;
     }
 
     /**
@@ -380,10 +383,29 @@ public class AuthService {
         if (isRevokedJti(claims.getJWTID())) {
             throw new BizException(CommonErrorCode.UNAUTHORIZED, "令牌已撤销");
         }
+        // OPEN-06：平台切换令牌不读取目标租户的 hub_user（用户属于 home 租户），
+        // 身份取自签名 claims，权限按目标租户治理域现算。
+        if (Boolean.TRUE.equals(claims.getClaim("platform_ops"))) {
+            if (!platformAccessService.isActiveOperator(userId)) {
+                throw new BizException(CommonErrorCode.UNAUTHORIZED, "平台运维身份已失效");
+            }
+            return new UserInfoPayload(
+                    String.valueOf(userId),
+                    (String) claims.getClaim("username"),
+                    (String) claims.getClaim("name"),
+                    (String) claims.getClaim("employee_no"),
+                    tenantId,
+                    (String) claims.getClaim("tenant_code"),
+                    clientType,
+                    platformAccessService.roleCodes(),
+                    platformAccessService.governancePermissions(tenantId));
+        }
         UserEntity user = userMapper.selectById(userId);
         if (user == null || !STATUS_ACTIVE.equals(user.getStatus())) {
             throw new BizException(CommonErrorCode.UNAUTHORIZED, "用户不可用");
         }
+        List<String> permissions = new ArrayList<>(permissionQueryMapper.findPermissionCodes(userId));
+        appendSwitchPermission(userId, permissions);
         return new UserInfoPayload(
                 String.valueOf(user.getId()),
                 user.getUsername(),
@@ -393,7 +415,7 @@ public class AuthService {
                 (String) claims.getClaim("tenant_code"),
                 clientType,
                 permissionQueryMapper.findRoleCodes(userId),
-                permissionQueryMapper.findPermissionCodes(userId));
+                permissions);
     }
 
     @Transactional(readOnly = true)
@@ -439,17 +461,31 @@ public class AuthService {
     public PrincipalPermissionPayload permissionsOf(long userId) {
         Long tenantId = TenantContext.requireTenantId();
         UserEntity user = userMapper.selectById(userId);
-        if (user == null || (user.getDeleted() != null && user.getDeleted() == 1)
-                || !tenantId.equals(user.getTenantId())) {
-            return new PrincipalPermissionPayload(userId, 0L, List.of(), List.of());
+        if (user != null && (user.getDeleted() == null || user.getDeleted() == 0)
+                && tenantId.equals(user.getTenantId())) {
+            long pv = user.getPermissionVersion() == null ? 0L : user.getPermissionVersion();
+            if (!STATUS_ACTIVE.equals(user.getStatus())) {
+                return new PrincipalPermissionPayload(userId, pv, List.of(), List.of());
+            }
+            List<String> permissions = new ArrayList<>(permissionQueryMapper.findPermissionCodes(userId));
+            appendSwitchPermission(userId, permissions);
+            return new PrincipalPermissionPayload(userId, pv,
+                    permissionQueryMapper.findRoleCodes(userId), permissions);
         }
-        long pv = user.getPermissionVersion() == null ? 0L : user.getPermissionVersion();
-        if (!STATUS_ACTIVE.equals(user.getStatus())) {
-            return new PrincipalPermissionPayload(userId, pv, List.of(), List.of());
+        // OPEN-06：目标租户上下文下用户不属于该租户，仅平台白名单可拿到治理域只读权限
+        List<String> platformPermissions = platformAccessService.permissionsForTarget(userId, tenantId);
+        if (!platformPermissions.isEmpty()) {
+            return new PrincipalPermissionPayload(userId, 0L, platformAccessService.roleCodes(),
+                    platformPermissions);
         }
-        return new PrincipalPermissionPayload(userId, pv,
-                permissionQueryMapper.findRoleCodes(userId),
-                permissionQueryMapper.findPermissionCodes(userId));
+        return new PrincipalPermissionPayload(userId, 0L, List.of(), List.of());
+    }
+
+    private void appendSwitchPermission(long userId, List<String> permissions) {
+        if (platformAccessService.isActiveOperator(userId)
+                && !permissions.contains(PlatformAccessService.SWITCH_PERMISSION)) {
+            permissions.add(PlatformAccessService.SWITCH_PERMISSION);
+        }
     }
 
     private JWTClaimsSet verifyRefresh(String rawRefreshToken) {

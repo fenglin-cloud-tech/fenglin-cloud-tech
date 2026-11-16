@@ -5,6 +5,7 @@ const REFRESH_KEY = 'fl.refresh_token'
 const ID_KEY = 'fl.id_token'
 const USER_KEY = 'fl.user_info'
 const TENANT_KEY = 'fl.selected_tenant'
+const SWITCH_KEY = 'fl.switch_tenant'
 
 export function getAccessToken(): string | null {
   return localStorage.getItem(ACCESS_KEY)
@@ -30,6 +31,7 @@ export function clearTokens(): void {
   localStorage.removeItem(REFRESH_KEY)
   localStorage.removeItem(ID_KEY)
   localStorage.removeItem(USER_KEY)
+  localStorage.removeItem(SWITCH_KEY)
 }
 
 export function saveUserInfo(user: UserInfo): void {
@@ -56,6 +58,19 @@ export function saveSelectedTenant(value: string | number | null): void {
 
 export function getSelectedTenant(): string | null {
   return localStorage.getItem(TENANT_KEY)
+}
+
+/** OPEN-06：当前是否处于跨租户只读切换，记录目标租户 ID（用于刷新后恢复只读提示）。 */
+export function saveSwitchedTenant(value: string | number | null): void {
+  if (value === null || value === '') {
+    localStorage.removeItem(SWITCH_KEY)
+    return
+  }
+  localStorage.setItem(SWITCH_KEY, String(value))
+}
+
+export function getSwitchedTenant(): string | null {
+  return localStorage.getItem(SWITCH_KEY)
 }
 
 export function hasPermission(permissions: string[] | undefined, required?: string | string[]): boolean {
