@@ -31,6 +31,7 @@ const appError2 = ref('')
 const appQuery = reactive({ status: undefined as string | undefined, review_status: undefined as string | undefined, page: 1, size: 10 })
 
 async function loadApps() {
+  if (!auth.can(allowed.review)) return
   appLoading.value = true
   appError2.value = ''
   try {
@@ -76,6 +77,7 @@ const quotaReqComment = ref('')
 const quotaReqQuery = reactive({ status: undefined as string | undefined, page: 1, size: 10 })
 
 async function loadQuotaRequests() {
+  if (!auth.can(allowed.approve)) return
   quotaReqLoading.value = true
   quotaReqError.value = ''
   try {
@@ -197,6 +199,7 @@ async function saveQuota() {
 }
 
 async function loadLogs() {
+  if (!auth.can(allowed.callLog)) return
   logLoading.value = true
   logError.value = ''
   try {

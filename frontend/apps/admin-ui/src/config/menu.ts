@@ -5,6 +5,10 @@ export interface AdminMenuItem {
   module: string
   icon: string
   requiredPermission?: string
+  /** 缺权限时直接隐藏（页面主内容完全依赖该权限，点进去只会全量 403） */
+  hiddenWhenDenied?: boolean
+  /** 隐藏判定用的“任一满足”权限集合；缺省回落到 requiredPermission */
+  visibleAnyOf?: string[]
 }
 
 /**
@@ -21,6 +25,8 @@ export const adminMenu: AdminMenuItem[] = [
     module: '租户中台',
     icon: 'OfficeBuilding',
     requiredPermission: 'platform:tenant:manage',
+    hiddenWhenDenied: true,
+    visibleAnyOf: ['platform:tenant:switch', 'platform:tenant:manage'],
   },
   {
     path: '/iam',

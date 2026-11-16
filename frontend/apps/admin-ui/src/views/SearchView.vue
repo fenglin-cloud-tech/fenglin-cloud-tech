@@ -63,6 +63,8 @@ async function queryTask() {
 }
 
 async function loadAnalytics() {
+  // 检索分析为平台专属能力（platform:search:index:manage），缺权限不发起请求
+  if (!canManage.value) return
   analyticsLoading.value = true
   analyticsError.value = ''
   try {

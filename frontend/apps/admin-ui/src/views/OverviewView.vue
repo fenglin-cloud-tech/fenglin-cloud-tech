@@ -40,42 +40,82 @@ function markFailed(key: string, error: unknown) {
 
 async function refresh() {
   loading.value = true
-  const jobs: Array<Promise<void>> = [
-    tenantApi.list({ page: 1, size: 1 }).then((r) => {
-      find('tenants').value = String(r.total)
-    }),
-    iamApi.listUsers({ page: 1, size: 1 }).then((r) => {
-      find('users').value = String(r.total)
-    }),
-    auditApi.list({ page: 1, size: 1 }).then((r) => {
-      find('audits').value = String(r.total)
-    }),
-    messageApi.list({ page: 1, size: 1 }).then((r) => {
-      find('unread').value = String(r.unread_count ?? 0)
-    }),
-    workflowApi.stats().then((r) => {
-      find('workflow').value = String(r.running)
-      find('workflow').hint = `完成 ${r.completed} · 超时 ${r.timeout} · 平均 ${r.avg_duration_minutes.toFixed(1)} 分钟`
-    }),
-    lowcodeApi.list({ page: 1, size: 1 }).then((r) => {
-      find('lowcode').value = String(r.total)
-    }),
-    reportApi.listMetrics({ page: 1, size: 1 }).then((r) => {
-      find('metrics').value = String(r.total)
-    }),
-    aiApi.metering({}).then((r) => {
-      find('aiCalls').value = String(r.records?.length ?? 0)
-    }),
-    openApi.callLogs({ page: 1, size: 1 }).then((r) => {
-      find('aiCalls').hint = `开放平台调用日志 ${r.total} 条`
-    }),
+  const canPlatformTenants = auth.can('platform:tenant:switch')
+  const canCallLogs = auth.can('platform:openapi:calllog:view')
+  // 平台专属指标：无权限时直接跳过请求，避免制造 403
+  if (!canPlatformTenants) {
+    find('tenants').value = '—'
+    find('tenants').hint = '仅平台可见'
+  }
+  if (!canCallLogs) {
+    find('aiCalls').hint = '开放平台调用日志仅平台可见'
+  }
+  const jobs: Array<{ key: string; task: Promise<void> }> = [
+    ...(canPlatformTenants
+      ? [{
+          key: 'tenants',
+          task: tenantApi.list({ page: 1, size: 1 }).then((r) => {
+            find('tenants').value = String(r.total)
+          }),
+        }]
+      : []),
+    {
+      key: 'users',
+      task: iamApi.listUsers({ page: 1, size: 1 }).then((r) => {
+        find('users').value = String(r.total)
+      }),
+    },
+    {
+      key: 'audits',
+      task: auditApi.list({ page: 1, size: 1 }).then((r) => {
+        find('audits').value = String(r.total)
+      }),
+    },
+    {
+      key: 'unread',
+      task: messageApi.list({ page: 1, size: 1 }).then((r) => {
+        find('unread').value = String(r.unread_count ?? 0)
+      }),
+    },
+    {
+      key: 'workflow',
+      task: workflowApi.stats().then((r) => {
+        find('workflow').value = String(r.running)
+        find('workflow').hint = `完成 ${r.completed} · 超时 ${r.timeout} · 平均 ${r.avg_duration_minutes.toFixed(1)} 分钟`
+      }),
+    },
+    {
+      key: 'lowcode',
+      task: lowcodeApi.list({ page: 1, size: 1 }).then((r) => {
+        find('lowcode').value = String(r.total)
+      }),
+    },
+    {
+      key: 'metrics',
+      task: reportApi.listMetrics({ page: 1, size: 1 }).then((r) => {
+        find('metrics').value = String(r.total)
+      }),
+    },
+    {
+      key: 'aiCalls',
+      task: aiApi.metering({}).then((r) => {
+        find('aiCalls').value = String(r.records?.length ?? 0)
+      }),
+    },
+    ...(canCallLogs
+      ? [{
+          key: 'aiCallsLog',
+          task: openApi.callLogs({ page: 1, size: 1 }).then((r) => {
+            find('aiCalls').hint = `开放平台调用日志 ${r.total} 条`
+          }),
+        }]
+      : []),
   ]
-  const results = await Promise.allSettled(jobs)
+  const results = await Promise.allSettled(jobs.map((job) => job.task))
   results.forEach((result, index) => {
     if (result.status === 'rejected') {
-      const keys = ['tenants', 'users', 'audits', 'unread', 'workflow', 'lowcode', 'metrics', 'aiCalls']
-      const key = keys[index]
-      if (key) markFailed(key, result.reason)
+      const key = jobs[index].key
+      if (key !== 'aiCallsLog') markFailed(key, result.reason)
     }
   })
   loading.value = false

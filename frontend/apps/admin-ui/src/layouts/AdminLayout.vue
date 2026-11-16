@@ -87,8 +87,14 @@ const menuScrollRef = ref<InstanceType<typeof ElScrollbar> | null>(null)
 
 const activeMenu = computed(() => route.path)
 const currentTitle = computed(() => String(route.meta.title ?? '中台管理台'))
+/** 平台专属页面（如租户管理）缺权限时直接隐藏，避免点进去全量 403 */
+const visibleMenu = computed(() => adminMenu.filter((item) => {
+  if (!item.hiddenWhenDenied) return true
+  const codes = item.visibleAnyOf ?? (item.requiredPermission ? [item.requiredPermission] : [])
+  return codes.some((code) => auth.can(code))
+}))
 const restrictedCount = computed(
-  () => adminMenu.filter((item) => item.requiredPermission && !auth.can(item.requiredPermission)).length,
+  () => visibleMenu.value.filter((item) => item.requiredPermission && !auth.can(item.requiredPermission)).length,
 )
 const canSwitchTenant = computed(() => auth.can('platform:tenant:switch'))
 const isSwitched = computed(() => Boolean(auth.switchedTenantId))
@@ -190,7 +196,7 @@ watch(
           router
           class="admin-menu"
         >
-          <el-menu-item v-for="item in adminMenu" :key="item.path" :index="item.path">
+          <el-menu-item v-for="item in visibleMenu" :key="item.path" :index="item.path">
             <el-icon><component :is="iconMap[item.icon as keyof typeof iconMap]" /></el-icon>
             <template #title>
               <span class="menu-title">{{ item.title }}</span>
@@ -206,7 +212,7 @@ watch(
         </el-menu>
       </el-scrollbar>
       <div v-if="!appStore.sidebarCollapsed" class="aside-footer">
-        <span>{{ adminMenu.length }} 个管理页面</span>
+        <span>{{ visibleMenu.length }} 个管理页面</span>
         <el-tag v-if="restrictedCount > 0" size="small" type="warning">{{ restrictedCount }} 个受限</el-tag>
       </div>
     </el-aside>
