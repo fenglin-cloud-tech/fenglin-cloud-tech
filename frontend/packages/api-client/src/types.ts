@@ -283,6 +283,14 @@ export interface FilePolicyView {
   storage_quota_gb: number
 }
 
+export interface FileQuotaView {
+  storage_quota_gb: number
+  used_bytes: number
+  used_gb: string
+  usage_ratio: number | null
+  exceeded: boolean
+}
+
 export interface FilePolicyRequest {
   allowed_ext: string[]
   max_size_mb: number

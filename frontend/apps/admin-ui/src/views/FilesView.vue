@@ -2,7 +2,7 @@
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { IdInput, PageHeader, GapNotice } from '@fenglin/ui-admin'
-import { fileApi, type DownloadResult, type FilePolicyView, type PreviewResult, type UploadResult } from '@/api'
+import { fileApi, type DownloadResult, type FilePolicyView, type FileQuotaView, type PreviewResult, type UploadResult } from '@/api'
 import { describeError } from '@/utils/error'
 
 const activeTab = ref<'policy' | 'operations'>('policy')
@@ -17,6 +17,9 @@ const policy = reactive<FilePolicyView>({
   storage_quota_gb: 100,
 })
 const allowedExtText = ref('')
+
+const quota = ref<FileQuotaView | null>(null)
+const quotaError = ref('')
 
 const uploadFile = ref<File | null>(null)
 const uploading = ref(false)
@@ -44,6 +47,15 @@ async function loadPolicy() {
     policyError.value = describeError(err)
   } finally {
     policyLoading.value = false
+  }
+}
+
+async function loadQuota() {
+  quotaError.value = ''
+  try {
+    quota.value = await fileApi.getQuota()
+  } catch (err) {
+    quotaError.value = describeError(err)
   }
 }
 
@@ -135,14 +147,17 @@ async function loadVersions() {
   }
 }
 
-onMounted(loadPolicy)
+onMounted(() => {
+  loadPolicy()
+  loadQuota()
+})
 </script>
 
 <template>
   <div>
     <PageHeader module="文件中台 · A-19" title="文件中心" description="文件策略、上传、预览、下载与版本；MinIO 存储由后端适配。">
       <template #actions>
-        <el-button :loading="policyLoading" @click="loadPolicy">刷新策略</el-button>
+        <el-button :loading="policyLoading" @click="loadPolicy(); loadQuota()">刷新策略</el-button>
       </template>
     </PageHeader>
 
@@ -159,6 +174,13 @@ onMounted(loadPolicy)
       <el-tabs v-model="activeTab">
         <el-tab-pane label="文件策略" name="policy">
           <el-alert v-if="policyError" type="error" :closable="false" show-icon :title="policyError" style="margin-bottom: 12px" />
+          <el-alert v-if="quotaError" type="error" :closable="false" show-icon :title="quotaError" style="margin-bottom: 12px" />
+          <el-alert v-if="quota?.exceeded" type="warning" :closable="false" show-icon title="当前租户已超出存储配额，新上传将被拒绝" style="margin-bottom: 12px" />
+          <el-descriptions v-if="quota" :column="3" border size="small" style="max-width: 640px; margin-bottom: 16px">
+            <el-descriptions-item label="存储配额">{{ quota.storage_quota_gb > 0 ? `${quota.storage_quota_gb} GB` : '不限' }}</el-descriptions-item>
+            <el-descriptions-item label="已用空间">{{ quota.used_gb }} GB</el-descriptions-item>
+            <el-descriptions-item label="使用率">{{ quota.usage_ratio == null ? '-' : `${(quota.usage_ratio * 100).toFixed(2)}%` }}</el-descriptions-item>
+          </el-descriptions>
           <el-form v-loading="policyLoading" label-width="150px" style="max-width: 640px">
             <el-form-item label="允许扩展名">
               <el-input v-model="allowedExtText" placeholder="逗号分隔，例如 pdf,docx,xlsx" />

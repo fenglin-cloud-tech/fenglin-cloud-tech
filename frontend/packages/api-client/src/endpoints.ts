@@ -18,6 +18,7 @@ import type {
   DeployDefinitionRequest,
   FilePolicyRequest,
   FilePolicyView,
+  FileQuotaView,
   IndexTaskView,
   LoginRequest,
   LowcodeAppView,
@@ -298,6 +299,9 @@ export const fileApi = {
   },
   updatePolicy(body: FilePolicyRequest) {
     return put<FilePolicyView>('/api/hub/v1/admin/file/policies', body)
+  },
+  getQuota() {
+    return get<FileQuotaView>('/api/hub/v1/admin/file/quota')
   },
   upload(file: File, meta: { biz_type?: string; biz_id?: string; sec_level?: number; md5?: string }) {
     const form = new FormData()

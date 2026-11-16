@@ -13,10 +13,12 @@ import com.fenglin.file.config.FileProperties;
 import com.fenglin.file.mapper.FilePolicyMapper;
 import com.fenglin.file.web.dto.FilePolicyRequest;
 import com.fenglin.file.web.dto.FilePolicyView;
+import com.fenglin.file.web.dto.FileQuotaView;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -74,9 +76,22 @@ public class FilePolicyService {
                 policy.storageQuotaGb().intValue());
     }
 
+    @Transactional(readOnly = true)
+    public FileQuotaView quota(long tenantId, long usedBytes) {
+        FilePolicy policy = current(tenantId);
+        BigDecimal quotaGb = policy.storageQuotaGb();
+        long quotaBytes = quotaGb.multiply(BigDecimal.valueOf(1024L * 1024L * 1024L)).longValue();
+        BigDecimal usedGb = BigDecimal.valueOf(usedBytes)
+                .divide(BigDecimal.valueOf(1024L * 1024L * 1024L), 4, RoundingMode.HALF_UP);
+        Double ratio = quotaBytes <= 0 ? null
+                : BigDecimal.valueOf(usedBytes)
+                .divide(BigDecimal.valueOf(quotaBytes), 4, RoundingMode.HALF_UP).doubleValue();
+        return new FileQuotaView(quotaGb.intValue(), usedBytes, usedGb.toPlainString(), ratio,
+                quotaBytes > 0 && usedBytes > quotaBytes);
+    }
+
     @Transactional
-    public FilePolicyView save(long tenantId, FilePolicyRequest request) {
-        FilePolicy existing = current(tenantId);
+    public FilePolicyView save(long tenantId, FilePolicyRequest request) {        FilePolicy existing = current(tenantId);
         List<String> allowed = request.allowedExt() == null ? existing.allowedExt()
                 : normalizeExt(request.allowedExt());
         if (allowed.isEmpty()) {
