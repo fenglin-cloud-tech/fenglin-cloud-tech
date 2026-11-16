@@ -28,6 +28,12 @@ public class AuthProperties {
     private final Jwt jwt = new Jwt();
     /** PLAT-15 签名密钥来源与轮换配置 */
     private final Key key = new Key();
+    /** PLAT-22 忘记密码/一次性重置令牌与邮件通道配置 */
+    private final PasswordReset passwordReset = new PasswordReset();
+
+    public PasswordReset getPasswordReset() {
+        return passwordReset;
+    }
 
     public Jwt getJwt() {
         return jwt;
@@ -126,6 +132,94 @@ public class AuthProperties {
 
         public void setIncludePermissions(boolean includePermissions) {
             this.includePermissions = includePermissions;
+        }
+    }
+
+    /**
+     * PLAT-22：一次性重置令牌与 SMTP 通道。全部走配置/环境变量，不硬编码；
+     * mail-enabled 或 mail-host 为空时 forgot 接口降级为“请联系管理员生成链接”。
+     */
+    public static class PasswordReset {
+        private Duration tokenTtl = Duration.ofMinutes(30);
+        private String portalBaseUrl = "http://localhost:5174";
+        private boolean mailEnabled = false;
+        private String mailHost = "";
+        private int mailPort = 465;
+        private String mailUsername = "";
+        private String mailPassword = "";
+        private String mailFrom = "no-reply@fenglincloud.com";
+        private boolean mailSsl = true;
+
+        public Duration getTokenTtl() {
+            return tokenTtl;
+        }
+
+        public void setTokenTtl(Duration tokenTtl) {
+            this.tokenTtl = tokenTtl;
+        }
+
+        public String getPortalBaseUrl() {
+            return portalBaseUrl;
+        }
+
+        public void setPortalBaseUrl(String portalBaseUrl) {
+            this.portalBaseUrl = portalBaseUrl;
+        }
+
+        public boolean isMailEnabled() {
+            return mailEnabled;
+        }
+
+        public void setMailEnabled(boolean mailEnabled) {
+            this.mailEnabled = mailEnabled;
+        }
+
+        public String getMailHost() {
+            return mailHost;
+        }
+
+        public void setMailHost(String mailHost) {
+            this.mailHost = mailHost;
+        }
+
+        public int getMailPort() {
+            return mailPort;
+        }
+
+        public void setMailPort(int mailPort) {
+            this.mailPort = mailPort;
+        }
+
+        public String getMailUsername() {
+            return mailUsername;
+        }
+
+        public void setMailUsername(String mailUsername) {
+            this.mailUsername = mailUsername;
+        }
+
+        public String getMailPassword() {
+            return mailPassword;
+        }
+
+        public void setMailPassword(String mailPassword) {
+            this.mailPassword = mailPassword;
+        }
+
+        public String getMailFrom() {
+            return mailFrom;
+        }
+
+        public void setMailFrom(String mailFrom) {
+            this.mailFrom = mailFrom;
+        }
+
+        public boolean isMailSsl() {
+            return mailSsl;
+        }
+
+        public void setMailSsl(boolean mailSsl) {
+            this.mailSsl = mailSsl;
         }
     }
 

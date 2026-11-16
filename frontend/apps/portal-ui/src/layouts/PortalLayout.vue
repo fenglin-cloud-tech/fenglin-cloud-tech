@@ -153,9 +153,12 @@ async function submitPasswordChange() {
       old_password: form.oldPassword,
       new_password: form.newPassword,
     })
-    ElMessage.success('口令已修改，其他设备上的登录会话已失效')
+    ElMessage.success('口令已修改，请使用新口令重新登录')
     passwordVisible.value = false
     passwordForm.value = { oldPassword: '', newPassword: '', confirmPassword: '' }
+    // PLAT-22：改密后当前 access token 立即失效，主动退出并回到登录页
+    await auth.logout()
+    await router.replace('/login')
   } catch (err) {
     const error = err as { status?: number; message?: string }
     if (error.status === 401) {

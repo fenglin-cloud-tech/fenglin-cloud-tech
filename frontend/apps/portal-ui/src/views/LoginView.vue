@@ -2,6 +2,7 @@
 import { reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { authApi } from '@fenglin/api-client'
 import { useAuthStore } from '@/stores/auth'
 import { describeError } from '@/utils/error'
 
@@ -12,6 +13,37 @@ const auth = useAuthStore()
 const form = reactive({ tenant_code: 'fenglin', username: '', password: '' })
 const loading = ref(false)
 const error = ref('')
+
+// PLAT-22 忘记密码：SMTP 未配置时后端返回 UNAVAILABLE，提示联系管理员生成一次性链接
+const forgotVisible = ref(false)
+const forgotLoading = ref(false)
+const forgotForm = reactive({ tenant_code: 'fenglin', username: '' })
+const forgotResult = ref<{ channel: string; message: string } | null>(null)
+
+function openForgot() {
+  forgotForm.tenant_code = form.tenant_code || 'fenglin'
+  forgotForm.username = form.username
+  forgotResult.value = null
+  forgotVisible.value = true
+}
+
+async function submitForgot() {
+  if (!forgotForm.tenant_code || !forgotForm.username) {
+    ElMessage.warning('请填写租户编码与账号')
+    return
+  }
+  forgotLoading.value = true
+  try {
+    forgotResult.value = await authApi.forgotPassword({
+      tenant_code: forgotForm.tenant_code.trim(),
+      username: forgotForm.username.trim(),
+    })
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  } finally {
+    forgotLoading.value = false
+  }
+}
 
 async function submit() {
   if (!form.tenant_code || !form.username || !form.password) {
@@ -55,9 +87,43 @@ async function submit() {
           <el-input v-model="form.password" type="password" show-password autocomplete="current-password" @keyup.enter="submit" />
         </el-form-item>
         <el-button type="primary" :loading="loading" style="width: 100%" @click="submit">登录</el-button>
+        <div style="margin-top: 10px; text-align: right">
+          <el-link type="primary" :underline="false" @click="openForgot">忘记密码？</el-link>
+        </div>
       </el-form>
       <p class="login-tip">使用企业分配的租户账号登录；权限由后端返回，无权限的操作会提示真实错误。</p>
     </div>
+
+    <el-dialog v-model="forgotVisible" title="找回登录口令" width="420px">
+      <el-alert
+        v-if="forgotResult"
+        :type="forgotResult.channel === 'UNAVAILABLE' ? 'warning' : 'success'"
+        :closable="false"
+        show-icon
+        :title="forgotResult.message"
+        style="margin-bottom: 12px"
+      />
+      <el-alert
+        v-else
+        type="info"
+        :closable="false"
+        show-icon
+        title="提交后如账号存在且绑定邮箱，重置链接会发送至邮箱；未配置邮件通道时请联系管理员生成一次性链接。"
+        style="margin-bottom: 12px"
+      />
+      <el-form label-position="top" @submit.prevent="submitForgot">
+        <el-form-item label="租户编码">
+          <el-input v-model="forgotForm.tenant_code" placeholder="如 fenglin" />
+        </el-form-item>
+        <el-form-item label="账号">
+          <el-input v-model="forgotForm.username" placeholder="用户名" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="forgotVisible = false">关闭</el-button>
+        <el-button type="primary" :loading="forgotLoading" @click="submitForgot">提交</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 

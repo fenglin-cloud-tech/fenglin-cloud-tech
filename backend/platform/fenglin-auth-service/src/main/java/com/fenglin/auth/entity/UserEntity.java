@@ -27,6 +27,8 @@ public class UserEntity {
     private Integer deleted;
     private Integer version;
     private Long permissionVersion;
+    /** PLAT-22：用户令牌版本，改密/重置递增，旧 access token 立即失效 */
+    private Long tokenVersion;
 
     public Long getId() {
         return id;
@@ -162,5 +164,13 @@ public class UserEntity {
 
     public void setPermissionVersion(Long permissionVersion) {
         this.permissionVersion = permissionVersion;
+    }
+
+    public Long getTokenVersion() {
+        return tokenVersion;
+    }
+
+    public void setTokenVersion(Long tokenVersion) {
+        this.tokenVersion = tokenVersion;
     }
 }

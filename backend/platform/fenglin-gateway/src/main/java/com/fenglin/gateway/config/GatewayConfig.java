@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fenglin.gateway.security.JwtVerifier;
 import com.fenglin.gateway.security.PermissionResolver;
 import com.fenglin.gateway.security.RevocationChecker;
+import com.fenglin.gateway.security.TokenVersionChecker;
 import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.jwk.source.RemoteJWKSet;
 import com.nimbusds.jose.proc.SecurityContext;
@@ -38,6 +39,14 @@ public class GatewayConfig {
                 .baseUrl(properties.getRevocation().getAuthInternalUri())
                 .build();
         return new RevocationChecker(properties, webClient);
+    }
+
+    @Bean
+    public TokenVersionChecker tokenVersionChecker(GatewayProperties properties, WebClient.Builder webClientBuilder) {
+        WebClient webClient = webClientBuilder
+                .baseUrl(properties.getRevocation().getAuthInternalUri())
+                .build();
+        return new TokenVersionChecker(webClient, properties.getRevocation().getTimeout());
     }
 
     @Bean

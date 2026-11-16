@@ -483,8 +483,20 @@ public class IamService {
         if (accountMapper.resetPassword(tenantId, userId, passwordHash) == 0) {
             throw new BizException(IamErrorCode.IAM_USER_NOT_FOUND);
         }
+        // PLAT-22：管理员重置同样令该用户旧 access token 立即失效
+        authSessionClient.bumpTokenVersion(tenantId, userId);
         audit("IAM_USER_PASSWORD_RESET", "USER", String.valueOf(userId));
         return new ResetPasswordResult(userId, generated);
+    }
+
+    /** PLAT-22：管理员生成一次性口令重置链接（无 SMTP 时的兜底），由管理员线下转交。 */
+    @Transactional
+    public AuthSessionClient.PasswordResetLink createPasswordResetLink(long userId, long operatorId) {
+        long tenantId = TenantContext.requireTenantId();
+        requireUser(tenantId, userId);
+        AuthSessionClient.PasswordResetLink link = authSessionClient.createPasswordResetLink(tenantId, userId, operatorId);
+        audit("IAM_PASSWORD_RESET_LINK_GENERATED", "USER", String.valueOf(userId));
+        return link;
     }
 
     @Transactional(readOnly = true)

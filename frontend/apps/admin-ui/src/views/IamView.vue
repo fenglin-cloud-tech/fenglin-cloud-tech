@@ -414,6 +414,40 @@ function openAssign(row: UserView) {
   assignVisible.value = true
 }
 
+// PLAT-22：管理员生成一次性重置链接（SMTP 未配置时的兜底）
+const resetLinkVisible = ref(false)
+const resetLinkLoading = ref(false)
+const resetLink = ref<{ token: string; reset_url: string; expires_at: string } | null>(null)
+const resetLinkUser = ref<UserView | null>(null)
+const resetLinkExpireText = computed(() => {
+  if (!resetLink.value?.expires_at) return '-'
+  const date = new Date(resetLink.value.expires_at)
+  return Number.isNaN(date.getTime()) ? resetLink.value.expires_at : date.toLocaleString()
+})
+
+async function createResetLink(row: UserView) {
+  resetLinkUser.value = row
+  resetLinkLoading.value = true
+  try {
+    resetLink.value = await iamApi.createPasswordResetLink(row.user_id)
+    resetLinkVisible.value = true
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  } finally {
+    resetLinkLoading.value = false
+  }
+}
+
+async function copyResetLink() {
+  if (!resetLink.value?.reset_url) return
+  try {
+    await navigator.clipboard.writeText(resetLink.value.reset_url)
+    ElMessage.success('链接已复制')
+  } catch {
+    ElMessage.warning('复制失败，请手动选择链接复制')
+  }
+}
+
 async function submitAssign() {
   if (!assignTarget.value) return
   assignSaving.value = true
@@ -531,10 +565,17 @@ onMounted(async () => {
                   </template>
                 </el-table-column>
                 <el-table-column prop="status" label="状态" width="90" />
-                <el-table-column label="操作" width="160" fixed="right">
+                <el-table-column label="操作" width="220" fixed="right">
                   <template #default="{ row }">
                     <el-button v-perm="'tenant:iam:user:update'" link type="primary" @click="openEditUser(row)">编辑资料</el-button>
                     <el-button v-perm="'tenant:iam:role:assign'" link type="primary" @click="openAssign(row)">分配角色</el-button>
+                    <el-button
+                      v-perm="'tenant:iam:user:update'"
+                      link
+                      type="warning"
+                      :loading="resetLinkLoading"
+                      @click="createResetLink(row)"
+                    >重置链接</el-button>
                   </template>
                 </el-table-column>
               </el-table>
@@ -756,6 +797,25 @@ onMounted(async () => {
       <template #footer>
         <el-button @click="userEditVisible = false">取消</el-button>
         <el-button type="primary" :loading="userEditSaving" @click="submitEditUser">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="resetLinkVisible" title="一次性重置链接" width="640px">
+      <el-alert
+        type="warning"
+        :closable="false"
+        show-icon
+        title="链接 30 分钟内有效且仅可使用一次；请通过线下可信渠道转交用户本人，不要群发。用户使用后旧登录令牌会立即失效。"
+        style="margin-bottom: 12px"
+      />
+      <el-descriptions :column="2" border size="small">
+        <el-descriptions-item label="用户">{{ resetLinkUser?.username || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="过期时间">{{ resetLinkExpireText }}</el-descriptions-item>
+      </el-descriptions>
+      <el-input :model-value="resetLink?.reset_url" readonly type="textarea" :rows="3" style="margin-top: 12px" />
+      <template #footer>
+        <el-button @click="resetLinkVisible = false">关闭</el-button>
+        <el-button type="primary" @click="copyResetLink">复制链接</el-button>
       </template>
     </el-dialog>
 

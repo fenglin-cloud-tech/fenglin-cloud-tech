@@ -119,6 +119,22 @@ export const authApi = {
   changePassword(body: { old_password: string; new_password: string }) {
     return post<{ changed: boolean; revoked_sessions: number }>('/api/hub/v1/sso/password/change', body)
   },
+  /** PLAT-22 忘记密码（匿名）；SMTP 未配置时 channel=UNAVAILABLE，需联系管理员 */
+  forgotPassword(body: { tenant_code: string; username: string }) {
+    return request<{ channel: 'EMAIL' | 'UNAVAILABLE'; message: string }>('/api/hub/v1/sso/password/forgot', {
+      method: 'POST',
+      body: JSON.stringify(body),
+      skipAuth: true,
+    })
+  },
+  /** PLAT-22 一次性令牌重置口令（匿名），成功后旧 access token 全部失效 */
+  resetPassword(body: { token: string; new_password: string }) {
+    return request<{ reset: boolean }>('/api/hub/v1/sso/password/reset', {
+      method: 'POST',
+      body: JSON.stringify(body),
+      skipAuth: true,
+    })
+  },
   logout(idTokenHint?: string) {
     return post<unknown>('/api/hub/v1/sso/logout', {
       id_token_hint: idTokenHint,
@@ -154,6 +170,12 @@ export const iamApi = {
   },
   updateUser(userId: string | number, body: UpdateUserRequest) {
     return put<UserView>(`/api/hub/v1/admin/users/${userId}`, body)
+  },
+  /** PLAT-22 管理员生成一次性重置链接（无 SMTP 时的兜底，需线下转交） */
+  createPasswordResetLink(userId: string | number) {
+    return post<{ token: string; reset_url: string; expires_at: string }>(
+      `/api/hub/v1/admin/users/${userId}/password-reset-link`,
+    )
   },
   orgTree() {
     return get<OrgNode[]>('/api/hub/v1/admin/orgs/tree')

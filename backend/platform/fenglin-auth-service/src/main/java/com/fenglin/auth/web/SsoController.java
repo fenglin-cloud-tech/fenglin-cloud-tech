@@ -2,12 +2,15 @@ package com.fenglin.auth.web;
 
 import com.fenglin.auth.config.AuthErrorCode;
 import com.fenglin.auth.service.AuthService;
+import com.fenglin.auth.service.PasswordResetService;
 import com.fenglin.auth.web.dto.ChangePasswordRequest;
 import com.fenglin.auth.web.dto.ChangePasswordResult;
+import com.fenglin.auth.web.dto.ForgotPasswordRequest;
 import com.fenglin.auth.web.dto.LoginRequest;
 import com.fenglin.auth.web.dto.LogoutPayload;
 import com.fenglin.auth.web.dto.LogoutRequest;
 import com.fenglin.auth.web.dto.RefreshRequest;
+import com.fenglin.auth.web.dto.ResetPasswordRequest;
 import com.fenglin.auth.web.dto.RevokeRequest;
 import com.fenglin.auth.web.dto.TokenPayload;
 import com.fenglin.auth.web.dto.TokenRequest;
@@ -32,9 +35,11 @@ public class SsoController {
     private static final String BEARER_PREFIX = "Bearer ";
 
     private final AuthService authService;
+    private final PasswordResetService passwordResetService;
 
-    public SsoController(AuthService authService) {
+    public SsoController(AuthService authService, PasswordResetService passwordResetService) {
         this.authService = authService;
+        this.passwordResetService = passwordResetService;
     }
 
     /** 首方口令登录（契约缺口，见 LoginRequest 注释） */
@@ -88,6 +93,34 @@ public class SsoController {
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
             @Valid @RequestBody ChangePasswordRequest request) {
         return ApiResponse.success(authService.changePassword(extractBearer(authorization), request));
+    }
+
+    /**
+     * PLAT-22 忘记密码（匿名）：SMTP 未配置时返回 UNAVAILABLE，提示联系管理员；
+     * 已配置时恒返回 EMAIL 语义，防止账号枚举。
+     */
+    @PostMapping("/password/forgot")
+    public ApiResponse<PasswordResetService.ForgotResult> forgot(
+            @RequestBody ForgotPasswordRequest request,
+            @RequestHeader(value = "X-Forwarded-For", required = false) String forwardedFor) {
+        if (request == null || request.tenantCode() == null || request.tenantCode().isBlank()
+                || request.username() == null || request.username().isBlank()) {
+            throw new BizException(AuthErrorCode.INVALID_PARAMETER, "租户编码与登录名不能为空");
+        }
+        String ip = forwardedFor == null ? null : forwardedFor.split(",")[0].trim();
+        return ApiResponse.success(passwordResetService.forgot(request.tenantCode().trim(),
+                request.username().trim(), ip));
+    }
+
+    /** PLAT-22 一次性令牌重置口令（匿名）：单次使用、30 分钟有效，成功后旧令牌全部失效。 */
+    @PostMapping("/password/reset")
+    public ApiResponse<Map<String, Boolean>> reset(@RequestBody ResetPasswordRequest request) {
+        if (request == null || request.token() == null || request.token().isBlank()
+                || request.newPassword() == null || request.newPassword().isBlank()) {
+            throw new BizException(AuthErrorCode.INVALID_PARAMETER, "令牌与新口令不能为空");
+        }
+        passwordResetService.reset(request.token().trim(), request.newPassword());
+        return ApiResponse.success(Map.of("reset", true));
     }
 
     private String extractBearer(String authorization) {

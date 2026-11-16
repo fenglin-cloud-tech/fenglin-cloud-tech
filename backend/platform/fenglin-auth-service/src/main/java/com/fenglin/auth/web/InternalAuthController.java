@@ -1,6 +1,7 @@
 package com.fenglin.auth.web;
 
 import com.fenglin.auth.service.AuthService;
+import com.fenglin.auth.service.PasswordResetService;
 import com.fenglin.auth.web.dto.PrincipalPermissionPayload;
 import com.fenglin.common.core.ApiResponse;
 import com.fenglin.common.tenant.TenantHeaders;
@@ -23,9 +24,11 @@ import java.util.Map;
 public class InternalAuthController {
 
     private final AuthService authService;
+    private final PasswordResetService passwordResetService;
 
-    public InternalAuthController(AuthService authService) {
+    public InternalAuthController(AuthService authService, PasswordResetService passwordResetService) {
         this.authService = authService;
+        this.passwordResetService = passwordResetService;
     }
 
     @GetMapping("/revocations/{jti}")
@@ -57,5 +60,33 @@ public class InternalAuthController {
             @PathVariable long userId,
             @RequestParam(required = false) Long pv) {
         return ApiResponse.success(authService.permissionsOf(userId));
+    }
+
+    /** PLAT-22：网关比对的权威用户令牌版本（每次请求实时查询，不做缓存）。 */
+    @GetMapping("/principals/{userId}/token-version")
+    public ApiResponse<Map<String, Long>> tokenVersion(
+            @RequestHeader(TenantHeaders.TENANT_ID) long tenantId,
+            @PathVariable long userId) {
+        return ApiResponse.success(Map.of("token_version", authService.tokenVersionOf(tenantId, userId)));
+    }
+
+    /** PLAT-22：管理员重置口令后递增令牌版本，令该用户旧 access token 全部失效。 */
+    @PostMapping("/users/{userId}/token-version:bump")
+    public ApiResponse<Map<String, Long>> bumpTokenVersion(
+            @RequestHeader(TenantHeaders.TENANT_ID) long tenantId,
+            @PathVariable long userId) {
+        return ApiResponse.success(Map.of("token_version", authService.bumpTokenVersion(tenantId, userId)));
+    }
+
+    /** PLAT-22：管理员生成一次性重置链接（无 SMTP 时的兜底，由管理员线下转交）。 */
+    @PostMapping("/users/{userId}/password-reset-link")
+    public ApiResponse<PasswordResetService.AdminResetLink> createPasswordResetLink(
+            @RequestHeader(TenantHeaders.TENANT_ID) long tenantId,
+            @RequestHeader(value = "X-Operator-Id", required = false) Long operatorId,
+            @RequestHeader(value = "X-Forwarded-For", required = false) String forwardedFor,
+            @PathVariable long userId) {
+        String ip = forwardedFor == null ? null : forwardedFor.split(",")[0].trim();
+        return ApiResponse.success(passwordResetService.createAdminLink(tenantId, userId,
+                operatorId == null ? 0L : operatorId, ip));
     }
 }

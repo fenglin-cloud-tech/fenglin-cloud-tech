@@ -6,6 +6,7 @@ import com.fenglin.gateway.security.PermissionResolutionException;
 import com.fenglin.gateway.security.PermissionResolver;
 import com.fenglin.gateway.security.ResolvedPermissions;
 import com.fenglin.gateway.security.RevocationChecker;
+import com.fenglin.gateway.security.TokenVersionChecker;
 import com.fenglin.gateway.web.GatewayResponses;
 import com.nimbusds.jwt.JWTClaimsSet;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
@@ -42,16 +43,20 @@ public class AuthGlobalFilter implements GlobalFilter, Ordered {
             "/api/hub/v1/sso/token",
             "/api/hub/v1/sso/token:refresh",
             "/api/hub/v1/sso/token:revoke",
+            "/api/hub/v1/sso/password/forgot",
+            "/api/hub/v1/sso/password/reset",
             "/.well-known/");
 
     private final JwtVerifier jwtVerifier;
     private final RevocationChecker revocationChecker;
+    private final TokenVersionChecker tokenVersionChecker;
     private final PermissionResolver permissionResolver;
 
     public AuthGlobalFilter(JwtVerifier jwtVerifier, RevocationChecker revocationChecker,
-                            PermissionResolver permissionResolver) {
+                            TokenVersionChecker tokenVersionChecker, PermissionResolver permissionResolver) {
         this.jwtVerifier = jwtVerifier;
         this.revocationChecker = revocationChecker;
+        this.tokenVersionChecker = tokenVersionChecker;
         this.permissionResolver = permissionResolver;
     }
 
@@ -78,6 +83,7 @@ public class AuthGlobalFilter implements GlobalFilter, Ordered {
         String clientType;
         String tenantCode;
         Long tokenVersion;
+        Long accessTokenVersion;
         List<String> claimRoles;
         List<String> claimPermissions;
         try {
@@ -96,6 +102,7 @@ public class AuthGlobalFilter implements GlobalFilter, Ordered {
             clientType = clientType == null ? "ADMIN" : clientType;
             tenantCode = claims.getStringClaim("tenant_code");
             tokenVersion = claims.getLongClaim("pv");
+            accessTokenVersion = claims.getLongClaim("tv");
             claimRoles = safeList(claims.getStringListClaim("roles"));
             claimPermissions = safeList(claims.getStringListClaim("permissions"));
         } catch (Exception e) {
@@ -116,21 +123,29 @@ public class AuthGlobalFilter implements GlobalFilter, Ordered {
         final String resolvedClientType = clientType;
         final String resolvedTenantCode = tenantCode;
         String jti = claims.getJWTID();
-        return revocationChecker.isRevoked(jti, tenantId).flatMap(revoked -> {
-            if (Boolean.TRUE.equals(revoked)) {
-                return GatewayResponses.error(exchange, HttpStatus.UNAUTHORIZED, "FL-COMMON-0401", "令牌已撤销");
+        final long claimedVersion = accessTokenVersion == null ? 0L : accessTokenVersion;
+        // PLAT-22：先校验用户令牌版本（实时、不缓存），改密/重置后旧 access token 立即失效
+        return tokenVersionChecker.current(tenantId, userId).flatMap(current -> {
+            if (current >= 0 && current != claimedVersion) {
+                return GatewayResponses.error(exchange, HttpStatus.UNAUTHORIZED,
+                        "FL-COMMON-0401", "登录状态已失效，请重新登录");
             }
-            return resolvePermissions(claims, resolvedTenantId, resolvedUserId, tokenVersion,
-                    claimRoles, claimPermissions)
-                    .flatMap(resolved -> forward(exchange, chain, new GatewayPrincipal(resolvedTenantId,
-                            resolvedUserId, resolvedTenantCode, resolvedClientType,
-                            resolved.roles(), resolved.permissions())))
-                    .onErrorResume(PermissionResolutionException.class, ex -> {
-                        // fail-close：缓存与 auth 均不可用时拒绝，绝不以空权限放行下游
-                        exchange.getResponse().getHeaders().set(HttpHeaders.RETRY_AFTER, "1");
-                        return GatewayResponses.error(exchange, HttpStatus.SERVICE_UNAVAILABLE,
-                                "FL-COMMON-0503", "权限服务暂不可用，请稍后重试");
-                    });
+            return revocationChecker.isRevoked(jti, tenantId).flatMap(revoked -> {
+                if (Boolean.TRUE.equals(revoked)) {
+                    return GatewayResponses.error(exchange, HttpStatus.UNAUTHORIZED, "FL-COMMON-0401", "令牌已撤销");
+                }
+                return resolvePermissions(claims, resolvedTenantId, resolvedUserId, tokenVersion,
+                        claimRoles, claimPermissions)
+                        .flatMap(resolved -> forward(exchange, chain, new GatewayPrincipal(resolvedTenantId,
+                                resolvedUserId, resolvedTenantCode, resolvedClientType,
+                                resolved.roles(), resolved.permissions())))
+                        .onErrorResume(PermissionResolutionException.class, ex -> {
+                            // fail-close：缓存与 auth 均不可用时拒绝，绝不以空权限放行下游
+                            exchange.getResponse().getHeaders().set(HttpHeaders.RETRY_AFTER, "1");
+                            return GatewayResponses.error(exchange, HttpStatus.SERVICE_UNAVAILABLE,
+                                    "FL-COMMON-0503", "权限服务暂不可用，请稍后重试");
+                        });
+            });
         });
     }
 

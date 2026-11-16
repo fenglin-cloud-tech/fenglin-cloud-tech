@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fenglin.common.core.ApiResponse;
 import com.fenglin.common.core.PageResult;
 import com.fenglin.common.security.PermissionGuard;
+import com.fenglin.iam.client.AuthSessionClient;
 import com.fenglin.iam.service.IamService;
 import com.fenglin.iam.web.dto.AddOrgMemberRequest;
 import com.fenglin.iam.web.dto.AssignRolesRequest;
@@ -96,6 +97,18 @@ public class IamController {
             @RequestBody(required = false) ResetPasswordRequest request) {
         PermissionGuard.require(permissions, UPDATE_USER_PERMISSION);
         return ApiResponse.success(iamService.resetPassword(id, request));
+    }
+
+    /**
+     * 管理员生成一次性重置链接（PLAT-22）：SMTP 未配置时的兜底，链接需线下转交，30 分钟且仅可用一次。
+     */
+    @PostMapping("/api/hub/v1/admin/users/{id}/password-reset-link")
+    public ApiResponse<AuthSessionClient.PasswordResetLink> passwordResetLink(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestHeader(value = "X-User-Id", required = false) Long operatorId,
+            @PathVariable long id) {
+        PermissionGuard.require(permissions, UPDATE_USER_PERMISSION);
+        return ApiResponse.success(iamService.createPasswordResetLink(id, operatorId == null ? 0L : operatorId));
     }
 
     @GetMapping("/api/hub/v1/admin/orgs/tree")

@@ -40,7 +40,8 @@ public class JwtTokenService {
                 .claim("token_use", USE_ACCESS)
                 .claim("scope", "openid profile")
                 .claim("roles", roles == null ? List.of() : roles)
-                .claim("pv", permissionVersion);
+                .claim("pv", permissionVersion)
+                .claim("tv", user.getTokenVersion() == null ? 0L : user.getTokenVersion());
         if (permissions != null) {
             builder.claim("permissions", permissions);
         }

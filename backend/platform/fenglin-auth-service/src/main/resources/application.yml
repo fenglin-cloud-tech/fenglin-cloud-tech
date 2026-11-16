@@ -49,6 +49,20 @@ fenglin:
     token-janitor-cron: "0 30 3 * * *"
     # refresh token 并发轮换宽限期，期间复用按并发刷新处理，不误杀会话
     refresh-grace: PT10S
+    # PLAT-22：忘记密码 / 一次性重置令牌（SMTP 全部走环境变量，不硬编码）
+    password-reset:
+      token-ttl: ${FENGLIN_PASSWORD_RESET_TTL:PT30M}
+      portal-base-url: ${FENGLIN_PORTAL_BASE_URL:http://localhost:5174}
+      mail-enabled: ${FENGLIN_SMTP_ENABLED:false}
+      mail-host: ${FENGLIN_SMTP_HOST:}
+      mail-port: ${FENGLIN_SMTP_PORT:465}
+      mail-username: ${FENGLIN_SMTP_USERNAME:}
+      mail-password: ${FENGLIN_SMTP_PASSWORD:}
+      mail-from: ${FENGLIN_SMTP_FROM:no-reply@fenglincloud.com}
+      mail-ssl: ${FENGLIN_SMTP_SSL:true}
+  crypto:
+    # 与 IAM 使用同一数据密钥，仅用于解密 hub_user.email_enc（生产由 KMS 注入）
+    data-key-base64: ${FENGLIN_CRYPTO_DATA_KEY:MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=}
   audit:
     endpoint: ${FENGLIN_AUDIT_ENDPOINT:http://localhost:18087/internal/v1/audit/logs}
 

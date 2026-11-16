@@ -10,6 +10,12 @@ const routes: RouteRecordRaw[] = [
     meta: { public: true, title: '登录' },
   },
   {
+    path: '/reset-password',
+    name: 'reset-password',
+    component: () => import('@/views/ResetPasswordView.vue'),
+    meta: { public: true, title: '重置密码' },
+  },
+  {
     path: '/',
     component: () => import('@/layouts/PortalLayout.vue'),
     redirect: '/overview',

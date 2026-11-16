@@ -120,7 +120,9 @@ class PermissionResolverTest {
         when(verifier.verify("slim-token")).thenReturn(slimClaims(3L));
         RevocationChecker revocation = mock(RevocationChecker.class);
         when(revocation.isRevoked(any(), anyLong())).thenReturn(Mono.just(false));
-        AuthGlobalFilter filter = new AuthGlobalFilter(verifier, revocation, resolver);
+        TokenVersionChecker tokenVersions = mock(TokenVersionChecker.class);
+        when(tokenVersions.current(anyLong(), anyLong())).thenReturn(Mono.just(0L));
+        AuthGlobalFilter filter = new AuthGlobalFilter(verifier, revocation, tokenVersions, resolver);
 
         MockServerWebExchange exchange = MockServerWebExchange.from(MockServerHttpRequest
                 .get("/api/hub/v1/admin/users")
@@ -150,7 +152,9 @@ class PermissionResolverTest {
         when(verifier.verify("old-token")).thenReturn(oldClaims());
         RevocationChecker revocation = mock(RevocationChecker.class);
         when(revocation.isRevoked(any(), anyLong())).thenReturn(Mono.just(false));
-        AuthGlobalFilter filter = new AuthGlobalFilter(verifier, revocation, resolver);
+        TokenVersionChecker tokenVersions = mock(TokenVersionChecker.class);
+        when(tokenVersions.current(anyLong(), anyLong())).thenReturn(Mono.just(0L));
+        AuthGlobalFilter filter = new AuthGlobalFilter(verifier, revocation, tokenVersions, resolver);
 
         MockServerWebExchange exchange = MockServerWebExchange.from(MockServerHttpRequest
                 .get("/api/hub/v1/admin/users")

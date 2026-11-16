@@ -317,6 +317,8 @@ public class AuthService {
         if (accountMapper.changePassword(tenantId, userId, passwordHash) == 0) {
             throw new BizException(CommonErrorCode.UNAUTHORIZED, "账号不可用");
         }
+        // PLAT-22：改密即令该用户全部 access token（含当前令牌）失效，客户端需重新登录
+        userMapper.incrementTokenVersion(tenantId, userId);
         int revoked = revokeOtherSessions(tenantId, userId, currentSessionId);
         audit(tenantId, userId, clientType, "PASSWORD_CHANGED", "SELF_SERVICE");
         return new ChangePasswordResult(true, revoked);
@@ -349,6 +351,23 @@ public class AuthService {
         refreshTokenMapper.revokeAllByUser(tenantId, userId);
         audit(tenantId, userId, null, "SESSIONS_REVOKED", "PASSWORD_RESET");
         return closed;
+    }
+
+    /** PLAT-22：网关比对的权威令牌版本（无用户时返回 -1，调用方按未知处理）。 */
+    @Transactional(readOnly = true)
+    public long tokenVersionOf(long tenantId, long userId) {
+        TenantContext.set(tenantId, userId, "SYSTEM", null, false);
+        Long version = userMapper.findTokenVersion(tenantId, userId);
+        return version == null ? -1L : version;
+    }
+
+    /** PLAT-22：管理员重置口令后递增令牌版本，令旧 access token 失效。 */
+    @Transactional
+    public long bumpTokenVersion(long tenantId, long userId) {
+        TenantContext.set(tenantId, userId, "SYSTEM", null, false);
+        userMapper.incrementTokenVersion(tenantId, userId);
+        Long version = userMapper.findTokenVersion(tenantId, userId);
+        return version == null ? 0L : version;
     }
 
     @Transactional(readOnly = true)
