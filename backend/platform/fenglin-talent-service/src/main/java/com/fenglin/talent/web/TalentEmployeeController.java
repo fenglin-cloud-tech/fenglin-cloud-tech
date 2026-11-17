@@ -3,6 +3,7 @@ package com.fenglin.talent.web;
 import com.fenglin.common.core.ApiResponse;
 import com.fenglin.common.core.PageResult;
 import com.fenglin.common.security.PermissionGuard;
+import com.fenglin.talent.service.EmployeeExcelService;
 import com.fenglin.talent.service.EmployeeService;
 import com.fenglin.talent.web.dto.TalentDtos.EmployeeCreateRequest;
 import com.fenglin.talent.web.dto.TalentDtos.EmployeeCreateResult;
@@ -23,6 +24,9 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
 
 import java.nio.charset.StandardCharsets;
 
@@ -42,9 +46,11 @@ public class TalentEmployeeController {
     private static final String EXPORT = "talent:admin:employee:export";
 
     private final EmployeeService employeeService;
+    private final EmployeeExcelService employeeExcelService;
 
-    public TalentEmployeeController(EmployeeService employeeService) {
+    public TalentEmployeeController(EmployeeService employeeService, EmployeeExcelService employeeExcelService) {
         this.employeeService = employeeService;
+        this.employeeExcelService = employeeExcelService;
     }
 
     @GetMapping
@@ -98,6 +104,28 @@ public class TalentEmployeeController {
             @RequestBody EmployeeImportRequest request) {
         PermissionGuard.require(permissions, IMPORT);
         return ApiResponse.success(employeeService.importEmployees(request));
+    }
+
+    /** TAL-10：下载员工导入模板（xlsx，表头与导入解析列一一对应）。 */
+    @GetMapping("/import-template")
+    public ResponseEntity<byte[]> importTemplate(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions) {
+        PermissionGuard.require(permissions, IMPORT);
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .header("Content-Disposition", "attachment; filename=\"employees-import-template.xlsx\"")
+                .body(employeeExcelService.template());
+    }
+
+    /** TAL-10：上传 Excel 导入员工，解析后复用与 JSON 导入相同的逐行校验。 */
+    @PostMapping("/import-excel")
+    public ApiResponse<EmployeeImportResult> importExcel(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam("file") MultipartFile file) throws IOException {
+        PermissionGuard.require(permissions, IMPORT);
+        return ApiResponse.success(employeeService.importEmployees(
+                new EmployeeImportRequest(employeeExcelService.parse(file.getInputStream()))));
     }
 
     @GetMapping(value = "/roster/export", produces = "text/csv;charset=UTF-8")

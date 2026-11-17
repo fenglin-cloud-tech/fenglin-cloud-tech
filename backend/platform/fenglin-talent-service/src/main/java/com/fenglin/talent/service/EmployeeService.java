@@ -138,6 +138,12 @@ public class EmployeeService {
                 || request.orgId() == null || request.hireDate() == null) {
             throw new BizException(TalentErrorCode.PARAM_INVALID, "工号、姓名、组织与入职日期不能为空");
         }
+        if (request.empNo().length() > 32 || request.name().length() > 64
+                || (request.email() != null && request.email().length() > 128)
+                || (request.workLocation() != null && request.workLocation().length() > 128)) {
+            throw new BizException(TalentErrorCode.PARAM_INVALID,
+                    "工号最长 32、姓名最长 64、邮箱与工作地点最长 128 字符");
+        }
         if (orgMapper.findOrg(tenantId, request.orgId()) == null) {
             throw new BizException(TalentErrorCode.RESOURCE_NOT_FOUND, "组织不存在");
         }

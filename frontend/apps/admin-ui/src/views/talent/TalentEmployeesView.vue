@@ -14,7 +14,7 @@ import { describeError } from '@/utils/error'
 
 const gapItems = [
   '编辑仅支持姓名、邮箱、工作地点三个字段；组织/岗位/职级调整请走调动单。',
-  '批量导入接口接收 JSON 行数组，后端没有模板下载，本页未做 Excel 解析。',
+  'Excel 导入单次最多 500 行；表头须与模板一致，日期格式 yyyy-MM-dd，ID 列填雪花 ID 文本。',
   '手机号与身份证号按后端脱敏规则返回，页面不展示明文。',
 ]
 
@@ -252,6 +252,37 @@ async function submitCreate() {
   }
 }
 
+const importing = ref(false)
+
+async function downloadTemplate() {
+  try {
+    await talentApi.employees.importTemplate()
+    ElMessage.success('导入模板已开始下载')
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  }
+}
+
+async function importExcel(options: { file: File }) {
+  importing.value = true
+  try {
+    const result = await talentApi.employees.importExcel(options.file)
+    ElMessage.success(`导入完成：成功 ${result.success} 行，失败 ${result.failed} 行`)
+    if (result.failed > 0) {
+      const detail = result.errors
+        .slice(0, 3)
+        .map((item) => `第 ${item.index} 行：${item.message}`)
+        .join('；')
+      ElMessage.warning(detail)
+    }
+    await load()
+  } catch (err) {
+    ElMessage.error(describeError(err))
+  } finally {
+    importing.value = false
+  }
+}
+
 async function exportRoster() {
   try {
     await talentApi.employees.exportRoster({
@@ -275,6 +306,15 @@ onMounted(async () => {
     <PageHeader module="云才 Talent" title="员工档案" description="员工主数据查询与建档；敏感字段按后端脱敏返回。">
       <template #actions>
         <el-button v-perm="'talent:admin:employee:create'" type="primary" @click="openCreate">新建员工</el-button>
+        <el-button v-perm="'talent:admin:employee:import'" @click="downloadTemplate">下载导入模板</el-button>
+        <el-upload
+          v-perm="'talent:admin:employee:import'"
+          :show-file-list="false"
+          :http-request="importExcel"
+          accept=".xlsx"
+        >
+          <el-button :loading="importing">导入 Excel</el-button>
+        </el-upload>
         <el-button v-perm="'talent:admin:employee:export'" @click="exportRoster">导出花名册</el-button>
         <el-button :loading="loading" @click="load">刷新</el-button>
       </template>

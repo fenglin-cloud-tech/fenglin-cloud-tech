@@ -656,6 +656,19 @@ export const talentApi = {
       const suffix = query.toString() ? `?${query.toString()}` : ''
       return download(`/api/talent/v1/employees/roster/export${suffix}`, 'roster.csv')
     },
+    /** TAL-10：下载员工导入模板（xlsx）。 */
+    importTemplate() {
+      return download('/api/talent/v1/employees/import-template', 'employees-import-template.xlsx')
+    },
+    /** TAL-10：上传 Excel 导入员工，逐行返回结果。 */
+    importExcel(file: File) {
+      const form = new FormData()
+      form.append('file', file)
+      return request<{ total: number; success: number; failed: number; errors: Array<{ index: number; code: string; message: string }> }>(
+        '/api/talent/v1/employees/import-excel',
+        { method: 'POST', body: form },
+      )
+    },
   },
 
   recruit: {
