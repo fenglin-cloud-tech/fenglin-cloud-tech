@@ -31,6 +31,9 @@ import com.fenglin.openapi.web.dto.OpenApiDtos.QuotaRequestView;
 import com.fenglin.openapi.web.dto.OpenApiDtos.SandboxCallRequest;
 import com.fenglin.openapi.web.dto.OpenApiDtos.SandboxCallResponse;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -40,6 +43,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
 
@@ -222,6 +226,26 @@ public class OpenApiPortalController {
         PermissionGuard.require(permissions, CALL_LOG_VIEW);
         appService.requireOwnedApp(id, requireUserId());
         return ApiResponse.success(callLogService.search(id, apiPath, status, from, to, page, size));
+    }
+
+    /** OPEN-02：调用日志导出 CSV，过滤条件与列表一致，权限与归属校验同列表。 */
+    @GetMapping("/openapi/portal/apps/{id}/call-logs/export")
+    public ResponseEntity<byte[]> exportCallLogs(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @PathVariable long id,
+            @RequestParam(name = "api_path", required = false) String apiPath,
+            @RequestParam(name = "status", required = false) Integer status,
+            @RequestParam(name = "from", required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
+            @RequestParam(name = "to", required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to) {
+        PermissionGuard.require(permissions, CALL_LOG_VIEW);
+        appService.requireOwnedApp(id, requireUserId());
+        byte[] body = callLogService.exportCsv(id, apiPath, status, from, to);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"call-logs-" + id + ".csv\"")
+                .contentType(new MediaType("text", "csv", StandardCharsets.UTF_8))
+                .body(body);
     }
 
     /** 配额、当日用量与限流状态（只读；配置仍由 1004 管理端完成）。 */

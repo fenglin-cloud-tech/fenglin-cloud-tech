@@ -460,6 +460,15 @@ export const openApiPortal = {
   } = {}) {
     return get<PageResult<OpenApiCallLogView>>(`/openapi/portal/apps/${id}/call-logs`, params)
   },
+  callLogsExport(id: string | number, params: { api_path?: string; status?: number; from?: string; to?: string } = {}) {
+    const query = new URLSearchParams()
+    if (params.api_path) query.set('api_path', params.api_path)
+    if (params.status != null) query.set('status', String(params.status))
+    if (params.from) query.set('from', params.from)
+    if (params.to) query.set('to', params.to)
+    const suffix = query.toString() ? `?${query.toString()}` : ''
+    return download(`/openapi/portal/apps/${id}/call-logs/export${suffix}`, `call-logs-${id}.csv`)
+  },
   quotas(id: string | number) {
     return get<PortalQuotaView[]>(`/openapi/portal/apps/${id}/quotas`)
   },

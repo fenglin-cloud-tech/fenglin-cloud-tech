@@ -55,6 +55,28 @@ public interface ApiCallLogMapper {
 
     @Select("""
             <script>
+            SELECT id, app_id, app_key, api_path, method, http_status, biz_code, latency_ms, request_id, called_at
+              FROM hub_api_call_log
+             WHERE tenant_id = #{tenantId}
+            <if test="appId != null"> AND app_id = #{appId}</if>
+            <if test="apiPath != null"> AND api_path = #{apiPath}</if>
+            <if test="status != null"> AND http_status = #{status}</if>
+            <if test="from != null"> AND called_at &gt;= #{from}</if>
+            <if test="to != null"> AND called_at &lt;= #{to}</if>
+             ORDER BY called_at DESC, id DESC
+             LIMIT #{limit}
+            </script>
+            """)
+    List<Map<String, Object>> searchForExport(@Param("tenantId") long tenantId,
+                                             @Param("appId") Long appId,
+                                             @Param("apiPath") String apiPath,
+                                             @Param("status") Integer status,
+                                             @Param("from") OffsetDateTime from,
+                                             @Param("to") OffsetDateTime to,
+                                             @Param("limit") int limit);
+
+    @Select("""
+            <script>
             SELECT count(*)
               FROM hub_api_call_log
              WHERE tenant_id = #{tenantId}

@@ -18,6 +18,7 @@ const size = ref(20)
 const apiPath = ref('')
 const status = ref<number | undefined>(undefined)
 const loading = ref(false)
+const exporting = ref(false)
 const error = ref('')
 
 const canView = computed(() => auth.can('biz:openapi:calllog:view'))
@@ -27,7 +28,7 @@ const selectedApp = computed(() => apps.value.find((app) => app.app_id === selec
 const gapItems = [
   '日志接口为 GET /openapi/portal/apps/{app_id}/call-logs；app_id 在路径中必填，后端先校验应用归属当前用户，再按租户+应用查询，前端无法通过改参数查看他人应用。',
   '仅记录经开放 API 签名网关（/openapi/**，门户路径除外）的调用；门户自身请求不会写入调用日志。',
-  '日志保留周期与归档策略由平台配置；当前未提供日志导出接口。',
+  '日志保留周期与归档策略由平台配置；导出为 CSV（UTF-8 BOM），单次最多 10000 条，按时间倒序取最近记录。',
 ]
 
 async function loadApps() {
@@ -76,6 +77,24 @@ function search() {
   void loadLogs()
 }
 
+async function exportCsv() {
+  if (!canView.value || !selectedAppId.value) {
+    return
+  }
+  exporting.value = true
+  error.value = ''
+  try {
+    await openApiPortal.callLogsExport(selectedAppId.value, {
+      api_path: apiPath.value.trim() || undefined,
+      status: status.value ?? undefined,
+    })
+  } catch (err) {
+    error.value = describeError(err)
+  } finally {
+    exporting.value = false
+  }
+}
+
 function reset() {
   apiPath.value = ''
   status.value = undefined
@@ -111,6 +130,9 @@ function statusTag(code: number) {
     <PageHeader module="开放平台" title="调用日志" description="按应用维度查询开放 API 调用记录，服务端强制校验应用归属。">
       <template #actions>
         <el-button :loading="loading" @click="loadLogs">刷新</el-button>
+        <el-button :disabled="!canView || !selectedAppId" :loading="exporting" @click="exportCsv">
+          导出 CSV
+        </el-button>
       </template>
     </PageHeader>
 
