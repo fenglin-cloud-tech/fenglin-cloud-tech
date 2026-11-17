@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -29,9 +30,10 @@ public class RndTenantConfigController {
 
     @GetMapping
     public ApiResponse<TenantConfigView> get(
-            @RequestHeader(value = "X-Permissions", required = false) String permissions) {
+            @RequestHeader(value = "X-Permissions", required = false) String permissions,
+            @RequestParam(value = "env", required = false) String env) {
         PermissionGuard.require(permissions, INTEGRATION_MANAGE);
-        return ApiResponse.success(tenantConfigService.get());
+        return ApiResponse.success(tenantConfigService.get(env));
     }
 
     @PutMapping

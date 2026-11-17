@@ -6,6 +6,7 @@ import {
   talentApi,
   type TalentApplication,
   type TalentCandidate,
+  type TalentCandidateTagCount,
   type TalentEmployeeListItem,
   type TalentInterview,
   type TalentOrgNode,
@@ -16,7 +17,7 @@ import { describeError } from '@/utils/error'
 
 const gapItems = [
   'Offer 创建/发送/接受接口存在，但本页尚未接入 Offer 办理。',
-  '候选人标签 tags 为自由 JSON，后端无标签字典接口，本页不维护标签。',
+  '候选人标签 tags 为自由 JSON：本页只展示后端聚合的已使用标签（只读），不维护标签；标签字典与授权口径未定。',
 ]
 
 const activeTab = ref('requisition')
@@ -45,6 +46,7 @@ const reqForm = reactive({
 })
 
 const candidates = ref<TalentCandidate[]>([])
+const candidateTags = ref<TalentCandidateTagCount[]>([])
 const candTotal = ref(0)
 const candLoading = ref(false)
 const candError = ref('')
@@ -250,6 +252,15 @@ async function loadCandidates() {
   }
 }
 
+async function loadCandidateTags() {
+  try {
+    candidateTags.value = await talentApi.recruit.candidateTags()
+  } catch {
+    // 标签聚合失败不影响候选人列表
+    candidateTags.value = []
+  }
+}
+
 function openCreateCandidate() {
   Object.assign(candForm, {
     name: '',
@@ -439,6 +450,7 @@ onMounted(async () => {
   await Promise.all([
     loadRequisitions(),
     loadCandidates(),
+    loadCandidateTags(),
     loadApplications(),
     loadInterviews(),
     loadSelectors(),
@@ -510,6 +522,12 @@ onMounted(async () => {
           <el-button @click="loadCandidates">查询</el-button>
         </div>
         <el-alert v-if="candError" type="error" :closable="false" show-icon :title="candError" style="margin-bottom: 12px" />
+        <div v-if="candidateTags.length" class="fl-muted" style="margin-bottom: 12px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center">
+          <span>已使用标签：</span>
+          <el-tag v-for="item in candidateTags" :key="item.tag" size="small" type="info">
+            {{ item.tag }}（{{ item.count }}）
+          </el-tag>
+        </div>
         <el-table :data="candidates" v-loading="candLoading" border stripe>
           <el-table-column prop="name" label="姓名" width="120" />
           <el-table-column prop="source" label="来源" width="120" />

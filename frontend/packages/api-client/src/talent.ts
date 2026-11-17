@@ -120,6 +120,11 @@ export interface TalentCandidate {
   created_at?: string
 }
 
+export interface TalentCandidateTagCount {
+  tag: string
+  count: number
+}
+
 export interface TalentMyInterview {
   id: TalentId
   candidate_name: string
@@ -704,6 +709,9 @@ export const talentApi = {
       size?: number
     } = {}) {
       return get<PageResult<TalentCandidate>>('/api/talent/v1/recruit/candidates', params)
+    },
+    candidateTags() {
+      return get<TalentCandidateTagCount[]>('/api/talent/v1/recruit/candidates/tags')
     },
     createCandidate(body: {
       name: string

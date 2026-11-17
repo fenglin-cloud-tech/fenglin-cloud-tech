@@ -130,6 +130,23 @@ public interface RecruitMapper {
             """)
     Map<String, Object> findCandidate(@Param("tenantId") long tenantId, @Param("id") long id);
 
+    /**
+     * TAL-11：按租户聚合已使用的候选人标签（只读）。
+     * 仅统计 tags 数组中的字符串元素；对象元素与非法结构跳过，不做任何写入语义。
+     */
+    @Select("""
+            SELECT btrim(e #>> '{}') AS "tag", COUNT(*) AS "cnt"
+            FROM talent_candidate c
+            CROSS JOIN LATERAL jsonb_array_elements(
+                CASE WHEN jsonb_typeof(c.tags) = 'array' THEN c.tags ELSE '[]'::jsonb END) e
+            WHERE c.tenant_id = #{tenantId} AND c.deleted = 0
+              AND jsonb_typeof(e) = 'string'
+              AND btrim(e #>> '{}') <> ''
+            GROUP BY 1
+            ORDER BY 2 DESC, 1
+            """)
+    List<Map<String, Object>> listCandidateTags(@Param("tenantId") long tenantId);
+
     @Select("""
             SELECT id AS "id", name AS "name", phone_enc AS "phoneEnc", phone_hash AS "phoneHash",
                    email AS "email", experience_years AS "experienceYears", version AS "version"

@@ -65,6 +65,10 @@ class RndIntegrationTest {
                 .schemas("fenglin_devops")
                 .defaultSchema("fenglin_devops")
                 .locations("classpath:db/rnd-migration")
+                // V1_1_5 含 CREATE/DROP INDEX CONCURRENTLY（非事务语句），与 ALTER TABLE 混在同一脚本
+                .mixed(true)
+                // 事务性历史锁会挡住 CONCURRENTLY 建索引，改用 advisory lock
+                .configuration(java.util.Map.of("flyway.postgresql.transactional.lock", "false"))
                 .load()
                 .migrate();
     }
@@ -409,6 +413,24 @@ class RndIntegrationTest {
                 .isEqualTo("https://gitlab.example.com");
         assertThat(read(get("/api/rnd/v1/tenant-config").getBody()).get("data")
                 .get("dora_target_level").asText()).isEqualTo("elite");
+
+        // RND-09：同租户不同环境各存一份；同环境重复写仍走 upsert；非法环境 400
+        JsonNode devConfig = read(put("/api/rnd/v1/tenant-config", Map.of(
+                "env", "dev", "timezone", "UTC", "data_retention_months", 12,
+                "dora_target_level", "high", "webhook_base_url", "https://dev-hook.example.com"))
+                .getBody()).get("data");
+        assertThat(devConfig.get("env").asText()).isEqualTo("dev");
+        assertThat(devConfig.get("data_retention_months").asInt()).isEqualTo(12);
+        assertThat(read(get("/api/rnd/v1/tenant-config?env=dev").getBody()).get("data")
+                .get("timezone").asText()).isEqualTo("UTC");
+        assertThat(read(get("/api/rnd/v1/tenant-config").getBody()).get("data")
+                .get("data_retention_months").asInt()).isEqualTo(36);
+        put("/api/rnd/v1/tenant-config", Map.of("env", "dev", "timezone", "UTC",
+                "data_retention_months", 18, "dora_target_level", "high"));
+        assertThat(read(get("/api/rnd/v1/tenant-config?env=dev").getBody()).get("data")
+                .get("data_retention_months").asInt()).isEqualTo(18);
+        assertThat(put("/api/rnd/v1/tenant-config", Map.of("env", "qa", "timezone", "UTC"))
+                .getStatusCode().value()).isEqualTo(400);
 
         ResponseEntity<String> configUpdated = put("/api/rnd/v1/metric-configs/delivery.throughput",
                 Map.of("metric_name", "需求交付吞吐", "weight", 2.0, "target_value", 30, "unit", "个",

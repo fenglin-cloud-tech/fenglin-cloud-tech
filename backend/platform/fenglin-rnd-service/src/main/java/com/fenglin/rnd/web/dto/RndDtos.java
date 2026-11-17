@@ -318,12 +318,12 @@ public final class RndDtos {
                                    String createdAt) {
     }
 
-    public record TenantConfigUpdateRequest(Map<String, Object> configJson, String timezone,
+    public record TenantConfigUpdateRequest(String env, Map<String, Object> configJson, String timezone,
                                             Integer dataRetentionMonths, String doraTargetLevel,
                                             String webhookBaseUrl) {
     }
 
-    public record TenantConfigView(Long id, Map<String, Object> configJson, String timezone,
+    public record TenantConfigView(Long id, String env, Map<String, Object> configJson, String timezone,
                                    Integer dataRetentionMonths, String doraTargetLevel, String webhookBaseUrl,
                                    String updatedAt) {
     }

@@ -15,15 +15,20 @@ import com.fenglin.rnd.web.dto.RndDtos.TenantConfigView;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * 租户集成与度量配置：承载文档 API-59 预留的集成管理配置（时区、留存期、DORA 目标、Webhook 基址）。
+ * RND-09：配置按环境（dev/test/staging/prod）各存一份，未指定时按 prod 处理，兼容原单条配置。
  */
 @Service
 @Transactional(readOnly = true)
 public class TenantConfigService {
 
+    static final String DEFAULT_ENV = "prod";
+    private static final Set<String> ENVS = Set.of("dev", "test", "staging", "prod");
     private static final String DEFAULT_TIMEZONE = "Asia/Shanghai";
     private static final int DEFAULT_RETENTION_MONTHS = 24;
     private static final String DEFAULT_DORA_LEVEL = "high";
@@ -39,15 +44,17 @@ public class TenantConfigService {
         this.objectMapper = objectMapper;
     }
 
-    public TenantConfigView get() {
-        return toView(tenantConfigMapper.find(RndContext.tenantId()));
+    public TenantConfigView get(String env) {
+        String targetEnv = normalizeEnv(env);
+        return toView(tenantConfigMapper.find(RndContext.tenantId(), targetEnv), targetEnv);
     }
 
     @Transactional
     public TenantConfigView update(TenantConfigUpdateRequest request) {
         long tenantId = RndContext.tenantId();
         long userId = RndContext.userId();
-        Map<String, Object> existing = tenantConfigMapper.find(tenantId);
+        String env = normalizeEnv(request.env());
+        Map<String, Object> existing = tenantConfigMapper.find(tenantId, env);
         Map<String, Object> configJson = request.configJson() == null
                 ? parse(existing == null ? null : Rows.str(existing, "configJson"))
                 : request.configJson();
@@ -61,18 +68,32 @@ public class TenantConfigService {
                 : request.doraTargetLevel();
         String webhookBaseUrl = request.webhookBaseUrl() == null
                 ? (existing == null ? null : Rows.str(existing, "webhookBaseUrl")) : request.webhookBaseUrl();
-        tenantConfigMapper.upsert(IdWorker.getId(), tenantId, write(configJson), timezone, retention,
+        tenantConfigMapper.upsert(IdWorker.getId(), tenantId, env, write(configJson), timezone, retention,
                 doraLevel, webhookBaseUrl, userId);
         audit.publish("TENANT_CONFIG_UPDATED", "update", "devops_tenant_config", tenantId, "high");
-        return get();
+        return get(env);
     }
 
-    private TenantConfigView toView(Map<String, Object> row) {
+    /** 环境值统一小写；空值按 prod，非法值直接 400，不做静默兜底。 */
+    private String normalizeEnv(String env) {
+        if (env == null || env.isBlank()) {
+            return DEFAULT_ENV;
+        }
+        String value = env.trim().toLowerCase(Locale.ROOT);
+        if (!ENVS.contains(value)) {
+            throw new BizException(RndErrorCode.PARAM_INVALID,
+                    "env 仅支持 dev/test/staging/prod");
+        }
+        return value;
+    }
+
+    private TenantConfigView toView(Map<String, Object> row, String env) {
         if (row == null) {
-            return new TenantConfigView(null, Map.of(), DEFAULT_TIMEZONE, DEFAULT_RETENTION_MONTHS,
+            return new TenantConfigView(null, env, Map.of(), DEFAULT_TIMEZONE, DEFAULT_RETENTION_MONTHS,
                     DEFAULT_DORA_LEVEL, null, null);
         }
-        return new TenantConfigView(Rows.lng(row, "id"), parse(Rows.str(row, "configJson")),
+        return new TenantConfigView(Rows.lng(row, "id"), Rows.str(row, "env"),
+                parse(Rows.str(row, "configJson")),
                 Rows.str(row, "timezone"), Rows.intVal(row, "dataRetentionMonths"),
                 Rows.str(row, "doraTargetLevel"), Rows.str(row, "webhookBaseUrl"), Rows.str(row, "updatedAt"));
     }

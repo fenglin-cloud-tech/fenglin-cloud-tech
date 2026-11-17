@@ -434,6 +434,7 @@ export interface RndAlert {
 
 export interface RndTenantConfig {
   id: RndId
+  env?: string
   config_json?: Record<string, unknown>
   timezone?: string
   data_retention_months?: number
@@ -969,10 +970,11 @@ export const rndApi = {
     },
   },
   tenantConfig: {
-    get() {
-      return get<RndTenantConfig>(`${BASE}/tenant-config`)
+    get(env?: string) {
+      return get<RndTenantConfig>(`${BASE}/tenant-config`, env ? { env } : undefined)
     },
     update(body: {
+      env?: string
       config_json?: Record<string, unknown>
       timezone?: string
       data_retention_months?: number

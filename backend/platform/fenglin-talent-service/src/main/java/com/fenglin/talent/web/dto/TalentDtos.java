@@ -130,6 +130,10 @@ public final class TalentDtos {
                                     String currentCompany, String maskedPhone, Instant createdAt) {
     }
 
+    /** TAL-11：候选人已使用标签的只读聚合项（标签 + 使用次数）。 */
+    public record CandidateTagCount(String tag, long count) {
+    }
+
     public record ApplicationCreateRequest(Long candidateId, Long requisitionId, String stage) {
     }
 

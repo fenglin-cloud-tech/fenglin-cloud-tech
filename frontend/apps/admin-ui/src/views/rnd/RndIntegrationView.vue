@@ -12,6 +12,7 @@ const error = ref('')
 const formError = ref('')
 
 const form = reactive({
+  env: 'prod',
   config_json_text: '{}',
   timezone: 'Asia/Shanghai',
   data_retention_months: 24,
@@ -19,13 +20,21 @@ const form = reactive({
   webhook_base_url: '',
 })
 
+const envOptions = [
+  { value: 'prod', label: '生产 prod' },
+  { value: 'staging', label: '预发 staging' },
+  { value: 'test', label: '测试 test' },
+  { value: 'dev', label: '开发 dev' },
+]
+
 const gapItems = [
-  '集成配置为整租户单条记录（/api/rnd/v1/tenant-config），没有多环境或多实例配置。',
+  '集成配置按环境各存一份（dev/test/staging/prod），同一租户同一环境仍是一条记录；未指定环境时按 prod。',
   'Webhook 密钥与访问令牌由后端加密存储，本页只维护基础地址、时区、保留期与 DORA 目标等级。',
   '权限点 tenant:devops:integration:manage 仅授予租户管理员，普通研发账号返回真实 403。',
 ]
 
 function fillForm(data: RndTenantConfig) {
+  form.env = data.env ?? form.env
   form.config_json_text = JSON.stringify(data.config_json ?? {}, null, 2)
   form.timezone = data.timezone ?? 'Asia/Shanghai'
   form.data_retention_months = data.data_retention_months ?? 24
@@ -37,7 +46,7 @@ async function loadConfig() {
   loading.value = true
   error.value = ''
   try {
-    config.value = await rndApi.tenantConfig.get()
+    config.value = await rndApi.tenantConfig.get(form.env)
     if (config.value) fillForm(config.value)
   } catch (err) {
     error.value = describeError(err)
@@ -58,6 +67,7 @@ async function submit() {
   formError.value = ''
   try {
     config.value = await rndApi.tenantConfig.update({
+      env: form.env,
       config_json: configJson,
       timezone: form.timezone,
       data_retention_months: Number(form.data_retention_months),
@@ -94,6 +104,11 @@ onMounted(loadConfig)
 
     <el-card shadow="never" v-loading="loading">
       <el-form label-width="140px" style="max-width: 720px">
+        <el-form-item label="环境">
+          <el-select v-model="form.env" style="width: 220px" @change="loadConfig">
+            <el-option v-for="opt in envOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="时区">
           <el-input v-model="form.timezone" maxlength="64" />
         </el-form-item>

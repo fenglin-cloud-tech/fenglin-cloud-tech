@@ -27,6 +27,10 @@ class RndMigrationTest {
                 .schemas("fenglin_devops")
                 .defaultSchema("fenglin_devops")
                 .locations("classpath:db/rnd-migration")
+                // V1_1_5 含 CREATE/DROP INDEX CONCURRENTLY（非事务语句），与 ALTER TABLE 混在同一脚本
+                .mixed(true)
+                // 事务性历史锁会挡住 CONCURRENTLY 建索引，改用 advisory lock
+                .configuration(java.util.Map.of("flyway.postgresql.transactional.lock", "false"))
                 .load()
                 .migrate();
     }
@@ -61,7 +65,7 @@ class RndMigrationTest {
     void createsCriticalIndexes() throws Exception {
         assertThat(count("SELECT count(1) FROM pg_indexes WHERE schemaname = 'fenglin_devops' "
                 + "AND indexname IN ('uk_commit_sha', 'uk_snapshot', 'uk_release_no', 'uk_event_id', "
-                + "'uk_metric_config', 'uk_tenant_key', 'uk_metric_caliber', 'uk_tenant_config')")).isEqualTo(8);
+                + "'uk_metric_config', 'uk_tenant_key', 'uk_metric_caliber', 'uk_tenant_config_env')")).isEqualTo(8);
     }
 
     @Test

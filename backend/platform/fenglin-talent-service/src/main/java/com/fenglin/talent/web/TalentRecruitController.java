@@ -11,6 +11,7 @@ import com.fenglin.talent.web.dto.TalentDtos.ApprovalRequest;
 import com.fenglin.talent.web.dto.TalentDtos.CandidateCreateRequest;
 import com.fenglin.talent.web.dto.TalentDtos.CandidateCreateResult;
 import com.fenglin.talent.web.dto.TalentDtos.CandidateListItem;
+import com.fenglin.talent.web.dto.TalentDtos.CandidateTagCount;
 import com.fenglin.talent.web.dto.TalentDtos.InterviewCreateRequest;
 import com.fenglin.talent.web.dto.TalentDtos.InterviewCreateResult;
 import com.fenglin.talent.web.dto.TalentDtos.InterviewEvaluateRequest;
@@ -128,6 +129,16 @@ public class TalentRecruitController {
         PermissionGuard.require(permissions, CANDIDATE_LIST);
         return ApiResponse.success(recruitService.listCandidates(requisitionId, candStatus, source, keyword,
                 page, size));
+    }
+
+    /**
+     * TAL-11：候选人标签只读聚合（本租户已使用标签 + 使用次数）。无字典、无写入语义。
+     */
+    @GetMapping("/candidates/tags")
+    public ApiResponse<List<CandidateTagCount>> candidateTags(
+            @RequestHeader(value = "X-Permissions", required = false) String permissions) {
+        PermissionGuard.require(permissions, CANDIDATE_LIST);
+        return ApiResponse.success(recruitService.candidateTags());
     }
 
     /**

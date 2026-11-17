@@ -22,6 +22,7 @@ import com.fenglin.talent.web.dto.TalentDtos.ApprovalRequest;
 import com.fenglin.talent.web.dto.TalentDtos.CandidateCreateRequest;
 import com.fenglin.talent.web.dto.TalentDtos.CandidateCreateResult;
 import com.fenglin.talent.web.dto.TalentDtos.CandidateListItem;
+import com.fenglin.talent.web.dto.TalentDtos.CandidateTagCount;
 import com.fenglin.talent.web.dto.TalentDtos.InterviewCreateRequest;
 import com.fenglin.talent.web.dto.TalentDtos.InterviewCreateResult;
 import com.fenglin.talent.web.dto.TalentDtos.InterviewEvaluateRequest;
@@ -256,6 +257,18 @@ public class RecruitService {
                 .toList();
         return PageResult.of(records, recruitMapper.countCandidates(tenantId, requisitionId, status, sourceFilter,
                 keywordFilter), pageNo, pageSize);
+    }
+
+    /**
+     * TAL-11：候选人标签只读聚合。仅统计 tags 数组里的字符串元素，
+     * 不建标签字典、不做写入语义；口径（字典归属/授权）未定前不扩展。
+     */
+    @Transactional(readOnly = true)
+    public List<CandidateTagCount> candidateTags() {
+        long tenantId = TalentContext.tenantId();
+        return recruitMapper.listCandidateTags(tenantId).stream()
+                .map(row -> new CandidateTagCount(Rows.str(row, "tag"), Rows.lngVal(row, "cnt")))
+                .toList();
     }
 
     /**
