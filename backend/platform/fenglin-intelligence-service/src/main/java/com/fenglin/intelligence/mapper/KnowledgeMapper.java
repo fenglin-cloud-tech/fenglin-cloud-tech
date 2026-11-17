@@ -382,4 +382,16 @@ public interface KnowledgeMapper {
             + "AND (CAST(#{from} AS timestamp) IS NULL OR created_at >= CAST(#{from} AS timestamp)) "
             + "AND (CAST(#{to} AS timestamp) IS NULL OR created_at <= CAST(#{to} AS timestamp))")
     long countChunksInRange(@Param("tenantId") long tenantId, @Param("from") String from, @Param("to") String to);
+
+    // ---------- PLAT-26 二期：内部检索导出 ----------
+    @Select("SELECT c.id AS chunk_id, c.document_id, c.content, c.sec_level, c.section_path, d.title, d.doc_type "
+            + "FROM ai_document_chunk c "
+            + "JOIN ai_document d ON d.id = c.document_id AND d.deleted = 0 "
+            + "JOIN ai_knowledge_base kb ON kb.id = c.knowledge_base_id AND kb.deleted = 0 "
+            + "WHERE c.tenant_id = #{tenantId} AND c.deleted = 0 AND d.index_status = 'INDEXED' "
+            + "AND (kb.scope_type IS NULL OR kb.scope_type <> 'PRIVATE') AND c.id > #{after} "
+            + "ORDER BY c.id LIMIT #{limit}")
+    List<Map<String, Object>> exportSearchChunks(@Param("tenantId") long tenantId,
+                                                 @Param("after") long after,
+                                                 @Param("limit") int limit);
 }

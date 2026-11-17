@@ -37,6 +37,7 @@ fenglin:
     index-prefix: hub
     # PLAT-26 一期：云服域内部检索导出（search-service 拉取，不直连业务库）
     service-export-url: ${FENGLIN_SERVICE_EXPORT_URL:http://localhost:18100}
+    intelligence-export-url: ${FENGLIN_INTELLIGENCE_EXPORT_URL:http://localhost:18102}
     index-task-job-enabled: ${FENGLIN_SEARCH_INDEX_JOB_ENABLED:true}
     index-task-poll-interval-ms: ${FENGLIN_SEARCH_INDEX_POLL_INTERVAL_MS:5000}
 

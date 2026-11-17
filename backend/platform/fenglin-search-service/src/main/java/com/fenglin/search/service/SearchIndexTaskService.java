@@ -48,8 +48,9 @@ public class SearchIndexTaskService {
     private final TransactionTemplate transactionTemplate;
     private final DataSource dataSource;
     private final String indexPrefix;
-    /** PLAT-26：各业务域内部导出基址（一期为云服 service-service）。 */
+    /** PLAT-26：各业务域内部导出基址（一期云服，二期云智）。 */
     private final String serviceExportUrl;
+    private final String intelligenceExportUrl;
     private final RestClient restClient = RestClient.create();
 
     public SearchIndexTaskService(ElasticsearchClient client,
@@ -58,15 +59,20 @@ public class SearchIndexTaskService {
                                   PlatformTransactionManager transactionManager,
                                   DataSource dataSource,
                                   @Value("${fenglin.search.index-prefix:hub}") String indexPrefix,
-                                  @Value("${fenglin.search.service-export-url:http://localhost:18100}") String serviceExportUrl) {
+                                  @Value("${fenglin.search.service-export-url:http://localhost:18100}") String serviceExportUrl,
+                                  @Value("${fenglin.search.intelligence-export-url:http://localhost:18102}") String intelligenceExportUrl) {
         this.client = client;
         this.taskMapper = taskMapper;
         this.auditSink = auditSink;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
         this.dataSource = dataSource;
         this.indexPrefix = indexPrefix;
-        this.serviceExportUrl = serviceExportUrl.endsWith("/")
-                ? serviceExportUrl.substring(0, serviceExportUrl.length() - 1) : serviceExportUrl;
+        this.serviceExportUrl = stripSlash(serviceExportUrl);
+        this.intelligenceExportUrl = stripSlash(intelligenceExportUrl);
+    }
+
+    private static String stripSlash(String url) {
+        return url.endsWith("/") ? url.substring(0, url.length() - 1) : url;
     }
 
     @Transactional
@@ -170,8 +176,8 @@ public class SearchIndexTaskService {
 
     /**
      * FULL 任务灌数：先清掉该租户旧文档，再按域写入 {@code hub_<domain>}。
-     * hub 域同库直读；service 域改为经内部导出接口拉取（PLAT-26 一期）；
-     * intelligence 域留待二期，当前跳过并打印原因。
+     * hub 域同库直读；service 域经云服内部导出拉取（一期）；
+     * intelligence 域经云智内部导出拉取（二期）。
      */
     private void ingest(String index, String indexName, long tenantId) throws IOException {
         List<Map<String, Object>> docs;
@@ -179,6 +185,8 @@ public class SearchIndexTaskService {
             docs = loadHubUsers(tenantId);
         } else if ("service".equals(indexName)) {
             docs = loadServiceDocs(tenantId);
+        } else if ("intelligence".equals(indexName)) {
+            docs = fetchExportDocs(intelligenceExportUrl, null, tenantId, "云智检索导出");
         } else {
             log.info("索引 {} 暂无接入数据源，跳过灌数", index);
             return;
@@ -205,10 +213,17 @@ public class SearchIndexTaskService {
 
     @SuppressWarnings("unchecked")
     private List<Map<String, Object>> fetchServiceDocs(long tenantId, String type) {
+        return fetchExportDocs(serviceExportUrl, type, tenantId, "云服检索导出 " + type);
+    }
+
+    /** 按业务域内部导出接口拉全量，游标分页；type 为 null 时不带 type 参数（云智）。 */
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> fetchExportDocs(String baseUrl, String type, long tenantId, String label) {
         List<Map<String, Object>> docs = new ArrayList<>();
         Long cursor = null;
         for (int page = 0; page < 100; page++) {
-            String uri = serviceExportUrl + "/internal/search-export?type=" + type + "&limit=200"
+            String uri = baseUrl + "/internal/search-export?limit=200"
+                    + (type == null ? "" : "&type=" + type)
                     + (cursor == null ? "" : "&cursor=" + cursor);
             Map<String, Object> body;
             try {
@@ -218,7 +233,7 @@ public class SearchIndexTaskService {
                         .retrieve()
                         .body(Map.class);
             } catch (RuntimeException ex) {
-                throw new IllegalStateException("拉取云服检索导出失败: " + type + " - " + ex.getMessage(), ex);
+                throw new IllegalStateException(label + "失败: " + ex.getMessage(), ex);
             }
             Map<String, Object> data = body == null ? null : (Map<String, Object>) body.get("data");
             if (data == null) {
@@ -237,7 +252,7 @@ public class SearchIndexTaskService {
             }
             cursor = ((Number) data.get("next_cursor")).longValue();
         }
-        log.info("云服检索导出 {} 拉取 {} 条", type, docs.size());
+        log.info("{} 拉取 {} 条", label, docs.size());
         return docs;
     }
 
