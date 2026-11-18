@@ -231,9 +231,15 @@ public class CollabDocController {
     public ApiResponse<DocView> openShared(
             @RequestHeader(value = "X-Permissions", required = false) String permissions,
             @PathVariable("token") String token) {
-        // 同租户员工（self:read）即可打开分享链接，跨租户由 tenant_id 过滤返回 2000003
-        PermissionGuard.requireAny(permissions, READ, SELF_READ);
-        return ApiResponse.success(docService.openByLink(token));
+        Long tenantId = com.fenglin.collab.support.TenantScope.tenantOfLinkToken(token);
+        if (tenantId == null) {
+            // 旧 UUID 令牌没有租户信息，只能由已登录调用方在可信租户头下打开
+            PermissionGuard.requireAny(permissions, READ, SELF_READ);
+            return ApiResponse.success(docService.openByLink(token));
+        }
+        // v2 令牌自带租户：未登录也可打开，租户只从验签后的令牌解析，不信任客户端头
+        return com.fenglin.collab.support.TenantScope.call(tenantId,
+                () -> ApiResponse.success(docService.openByLink(token)));
     }
 
     @PostMapping("/{docId}/comments")

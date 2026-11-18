@@ -1,5 +1,5 @@
 import type { PageResult } from '@fenglin/shared'
-import { del, get, post, put, request } from './http'
+import { del, get, post, postForm, put, request } from './http'
 
 /** 云协（Collab）接口。字段全部为后端 SNAKE_CASE 原样返回，雪花 ID 以字符串透传。 */
 export type CollabId = string | number
@@ -69,6 +69,20 @@ export interface CollabDoc {
   folder_id?: string | null
   folder_name?: string
   updated_at?: string
+  /** 正文图片的短期访问令牌：fileId → asset_token（5 分钟）。 */
+  image_tokens?: Record<string, string>
+}
+
+/** 文档图片上传结果：url 已带 5 分钟 asset_token，可直接用于编辑区预览。 */
+export interface CollabDocImage {
+  file_id: string
+  doc_id: string
+  mime: string
+  size: number
+  width: number
+  height: number
+  sha256: string
+  url: string
 }
 
 export interface CollabDocVersion {
@@ -486,6 +500,11 @@ export const collabApi = {
     },
     openShared(token: string) {
       return get<CollabDoc>(`/api/collab/v1/docs/shared/${token}`)
+    },
+    uploadImage(docId: CollabId, file: File) {
+      const form = new FormData()
+      form.append('file', file)
+      return postForm<CollabDocImage>(`/api/collab/v1/docs/${docId}/images`, form)
     },
     comments(docId: CollabId) {
       return get<CollabComment[]>(`/api/collab/v1/docs/${docId}/comments`)

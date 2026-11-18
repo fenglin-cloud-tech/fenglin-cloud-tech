@@ -64,6 +64,21 @@ const editFormat = ref<CollabDocContentFormat>('PLAIN')
 const originalFormat = ref<CollabDocContentFormat>('PLAIN')
 const originalContent = ref('')
 const richModel = ref<RichDoc>(emptyRichDoc())
+// 新上传图片的临时地址（带 5 分钟 asset_token）；已保存图片用详情返回的 image_tokens 解析。
+const imageOverrides = reactive<Record<string, string>>({})
+
+function resolveImage(fileId: string) {
+  if (imageOverrides[fileId]) return imageOverrides[fileId]
+  const token = detailDoc.value?.image_tokens?.[fileId]
+  return token ? `/api/collab/v1/docs/images/${fileId}?asset_token=${token}` : undefined
+}
+
+async function uploadRichImage(file: File) {
+  if (!detailDoc.value) throw new Error('文档尚未加载')
+  const result = await collabApi.docs.uploadImage(detailDoc.value.doc_id, file)
+  imageOverrides[result.file_id] = result.url
+  return { fileId: result.file_id, width: result.width, height: result.height, url: result.url }
+}
 
 const richView = computed(() =>
   parseRichContent(detailDoc.value?.content, detailDoc.value?.content_format),
@@ -97,7 +112,8 @@ const gapItems = [
   '目录管理已接入：可新建/重命名/删除自己的目录，把文档归入或移出目录；目录非空时禁止删除。',
   '分享链接：文档所有者可用 self:share 生成带有效期的同租户链接（1-365 天），过期返回 2002009。',
   '评论 anchor 无可视化定位，本页按时间顺序展示。',
-  '正文支持纯文本与富文本两种格式（content_format=PLAIN / RICH_JSON）；富文本支持标题、加粗/斜体/下划线、链接（仅 http/https/mailto）、有序/无序列表嵌套、表格与基础格式粘贴，渲染只做文本插值，标签与属性在入库前即被剥离。',
+  '正文支持纯文本与富文本两种格式（content_format=PLAIN / RICH_JSON）；富文本支持标题、加粗/斜体/下划线、链接（仅 http/https/mailto）、有序/无序列表嵌套、表格、插入图片与基础格式粘贴，渲染只做文本插值，标签与属性在入库前即被剥离。',
+  '文档图片：正文只保存 fileId 与尺寸，图片经剥 EXIF、分块加密后存入文件服务；页面通过 5 分钟短期令牌代理加载，不暴露对象存储直链。单图上限 10 MB，仅支持 JPEG/PNG/WebP。',
 ]
 
 const folders = ref<CollabDocFolder[]>([])
@@ -284,6 +300,7 @@ function resetDrawerState() {
   originalFormat.value = 'PLAIN'
   originalContent.value = ''
   richModel.value = emptyRichDoc()
+  Object.keys(imageOverrides).forEach((key) => delete imageOverrides[key])
   versions.value = []
   versionTotal.value = 0
   versionQuery.page = 1
@@ -663,6 +680,8 @@ onMounted(() => {
                 <RichDocEditor
                   v-if="editFormat === 'RICH_JSON'"
                   v-model="richModel"
+                  :resolve-image="resolveImage"
+                  :upload-image="auth.can('biz:collab:doc:edit') ? uploadRichImage : undefined"
                   style="margin-top: 12px"
                 />
                 <el-input
@@ -675,7 +694,7 @@ onMounted(() => {
                 />
               </template>
               <template v-else>
-                <RichDocContent v-if="richView" :model="richView" class="detail-rich" />
+                <RichDocContent v-if="richView" :model="richView" :resolve-image="resolveImage" class="detail-rich" />
                 <el-input
                   v-else
                   v-model="detailForm.content"

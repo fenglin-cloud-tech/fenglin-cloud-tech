@@ -39,6 +39,11 @@
             <groupId>com.fenglin</groupId>
             <artifactId>fenglin-common-crypto</artifactId>
         </dependency>
+        <!-- RestClient 的发布器接口依赖（spring-web 将其标记为 optional） -->
+        <dependency>
+            <groupId>org.reactivestreams</groupId>
+            <artifactId>reactive-streams</artifactId>
+        </dependency>
 
         <dependency>
             <groupId>com.fenglin</groupId>

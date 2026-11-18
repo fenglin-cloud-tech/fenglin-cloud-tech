@@ -63,7 +63,13 @@ public final class CollabDtos {
 
     public record DocView(String docId, String title, String docType, String contentFormat, String secretLevel,
                           int currentVersion, String status, long ownerId, String myPermission, String content,
-                          boolean watermarkEnabled, String shareScope, String folderId, Instant updatedAt) {
+                          boolean watermarkEnabled, String shareScope, String folderId, Instant updatedAt,
+                          Map<String, String> imageTokens) {
+    }
+
+    /** 图片上传结果：fileId 为文件服务主键（字符串避免前端 bigint 精度丢失），url 为 5 分钟临时地址。 */
+    public record DocImageUploadView(String fileId, String docId, String mime, long size, int width, int height,
+                                     String sha256, String url) {
     }
 
     /**

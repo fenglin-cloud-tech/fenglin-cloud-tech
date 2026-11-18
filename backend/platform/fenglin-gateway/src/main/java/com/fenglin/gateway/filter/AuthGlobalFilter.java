@@ -50,7 +50,13 @@ public class AuthGlobalFilter implements GlobalFilter, Ordered {
             "/api/hub/v1/sso/token:revoke",
             "/api/hub/v1/sso/password/forgot",
             "/api/hub/v1/sso/password/reset",
+            // COL-07：分享页与图片代理使用短期令牌自校验，未登录可访问；
+            // 分享详情若携带 Bearer，仍走正常鉴权以兼容旧的 UUID 链接。
+            "/api/collab/v1/docs/shared/",
+            "/api/collab/v1/docs/images/",
             "/.well-known/");
+
+    private static final String SHARE_PREFIX = "/api/collab/v1/docs/shared/";
 
     private final JwtVerifier jwtVerifier;
     private final RevocationChecker revocationChecker;
@@ -71,10 +77,14 @@ public class AuthGlobalFilter implements GlobalFilter, Ordered {
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         String path = exchange.getRequest().getURI().getPath();
-        if (isPublic(path)) {
-            return chain.filter(exchange);
-        }
         String authorization = exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
+        if (isPublic(path)) {
+            boolean optionalShareAuth = path.startsWith(SHARE_PREFIX)
+                    && authorization != null && authorization.startsWith("Bearer ");
+            if (!optionalShareAuth) {
+                return chain.filter(exchange);
+            }
+        }
         if (authorization == null || !authorization.startsWith("Bearer ")) {
             return GatewayResponses.error(exchange, HttpStatus.UNAUTHORIZED, "FL-COMMON-0401", "未认证或令牌失效");
         }

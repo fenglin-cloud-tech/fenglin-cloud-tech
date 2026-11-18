@@ -16,6 +16,13 @@ const routes: RouteRecordRaw[] = [
     meta: { public: true, title: '重置密码' },
   },
   {
+    // 分享页必须未登录可访问：令牌自带租户，后端按 v2 令牌解析租户并校验链接有效期
+    path: '/docs/share/:token',
+    name: 'doc-share',
+    component: () => import('@/views/collab/DocShareView.vue'),
+    meta: { public: true, title: '分享文档' },
+  },
+  {
     path: '/',
     component: () => import('@/layouts/PortalLayout.vue'),
     redirect: '/overview',
@@ -67,12 +74,6 @@ const routes: RouteRecordRaw[] = [
         name: 'docs',
         component: () => import('@/views/collab/DocsView.vue'),
         meta: { title: '文档', perm: 'biz:collab:doc:self:read' },
-      },
-      {
-        path: 'docs/share/:token',
-        name: 'doc-share',
-        component: () => import('@/views/collab/DocShareView.vue'),
-        meta: { title: '分享文档' },
       },
       {
         path: 'my-schedule',

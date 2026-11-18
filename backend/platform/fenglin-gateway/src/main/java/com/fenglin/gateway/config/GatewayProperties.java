@@ -206,6 +206,7 @@ public class GatewayProperties {
         private int loginQps = 50;
         private int readQps = 500;
         private int writeQps = 100;
+        private int imageQps = 300;
 
         public int getLoginQps() {
             return loginQps;
@@ -229,6 +230,14 @@ public class GatewayProperties {
 
         public void setWriteQps(int writeQps) {
             this.writeQps = writeQps;
+        }
+
+        public int getImageQps() {
+            return imageQps;
+        }
+
+        public void setImageQps(int imageQps) {
+            this.imageQps = imageQps;
         }
     }
 

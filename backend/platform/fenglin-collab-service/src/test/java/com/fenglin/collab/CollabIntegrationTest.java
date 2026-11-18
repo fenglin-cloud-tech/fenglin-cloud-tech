@@ -3,6 +3,7 @@ package com.fenglin.collab;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fenglin.collab.client.WorkflowClient;
+import com.fenglin.collab.client.FileServiceClient;
 import com.fenglin.common.audit.AuditEvent;
 import com.fenglin.common.audit.AuditSink;
 import com.fenglin.common.test.EmbeddedPostgresSupport;
@@ -72,6 +73,7 @@ class CollabIntegrationTest {
     private static final String JDBC_URL;
     private static final List<AuditEvent> AUDIT_EVENTS = new CopyOnWriteArrayList<>();
     private static final List<String> WORKFLOW_CALLS = new CopyOnWriteArrayList<>();
+    private static final FakeFileClient FILE_CLIENT = new FakeFileClient();
 
     static {
         EmbeddedPostgresSupport postgres = EmbeddedPostgresSupport.start();
@@ -110,6 +112,50 @@ class CollabIntegrationTest {
                 WORKFLOW_CALLS.add(processKey + ":" + businessKey);
                 return "WF-" + businessKey;
             };
+        }
+
+        @Bean
+        @Primary
+        FileServiceClient fakeFileServiceClient() {
+            return FILE_CLIENT;
+        }
+    }
+
+    /** 文件服务替身：记录上传的密文字节，读取时按 fileId 返回。 */
+    static class FakeFileClient extends FileServiceClient {
+
+        private final Map<Long, byte[]> objects = new java.util.concurrent.ConcurrentHashMap<>();
+        private final java.util.concurrent.atomic.AtomicLong sequence =
+                new java.util.concurrent.atomic.AtomicLong(900000L);
+
+        FakeFileClient() {
+            super("http://localhost:1");
+        }
+
+        @Override
+        public long upload(long tenantId, Long userId, String fileName, java.nio.file.Path cipherFile, String docId) {
+            try {
+                long id = sequence.incrementAndGet();
+                objects.put(id, java.nio.file.Files.readAllBytes(cipherFile));
+                return id;
+            } catch (java.io.IOException ex) {
+                throw new IllegalStateException(ex);
+            }
+        }
+
+        @Override
+        public String downloadUrl(long tenantId, Long userId, long fileId) {
+            return "fake://file/" + fileId;
+        }
+
+        @Override
+        public java.io.InputStream openStream(String url) {
+            long fileId = Long.parseLong(url.substring(url.lastIndexOf('/') + 1));
+            byte[] bytes = objects.get(fileId);
+            if (bytes == null) {
+                throw new IllegalStateException("文件不存在: " + fileId);
+            }
+            return new java.io.ByteArrayInputStream(bytes);
         }
     }
 
@@ -398,6 +444,138 @@ class CollabIntegrationTest {
                 + "WHERE document_id = '" + docId + "' AND version_no = 4")).isEqualTo("RICH_JSON");
         assertThat(queryString("SELECT content_cipher FROM fenglin_collab.collab_document WHERE id = '"
                 + docId + "'")).doesNotContain("富文本正文");
+    }
+
+    // ---------- 文档图片（COL-07） ----------
+
+    @Test
+    void uploadsStrippedEncryptedImagesAndServesThemThroughShareTokens() throws Exception {
+        JsonNode created = read(post("/api/collab/v1/docs", TENANT_A, USER_OWNER, ALL_PERMISSIONS,
+                Map.of("title", "图片文档", "doc_type", "RICH", "secret_level", "INTERNAL")).getBody()).get("data");
+        String docId = created.get("doc_id").asText();
+
+        byte[] png = pngWithMetadata(64, 48);
+        JsonNode uploaded = read(uploadImage(docId, png, "gps.png").getBody()).get("data");
+        String fileId = uploaded.get("file_id").asText();
+        assertThat(uploaded.get("width").asInt()).isEqualTo(64);
+        assertThat(uploaded.get("height").asInt()).isEqualTo(48);
+        assertThat(uploaded.get("mime").asText()).isEqualTo("image/png");
+        assertThat(uploaded.get("sha256").asText()).hasSize(64);
+
+        // 文件服务里只有密文：不包含 PNG 签名，也不包含原图文本块
+        byte[] stored = FILE_CLIENT.objects.get(Long.parseLong(fileId));
+        assertThat(new String(stored, 0, 4, java.nio.charset.StandardCharsets.US_ASCII)).isEqualTo("FLIM");
+        assertThat(new String(stored, java.nio.charset.StandardCharsets.ISO_8859_1))
+                .doesNotContain("GPSDATA").doesNotContain("\u0089PNG");
+
+        String rich = "{\"version\":1,\"blocks\":[{\"type\":\"image\",\"fileId\":\"" + fileId
+                + "\",\"width\":64,\"height\":48}]}";
+        read(exchange(HttpMethod.PUT, "/api/collab/v1/docs/" + docId, TENANT_A, USER_OWNER, ALL_PERMISSIONS,
+                Map.of("content", rich, "content_format", "RICH_JSON", "version", 1)).getBody()).get("data");
+
+        JsonNode detail = read(get("/api/collab/v1/docs/" + docId, TENANT_A, USER_OWNER, ALL_PERMISSIONS)
+                .getBody()).get("data");
+        String assetToken = detail.get("image_tokens").get(fileId).asText();
+        ResponseEntity<byte[]> image = rawGet("/api/collab/v1/docs/images/" + fileId + "?asset_token=" + assetToken);
+        assertThat(image.getStatusCode().value()).isEqualTo(200);
+        assertThat(image.getHeaders().getContentType().toString()).isEqualTo("image/png");
+        assertThat(image.getHeaders().getCacheControl()).contains("private");
+        assertThat(new String(image.getBody(), java.nio.charset.StandardCharsets.ISO_8859_1))
+                .doesNotContain("GPSDATA");
+        assertThat(image.getBody()[0] & 0xFF).isEqualTo(0x89);
+
+        // 分享链接：未登录可打开详情与图片
+        JsonNode share = read(post("/api/collab/v1/docs/" + docId + "/share-link", TENANT_A, USER_OWNER,
+                ALL_PERMISSIONS, Map.of("expire_days", 7)).getBody()).get("data");
+        String link = share.get("link_token").asText();
+        assertThat(link).startsWith("v2-" + TENANT_A + "-");
+        JsonNode sharedDoc = read(rawGetString("/api/collab/v1/docs/shared/" + link)).get("data");
+        String sharedToken = sharedDoc.get("image_tokens").get(fileId).asText();
+        ResponseEntity<byte[]> sharedImage = rawGet("/api/collab/v1/docs/shared/" + link + "/images/" + fileId
+                + "?asset_token=" + sharedToken);
+        assertThat(sharedImage.getStatusCode().value()).isEqualTo(200);
+        assertThat(sharedImage.getBody()[0] & 0xFF).isEqualTo(0x89);
+
+        // 拿别的文档的 fileId 拼同一令牌：403
+        JsonNode otherDoc = read(post("/api/collab/v1/docs", TENANT_A, USER_OWNER, ALL_PERMISSIONS,
+                Map.of("title", "另一篇图片文档", "doc_type", "RICH", "secret_level", "INTERNAL"))
+                .getBody()).get("data");
+        String otherFileId = read(uploadImage(otherDoc.get("doc_id").asText(), pngWithMetadata(32, 32), "other.png")
+                .getBody()).get("data").get("file_id").asText();
+        ResponseEntity<String> crossDoc = restTemplate.exchange(
+                url("/api/collab/v1/docs/shared/" + link + "/images/" + otherFileId + "?asset_token=" + sharedToken),
+                HttpMethod.GET, new HttpEntity<>(new HttpHeaders()), String.class);
+        assertThat(crossDoc.getStatusCode().value()).isEqualTo(403);
+
+        // 链接过期后同一个图片 URL：403
+        execute("UPDATE fenglin_collab.collab_document SET link_expire_at = now() - interval '1 day' "
+                + "WHERE link_token = '" + link + "'");
+        ResponseEntity<String> expired = restTemplate.exchange(
+                url("/api/collab/v1/docs/shared/" + link + "/images/" + fileId + "?asset_token=" + sharedToken),
+                HttpMethod.GET, new HttpEntity<>(new HttpHeaders()), String.class);
+        assertThat(expired.getStatusCode().value()).isEqualTo(403);
+
+        // 超过 10 MB：400 且错误信息带具体上限
+        ResponseEntity<String> tooBig = uploadImage(docId, new byte[(int) com.fenglin.collab.support.ImageProcessor
+                .MAX_BYTES + 1], "big.png");
+        assertThat(tooBig.getStatusCode().value()).isEqualTo(400);
+        assertThat(read(tooBig.getBody()).get("message").asText())
+                .contains("10 MB").contains(String.valueOf(com.fenglin.collab.support.ImageProcessor.MAX_BYTES));
+
+        // 元数据落库且未影响正文格式
+        assertThat(queryString("SELECT count(1) FROM fenglin_collab.collab_doc_image WHERE file_id = "
+                + fileId)).isEqualTo("1");
+        assertThat(queryString("SELECT content_format FROM fenglin_collab.collab_document WHERE id = '"
+                + docId + "'")).isEqualTo("RICH_JSON");
+        assertThat(AUDIT_EVENTS).anyMatch(event -> "COLLAB_DOC_IMAGE_UPLOADED".equals(event.eventType()));
+    }
+
+    private ResponseEntity<String> uploadImage(String docId, byte[] bytes, String filename) {
+        HttpHeaders headers = headers(TENANT_A, USER_OWNER, ALL_PERMISSIONS);
+        headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+        org.springframework.util.LinkedMultiValueMap<String, Object> body =
+                new org.springframework.util.LinkedMultiValueMap<>();
+        body.add("file", new org.springframework.core.io.ByteArrayResource(bytes) {
+            @Override
+            public String getFilename() {
+                return filename;
+            }
+        });
+        return restTemplate.exchange(url("/api/collab/v1/docs/" + docId + "/images"), HttpMethod.POST,
+                new HttpEntity<>(body, headers), String.class);
+    }
+
+    private ResponseEntity<byte[]> rawGet(String path) {
+        return restTemplate.exchange(url(path), HttpMethod.GET, new HttpEntity<>(new HttpHeaders()), byte[].class);
+    }
+
+    private String rawGetString(String path) {
+        return restTemplate.exchange(url(path), HttpMethod.GET, new HttpEntity<>(new HttpHeaders()), String.class)
+                .getBody();
+    }
+
+    /** 构造带 tEXt 元数据的最小 PNG 头（足够被图片处理器识别尺寸与剥离文本块）。 */
+    private byte[] pngWithMetadata(int width, int height) throws Exception {
+        java.io.ByteArrayOutputStream png = new java.io.ByteArrayOutputStream();
+        png.write(new byte[]{(byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A});
+        byte[] ihdr = new byte[]{(byte) (width >>> 24), (byte) (width >>> 16), (byte) (width >>> 8),
+                (byte) width, (byte) (height >>> 24), (byte) (height >>> 16), (byte) (height >>> 8),
+                (byte) height, 0x08, 0x02, 0x00, 0x00, 0x00};
+        writePngChunk(png, "IHDR", ihdr);
+        writePngChunk(png, "tEXt", "GPSDATA".getBytes(java.nio.charset.StandardCharsets.ISO_8859_1));
+        writePngChunk(png, "IEND", new byte[0]);
+        return png.toByteArray();
+    }
+
+    private void writePngChunk(java.io.ByteArrayOutputStream out, String type, byte[] data) throws Exception {
+        int length = data.length;
+        out.write((length >>> 24) & 0xFF);
+        out.write((length >>> 16) & 0xFF);
+        out.write((length >>> 8) & 0xFF);
+        out.write(length & 0xFF);
+        out.write(type.getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+        out.write(data);
+        out.write(new byte[4]);
     }
 
     // ---------- 日历 + 会议 + 待办 ----------

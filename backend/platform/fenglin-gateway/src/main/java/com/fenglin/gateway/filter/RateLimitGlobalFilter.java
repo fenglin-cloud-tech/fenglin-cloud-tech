@@ -64,8 +64,13 @@ public class RateLimitGlobalFilter implements GlobalFilter, Ordered {
     }
 
     private String category(ServerHttpRequest request) {
-        if (LOGIN_PATH.equals(request.getURI().getPath())) {
+        String path = request.getURI().getPath();
+        if (LOGIN_PATH.equals(path)) {
             return "login";
+        }
+        // COL-07：文档图片代理单独限流，避免图片加载挤占普通读接口额度
+        if (path.startsWith("/api/collab/v1/docs/") && path.contains("/images/")) {
+            return "image";
         }
         return HttpMethod.GET.equals(request.getMethod()) ? "read" : "write";
     }
@@ -73,6 +78,7 @@ public class RateLimitGlobalFilter implements GlobalFilter, Ordered {
     private int limit(String category) {
         return switch (category) {
             case "login" -> properties.getRateLimit().getLoginQps();
+            case "image" -> properties.getRateLimit().getImageQps();
             case "read" -> properties.getRateLimit().getReadQps();
             default -> properties.getRateLimit().getWriteQps();
         };

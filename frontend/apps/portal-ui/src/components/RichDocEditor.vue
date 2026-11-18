@@ -10,11 +10,20 @@ import {
   type RichDoc,
 } from '@fenglin/ui-admin'
 
-const props = defineProps<{ modelValue: RichDoc }>()
+const props = defineProps<{
+  modelValue: RichDoc
+  /** 文档图片短期地址解析：fileId → 带 asset_token 的代理地址。 */
+  resolveImage?: (fileId: string) => string | undefined
+  /** 上传图片：由页面调用协作文档图片接口，返回 fileId、尺寸与临时地址。 */
+  uploadImage?: (file: File) => Promise<{ fileId: string; width: number; height: number; url: string }>
+}>()
 const emit = defineEmits<{ 'update:modelValue': [RichDoc] }>()
 
 const editorRef = ref<HTMLElement | null>(null)
+const fileInput = ref<HTMLInputElement | null>(null)
 const linkUrl = ref('')
+const uploading = ref(false)
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024
 let lastEmitted = ''
 let syncing = false
 let savedRange: Range | null = null
@@ -31,7 +40,7 @@ function renderFromModel() {
   const el = editorRef.value
   if (!el) return
   // 只由已清洗的模型生成 HTML，文本与链接地址均已在 richDocToEditorHtml 中转义。
-  el.innerHTML = richDocToEditorHtml(props.modelValue)
+  el.innerHTML = richDocToEditorHtml(props.modelValue, props.resolveImage)
 }
 
 function onInput() {
@@ -95,6 +104,50 @@ function insertTable() {
   onInput()
 }
 
+/** 选择图片：先记住光标位置，上传成功后把受控 img 节点插回原位置。 */
+function chooseImage() {
+  if (!props.uploadImage || uploading.value) return
+  rememberSelection()
+  fileInput.value?.click()
+}
+
+async function onImagePicked(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file || !props.uploadImage) return
+  if (file.size > MAX_IMAGE_BYTES) {
+    ElMessage.error(`图片超过 10 MB 上限（${file.size} 字节）`)
+    return
+  }
+  uploading.value = true
+  try {
+    const image = await props.uploadImage(file)
+    insertImage(image)
+  } catch (error) {
+    ElMessage.error(error instanceof Error && error.message ? error.message : '图片上传失败')
+  } finally {
+    uploading.value = false
+  }
+}
+
+function insertImage(image: { fileId: string; width: number; height: number; url: string }) {
+  const el = editorRef.value
+  if (!el) return
+  el.focus()
+  const selection = window.getSelection()
+  if (selection && savedRange) {
+    selection.removeAllRanges()
+    selection.addRange(savedRange)
+  }
+  savedRange = null
+  const html = `<p class="rich-image" contenteditable="false"><img src="${escapeHtml(image.url)}"`
+    + ` data-image-id="${escapeHtml(image.fileId)}" data-image-width="${Math.max(1, Math.trunc(image.width))}"`
+    + ` data-image-height="${Math.max(1, Math.trunc(image.height))}" alt="文档图片" loading="lazy" /></p><p><br></p>`
+  document.execCommand('insertHTML', false, html)
+  onInput()
+}
+
 /**
  * 粘贴：HTML 走 DOMParser + 白名单模型往返，保留加粗/斜体/列表/表格，
  * 图片、脚本与全部属性在模型转换时丢弃；无 HTML 时退化为纯文本。
@@ -139,6 +192,10 @@ onMounted(renderFromModel)
       <el-button size="small" @mousedown.prevent="exec('formatBlock', '<blockquote>')">引用</el-button>
       <el-button size="small" @mousedown.prevent="exec('formatBlock', '<pre>')">代码块</el-button>
       <el-button size="small" @mousedown.prevent="insertTable">插入表格</el-button>
+      <el-button v-if="props.uploadImage" size="small" :loading="uploading" @mousedown.prevent="chooseImage">
+        插入图片
+      </el-button>
+      <input ref="fileInput" type="file" accept="image/jpeg,image/png,image/webp" hidden @change="onImagePicked" />
       <el-input
         v-model="linkUrl"
         class="rich-editor__link-input"
@@ -241,5 +298,13 @@ onMounted(renderFromModel)
 .rich-editor__body :deep(a) {
   color: var(--fl-color-primary, #409eff);
   text-decoration: underline;
+}
+.rich-editor__body :deep(.rich-image) {
+  margin: 8px 0;
+}
+.rich-editor__body :deep(.rich-image img) {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
 }
 </style>

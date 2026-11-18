@@ -11,8 +11,9 @@ spring:
     default-property-inclusion: non_null
   servlet:
     multipart:
-      max-file-size: 10MB
-      max-request-size: 20MB
+      # 云协图片按不透明密文上传，密文比明文多每块 28 字节开销；放宽到 12MB 以容纳 10MB 原图
+      max-file-size: 12MB
+      max-request-size: 24MB
   datasource:
     url: ${FENGLIN_DB_URL:jdbc:postgresql://localhost:5432/fenglin_hub?currentSchema=fenglin_hub}
     username: ${FENGLIN_DB_USER:fenglin}

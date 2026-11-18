@@ -6,6 +6,7 @@ import com.fenglin.collab.mapper.DocMapper;
 import com.fenglin.collab.support.CollabAudit;
 import com.fenglin.collab.support.CollabContext;
 import com.fenglin.collab.support.CollabCrypto;
+import com.fenglin.collab.support.ImageAssetTokenService;
 import com.fenglin.collab.support.Rows;
 import com.fenglin.collab.web.dto.CollabDtos.CollaboratorRequest;
 import com.fenglin.collab.web.dto.CollabDtos.CollaboratorView;
@@ -57,14 +58,19 @@ public class DocService {
     private final CollabAudit audit;
     private final CollabSettingService settingService;
     private final ObjectMapper objectMapper;
+    private final DocImageTokenIssuer imageTokenIssuer;
+    private final ImageAssetTokenService assetTokenService;
 
     public DocService(DocMapper docMapper, CollabCrypto crypto, CollabAudit audit,
-                      CollabSettingService settingService, ObjectMapper objectMapper) {
+                      CollabSettingService settingService, ObjectMapper objectMapper,
+                      DocImageTokenIssuer imageTokenIssuer, ImageAssetTokenService assetTokenService) {
         this.docMapper = docMapper;
         this.crypto = crypto;
         this.audit = audit;
         this.settingService = settingService;
         this.objectMapper = objectMapper;
+        this.imageTokenIssuer = imageTokenIssuer;
+        this.assetTokenService = assetTokenService;
     }
 
     @Transactional
@@ -304,7 +310,8 @@ public class DocService {
         if (expireDays < 1 || expireDays > 365) {
             throw new BizException(CollabErrorCode.PARAM_INVALID, "分享有效期需在 1-365 天");
         }
-        String token = UUID.randomUUID().toString().replace("-", "");
+        // 令牌内嵌租户，未登录访问分享页时可在不绕过 RLS 的前提下解析租户；旧 UUID 令牌仍可由已登录调用方打开。
+        String token = "v2-" + tenantId + "-" + UUID.randomUUID().toString().replace("-", "");
         OffsetDateTime expireAt = OffsetDateTime.now(ZoneOffset.UTC).plusDays(expireDays);
         docMapper.setShareLink(tenantId, docId, token, expireAt, userId);
         audit.publish("COLLAB_DOC_SHARE_LINK_CREATED", "UPDATE", "collab_document", docId, "MEDIUM");
@@ -440,10 +447,14 @@ public class DocService {
             throw new BizException(CollabErrorCode.DOC_CONFIDENTIAL_FORBIDDEN);
         }
         String content = crypto.decrypt(tenantId, "collab_document", "content", Rows.str(doc, "contentCipher"));
-        return new DocView(Rows.str(doc, "docId"), Rows.str(doc, "title"), "RICH", docFormat(doc),
+        String format = docFormat(doc);
+        Map<String, String> imageTokens = content == null ? null
+                : imageTokenIssuer.issue(tenantId, Rows.str(doc, "docId"), content, format,
+                assetTokenService.linkSubject(token));
+        return new DocView(Rows.str(doc, "docId"), Rows.str(doc, "title"), "RICH", format,
                 Rows.str(doc, "secretLevel"), Rows.intVal(doc, "currentVersion"), "PUBLISHED",
                 Rows.lngVal(doc, "ownerId"), "READ", content, false, "LINK",
-                Rows.str(doc, "folderId"), null);
+                Rows.str(doc, "folderId"), null, imageTokens);
     }
 
     @Transactional
@@ -528,13 +539,17 @@ public class DocService {
         String permission = resolvePermission(tenantId, row, userId);
         String content = withContent && permission != null
                 ? crypto.decrypt(tenantId, "collab_document", "content", Rows.str(row, "contentCipher")) : null;
+        String format = docFormat(row);
+        Map<String, String> imageTokens = content == null ? null
+                : imageTokenIssuer.issue(tenantId, Rows.str(row, "docId"), content, format,
+                assetTokenService.userSubject(userId));
         return new DocView(Rows.str(row, "docId"), Rows.str(row, "title"),
                 Rows.str(row, "docType") == null ? "RICH" : Rows.str(row, "docType"),
-                docFormat(row), Rows.str(row, "secretLevel"), Rows.intVal(row, "currentVersion"),
+                format, Rows.str(row, "secretLevel"), Rows.intVal(row, "currentVersion"),
                 Rows.str(row, "status"), Rows.lngVal(row, "ownerId"), permission, content,
                 Rows.intVal(row, "watermarkEnabled") == 1,
                 Rows.str(row, "shareScope") == null ? "PRIVATE" : Rows.str(row, "shareScope"),
-                Rows.str(row, "folderId"), Rows.instant(row, "updatedAt"));
+                Rows.str(row, "folderId"), Rows.instant(row, "updatedAt"), imageTokens);
     }
 
     private String docFormat(Map<String, Object> row) {

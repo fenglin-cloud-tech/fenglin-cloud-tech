@@ -12,6 +12,13 @@ const doc = ref<CollabDoc | null>(null)
 
 const richView = computed(() => parseRichContent(doc.value?.content, doc.value?.content_format))
 
+/** 分享图片必须走分享代理端点，令牌绑定链接哈希；不回退到登录态图片地址。 */
+function resolveImage(fileId: string) {
+  const token = doc.value?.image_tokens?.[fileId]
+  if (!token) return undefined
+  return `/api/collab/v1/docs/shared/${String(route.params.token)}/images/${fileId}?asset_token=${token}`
+}
+
 async function load() {
   loading.value = true
   error.value = ''
@@ -30,7 +37,7 @@ onMounted(load)
 
 <template>
   <div class="doc-share">
-    <PageHeader title="分享文档" description="同租户内有效，链接过期后需重新生成。" />
+    <PageHeader title="分享文档" description="持有链接即可查看，链接过期后自动失效。" />
     <el-alert v-if="error" type="error" :closable="false" show-icon :title="error" style="margin-bottom: 12px" />
     <el-card v-loading="loading" shadow="never">
       <template #header>
@@ -39,7 +46,7 @@ onMounted(load)
           <el-tag v-if="doc?.share_scope === 'LINK'" type="success" size="small">链接分享</el-tag>
         </div>
       </template>
-      <RichDocContent v-if="richView" :model="richView" />
+      <RichDocContent v-if="richView" :model="richView" :resolve-image="resolveImage" />
       <pre v-else class="doc-share__content">{{ doc?.content || '（空文档）' }}</pre>
     </el-card>
   </div>

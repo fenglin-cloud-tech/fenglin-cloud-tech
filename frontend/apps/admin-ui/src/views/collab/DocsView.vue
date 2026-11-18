@@ -49,6 +49,12 @@ const canEdit = computed(() => {
 const isRichDoc = computed(() => detailDoc.value?.content_format === 'RICH_JSON')
 const richView = computed(() => parseRichContent(detailDoc.value?.content, detailDoc.value?.content_format))
 
+/** 只读图片走短时代理地址；没有令牌时不渲染 src，避免泄露任何直链。 */
+function resolveImage(fileId: string) {
+  const token = detailDoc.value?.image_tokens?.[fileId]
+  return token ? `/api/collab/v1/docs/images/${fileId}?asset_token=${token}` : undefined
+}
+
 const versionsVisible = ref(false)
 const versionsLoading = ref(false)
 const versionsError = ref('')
@@ -503,7 +509,7 @@ onMounted(() => {
             </el-button>
           </div>
           <el-input v-model="detailForm.title" :disabled="!canEdit" maxlength="128" style="margin-bottom: 12px" />
-          <RichDocContent v-if="isRichDoc" :model="detailForm.content" class="rich-readonly" />
+          <RichDocContent v-if="isRichDoc" :model="detailForm.content" :resolve-image="resolveImage" class="rich-readonly" />
           <el-input v-else v-model="detailForm.content" type="textarea" :rows="16" :readonly="!canEdit" placeholder="纯文本正文" />
           <div class="fl-muted" style="margin-top: 8px">
             <template v-if="isRichDoc">

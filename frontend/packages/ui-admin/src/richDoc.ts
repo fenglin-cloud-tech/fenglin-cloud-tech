@@ -10,7 +10,15 @@
  * 链接协议、标签白名单与属性丢弃都在本文件的模型转换里完成。
  */
 
-export type RichBlockType = 'paragraph' | 'heading' | 'bullet' | 'ordered' | 'quote' | 'code' | 'table'
+export type RichBlockType =
+  | 'paragraph'
+  | 'heading'
+  | 'bullet'
+  | 'ordered'
+  | 'quote'
+  | 'code'
+  | 'table'
+  | 'image'
 
 export interface RichRun {
   text: string
@@ -35,6 +43,10 @@ export interface RichBlock {
   level?: number
   runs: RichRun[]
   table?: RichTable
+  /** 图片块：只保存文件服务 ID 与展示尺寸，不保存字节或 base64。 */
+  fileId?: string
+  width?: number
+  height?: number
 }
 
 export interface RichDoc {
@@ -42,8 +54,10 @@ export interface RichDoc {
   blocks: RichBlock[]
 }
 
-const BLOCK_TYPES: RichBlockType[] = ['paragraph', 'heading', 'bullet', 'ordered', 'quote', 'code', 'table']
+const BLOCK_TYPES: RichBlockType[] = ['paragraph', 'heading', 'bullet', 'ordered', 'quote', 'code', 'table', 'image']
 const LIST_TYPES: RichBlockType[] = ['bullet', 'ordered']
+const MAX_IMAGE_DIMENSION = 20000
+const IMAGE_ID_PATTERN = /^\d{1,20}$/
 const MAX_BLOCKS = 5000
 const MAX_RUNS_PER_BLOCK = 500
 const MAX_TEXT_LENGTH = 100000
@@ -116,8 +130,19 @@ function cleanRuns(input: unknown): RichRun[] {
   return runs
 }
 
-function sanitizeTable(input: unknown): RichTable | null {
-  if (!input || typeof input !== 'object') return null
+function sanitizeImageBlock(input: Record<string, unknown>): RichBlock | null {
+  const rawId = input.fileId ?? input.file_id
+  const fileId = typeof rawId === 'number' ? String(rawId) : String(rawId ?? '').trim()
+  if (!IMAGE_ID_PATTERN.test(fileId)) return null
+  const width = Number(input.width)
+  const height = Number(input.height)
+  if (!Number.isFinite(width) || !Number.isFinite(height)) return null
+  const safeWidth = Math.min(MAX_IMAGE_DIMENSION, Math.max(1, Math.trunc(width)))
+  const safeHeight = Math.min(MAX_IMAGE_DIMENSION, Math.max(1, Math.trunc(height)))
+  return { type: 'image', fileId, width: safeWidth, height: safeHeight, runs: [] }
+}
+
+function sanitizeTable(input: unknown): RichTable | null {  if (!input || typeof input !== 'object') return null
   const source = input as Record<string, unknown>
   const header = Array.isArray(source.header) ? source.header : []
   const body = Array.isArray(source.rows) ? source.rows.slice(0, MAX_TABLE_ROWS) : []
@@ -157,6 +182,11 @@ export function sanitizeRichDoc(input: unknown): RichDoc {
   for (const raw of rawBlocks.slice(0, MAX_BLOCKS)) {
     if (!raw || typeof raw !== 'object') continue
     const item = raw as Record<string, unknown>
+    if (item.type === 'image') {
+      const image = sanitizeImageBlock(item)
+      if (image) blocks.push(image)
+      continue
+    }
     const type = BLOCK_TYPES.includes(item.type as RichBlockType)
       ? (item.type as RichBlockType)
       : 'paragraph'
@@ -206,6 +236,7 @@ export function richDocToPlain(doc: RichDoc): string {
   return safe.blocks
     .map((block) => {
       if (block.type === 'table' && block.table) return tableToPlain(block.table)
+      if (block.type === 'image') return '[图片]'
       const text = block.runs.map((run) => run.text).join('')
       if (block.type === 'heading') return text
       const level = Math.min(MAX_LIST_LEVEL, Math.max(0, block.level ?? 0))
@@ -309,7 +340,10 @@ function listTreeToHtml(nodes: ListNode[]): string {
  * 生成 contenteditable 初始 HTML。仅由已清洗的模型生成，文本先转义，
  * 因此这里赋值 innerHTML 不会引入外部标签或属性。
  */
-export function richDocToEditorHtml(doc: RichDoc): string {
+export function richDocToEditorHtml(
+  doc: RichDoc,
+  resolveImage?: (fileId: string) => string | undefined,
+): string {
   const safe = sanitizeRichDoc(doc)
   const parts: string[] = []
   let index = 0
@@ -322,7 +356,9 @@ export function richDocToEditorHtml(doc: RichDoc): string {
       index = end
       continue
     }
-    if (block.type === 'table' && block.table) {
+    if (block.type === 'image' && block.fileId) {
+      parts.push(imageToHtml(block, resolveImage))
+    } else if (block.type === 'table' && block.table) {
       parts.push(tableToHtml(block.table))
     } else if (block.type === 'heading') {
       const level = Math.min(3, Math.max(1, block.level ?? 1))
@@ -337,6 +373,35 @@ export function richDocToEditorHtml(doc: RichDoc): string {
     index += 1
   }
   return parts.join('')
+}
+
+/**
+ * 图片块 HTML：只输出受控的 data-* 属性；src 由调用方通过短期令牌解析，
+ * 不在这里读取或保存任何外部 URL。
+ */
+function imageToHtml(block: RichBlock, resolveImage?: (fileId: string) => string | undefined): string {
+  const fileId = escapeHtml(block.fileId ?? '')
+  const width = Math.max(1, Math.trunc(Number(block.width) || 1))
+  const height = Math.max(1, Math.trunc(Number(block.height) || 1))
+  const src = resolveImage?.(block.fileId ?? '')
+  const srcAttr = src ? ` src="${escapeHtml(src)}"` : ''
+  return `<p class="rich-image" contenteditable="false"><img${srcAttr} data-image-id="${fileId}"`
+    + ` data-image-width="${width}" data-image-height="${height}" alt="文档图片" loading="lazy" /></p>`
+}
+
+function imageBlockFrom(img: HTMLElement): RichBlock | null {
+  const fileId = (img.getAttribute('data-image-id') ?? '').trim()
+  if (!IMAGE_ID_PATTERN.test(fileId)) return null
+  const width = Number(img.getAttribute('data-image-width'))
+  const height = Number(img.getAttribute('data-image-height'))
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return null
+  return {
+    type: 'image',
+    fileId,
+    width: Math.min(MAX_IMAGE_DIMENSION, Math.trunc(width)),
+    height: Math.min(MAX_IMAGE_DIMENSION, Math.trunc(height)),
+    runs: [],
+  }
 }
 
 interface EditorMarks {
@@ -444,6 +509,10 @@ function tableFromElement(element: HTMLElement): RichTable | null {
 
 function blockFromElement(element: HTMLElement): RichBlock[] {
   const tag = element.tagName.toUpperCase()
+  if (tag === 'IMG') {
+    const image = imageBlockFrom(element)
+    return image ? [image] : []
+  }
   if (tag === 'UL' || tag === 'OL') {
     const blocks: RichBlock[] = []
     listBlocksFrom(element, 0, blocks)
@@ -463,6 +532,15 @@ function blockFromElement(element: HTMLElement): RichBlock[] {
     return [{ type: 'code', runs: runsFromElement(element) }]
   }
   if (tag === 'P' || tag === 'DIV' || tag === 'SECTION' || tag === 'ARTICLE') {
+    // 图片只接受带 data-image-id 的受控节点；外链/粘贴图片没有该属性，仍按原有规则丢弃。
+    const images = Array.from(element.children).filter((child) => child.tagName.toUpperCase() === 'IMG')
+    const text = (element.textContent ?? '').replace(/[\s\u200b]/g, '')
+    if (images.length && !text) {
+      const mapped = images.map((child) => imageBlockFrom(child as HTMLElement))
+      if (mapped.every((block): block is RichBlock => block !== null)) {
+        return mapped
+      }
+    }
     // 粘贴时常有多层 div 包裹；发现块级子节点时逐块下钻，避免把表格/列表拍平成文本。
     const blockChildren = Array.from(element.children).filter((child) =>
       ['P', 'DIV', 'UL', 'OL', 'TABLE', 'H1', 'H2', 'H3', 'BLOCKQUOTE', 'PRE', 'SECTION', 'ARTICLE'].includes(
@@ -494,10 +572,12 @@ export function editorDomToRichDoc(root: HTMLElement): RichDoc {
     if (child.nodeType !== Node.ELEMENT_NODE) return
     const element = child as HTMLElement
     const tag = element.tagName.toUpperCase()
-    if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'IMG' || tag === 'IFRAME' || tag === 'OBJECT') return
+    if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'IFRAME' || tag === 'OBJECT') return
     blocks.push(...blockFromElement(element))
   })
-  const cleaned = blocks.filter((block) => block.runs.length || block.type === 'paragraph' || block.type === 'table')
+  const cleaned = blocks.filter((block) =>
+    block.runs.length || block.type === 'paragraph' || block.type === 'table' || block.type === 'image',
+  )
   return { version: 1, blocks: cleaned.length ? cleaned.slice(0, MAX_BLOCKS) : emptyRichDoc().blocks }
 }
 

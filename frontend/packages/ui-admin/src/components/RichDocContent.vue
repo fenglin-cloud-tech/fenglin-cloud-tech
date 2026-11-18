@@ -2,7 +2,11 @@
 import { computed, defineComponent, h, type PropType } from 'vue'
 import { sanitizeRichDoc, type RichBlock, type RichDoc, type RichRun } from '../richDoc'
 
-const props = defineProps<{ model: RichDoc | string }>()
+const props = defineProps<{
+  model: RichDoc | string
+  /** 由页面用短期 asset_token 拼出图片地址；缺失时只显示占位，不请求外部链接。 */
+  resolveImage?: (fileId: string) => string | undefined
+}>()
 
 const doc = computed(() => sanitizeRichDoc(props.model))
 
@@ -76,7 +80,16 @@ function listStyle(block: RichBlock) {
 <template>
   <div class="rich-doc">
     <template v-for="entry in rendered" :key="entry.index">
-      <table v-if="entry.block.type === 'table' && entry.block.table" class="rich-doc__table">
+      <div v-if="entry.block.type === 'image' && entry.block.fileId" class="rich-doc__image">
+        <img
+          :src="props.resolveImage?.(entry.block.fileId)"
+          :width="entry.block.width"
+          :height="entry.block.height"
+          alt="文档图片"
+          loading="lazy"
+        />
+      </div>
+      <table v-else-if="entry.block.type === 'table' && entry.block.table" class="rich-doc__table">
         <thead>
           <tr>
             <th v-for="(cell, cellIndex) in entry.block.table.header" :key="cellIndex">
@@ -143,6 +156,13 @@ function listStyle(block: RichBlock) {
 }
 .rich-doc__run--underline {
   text-decoration: underline;
+}
+.rich-doc__image img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 8px 0;
+  border-radius: 4px;
 }
 .rich-doc a {
   color: var(--fl-color-primary, #409eff);
