@@ -29,8 +29,8 @@ public interface DocMapper {
                         @Param("contentHash") String contentHash, @Param("secretLevel") String secretLevel);
 
     @Select("""
-            SELECT id AS "docId", title AS "title", doc_type AS "docType", owner_id AS "ownerId",
-                   content_cipher AS "contentCipher", current_version AS "currentVersion",
+            SELECT id AS "docId", title AS "title", doc_type AS "docType", content_format AS "contentFormat",
+                   owner_id AS "ownerId", content_cipher AS "contentCipher", current_version AS "currentVersion",
                    secret_level AS "secretLevel", watermark_enabled AS "watermarkEnabled",
                    share_scope AS "shareScope", link_token AS "linkToken", folder_id AS "folderId",
                    (EXTRACT(EPOCH FROM link_expire_at) * 1000)::bigint AS "linkExpireAt",
@@ -42,8 +42,8 @@ public interface DocMapper {
     Map<String, Object> findDocument(@Param("tenantId") long tenantId, @Param("docId") String docId);
 
     @Select("""
-            SELECT id AS "docId", content_cipher AS "contentCipher", current_version AS "currentVersion",
-                   version AS "version"
+            SELECT id AS "docId", content_cipher AS "contentCipher", content_format AS "contentFormat",
+                   current_version AS "currentVersion", version AS "version"
             FROM collab_document
             WHERE tenant_id = #{tenantId} AND id = CAST(#{docId} AS uuid) AND deleted = 0
             FOR UPDATE
@@ -51,7 +51,8 @@ public interface DocMapper {
     Map<String, Object> lockDocument(@Param("tenantId") long tenantId, @Param("docId") String docId);
 
     @Select("""
-            SELECT d.id AS "docId", d.title AS "title", d.doc_type AS "docType", d.owner_id AS "ownerId",
+            SELECT d.id AS "docId", d.title AS "title", d.doc_type AS "docType",
+                   d.content_format AS "contentFormat", d.owner_id AS "ownerId",
                    d.current_version AS "currentVersion", d.secret_level AS "secretLevel",
                    d.share_scope AS "shareScope", d.status AS "status", CAST(d.folder_id AS varchar) AS "folderId",
                    (EXTRACT(EPOCH FROM d.updated_at) * 1000)::bigint AS "updatedAt"
@@ -171,7 +172,8 @@ public interface DocMapper {
      * 员工自助：只返回 owner_id 等于当前登录用户的文档。
      */
     @Select("""
-            SELECT d.id AS "docId", d.title AS "title", d.doc_type AS "docType", d.owner_id AS "ownerId",
+            SELECT d.id AS "docId", d.title AS "title", d.doc_type AS "docType",
+                   d.content_format AS "contentFormat", d.owner_id AS "ownerId",
                    d.current_version AS "currentVersion", d.secret_level AS "secretLevel",
                    d.share_scope AS "shareScope", d.status AS "status", CAST(d.folder_id AS varchar) AS "folderId",
                    (EXTRACT(EPOCH FROM d.updated_at) * 1000)::bigint AS "updatedAt"
@@ -198,7 +200,8 @@ public interface DocMapper {
      * 员工自助：共享给我的文档（本人为 USER 协作者，排除本人创建）。
      */
     @Select("""
-            SELECT d.id AS "docId", d.title AS "title", d.doc_type AS "docType", d.owner_id AS "ownerId",
+            SELECT d.id AS "docId", d.title AS "title", d.doc_type AS "docType",
+                   d.content_format AS "contentFormat", d.owner_id AS "ownerId",
                    d.current_version AS "currentVersion", d.secret_level AS "secretLevel",
                    d.share_scope AS "shareScope", d.status AS "status", CAST(d.folder_id AS varchar) AS "folderId",
                    (EXTRACT(EPOCH FROM d.updated_at) * 1000)::bigint AS "updatedAt"
@@ -233,28 +236,33 @@ public interface DocMapper {
             SET title = COALESCE(#{title,jdbcType=VARCHAR}, title),
                 content_cipher = COALESCE(#{contentCipher,jdbcType=VARCHAR}, content_cipher),
                 content_hash = COALESCE(#{contentHash,jdbcType=VARCHAR}, content_hash),
+                content_format = COALESCE(#{contentFormat,jdbcType=VARCHAR}, content_format),
                 current_version = #{newVersion}, status = 'DRAFT', updated_by = #{userId}
             WHERE tenant_id = #{tenantId} AND id = CAST(#{docId} AS uuid) AND deleted = 0
               AND current_version = #{expectedVersion}
             """)
     int updateContent(@Param("tenantId") long tenantId, @Param("docId") String docId,
                       @Param("title") String title, @Param("contentCipher") String contentCipher,
-                      @Param("contentHash") String contentHash, @Param("newVersion") int newVersion,
+                      @Param("contentHash") String contentHash, @Param("contentFormat") String contentFormat,
+                      @Param("newVersion") int newVersion,
                       @Param("expectedVersion") int expectedVersion, @Param("userId") long userId);
 
     @Insert("""
             INSERT INTO collab_document_version
-                (id, tenant_id, document_id, version_no, content_cipher, editor_id, version_type, created_by)
+                (id, tenant_id, document_id, version_no, content_cipher, content_format, editor_id, version_type,
+                 created_by)
             VALUES (#{id}, #{tenantId}, CAST(#{docId} AS uuid), #{versionNo}, #{contentCipher,jdbcType=VARCHAR},
-                    #{editorId}, #{versionType}, #{editorId})
+                    #{contentFormat,jdbcType=VARCHAR}, #{editorId}, #{versionType}, #{editorId})
             ON CONFLICT (tenant_id, document_id, version_no) DO NOTHING
             """)
     void insertVersion(@Param("id") long id, @Param("tenantId") long tenantId, @Param("docId") String docId,
                        @Param("versionNo") int versionNo, @Param("contentCipher") String contentCipher,
+                       @Param("contentFormat") String contentFormat,
                        @Param("editorId") Long editorId, @Param("versionType") String versionType);
 
     @Select("""
-            SELECT version_no AS "versionNo", content_cipher AS "contentCipher", editor_id AS "editorId",
+            SELECT version_no AS "versionNo", content_cipher AS "contentCipher",
+                   content_format AS "contentFormat", editor_id AS "editorId",
                    version_type AS "versionType", (EXTRACT(EPOCH FROM created_at) * 1000)::bigint AS "createdAt"
             FROM collab_document_version
             WHERE tenant_id = #{tenantId} AND document_id = CAST(#{docId} AS uuid)
@@ -319,6 +327,7 @@ public interface DocMapper {
     @Select("""
             SELECT id AS "docId", title AS "title", owner_id AS "ownerId", secret_level AS "secretLevel",
                    current_version AS "currentVersion", content_cipher AS "contentCipher",
+                   content_format AS "contentFormat",
                    (EXTRACT(EPOCH FROM link_expire_at) * 1000)::bigint AS "linkExpireAt"
             FROM collab_document
             WHERE tenant_id = #{tenantId} AND link_token = #{linkToken} AND deleted = 0 AND share_scope = 'LINK'

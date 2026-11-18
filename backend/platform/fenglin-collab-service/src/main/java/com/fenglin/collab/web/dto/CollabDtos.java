@@ -61,12 +61,15 @@ public final class CollabDtos {
     public record DocCreateRequest(String title, String docType, String folderId, String secretLevel) {
     }
 
-    public record DocView(String docId, String title, String docType, String secretLevel, int currentVersion,
-                          String status, long ownerId, String myPermission, String content, boolean watermarkEnabled,
-                          String shareScope, String folderId, Instant updatedAt) {
+    public record DocView(String docId, String title, String docType, String contentFormat, String secretLevel,
+                          int currentVersion, String status, long ownerId, String myPermission, String content,
+                          boolean watermarkEnabled, String shareScope, String folderId, Instant updatedAt) {
     }
 
-    public record DocUpdateRequest(String title, String content, Integer version) {
+    /**
+     * 正文格式缺省（content_format 为空）时保持文档原格式；显式传 PLAIN 才会从富文本降级为纯文本。
+     */
+    public record DocUpdateRequest(String title, String content, Integer version, String contentFormat) {
     }
 
     public record DocVersionView(int versionNo, String versionType, Long editorId, Instant createdAt) {

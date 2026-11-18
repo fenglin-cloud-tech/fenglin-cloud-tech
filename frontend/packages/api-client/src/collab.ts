@@ -51,10 +51,13 @@ export interface CollabMessagePage {
   next_cursor?: number
 }
 
+export type CollabDocContentFormat = 'PLAIN' | 'RICH_JSON'
+
 export interface CollabDoc {
   doc_id: CollabId
   title: string
   doc_type: string
+  content_format?: CollabDocContentFormat
   secret_level: string
   current_version: number
   status: string
@@ -452,7 +455,10 @@ export const collabApi = {
     detail(docId: CollabId) {
       return get<CollabDoc>(`/api/collab/v1/docs/${docId}`)
     },
-    update(docId: CollabId, body: { title?: string; content?: string; version?: number }) {
+    update(
+      docId: CollabId,
+      body: { title?: string; content?: string; version?: number; content_format?: CollabDocContentFormat },
+    ) {
       return put<CollabDoc>(`/api/collab/v1/docs/${docId}`, body)
     },
     versions(docId: CollabId, params: { page?: number; size?: number } = {}) {

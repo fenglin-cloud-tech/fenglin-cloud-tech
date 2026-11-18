@@ -48,6 +48,9 @@ public class DocService {
     private static final Set<String> DOC_TYPES = Set.of("RICH", "SHEET", "KANBAN");
     private static final Set<String> SECRET_LEVELS = Set.of("PUBLIC", "INTERNAL", "CONFIDENTIAL");
     private static final Set<String> PERMISSIONS = Set.of("READ", "COMMENT", "EDIT", "MANAGE");
+    private static final Set<String> CONTENT_FORMATS = Set.of("PLAIN", "RICH_JSON");
+    /** 富文本 JSON 上限；只做接口层校验，不给 content_cipher 列设长度上限。 */
+    private static final int MAX_CONTENT_BYTES = 2 * 1024 * 1024;
 
     private final DocMapper docMapper;
     private final CollabCrypto crypto;
@@ -157,13 +160,20 @@ public class DocService {
                     "文档版本已变化，请刷新后重试（当前版本 " + currentVersion + "）");
         }
         int newVersion = currentVersion + 1;
-        String cipher = request == null ? null : crypto.encrypt(tenantId, "collab_document", "content", request.content());
-        String hash = request == null ? null : crypto.hash(tenantId, request.content());
+        String content = request == null ? null : request.content();
+        String requestedFormat = request == null ? null : normalizeContentFormat(request.contentFormat());
+        // 未传格式或只改标题时保持原格式，避免被列默认值覆盖成 PLAIN。
+        String effectiveFormat = requestedFormat != null ? requestedFormat : Rows.str(doc, "contentFormat");
+        validateContent(content, effectiveFormat);
+        String cipher = content == null ? null : crypto.encrypt(tenantId, "collab_document", "content", content);
+        String hash = content == null ? null : crypto.hash(tenantId, content);
         String title = request == null ? null : request.title();
-        if (docMapper.updateContent(tenantId, docId, title, cipher, hash, newVersion, currentVersion, userId) == 0) {
+        if (docMapper.updateContent(tenantId, docId, title, cipher, hash, requestedFormat, newVersion,
+                currentVersion, userId) == 0) {
             throw new BizException(CollabErrorCode.STATE_CONFLICT, "文档已被其他协作者修改");
         }
-        docMapper.insertVersion(IdWorker.getId(), tenantId, docId, newVersion, cipher, userId, "AUTO");
+        docMapper.insertVersion(IdWorker.getId(), tenantId, docId, newVersion, cipher,
+                effectiveFormat == null ? "PLAIN" : effectiveFormat, userId, "AUTO");
         audit.publish("COLLAB_DOC_UPDATED", "UPDATE", "collab_document", docId, "LOW");
         return detail(docId);
     }
@@ -198,7 +208,7 @@ public class DocService {
         Map<String, Object> existing = docMapper.findVersion(tenantId, docId, versionNo);
         if (existing == null) {
             docMapper.insertVersion(IdWorker.getId(), tenantId, docId, versionNo,
-                    Rows.str(doc, "contentCipher"), userId, "MANUAL");
+                    Rows.str(doc, "contentCipher"), docFormat(doc), userId, "MANUAL");
             existing = docMapper.findVersion(tenantId, docId, versionNo);
         }
         audit.publish("COLLAB_DOC_VERSION_CREATED", "CREATE", "collab_document", docId, "LOW");
@@ -225,10 +235,14 @@ public class DocService {
         int currentVersion = Rows.intVal(doc, "currentVersion");
         int newVersion = currentVersion + 1;
         String cipher = Rows.str(version, "contentCipher");
-        if (docMapper.updateContent(tenantId, docId, null, cipher, null, newVersion, currentVersion, userId) == 0) {
+        String versionFormat = Rows.str(version, "contentFormat");
+        // 回滚必须连同格式一起复制，否则富文本版本回滚后会被按纯文本渲染。
+        if (docMapper.updateContent(tenantId, docId, null, cipher, null, versionFormat, newVersion,
+                currentVersion, userId) == 0) {
             throw new BizException(CollabErrorCode.STATE_CONFLICT, "文档已被其他协作者修改");
         }
-        docMapper.insertVersion(IdWorker.getId(), tenantId, docId, newVersion, cipher, userId, "AUTO");
+        docMapper.insertVersion(IdWorker.getId(), tenantId, docId, newVersion, cipher,
+                versionFormat == null ? "PLAIN" : versionFormat, userId, "AUTO");
         audit.publish("COLLAB_DOC_ROLLED_BACK", "UPDATE", "collab_document", docId, "MEDIUM");
         return new DocRollbackResult(newVersion, versionNo);
     }
@@ -426,7 +440,7 @@ public class DocService {
             throw new BizException(CollabErrorCode.DOC_CONFIDENTIAL_FORBIDDEN);
         }
         String content = crypto.decrypt(tenantId, "collab_document", "content", Rows.str(doc, "contentCipher"));
-        return new DocView(Rows.str(doc, "docId"), Rows.str(doc, "title"), "RICH",
+        return new DocView(Rows.str(doc, "docId"), Rows.str(doc, "title"), "RICH", docFormat(doc),
                 Rows.str(doc, "secretLevel"), Rows.intVal(doc, "currentVersion"), "PUBLISHED",
                 Rows.lngVal(doc, "ownerId"), "READ", content, false, "LINK",
                 Rows.str(doc, "folderId"), null);
@@ -516,10 +530,53 @@ public class DocService {
                 ? crypto.decrypt(tenantId, "collab_document", "content", Rows.str(row, "contentCipher")) : null;
         return new DocView(Rows.str(row, "docId"), Rows.str(row, "title"),
                 Rows.str(row, "docType") == null ? "RICH" : Rows.str(row, "docType"),
-                Rows.str(row, "secretLevel"), Rows.intVal(row, "currentVersion"),
+                docFormat(row), Rows.str(row, "secretLevel"), Rows.intVal(row, "currentVersion"),
                 Rows.str(row, "status"), Rows.lngVal(row, "ownerId"), permission, content,
                 Rows.intVal(row, "watermarkEnabled") == 1,
                 Rows.str(row, "shareScope") == null ? "PRIVATE" : Rows.str(row, "shareScope"),
                 Rows.str(row, "folderId"), Rows.instant(row, "updatedAt"));
+    }
+
+    private String docFormat(Map<String, Object> row) {
+        String format = Rows.str(row, "contentFormat");
+        return format == null || format.isBlank() ? "PLAIN" : format;
+    }
+
+    private String normalizeContentFormat(String requested) {
+        if (requested == null || requested.isBlank()) {
+            return null;
+        }
+        String format = requested.trim().toUpperCase(java.util.Locale.ROOT);
+        if (!CONTENT_FORMATS.contains(format)) {
+            throw new BizException(CollabErrorCode.PARAM_INVALID, "正文格式必须为 PLAIN 或 RICH_JSON");
+        }
+        return format;
+    }
+
+    /**
+     * 正文上限与格式校验：2 MB 按 UTF-8 字节计；RICH_JSON 必须是合法 JSON 对象。
+     */
+    private void validateContent(String content, String format) {
+        if (content == null) {
+            return;
+        }
+        int bytes = content.getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
+        if (bytes > MAX_CONTENT_BYTES) {
+            throw new BizException(CollabErrorCode.PARAM_INVALID,
+                    "正文超过 2 MB 上限（当前 " + bytes + " 字节，上限 " + MAX_CONTENT_BYTES + " 字节）");
+        }
+        if (!"RICH_JSON".equals(format)) {
+            return;
+        }
+        try {
+            var node = objectMapper.readTree(content);
+            if (node == null || !node.isObject() || !node.path("blocks").isArray()) {
+                throw new BizException(CollabErrorCode.PARAM_INVALID,
+                        "富文本正文必须是合法 JSON：{\"version\":1,\"blocks\":[...]}");
+            }
+        } catch (JsonProcessingException ex) {
+            throw new BizException(CollabErrorCode.PARAM_INVALID,
+                    "富文本正文必须是合法 JSON：{\"version\":1,\"blocks\":[...]}");
+        }
     }
 }

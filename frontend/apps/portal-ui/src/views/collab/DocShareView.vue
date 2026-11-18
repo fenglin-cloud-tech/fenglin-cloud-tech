@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { PageHeader } from '@fenglin/ui-admin'
+import { PageHeader, RichDocContent, parseRichContent } from '@fenglin/ui-admin'
 import { collabApi, type CollabDoc } from '@fenglin/api-client'
 import { describeError } from '@/utils/error'
 
@@ -9,6 +9,8 @@ const route = useRoute()
 const loading = ref(false)
 const error = ref('')
 const doc = ref<CollabDoc | null>(null)
+
+const richView = computed(() => parseRichContent(doc.value?.content, doc.value?.content_format))
 
 async function load() {
   loading.value = true
@@ -37,7 +39,8 @@ onMounted(load)
           <el-tag v-if="doc?.share_scope === 'LINK'" type="success" size="small">链接分享</el-tag>
         </div>
       </template>
-      <pre class="doc-share__content">{{ doc?.content || '（空文档）' }}</pre>
+      <RichDocContent v-if="richView" :model="richView" />
+      <pre v-else class="doc-share__content">{{ doc?.content || '（空文档）' }}</pre>
     </el-card>
   </div>
 </template>

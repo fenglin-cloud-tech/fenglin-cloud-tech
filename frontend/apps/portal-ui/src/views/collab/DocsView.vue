@@ -1,15 +1,29 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { GapNotice, PageHeader } from '@fenglin/ui-admin'
+import {
+  GapNotice,
+  PageHeader,
+  RichDocContent,
+  emptyRichDoc,
+  parseRichContent,
+  plainToRichDoc,
+  richDocToPlain,
+  sanitizeRichDoc,
+  utf8ByteLength,
+  MAX_CONTENT_BYTES,
+  type RichDoc,
+} from '@fenglin/ui-admin'
 import {
   collabApi,
   type CollabCollaborator,
   type CollabComment,
   type CollabDoc,
+  type CollabDocContentFormat,
   type CollabDocFolder,
   type CollabDocVersion,
 } from '@fenglin/api-client'
+import RichDocEditor from '@/components/RichDocEditor.vue'
 import { describeError } from '@/utils/error'
 import { useAuthStore } from '@/stores/auth'
 
@@ -46,6 +60,14 @@ const detailDoc = ref<CollabDoc | null>(null)
 const detailForm = reactive({ title: '', content: '' })
 const editing = ref(false)
 const activeTab = ref('content')
+const editFormat = ref<CollabDocContentFormat>('PLAIN')
+const originalFormat = ref<CollabDocContentFormat>('PLAIN')
+const originalContent = ref('')
+const richModel = ref<RichDoc>(emptyRichDoc())
+
+const richView = computed(() =>
+  parseRichContent(detailDoc.value?.content, detailDoc.value?.content_format),
+)
 
 const versions = ref<CollabDocVersion[]>([])
 const versionTotal = ref(0)
@@ -75,7 +97,7 @@ const gapItems = [
   '目录管理已接入：可新建/重命名/删除自己的目录，把文档归入或移出目录；目录非空时禁止删除。',
   '分享链接：文档所有者可用 self:share 生成带有效期的同租户链接（1-365 天），过期返回 2002009。',
   '评论 anchor 无可视化定位，本页按时间顺序展示。',
-  '文档正文维持纯文本（换行保留），富文本编辑器放二期。',
+  '正文支持纯文本与富文本两种格式（content_format=PLAIN / RICH_JSON）；富文本渲染只做文本插值，标签与属性在入库前即被剥离。',
 ]
 
 const folders = ref<CollabDocFolder[]>([])
@@ -258,6 +280,10 @@ function resetDrawerState() {
   detailDoc.value = null
   editing.value = false
   activeTab.value = 'content'
+  editFormat.value = 'PLAIN'
+  originalFormat.value = 'PLAIN'
+  originalContent.value = ''
+  richModel.value = emptyRichDoc()
   versions.value = []
   versionTotal.value = 0
   versionQuery.page = 1
@@ -290,8 +316,13 @@ async function openDetail(row: CollabDoc) {
 
 function startEdit() {
   if (!detailDoc.value) return
+  const format = detailDoc.value.content_format === 'RICH_JSON' ? 'RICH_JSON' : 'PLAIN'
   detailForm.title = detailDoc.value.title
   detailForm.content = detailDoc.value.content ?? ''
+  originalFormat.value = format
+  originalContent.value = detailDoc.value.content ?? ''
+  richModel.value = parseRichContent(detailDoc.value.content, format) ?? plainToRichDoc(detailForm.content)
+  editFormat.value = format
   editing.value = true
 }
 
@@ -302,19 +333,37 @@ function cancelEdit() {
   editing.value = false
 }
 
+/** 手动切换正文格式：纯文本 → 富文本按行拆段，富文本 → 纯文本按块拍平。 */
+function switchFormat(next: string | number | boolean) {
+  if (next === 'RICH_JSON') {
+    richModel.value = plainToRichDoc(detailForm.content)
+  } else {
+    detailForm.content = richDocToPlain(richModel.value)
+  }
+}
+
 async function saveDetail() {
   if (!detailDoc.value) return
   if (!detailForm.title.trim()) {
     detailError.value = '文档标题为必填项'
     return
   }
+  const format: CollabDocContentFormat = editFormat.value
+  const payload = format === 'RICH_JSON' ? JSON.stringify(sanitizeRichDoc(richModel.value)) : detailForm.content
+  const bytes = utf8ByteLength(payload)
+  if (bytes > MAX_CONTENT_BYTES) {
+    detailError.value = `正文超过 2 MB 上限（当前 ${bytes} 字节，上限 ${MAX_CONTENT_BYTES} 字节）`
+    return
+  }
+  // 正文与格式都没变时只提交标题，交给后端 COALESCE 保住原格式。
+  const contentChanged = payload !== originalContent.value || format !== originalFormat.value
   detailSaving.value = true
   detailError.value = ''
   try {
     const doc = await collabApi.docs.update(detailDoc.value.doc_id, {
       title: detailForm.title.trim(),
-      content: detailForm.content,
       version: detailDoc.value.current_version,
+      ...(contentChanged ? { content: payload, content_format: format } : {}),
     })
     detailDoc.value = doc
     detailForm.title = doc.title
@@ -600,16 +649,50 @@ onMounted(() => {
                   </template>
                 </template>
               </div>
-              <el-input
-                v-model="detailForm.content"
-                type="textarea"
-                :rows="18"
-                :readonly="!editing"
-                placeholder="暂无正文"
-                style="margin-top: 12px"
-              />
+              <el-radio-group
+                v-if="editing"
+                v-model="editFormat"
+                size="small"
+                style="margin-top: 8px"
+                @change="switchFormat"
+              >
+                <el-radio-button value="PLAIN">纯文本</el-radio-button>
+                <el-radio-button value="RICH_JSON">富文本</el-radio-button>
+              </el-radio-group>
+              <template v-if="editing">
+                <RichDocEditor
+                  v-if="editFormat === 'RICH_JSON'"
+                  v-model="richModel"
+                  style="margin-top: 12px"
+                />
+                <el-input
+                  v-else
+                  v-model="detailForm.content"
+                  type="textarea"
+                  :rows="18"
+                  placeholder="暂无正文"
+                  style="margin-top: 12px"
+                />
+              </template>
+              <template v-else>
+                <RichDocContent v-if="richView" :model="richView" class="detail-rich" />
+                <el-input
+                  v-else
+                  v-model="detailForm.content"
+                  type="textarea"
+                  :rows="18"
+                  readonly
+                  placeholder="暂无正文"
+                  style="margin-top: 12px"
+                />
+              </template>
               <div class="fl-muted" style="margin-top: 8px">
-                纯文本正文；保存携带当前版本号 {{ detailDoc.current_version }} 做乐观锁校验。
+                <template v-if="(editing ? editFormat : detailDoc?.content_format) === 'RICH_JSON'">
+                  富文本正文以结构化 JSON 保存；渲染只做文本插值，标签与属性在保存前被剥离。
+                </template>
+                <template v-else>
+                  纯文本正文；保存携带当前版本号 {{ detailDoc.current_version }} 做乐观锁校验。
+                </template>
               </div>
             </el-tab-pane>
 
@@ -694,6 +777,13 @@ onMounted(() => {
 </template>
 
 <style scoped>
+.detail-rich {
+  margin-top: 12px;
+  min-height: 300px;
+  padding: 12px 14px;
+  border: 1px solid var(--fl-color-border-light, #ebeef5);
+  border-radius: 4px;
+}
 .comment-item {
   padding: 10px 0;
   border-bottom: 1px solid var(--fl-color-border-light, #ebeef5);

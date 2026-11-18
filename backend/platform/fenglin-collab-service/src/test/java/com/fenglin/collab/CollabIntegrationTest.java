@@ -318,6 +318,88 @@ class CollabIntegrationTest {
         assertThat(AUDIT_EVENTS).anyMatch(event -> "COLLAB_DOC_ROLLED_BACK".equals(event.eventType()));
     }
 
+    // ---------- COL-07 富文本正文格式 ----------
+
+    @Test
+    void keepsContentFormatAcrossPlainRichTitleOnlyVersionRollbackAndShare() throws Exception {
+        JsonNode created = read(post("/api/collab/v1/docs", TENANT_A, USER_OWNER, ALL_PERMISSIONS,
+                Map.of("title", "富文本格式验证", "doc_type", "RICH", "secret_level", "INTERNAL"))
+                .getBody()).get("data");
+        String docId = created.get("doc_id").asText();
+        assertThat(created.get("content_format").asText()).isEqualTo("PLAIN");
+
+        // 旧纯文本文档：请求不携带 content_format，仍按 PLAIN 落库。
+        JsonNode plain = read(exchange(HttpMethod.PUT, "/api/collab/v1/docs/" + docId, TENANT_A, USER_OWNER,
+                ALL_PERMISSIONS, Map.of("title", "旧纯文本文档", "content", "第一段\n第二段", "version", 1))
+                .getBody()).get("data");
+        assertThat(plain.get("content_format").asText()).isEqualTo("PLAIN");
+        assertThat(plain.get("content").asText()).isEqualTo("第一段\n第二段");
+
+        String richJson = "{\"version\":1,\"blocks\":["
+                + "{\"type\":\"heading\",\"level\":1,\"runs\":[{\"text\":\"标题\"}]},"
+                + "{\"type\":\"paragraph\",\"runs\":[{\"text\":\"富文本正文\",\"bold\":true}]}]}";
+        JsonNode rich = read(exchange(HttpMethod.PUT, "/api/collab/v1/docs/" + docId, TENANT_A, USER_OWNER,
+                ALL_PERMISSIONS, Map.of("content", richJson, "content_format", "RICH_JSON", "version", 2))
+                .getBody()).get("data");
+        assertThat(rich.get("content_format").asText()).isEqualTo("RICH_JSON");
+        assertThat(rich.get("current_version").asInt()).isEqualTo(3);
+        assertThat(read(rich.get("content").asText()).get("blocks").size()).isEqualTo(2);
+
+        // 只改标题：不传正文与格式，必须保住 RICH_JSON。
+        JsonNode titleOnly = read(exchange(HttpMethod.PUT, "/api/collab/v1/docs/" + docId, TENANT_A, USER_OWNER,
+                ALL_PERMISSIONS, Map.of("title", "只改标题", "version", 3)).getBody()).get("data");
+        assertThat(titleOnly.get("content_format").asText()).isEqualTo("RICH_JSON");
+        assertThat(titleOnly.get("content").asText()).isEqualTo(richJson);
+        assertThat(titleOnly.get("current_version").asInt()).isEqualTo(4);
+
+        // 回滚到富文本版本：格式随内容一起复制。
+        JsonNode rolledBack = read(post("/api/collab/v1/docs/" + docId + "/rollback/3", TENANT_A, USER_OWNER,
+                ALL_PERMISSIONS, Map.of()).getBody()).get("data");
+        assertThat(rolledBack.get("current_version").asInt()).isEqualTo(5);
+        JsonNode afterRollback = read(get("/api/collab/v1/docs/" + docId, TENANT_A, USER_OWNER, ALL_PERMISSIONS)
+                .getBody()).get("data");
+        assertThat(afterRollback.get("content_format").asText()).isEqualTo("RICH_JSON");
+        assertThat(afterRollback.get("content").asText()).isEqualTo(richJson);
+
+        JsonNode shareLink = read(post("/api/collab/v1/docs/" + docId + "/share-link", TENANT_A, USER_OWNER,
+                ALL_PERMISSIONS, Map.of("expire_days", 7)).getBody()).get("data");
+        JsonNode shared = read(get("/api/collab/v1/docs/shared/" + shareLink.get("link_token").asText(),
+                TENANT_A, USER_MEMBER, ALL_PERMISSIONS).getBody()).get("data");
+        assertThat(shared.get("content_format").asText()).isEqualTo("RICH_JSON");
+        assertThat(shared.get("content").asText()).isEqualTo(richJson);
+
+        // 超过 2 MB：接口层 400，并说明具体上限。
+        String oversized = "x".repeat(2 * 1024 * 1024 + 16);
+        ResponseEntity<String> tooLarge = exchange(HttpMethod.PUT, "/api/collab/v1/docs/" + docId, TENANT_A,
+                USER_OWNER, ALL_PERMISSIONS, Map.of("content", oversized, "content_format", "PLAIN", "version", 5));
+        assertThat(tooLarge.getStatusCode().value()).isEqualTo(400);
+        JsonNode limitError = read(tooLarge.getBody());
+        assertThat(limitError.get("code").asText()).isEqualTo("2000001");
+        assertThat(limitError.get("message").asText()).contains("2 MB").contains("2097152");
+
+        ResponseEntity<String> invalidRich = exchange(HttpMethod.PUT, "/api/collab/v1/docs/" + docId, TENANT_A,
+                USER_OWNER, ALL_PERMISSIONS,
+                Map.of("content", "not-json", "content_format", "RICH_JSON", "version", 5));
+        assertThat(invalidRich.getStatusCode().value()).isEqualTo(400);
+        assertThat(read(invalidRich.getBody()).get("message").asText()).contains("合法 JSON");
+
+        ResponseEntity<String> invalidFormat = exchange(HttpMethod.PUT, "/api/collab/v1/docs/" + docId, TENANT_A,
+                USER_OWNER, ALL_PERMISSIONS, Map.of("content", "纯文本", "content_format", "HTML", "version", 5));
+        assertThat(invalidFormat.getStatusCode().value()).isEqualTo(400);
+        assertThat(read(invalidFormat.getBody()).get("message").asText()).contains("PLAIN").contains("RICH_JSON");
+
+        assertThat(queryString("SELECT content_format FROM fenglin_collab.collab_document WHERE id = '"
+                + docId + "'")).isEqualTo("RICH_JSON");
+        assertThat(queryString("SELECT content_format FROM fenglin_collab.collab_document_version "
+                + "WHERE document_id = '" + docId + "' AND version_no = 2")).isEqualTo("PLAIN");
+        assertThat(queryString("SELECT content_format FROM fenglin_collab.collab_document_version "
+                + "WHERE document_id = '" + docId + "' AND version_no = 3")).isEqualTo("RICH_JSON");
+        assertThat(queryString("SELECT content_format FROM fenglin_collab.collab_document_version "
+                + "WHERE document_id = '" + docId + "' AND version_no = 4")).isEqualTo("RICH_JSON");
+        assertThat(queryString("SELECT content_cipher FROM fenglin_collab.collab_document WHERE id = '"
+                + docId + "'")).doesNotContain("富文本正文");
+    }
+
     // ---------- 日历 + 会议 + 待办 ----------
 
     @Test

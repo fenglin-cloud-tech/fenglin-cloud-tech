@@ -4,6 +4,22 @@ export { default as IdInput } from './components/IdInput.vue'
 export { default as StatCard } from './components/StatCard.vue'
 export { default as CrmActivityDialog } from './components/CrmActivityDialog.vue'
 export { default as ApprovalFormFields } from './components/ApprovalFormFields.vue'
+export { default as RichDocContent } from './components/RichDocContent.vue'
 export { permissionDirective, canUse } from './directives/permission'
 export { ID_COLUMN_WIDTH, ID_COLUMN_WIDTH_COMFORT, CODE_COLUMN_WIDTH } from './table'
 export { formatDateTime, formatMoney } from './format'
+export {
+  MAX_CONTENT_BYTES,
+  emptyRichDoc,
+  editorDomToRichDoc,
+  parseRichContent,
+  plainToRichDoc,
+  richDocToEditorHtml,
+  richDocToPlain,
+  sanitizeRichDoc,
+  stripMarkup,
+  utf8ByteLength,
+  type RichBlock,
+  type RichDoc,
+  type RichRun,
+} from './richDoc'

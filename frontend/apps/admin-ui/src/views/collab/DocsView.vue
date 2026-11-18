@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { PageHeader, GapNotice, ID_COLUMN_WIDTH } from '@fenglin/ui-admin'
+import { PageHeader, GapNotice, ID_COLUMN_WIDTH, RichDocContent, parseRichContent } from '@fenglin/ui-admin'
 import {
   collabApi,
   type CollabCollaborator,
@@ -45,6 +45,9 @@ const canEdit = computed(() => {
   const permission = detailDoc.value?.my_permission
   return permission === 'EDIT' || permission === 'MANAGE'
 })
+
+const isRichDoc = computed(() => detailDoc.value?.content_format === 'RICH_JSON')
+const richView = computed(() => parseRichContent(detailDoc.value?.content, detailDoc.value?.content_format))
 
 const versionsVisible = ref(false)
 const versionsLoading = ref(false)
@@ -172,8 +175,9 @@ async function saveDetail() {
   try {
     const doc = await collabApi.docs.update(detailDoc.value.doc_id, {
       title: detailForm.title,
-      content: detailForm.content,
       version: detailDoc.value.current_version,
+      // 富文本正文在员工端编辑；管理端只改标题，避免把 JSON 当纯文本覆盖。
+      ...(isRichDoc.value ? {} : { content: detailForm.content }),
     })
     detailDoc.value = doc
     detailForm.title = doc.title
@@ -358,7 +362,7 @@ onMounted(() => {
     <PageHeader
       module="云协 Collab"
       title="文档中心"
-      description="文档列表、版本快照、协作者授权与分享链接；正文为纯文本 content。"
+      description="文档列表、版本快照、协作者授权与分享链接；正文格式由 content_format 标识（PLAIN / RICH_JSON）。"
     >
       <template #actions>
         <el-button v-perm="'biz:collab:doc:edit'" type="primary" @click="openCreate">新建文档</el-button>
@@ -369,7 +373,8 @@ onMounted(() => {
     <GapNotice
       :items="[
         '后端没有文档删除、目录树、全文检索接口；列表只有 keyword 过滤。',
-        '文档正文是纯文本 content，没有富文本块/协同光标结构。',
+        '文档正文支持纯文本与 RICH_JSON 富文本；富文本在员工端编辑，管理端只读展示且保存时保留原格式。',
+        '未提供协同光标/CRDT 编辑，仍是锁编辑 + 版本快照。',
         '协作者权限码来自字典 collab_doc_permission，页面枚举以后端字典为准。',
       ]"
     />
@@ -481,6 +486,7 @@ onMounted(() => {
             <el-descriptions-item label="文档 ID">{{ detailDoc.doc_id }}</el-descriptions-item>
             <el-descriptions-item label="状态">{{ detailDoc.status }}</el-descriptions-item>
             <el-descriptions-item label="类型">{{ detailDoc.doc_type }}</el-descriptions-item>
+            <el-descriptions-item label="正文格式">{{ detailDoc.content_format ?? 'PLAIN' }}</el-descriptions-item>
             <el-descriptions-item label="密级">{{ detailDoc.secret_level }}</el-descriptions-item>
             <el-descriptions-item label="当前版本">v{{ detailDoc.current_version }}</el-descriptions-item>
             <el-descriptions-item label="我的权限">{{ detailDoc.my_permission }}</el-descriptions-item>
@@ -497,9 +503,15 @@ onMounted(() => {
             </el-button>
           </div>
           <el-input v-model="detailForm.title" :disabled="!canEdit" maxlength="128" style="margin-bottom: 12px" />
-          <el-input v-model="detailForm.content" type="textarea" :rows="16" :readonly="!canEdit" placeholder="纯文本正文" />
+          <RichDocContent v-if="isRichDoc" :model="detailForm.content" class="rich-readonly" />
+          <el-input v-else v-model="detailForm.content" type="textarea" :rows="16" :readonly="!canEdit" placeholder="纯文本正文" />
           <div class="fl-muted" style="margin-top: 8px">
-            仅「编辑/管理」权限可修改；保存会携带当前版本号 {{ detailDoc.current_version }} 做乐观锁校验。
+            <template v-if="isRichDoc">
+              富文本正文（RICH_JSON）在员工端编辑；此处只读展示，保存只会更新标题并保留原格式。
+            </template>
+            <template v-else>
+              仅「编辑/管理」权限可修改；保存会携带当前版本号 {{ detailDoc.current_version }} 做乐观锁校验。
+            </template>
           </div>
         </template>
       </div>
@@ -609,5 +621,12 @@ onMounted(() => {
 }
 .policy-card {
   margin-top: var(--fl-space-md);
+}
+.rich-readonly {
+  min-height: 200px;
+  padding: 12px 14px;
+  border: 1px solid var(--fl-color-border-light, #ebeef5);
+  border-radius: 4px;
+  background: var(--fl-color-fill-light, #f5f7fa);
 }
 </style>
